@@ -1,0 +1,2925 @@
+<Type Name="InputMethodService" FullName="Android.InputMethodServices.InputMethodService">
+  <TypeSignature Language="C#" Value="public class InputMethodService : Android.InputMethodServices.AbstractInputMethodService" />
+  <TypeSignature Language="ILAsm" Value=".class public auto ansi beforefieldinit InputMethodService extends Android.InputMethodServices.AbstractInputMethodService" />
+  <AssemblyInfo>
+    <AssemblyName>Mono.Android</AssemblyName>
+    <AssemblyVersion>0.0.0.0</AssemblyVersion>
+  </AssemblyInfo>
+  <Base>
+    <BaseTypeName>Android.InputMethodServices.AbstractInputMethodService</BaseTypeName>
+  </Base>
+  <Interfaces />
+  <Attributes>
+    <Attribute>
+      <AttributeName>Android.Runtime.Register("android/inputmethodservice/InputMethodService", DoNotGenerateAcw=true)</AttributeName>
+    </Attribute>
+  </Attributes>
+  <Docs>
+    <summary>InputMethodService provides a standard implementation of an InputMethod,
+ which final implementations can derive from and customize.</summary>
+    <remarks>
+      <para tool="javadoc-to-mdoc">InputMethodService provides a standard implementation of an InputMethod,
+ which final implementations can derive from and customize.  See the
+ base class <c><see cref="T:Android.InputMethodServices.AbstractInputMethodService" /></c> and the <c><see cref="T:Android.Views.InputMethods.InputMethod" /></c>
+ interface for more information on the basics of writing input methods.
+ 
+ </para>
+      <para tool="javadoc-to-mdoc">In addition to the normal Service lifecycle methods, this class
+ introduces some new specific callbacks that most subclasses will want
+ to make use of:<list type="bullet"><item><term><c><see cref="M:Android.InputMethodServices.InputMethodService.OnInitializeInterface" /></c> for user-interface initialization,
+ in particular to deal with configuration changes while the service is
+ running.
+ </term></item><item><term><c><see cref="M:Android.InputMethodServices.InputMethodService.OnBindInput" /></c> to find out about switching to a new client.
+ </term></item><item><term><c><see cref="M:Android.InputMethodServices.InputMethodService.OnStartInput(Android.Views.InputMethods.EditorInfo, System.Boolean)" /></c> to deal with an input session starting with
+ the client.
+ </term></item><item><term><c><see cref="M:Android.InputMethodServices.InputMethodService.OnCreateInputView" /></c>, <c><see cref="M:Android.InputMethodServices.InputMethodService.OnCreateCandidatesView" /></c>,
+ and <c><see cref="M:Android.InputMethodServices.InputMethodService.OnCreateExtractTextView" /></c> for non-demand generation of the UI.
+ </term></item><item><term><c><see cref="M:Android.InputMethodServices.InputMethodService.OnStartInputView(Android.Views.InputMethods.EditorInfo, System.Boolean)" /></c> to deal with input
+ starting within the input area of the IME.
+ </term></item></list></para>
+      <para tool="javadoc-to-mdoc">An input method has significant discretion in how it goes about its
+ work: the <c><see cref="T:Android.InputMethodServices.InputMethodService" /></c> provides
+ a basic framework for standard UI elements (input view, candidates view,
+ and running in fullscreen mode), but it is up to a particular implementor
+ to decide how to use them.  For example, one input method could implement
+ an input area with a keyboard, another could allow the user to draw text,
+ while a third could have no input area (and thus not be visible to the
+ user) but instead listen to audio and perform text to speech conversion.</para>
+      <para tool="javadoc-to-mdoc">In the implementation provided here, all of these elements are placed
+ together in a single window managed by the InputMethodService.  It will
+ execute callbacks as it needs information about them, and provides APIs for
+ programmatic control over them.  They layout of these elements is explicitly
+ defined:<list type="bullet"><item><term>The soft input view, if available, is placed at the bottom of the
+ screen.
+ </term></item><item><term>The candidates view, if currently shown, is placed above the soft
+ input view.
+ </term></item><item><term>If not running fullscreen, the application is moved or resized to be
+ above these views; if running fullscreen, the window will completely cover
+ the application and its top part will contain the extract text of what is
+ currently being edited by the application.
+ </term></item></list><format type="text/html"><h3>Soft Input View</h3></format></para>
+      <para tool="javadoc-to-mdoc">Central to most input methods is the soft input view.  This is where most
+ user interaction occurs: pressing on soft keys, drawing characters, or
+ however else your input method wants to generate text.  Most implementations
+ will simply have their own view doing all of this work, and return a new
+ instance of it when <c><see cref="M:Android.InputMethodServices.InputMethodService.OnCreateInputView" /></c> is called.  At that point,
+ as long as the input view is visible, you will see user interaction in
+ that view and can call back on the InputMethodService to interact with the
+ application as appropriate.</para>
+      <para tool="javadoc-to-mdoc">There are some situations where you want to decide whether or not your
+ soft input view should be shown to the user.  This is done by implementing
+ the <c><see cref="M:Android.InputMethodServices.InputMethodService.OnEvaluateInputViewShown" /></c> to return true or false based on
+ whether it should be shown in the current environment.  If any of your
+ state has changed that may impact this, call
+ <c><see cref="M:Android.InputMethodServices.InputMethodService.UpdateInputViewShown" /></c> to have it re-evaluated.  The default
+ implementation always shows the input view unless there is a hard
+ keyboard available, which is the appropriate behavior for most input
+ methods.</para>
+      <format type="text/html">
+        <h3>Candidates View</h3>
+      </format>
+      <para tool="javadoc-to-mdoc">Often while the user is generating raw text, an input method wants to
+ provide them with a list of possible interpretations of that text that can
+ be selected for use.  This is accomplished with the candidates view, and
+ like the soft input view you implement <c><see cref="M:Android.InputMethodServices.InputMethodService.OnCreateCandidatesView" /></c>
+ to instantiate your own view implementing your candidates UI.</para>
+      <para tool="javadoc-to-mdoc">Management of the candidates view is a little different than the input
+ view, because the candidates view tends to be more transient, being shown
+ only when there are possible candidates for the current text being entered
+ by the user.  To control whether the candidates view is shown, you use
+ <c><see cref="M:Android.InputMethodServices.InputMethodService.SetCandidatesViewShown(System.Boolean)" /></c>.  Note that because the candidate
+ view tends to be shown and hidden a lot, it does not impact the application
+ UI in the same way as the soft input view: it will never cause application
+ windows to resize, only cause them to be panned if needed for the user to
+ see the current focus.</para>
+      <format type="text/html">
+        <h3>Fullscreen Mode</h3>
+      </format>
+      <para tool="javadoc-to-mdoc">Sometimes your input method UI is too large to integrate with the
+ application UI, so you just want to take over the screen.  This is
+ accomplished by switching to full-screen mode, causing the input method
+ window to fill the entire screen and add its own "extracted text" editor
+ showing the user the text that is being typed.  Unlike the other UI elements,
+ there is a standard implementation for the extract editor that you should
+ not need to change.  The editor is placed at the top of the IME, above the
+ input and candidates views.</para>
+      <para tool="javadoc-to-mdoc">Similar to the input view, you control whether the IME is running in
+ fullscreen mode by implementing <c><see cref="M:Android.InputMethodServices.InputMethodService.OnEvaluateFullscreenMode" /></c>
+ to return true or false based on
+ whether it should be fullscreen in the current environment.  If any of your
+ state has changed that may impact this, call
+ <c><see cref="M:Android.InputMethodServices.InputMethodService.UpdateFullscreenMode" /></c> to have it re-evaluated.  The default
+ implementation selects fullscreen mode when the screen is in a landscape
+ orientation, which is appropriate behavior for most input methods that have
+ a significant input area.</para>
+      <para tool="javadoc-to-mdoc">When in fullscreen mode, you have some special requirements because the
+ user can not see the application UI.  In particular, you should implement
+ <c><see cref="M:Android.InputMethodServices.InputMethodService.OnDisplayCompletions(Android.Views.InputMethods.CompletionInfo[])" /></c> to show completions
+ generated by your application, typically in your candidates view like you
+ would normally show candidates.
+ 
+ 
+ <format type="text/html"><h3>Generating Text</h3></format></para>
+      <para tool="javadoc-to-mdoc">The key part of an IME is of course generating text for the application.
+ This is done through calls to the
+ <c><see cref="T:Android.Views.InputMethods.InputConnection" /></c> interface to the
+ application, which can be retrieved from <c><see cref="P:Android.InputMethodServices.InputMethodService.CurrentInputConnection" /></c>.
+ This interface allows you to generate raw key events or, if the target
+ supports it, directly edit in strings of candidates and committed text.</para>
+      <para tool="javadoc-to-mdoc">Information about what the target is expected and supports can be found
+ through the <c><see cref="T:Android.Views.InputMethods.EditorInfo" /></c> class, which is
+ retrieved with <c><see cref="P:Android.InputMethodServices.InputMethodService.CurrentInputEditorInfo" /></c> method.  The most
+ important part of this is <c><see cref="P:Android.Views.InputMethods.EditorInfo.InputType" /></c>; in particular, if this is
+ <c><see cref="!:Android.Text.IInputType.TYPE_NULL" /></c>,
+ then the target does not support complex edits and you need to only deliver
+ raw key events to it.  An input method will also want to look at other
+ values here, to for example detect password mode, auto complete text views,
+ phone number entry, etc.</para>
+      <para tool="javadoc-to-mdoc">When the user switches between input targets, you will receive calls to
+ <c><see cref="M:Android.InputMethodServices.InputMethodService.OnFinishInput" /></c> and <c><see cref="M:Android.InputMethodServices.InputMethodService.OnStartInput(Android.Views.InputMethods.EditorInfo, System.Boolean)" /></c>.
+ You can use these to reset and initialize your input state for the current
+ target.  For example, you will often want to clear any input state, and
+ update a soft keyboard to be appropriate for the new inputType.</para>
+      <para tool="javadoc-to-mdoc">
+        <format type="text/html">
+          <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html" target="_blank">[Android Documentation]</a>
+        </format>
+      </para>
+    </remarks>
+    <since version="Added in API level 3" />
+  </Docs>
+  <Members>
+    <Member MemberName=".ctor">
+      <MemberSignature Language="C#" Value="public InputMethodService ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor() cil managed" />
+      <MemberType>Constructor</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register(".ctor", "()V", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <Parameters />
+      <Docs>
+        <summary>
+        </summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#InputMethodService()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName=".ctor">
+      <MemberSignature Language="C#" Value="protected InputMethodService (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
+      <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
+      <MemberType>Constructor</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Parameters>
+        <Parameter Name="javaReference" Type="System.IntPtr" />
+        <Parameter Name="transfer" Type="Android.Runtime.JniHandleOwnership" />
+      </Parameters>
+      <Docs>
+        <param name="javaReference">A <see cref="T:System.IntPtr" />containing a Java Native Interface (JNI) object reference.</param>
+        <param name="transfer">A <see cref="T:Android.Runtime.JniHandleOwnership" />indicating how to handle <paramref name="javaReference" /></param>
+        <summary>A constructor used when creating managed representations of JNI objects; called by the runtime.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This constructor is invoked by the runtime infrastructure (<see cref="M:Java.Lang.Object.GetObject``1(System.IntPtr,Android.Runtime.JniHandleOwnership)" />) to create a new managed representation for a Java Native Interface object.</para>
+          <para tool="javadoc-to-mdoc">The constructor will initializes the <see cref="P:Android.Runtime.IJavaObject.Handle" /> property of the new instance using <paramref name="javaReference" /> and <paramref name="transfer" />.</para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="BackDisposition">
+      <MemberSignature Language="C#" Value="public virtual Android.InputMethodServices.BackDisposition BackDisposition { get; set; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance valuetype Android.InputMethodServices.BackDisposition BackDisposition" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("getBackDisposition", "()I", "GetGetBackDispositionHandler")</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName>set: Android.Runtime.Register("setBackDisposition", "(I)V", "GetSetBackDisposition_IHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.InputMethodServices.BackDisposition</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>
+        </summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc: Get method documentation">
+            <format type="text/html">
+              <b>Get method documentation</b>
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#getBackDisposition()" target="_blank">[Android Documentation]</a>
+              <br />
+            </format>
+          </para>
+          <para tool="javadoc-to-mdoc: Set method documentation">
+            <format type="text/html">
+              <b>Set method documentation</b>
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#setBackDisposition(int)" target="_blank">[Android Documentation]</a>
+              <br />
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 11" />
+      </Docs>
+    </Member>
+    <Member MemberName="CandidatesHiddenVisibility">
+      <MemberSignature Language="C#" Value="public virtual Android.Views.ViewStates CandidatesHiddenVisibility { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance valuetype Android.Views.ViewStates CandidatesHiddenVisibility" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("getCandidatesHiddenVisibility", "()I", "GetGetCandidatesHiddenVisibilityHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.ViewStates</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Returns the visibility mode (either <c><see cref="F:Android.Views.ViewStates.Invisible" /></c>
+ or <c><see cref="F:Android.Views.ViewStates.Gone" /></c>) of the candidates view when it is not
+ shown.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Returns the visibility mode (either <c><see cref="F:Android.Views.ViewStates.Invisible" /></c>
+ or <c><see cref="F:Android.Views.ViewStates.Gone" /></c>) of the candidates view when it is not
+ shown.  The default implementation returns GONE when
+ <c><see cref="P:Android.InputMethodServices.InputMethodService.ExtractViewShown" /></c> returns true,
+ otherwise VISIBLE.  Be careful if you change this to return GONE in
+ other situations -- if showing or hiding the candidates view causes
+ your window to resize, this can cause temporary drawing artifacts as
+ the resize takes place.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#getCandidatesHiddenVisibility()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="CurrentInputBinding">
+      <MemberSignature Language="C#" Value="public virtual Android.Views.InputMethods.InputBinding CurrentInputBinding { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance class Android.Views.InputMethods.InputBinding CurrentInputBinding" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("getCurrentInputBinding", "()Landroid/view/inputmethod/InputBinding;", "GetGetCurrentInputBindingHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.InputMethods.InputBinding</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Return the currently active InputBinding for the input method, or
+ null if there is none.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Return the currently active InputBinding for the input method, or
+ null if there is none.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#getCurrentInputBinding()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="CurrentInputConnection">
+      <MemberSignature Language="C#" Value="public virtual Android.Views.InputMethods.IInputConnection CurrentInputConnection { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance class Android.Views.InputMethods.IInputConnection CurrentInputConnection" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("getCurrentInputConnection", "()Landroid/view/inputmethod/InputConnection;", "GetGetCurrentInputConnectionHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.InputMethods.IInputConnection</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Retrieve the currently active InputConnection that is bound to
+ the input method, or null if there is none.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Retrieve the currently active InputConnection that is bound to
+ the input method, or null if there is none.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#getCurrentInputConnection()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="CurrentInputEditorInfo">
+      <MemberSignature Language="C#" Value="public virtual Android.Views.InputMethods.EditorInfo CurrentInputEditorInfo { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance class Android.Views.InputMethods.EditorInfo CurrentInputEditorInfo" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("getCurrentInputEditorInfo", "()Landroid/view/inputmethod/EditorInfo;", "GetGetCurrentInputEditorInfoHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.InputMethods.EditorInfo</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>
+        </summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#getCurrentInputEditorInfo()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="CurrentInputStarted">
+      <MemberSignature Language="C#" Value="public virtual bool CurrentInputStarted { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance bool CurrentInputStarted" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("getCurrentInputStarted", "()Z", "GetGetCurrentInputStartedHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>
+        </summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#getCurrentInputStarted()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="EnableHardwareAcceleration">
+      <MemberSignature Language="C#" Value="public virtual bool EnableHardwareAcceleration ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool EnableHardwareAcceleration() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("enableHardwareAcceleration", "()Z", "GetEnableHardwareAccelerationHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>You can call this to try to enable hardware accelerated drawing for
+ your IME.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">You can call this to try to enable hardware accelerated drawing for
+ your IME. This must be set before <c><see cref="M:Android.App.Service.OnCreate" /></c>, so you
+ will typically call it in your constructor.  It is not always possible
+ to use hardware acclerated drawing in an IME (for example on low-end
+ devices that do not have the resources to support this), so the call
+ returns true if it succeeds otherwise false if you will need to draw
+ in software.  You must be able to handle either case.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#enableHardwareAcceleration()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 17" />
+      </Docs>
+    </Member>
+    <Member MemberName="ExtractViewShown">
+      <MemberSignature Language="C#" Value="public virtual bool ExtractViewShown { get; set; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance bool ExtractViewShown" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("isExtractViewShown", "()Z", "GetIsExtractViewShownHandler")</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName>set: Android.Runtime.Register("setExtractViewShown", "(Z)V", "GetSetExtractViewShown_ZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Return whether the fullscreen extract view is shown.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc: Get method documentation">
+            <format type="text/html">
+              <b>Get method documentation</b>
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#isExtractViewShown()" target="_blank">[Android Documentation]</a>
+              <br />
+            </format>Return whether the fullscreen extract view is shown.  This will only
+ return true if <c><see cref="P:Android.InputMethodServices.InputMethodService.IsFullscreenMode" /></c> returns true, and in that
+ case its value depends on the last call to
+ <c><see cref="P:Android.InputMethodServices.InputMethodService.ExtractViewShown" /></c>.  This effectively lets you
+ determine if the application window is entirely covered (when this
+ returns true) or if some part of it may be shown (if this returns
+ false, though if <c><see cref="P:Android.InputMethodServices.InputMethodService.IsFullscreenMode" /></c> returns true in that case
+ then it is probably only a sliver of the application).
+</para>
+          <para tool="javadoc-to-mdoc: Set method documentation">
+            <format type="text/html">
+              <b>Set method documentation</b>
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#setExtractViewShown(boolean)" target="_blank">[Android Documentation]</a>
+              <br />
+            </format>Controls the visibility of the extracted text area.  This only applies
+ when the input method is in fullscreen mode, and thus showing extracted
+ text.  When false, the extracted text will not be shown, allowing some
+ of the application to be seen behind.  This is normally set for you
+ by <c><see cref="M:Android.InputMethodServices.InputMethodService.OnUpdateExtractingVisibility(Android.Views.InputMethods.EditorInfo)" /></c>.  This controls the visibility
+ of both the extracted text and candidate view; the latter since it is
+ not useful if there is no text to see.
+</para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="GetTextForImeAction">
+      <MemberSignature Language="C#" Value="public string GetTextForImeAction (Android.Views.InputMethods.ImeAction imeOptions);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance string GetTextForImeAction(valuetype Android.Views.InputMethods.ImeAction imeOptions) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <ReturnValue>
+        <ReturnType>System.String</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="imeOptions" Type="Android.Views.InputMethods.ImeAction">
+          <Attributes>
+            <Attribute>
+              <AttributeName>Android.Runtime.GeneratedEnum</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+      </Parameters>
+      <Docs>
+        <param name="imeOptions">To be added.</param>
+        <summary>To be added.</summary>
+        <returns>To be added.</returns>
+        <remarks>To be added.</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="GetTextForImeActionFormatted">
+      <MemberSignature Language="C#" Value="public virtual Java.Lang.ICharSequence GetTextForImeActionFormatted (Android.Views.InputMethods.ImeAction imeOptions);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Lang.ICharSequence GetTextForImeActionFormatted(valuetype Android.Views.InputMethods.ImeAction imeOptions) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("getTextForImeAction", "(I)Ljava/lang/CharSequence;", "GetGetTextForImeAction_IHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Lang.ICharSequence</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="imeOptions" Type="Android.Views.InputMethods.ImeAction">
+          <Attributes>
+            <Attribute>
+              <AttributeName>Android.Runtime.GeneratedEnum</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+      </Parameters>
+      <Docs>
+        <param name="imeOptions">The value from @link EditorInfo#imeOptions EditorInfo.imeOptions}.</param>
+        <summary>Return text that can be used as a button label for the given
+ <c><see cref="P:Android.Views.InputMethods.EditorInfo.ImeOptions" /></c>.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Return text that can be used as a button label for the given
+ <c><see cref="P:Android.Views.InputMethods.EditorInfo.ImeOptions" /></c>.  Returns null
+ if there is no action requested.  Note that there is no guarantee that
+ the returned text will be relatively short, so you probably do not
+ want to use it as text on a soft keyboard key label.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#getTextForImeAction(int)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="HideStatusIcon">
+      <MemberSignature Language="C#" Value="public virtual void HideStatusIcon ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void HideStatusIcon() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("hideStatusIcon", "()V", "GetHideStatusIconHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>
+        </summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#hideStatusIcon()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="HideWindow">
+      <MemberSignature Language="C#" Value="public virtual void HideWindow ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void HideWindow() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("hideWindow", "()V", "GetHideWindowHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>
+        </summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#hideWindow()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="IsFullscreenMode">
+      <MemberSignature Language="C#" Value="public virtual bool IsFullscreenMode { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance bool IsFullscreenMode" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("isFullscreenMode", "()Z", "GetIsFullscreenModeHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Return whether the input method is <i>currently</i> running in
+ fullscreen mode.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Return whether the input method is <i>currently</i> running in
+ fullscreen mode.  This is the mode that was last determined and
+ applied by <c><see cref="M:Android.InputMethodServices.InputMethodService.UpdateFullscreenMode" /></c>.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#isFullscreenMode()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="IsInputViewShown">
+      <MemberSignature Language="C#" Value="public virtual bool IsInputViewShown { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance bool IsInputViewShown" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("isInputViewShown", "()Z", "GetIsInputViewShownHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Return whether the soft input view is <i>currently</i> shown to the
+ user.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Return whether the soft input view is <i>currently</i> shown to the
+ user.  This is the state that was last determined and
+ applied by <c><see cref="M:Android.InputMethodServices.InputMethodService.UpdateInputViewShown" /></c>.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#isInputViewShown()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="IsShowInputRequested">
+      <MemberSignature Language="C#" Value="public virtual bool IsShowInputRequested { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance bool IsShowInputRequested" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("isShowInputRequested", "()Z", "GetIsShowInputRequestedHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Returns true if we have been asked to show our input view.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Returns true if we have been asked to show our input view.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#isShowInputRequested()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="LayoutInflater">
+      <MemberSignature Language="C#" Value="public virtual Android.Views.LayoutInflater LayoutInflater { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance class Android.Views.LayoutInflater LayoutInflater" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("getLayoutInflater", "()Landroid/view/LayoutInflater;", "GetGetLayoutInflaterHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.LayoutInflater</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>
+        </summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#getLayoutInflater()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="MaxWidth">
+      <MemberSignature Language="C#" Value="public virtual int MaxWidth { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance int32 MaxWidth" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("getMaxWidth", "()I", "GetGetMaxWidthHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Int32</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Return the maximum width, in pixels, available the input method.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Return the maximum width, in pixels, available the input method.
+ Input methods are positioned at the bottom of the screen and, unless
+ running in fullscreen, will generally want to be as short as possible
+ so should compute their height based on their contents.  However, they
+ can stretch as much as needed horizontally.  The function returns to
+ you the maximum amount of space available horizontally, which you can
+ use if needed for UI placement.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">In many cases this is not needed, you can just rely on the normal
+ view layout mechanisms to position your views within the full horizontal
+ space given to the input method.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">Note that this value can change dynamically, in particular when the
+ screen orientation changes.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#getMaxWidth()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnAppPrivateCommand">
+      <MemberSignature Language="C#" Value="public virtual void OnAppPrivateCommand (string action, Android.OS.Bundle data);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnAppPrivateCommand(string action, class Android.OS.Bundle data) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onAppPrivateCommand", "(Ljava/lang/String;Landroid/os/Bundle;)V", "GetOnAppPrivateCommand_Ljava_lang_String_Landroid_os_Bundle_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="action" Type="System.String" />
+        <Parameter Name="data" Type="Android.OS.Bundle" />
+      </Parameters>
+      <Docs>
+        <param name="action">To be added.</param>
+        <param name="data">To be added.</param>
+        <summary>
+        </summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onAppPrivateCommand(java.lang.String, android.os.Bundle)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnBindInput">
+      <MemberSignature Language="C#" Value="public virtual void OnBindInput ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnBindInput() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onBindInput", "()V", "GetOnBindInputHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Called when a new client has bound to the input method.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when a new client has bound to the input method.  This
+ may be followed by a series of <c><see cref="M:Android.InputMethodServices.InputMethodService.OnStartInput(Android.Views.InputMethods.EditorInfo, System.Boolean)" /></c>
+ and <c><see cref="M:Android.InputMethodServices.InputMethodService.OnFinishInput" /></c> calls as the user navigates through its
+ UI.  Upon this call you know that <c><see cref="P:Android.InputMethodServices.InputMethodService.CurrentInputBinding" /></c>
+ and <c><see cref="P:Android.InputMethodServices.InputMethodService.CurrentInputConnection" /></c> return valid objects.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onBindInput()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnComputeInsets">
+      <MemberSignature Language="C#" Value="public virtual void OnComputeInsets (Android.InputMethodServices.InputMethodService.Insets outInsets);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnComputeInsets(class Android.InputMethodServices.InputMethodService/Insets outInsets) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onComputeInsets", "(Landroid/inputmethodservice/InputMethodService$Insets;)V", "GetOnComputeInsets_Landroid_inputmethodservice_InputMethodService_Insets_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="outInsets" Type="Android.InputMethodServices.InputMethodService+Insets" />
+      </Parameters>
+      <Docs>
+        <param name="outInsets">Fill in with the current UI insets.
+</param>
+        <summary>Compute the interesting insets into your UI.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Compute the interesting insets into your UI.  The default implementation
+ uses the top of the candidates frame for the visible insets, and the
+ top of the input frame for the content insets.  The default touchable
+ insets are <c><see cref="F:Android.InputMethodServices.TouchableInsets.Visible" /></c>.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">Note that this method is not called when
+ <c><see cref="P:Android.InputMethodServices.InputMethodService.ExtractViewShown" /></c> returns true, since
+ in that case the application is left as-is behind the input method and
+ not impacted by anything in its UI.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onComputeInsets(android.inputmethodservice.InputMethodService.Insets)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnConfigureWindow">
+      <MemberSignature Language="C#" Value="public virtual void OnConfigureWindow (Android.Views.Window win, bool isFullscreen, bool isCandidatesOnly);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnConfigureWindow(class Android.Views.Window win, bool isFullscreen, bool isCandidatesOnly) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onConfigureWindow", "(Landroid/view/Window;ZZ)V", "GetOnConfigureWindow_Landroid_view_Window_ZZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="win" Type="Android.Views.Window" />
+        <Parameter Name="isFullscreen" Type="System.Boolean" />
+        <Parameter Name="isCandidatesOnly" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="win">The input method's window.</param>
+        <param name="isFullscreen">If true, the window is running in fullscreen mode
+ and intended to cover the entire application display.</param>
+        <param name="isCandidatesOnly">If true, the window is only showing the
+ candidates view and none of the rest of its UI.  This is mutually
+ exclusive with fullscreen mode.
+</param>
+        <summary>Update the given window's parameters for the given mode.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Update the given window's parameters for the given mode.  This is called
+ when the window is first displayed and each time the fullscreen or
+ candidates only mode changes.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">The default implementation makes the layout for the window
+ MATCH_PARENT x MATCH_PARENT when in fullscreen mode, and
+ MATCH_PARENT x WRAP_CONTENT when in non-fullscreen mode.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onConfigureWindow(android.view.Window, boolean, boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnCreateCandidatesView">
+      <MemberSignature Language="C#" Value="public virtual Android.Views.View OnCreateCandidatesView ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Android.Views.View OnCreateCandidatesView() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onCreateCandidatesView", "()Landroid/view/View;", "GetOnCreateCandidatesViewHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.View</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Create and return the view hierarchy used to show candidates.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Create and return the view hierarchy used to show candidates.  This will
+ be called once, when the candidates are first displayed.  You can return
+ null to have no candidates view; the default implementation returns null.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">To control when the candidates view is displayed, use
+ <c><see cref="M:Android.InputMethodServices.InputMethodService.SetCandidatesViewShown(System.Boolean)" /></c>.
+ To change the candidates view after the first one is created by this
+ function, use <c><see cref="M:Android.InputMethodServices.InputMethodService.SetCandidatesView(Android.Views.View)" /></c>.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onCreateCandidatesView()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnCreateExtractTextView">
+      <MemberSignature Language="C#" Value="public virtual Android.Views.View OnCreateExtractTextView ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Android.Views.View OnCreateExtractTextView() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onCreateExtractTextView", "()Landroid/view/View;", "GetOnCreateExtractTextViewHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.View</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Called by the framework to create the layout for showing extacted text.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called by the framework to create the layout for showing extacted text.
+ Only called when in fullscreen mode.  The returned view hierarchy must
+ have an <c><see cref="T:Android.InputMethodServices.ExtractEditText" /></c> whose ID is 
+ <c><see cref="F:Android.Resource.Id.InputExtractEditText" /></c>.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onCreateExtractTextView()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnCreateInputMethodInterface">
+      <MemberSignature Language="C#" Value="public override Android.InputMethodServices.AbstractInputMethodService.AbstractInputMethodImpl OnCreateInputMethodInterface ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance class Android.InputMethodServices.AbstractInputMethodService/AbstractInputMethodImpl OnCreateInputMethodInterface() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onCreateInputMethodInterface", "()Landroid/inputmethodservice/AbstractInputMethodService$AbstractInputMethodImpl;", "GetOnCreateInputMethodInterfaceHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.InputMethodServices.AbstractInputMethodService+AbstractInputMethodImpl</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Implement to return our standard <c><see cref="T:Android.InputMethodServices.InputMethodService+InputMethodImpl" /></c>.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Implement to return our standard <c><see cref="T:Android.InputMethodServices.InputMethodService+InputMethodImpl" /></c>.  Subclasses
+ can override to provide their own customized version.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onCreateInputMethodInterface()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnCreateInputMethodSessionInterface">
+      <MemberSignature Language="C#" Value="public override Android.InputMethodServices.AbstractInputMethodService.AbstractInputMethodSessionImpl OnCreateInputMethodSessionInterface ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance class Android.InputMethodServices.AbstractInputMethodService/AbstractInputMethodSessionImpl OnCreateInputMethodSessionInterface() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onCreateInputMethodSessionInterface", "()Landroid/inputmethodservice/AbstractInputMethodService$AbstractInputMethodSessionImpl;", "GetOnCreateInputMethodSessionInterfaceHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.InputMethodServices.AbstractInputMethodService+AbstractInputMethodSessionImpl</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Implement to return our standard <c><see cref="T:Android.InputMethodServices.InputMethodService+InputMethodSessionImpl" /></c>.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Implement to return our standard <c><see cref="T:Android.InputMethodServices.InputMethodService+InputMethodSessionImpl" /></c>.  Subclasses
+ can override to provide their own customized version.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onCreateInputMethodSessionInterface()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnCreateInputView">
+      <MemberSignature Language="C#" Value="public virtual Android.Views.View OnCreateInputView ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Android.Views.View OnCreateInputView() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onCreateInputView", "()Landroid/view/View;", "GetOnCreateInputViewHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.View</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Create and return the view hierarchy used for the input area (such as
+ a soft keyboard).</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Create and return the view hierarchy used for the input area (such as
+ a soft keyboard).  This will be called once, when the input area is
+ first displayed.  You can return null to have no input area; the default
+ implementation returns null.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">To control when the input view is displayed, implement
+ <c><see cref="M:Android.InputMethodServices.InputMethodService.OnEvaluateInputViewShown" /></c>.
+ To change the input view after the first one is created by this
+ function, use <c><see cref="M:Android.InputMethodServices.InputMethodService.SetInputView(Android.Views.View)" /></c>.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onCreateInputView()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnCurrentInputMethodSubtypeChanged">
+      <MemberSignature Language="C#" Value="protected virtual void OnCurrentInputMethodSubtypeChanged (Android.Views.InputMethods.InputMethodSubtype newSubtype);" />
+      <MemberSignature Language="ILAsm" Value=".method familyhidebysig newslot virtual instance void OnCurrentInputMethodSubtypeChanged(class Android.Views.InputMethods.InputMethodSubtype newSubtype) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onCurrentInputMethodSubtypeChanged", "(Landroid/view/inputmethod/InputMethodSubtype;)V", "GetOnCurrentInputMethodSubtypeChanged_Landroid_view_inputmethod_InputMethodSubtype_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="newSubtype" Type="Android.Views.InputMethods.InputMethodSubtype" />
+      </Parameters>
+      <Docs>
+        <param name="newSubtype">the subtype which is being changed to.
+</param>
+        <summary>Called when the subtype was changed.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the subtype was changed.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onCurrentInputMethodSubtypeChanged(android.view.inputmethod.InputMethodSubtype)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 11" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnDisplayCompletions">
+      <MemberSignature Language="C#" Value="public virtual void OnDisplayCompletions (Android.Views.InputMethods.CompletionInfo[] completions);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnDisplayCompletions(class Android.Views.InputMethods.CompletionInfo[] completions) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onDisplayCompletions", "([Landroid/view/inputmethod/CompletionInfo;)V", "GetOnDisplayCompletions_arrayLandroid_view_inputmethod_CompletionInfo_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="completions" Type="Android.Views.InputMethods.CompletionInfo[]" />
+      </Parameters>
+      <Docs>
+        <param name="completions">To be added.</param>
+        <summary>Called when the application has reported auto-completion candidates that
+ it would like to have the input method displayed.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the application has reported auto-completion candidates that
+ it would like to have the input method displayed.  Typically these are
+ only used when an input method is running in full-screen mode, since
+ otherwise the user can see and interact with the pop-up window of
+ completions shown by the application.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">The default implementation here does nothing.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onDisplayCompletions(android.view.inputmethod.CompletionInfo[])" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnEvaluateFullscreenMode">
+      <MemberSignature Language="C#" Value="public virtual bool OnEvaluateFullscreenMode ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnEvaluateFullscreenMode() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onEvaluateFullscreenMode", "()Z", "GetOnEvaluateFullscreenModeHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Override this to control when the input method should run in
+ fullscreen mode.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Override this to control when the input method should run in
+ fullscreen mode.  The default implementation runs in fullsceen only
+ when the screen is in landscape mode.  If you change what
+ this returns, you will need to call <c><see cref="M:Android.InputMethodServices.InputMethodService.UpdateFullscreenMode" /></c>
+ yourself whenever the returned value may have changed to have it
+ re-evaluated and applied.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onEvaluateFullscreenMode()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnEvaluateInputViewShown">
+      <MemberSignature Language="C#" Value="public virtual bool OnEvaluateInputViewShown ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnEvaluateInputViewShown() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onEvaluateInputViewShown", "()Z", "GetOnEvaluateInputViewShownHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Override this to control when the soft input area should be shown to
+ the user.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Override this to control when the soft input area should be shown to
+ the user.  The default implementation only shows the input view when
+ there is no hard keyboard or the keyboard is hidden.  If you change what
+ this returns, you will need to call <c><see cref="M:Android.InputMethodServices.InputMethodService.UpdateInputViewShown" /></c>
+ yourself whenever the returned value may have changed to have it
+ re-evaluated and applied.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onEvaluateInputViewShown()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnExtractedCursorMovement">
+      <MemberSignature Language="C#" Value="public virtual void OnExtractedCursorMovement (int dx, int dy);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnExtractedCursorMovement(int32 dx, int32 dy) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onExtractedCursorMovement", "(II)V", "GetOnExtractedCursorMovement_IIHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="dx" Type="System.Int32" />
+        <Parameter Name="dy" Type="System.Int32" />
+      </Parameters>
+      <Docs>
+        <param name="dx">The amount of cursor movement in the x dimension.</param>
+        <param name="dy">The amount of cursor movement in the y dimension.
+</param>
+        <summary>This is called when the user has performed a cursor movement in the
+ extracted text view, when it is running in fullscreen mode.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This is called when the user has performed a cursor movement in the
+ extracted text view, when it is running in fullscreen mode.  The default
+ implementation hides the candidates view when a vertical movement
+ happens, but only if the extracted text editor has a vertical scroll bar
+ because its text doesn't fit.
+ Re-implement this to provide whatever behavior you want.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onExtractedCursorMovement(int, int)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnExtractedSelectionChanged">
+      <MemberSignature Language="C#" Value="public virtual void OnExtractedSelectionChanged (int start, int end);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnExtractedSelectionChanged(int32 start, int32 end) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onExtractedSelectionChanged", "(II)V", "GetOnExtractedSelectionChanged_IIHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="start" Type="System.Int32" />
+        <Parameter Name="end" Type="System.Int32" />
+      </Parameters>
+      <Docs>
+        <param name="start">To be added.</param>
+        <param name="end">To be added.</param>
+        <summary>This is called when the user has moved the cursor in the extracted
+ text view, when running in fullsreen mode.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This is called when the user has moved the cursor in the extracted
+ text view, when running in fullsreen mode.  The default implementation
+ performs the corresponding selection change on the underlying text
+ editor.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onExtractedSelectionChanged(int, int)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnExtractedTextClicked">
+      <MemberSignature Language="C#" Value="public virtual void OnExtractedTextClicked ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnExtractedTextClicked() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onExtractedTextClicked", "()V", "GetOnExtractedTextClickedHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>This is called when the user has clicked on the extracted text view,
+ when running in fullscreen mode.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This is called when the user has clicked on the extracted text view,
+ when running in fullscreen mode.  The default implementation hides
+ the candidates view when this happens, but only if the extracted text
+ editor has a vertical scroll bar because its text doesn't fit.
+ Re-implement this to provide whatever behavior you want.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onExtractedTextClicked()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnExtractingInputChanged">
+      <MemberSignature Language="C#" Value="public virtual void OnExtractingInputChanged (Android.Views.InputMethods.EditorInfo ei);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnExtractingInputChanged(class Android.Views.InputMethods.EditorInfo ei) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onExtractingInputChanged", "(Landroid/view/inputmethod/EditorInfo;)V", "GetOnExtractingInputChanged_Landroid_view_inputmethod_EditorInfo_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="ei" Type="Android.Views.InputMethods.EditorInfo" />
+      </Parameters>
+      <Docs>
+        <param name="ei">To be added.</param>
+        <summary>This is called when, while currently displayed in extract mode, the
+ current input target changes.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This is called when, while currently displayed in extract mode, the
+ current input target changes.  The default implementation will
+ auto-hide the IME if the new target is not a full editor, since this
+ can be a confusing experience for the user.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onExtractingInputChanged(android.view.inputmethod.EditorInfo)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnExtractTextContextMenuItem">
+      <MemberSignature Language="C#" Value="public virtual bool OnExtractTextContextMenuItem (int id);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnExtractTextContextMenuItem(int32 id) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onExtractTextContextMenuItem", "(I)Z", "GetOnExtractTextContextMenuItem_IHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="id" Type="System.Int32" />
+      </Parameters>
+      <Docs>
+        <param name="id">To be added.</param>
+        <summary>This is called when the user has selected a context menu item from the
+ extracted text view, when running in fullscreen mode.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This is called when the user has selected a context menu item from the
+ extracted text view, when running in fullscreen mode.  The default
+ implementation sends this action to the current InputConnection's
+ <c><see cref="!:Android.Views.InputMethods.InputConnection.performContextMenuAction(int)" /></c>, for it
+ to be processed in underlying "real" editor.  Re-implement this to
+ provide whatever behavior you want.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onExtractTextContextMenuItem(int)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnFinishCandidatesView">
+      <MemberSignature Language="C#" Value="public virtual void OnFinishCandidatesView (bool finishingInput);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnFinishCandidatesView(bool finishingInput) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onFinishCandidatesView", "(Z)V", "GetOnFinishCandidatesView_ZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="finishingInput" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="finishingInput">If true, <c><see cref="M:Android.InputMethodServices.InputMethodService.OnFinishInput" /></c> will be
+ called immediately after.
+</param>
+        <summary>Called when the candidates view is being hidden from the user.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the candidates view is being hidden from the user.  This will
+ be called either prior to hiding the window, or prior to switching to
+ another target for editing.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">The default
+ implementation uses the InputConnection to clear any active composing
+ text; you can override this (not calling the base class implementation)
+ to perform whatever behavior you would like.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onFinishCandidatesView(boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnFinishInput">
+      <MemberSignature Language="C#" Value="public virtual void OnFinishInput ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnFinishInput() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onFinishInput", "()V", "GetOnFinishInputHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Called to inform the input method that text input has finished in
+ the last editor.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called to inform the input method that text input has finished in
+ the last editor.  At this point there may be a call to
+ <c><see cref="M:Android.InputMethodServices.InputMethodService.OnStartInput(Android.Views.InputMethods.EditorInfo, System.Boolean)" /></c> to perform input in a
+ new editor, or the input method may be left idle.  This method is
+ <i>not</i> called when input restarts in the same editor.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">The default
+ implementation uses the InputConnection to clear any active composing
+ text; you can override this (not calling the base class implementation)
+ to perform whatever behavior you would like.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onFinishInput()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnFinishInputView">
+      <MemberSignature Language="C#" Value="public virtual void OnFinishInputView (bool finishingInput);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnFinishInputView(bool finishingInput) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onFinishInputView", "(Z)V", "GetOnFinishInputView_ZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="finishingInput" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="finishingInput">If true, <c><see cref="M:Android.InputMethodServices.InputMethodService.OnFinishInput" /></c> will be
+ called immediately after.
+</param>
+        <summary>Called when the input view is being hidden from the user.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the input view is being hidden from the user.  This will
+ be called either prior to hiding the window, or prior to switching to
+ another target for editing.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">The default
+ implementation uses the InputConnection to clear any active composing
+ text; you can override this (not calling the base class implementation)
+ to perform whatever behavior you would like.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onFinishInputView(boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnInitializeInterface">
+      <MemberSignature Language="C#" Value="public virtual void OnInitializeInterface ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnInitializeInterface() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onInitializeInterface", "()V", "GetOnInitializeInterfaceHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>This is a hook that subclasses can use to perform initialization of
+ their interface.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This is a hook that subclasses can use to perform initialization of
+ their interface.  It is called for you prior to any of your UI objects
+ being created, both after the service is first created and after a
+ configuration change happens.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onInitializeInterface()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnKeyDown">
+      <MemberSignature Language="C#" Value="public override bool OnKeyDown (Android.Views.Keycode keyCode, Android.Views.KeyEvent e);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance bool OnKeyDown(valuetype Android.Views.Keycode keyCode, class Android.Views.KeyEvent e) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onKeyDown", "(ILandroid/view/KeyEvent;)Z", "GetOnKeyDown_ILandroid_view_KeyEvent_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="keyCode" Type="Android.Views.Keycode">
+          <Attributes>
+            <Attribute>
+              <AttributeName>Android.Runtime.GeneratedEnum</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="e" Type="Android.Views.KeyEvent" />
+      </Parameters>
+      <Docs>
+        <param name="keyCode">To be added.</param>
+        <param name="e">To be added.</param>
+        <summary>Override this to intercept key down events before they are processed by the
+ application.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Override this to intercept key down events before they are processed by the
+ application.  If you return true, the application will not 
+ process the event itself.  If you return false, the normal application processing
+ will occur as if the IME had not seen the event at all.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">The default implementation intercepts <c><see cref="F:Android.Views.Keycode.Back" /></c> if the IME is currently shown, to
+ possibly hide it when the key goes up (if not canceled or long pressed).  In
+ addition, in fullscreen mode only, it will consume DPAD movement
+ events to move the cursor in the extracted text view, not allowing
+ them to perform navigation in the underlying application.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onKeyDown(int, android.view.KeyEvent)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnKeyLongPress">
+      <MemberSignature Language="C#" Value="public override bool OnKeyLongPress (Android.Views.Keycode keyCode, Android.Views.KeyEvent e);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance bool OnKeyLongPress(valuetype Android.Views.Keycode keyCode, class Android.Views.KeyEvent e) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onKeyLongPress", "(ILandroid/view/KeyEvent;)Z", "GetOnKeyLongPress_ILandroid_view_KeyEvent_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="keyCode" Type="Android.Views.Keycode">
+          <Attributes>
+            <Attribute>
+              <AttributeName>Android.Runtime.GeneratedEnum</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="e" Type="Android.Views.KeyEvent" />
+      </Parameters>
+      <Docs>
+        <param name="keyCode">To be added.</param>
+        <param name="e">To be added.</param>
+        <summary>Default implementation of <c><see cref="M:Android.Views.KeyEvent.ICallback.OnKeyLongPress(Android.Views.Keycode, Android.Views.KeyEvent)" /></c>: always returns false (doesn't handle
+ the event).</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Default implementation of <c><see cref="M:Android.Views.KeyEvent.ICallback.OnKeyLongPress(Android.Views.Keycode, Android.Views.KeyEvent)" /></c>: always returns false (doesn't handle
+ the event).
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onKeyLongPress(int, android.view.KeyEvent)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 5" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnKeyMultiple">
+      <MemberSignature Language="C#" Value="public override bool OnKeyMultiple (Android.Views.Keycode keyCode, int count, Android.Views.KeyEvent e);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance bool OnKeyMultiple(valuetype Android.Views.Keycode keyCode, int32 count, class Android.Views.KeyEvent e) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onKeyMultiple", "(IILandroid/view/KeyEvent;)Z", "GetOnKeyMultiple_IILandroid_view_KeyEvent_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="keyCode" Type="Android.Views.Keycode">
+          <Attributes>
+            <Attribute>
+              <AttributeName>Android.Runtime.GeneratedEnum</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="count" Type="System.Int32" />
+        <Parameter Name="e" Type="Android.Views.KeyEvent" />
+      </Parameters>
+      <Docs>
+        <param name="keyCode">To be added.</param>
+        <param name="count">To be added.</param>
+        <param name="e">To be added.</param>
+        <summary>Override this to intercept special key multiple events before they are
+ processed by the
+ application.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Override this to intercept special key multiple events before they are
+ processed by the
+ application.  If you return true, the application will not itself
+ process the event.  If you return false, the normal application processing
+ will occur as if the IME had not seen the event at all.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">The default implementation always returns false, except when
+ in fullscreen mode, where it will consume DPAD movement
+ events to move the cursor in the extracted text view, not allowing
+ them to perform navigation in the underlying application.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onKeyMultiple(int, int, android.view.KeyEvent)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnKeyUp">
+      <MemberSignature Language="C#" Value="public override bool OnKeyUp (Android.Views.Keycode keyCode, Android.Views.KeyEvent e);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance bool OnKeyUp(valuetype Android.Views.Keycode keyCode, class Android.Views.KeyEvent e) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onKeyUp", "(ILandroid/view/KeyEvent;)Z", "GetOnKeyUp_ILandroid_view_KeyEvent_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="keyCode" Type="Android.Views.Keycode">
+          <Attributes>
+            <Attribute>
+              <AttributeName>Android.Runtime.GeneratedEnum</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="e" Type="Android.Views.KeyEvent" />
+      </Parameters>
+      <Docs>
+        <param name="keyCode">To be added.</param>
+        <param name="e">To be added.</param>
+        <summary>Override this to intercept key up events before they are processed by the
+ application.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Override this to intercept key up events before they are processed by the
+ application.  If you return true, the application will not itself
+ process the event.  If you return false, the normal application processing
+ will occur as if the IME had not seen the event at all.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">The default implementation intercepts <c><see cref="F:Android.Views.Keycode.Back" /></c> to hide the current IME UI if it is shown.  In
+ addition, in fullscreen mode only, it will consume DPAD movement
+ events to move the cursor in the extracted text view, not allowing
+ them to perform navigation in the underlying application.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onKeyUp(int, android.view.KeyEvent)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnShowInputRequested">
+      <MemberSignature Language="C#" Value="public virtual bool OnShowInputRequested (Android.Views.InputMethods.ShowFlags flags, bool configChange);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnShowInputRequested(valuetype Android.Views.InputMethods.ShowFlags flags, bool configChange) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onShowInputRequested", "(IZ)Z", "GetOnShowInputRequested_IZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="flags" Type="Android.Views.InputMethods.ShowFlags">
+          <Attributes>
+            <Attribute>
+              <AttributeName>Android.Runtime.GeneratedEnum</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="configChange" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="flags">Provides additional information about the show request,
+ as per <c><see cref="!:Android.Views.InputMethods.InputMethod.showSoftInput(int, android.os.ResultReceiver)" /></c>.</param>
+        <param name="configChange">This is true if we are re-showing due to a
+ configuration change.</param>
+        <summary>The system has decided that it may be time to show your input method.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">The system has decided that it may be time to show your input method.
+ This is called due to a corresponding call to your
+ <c><see cref="!:Android.Views.InputMethods.InputMethod.showSoftInput(int, android.os.ResultReceiver)" /></c>
+ method.  The default implementation uses
+ <c><see cref="M:Android.InputMethodServices.InputMethodService.OnEvaluateInputViewShown" /></c>, <c><see cref="M:Android.InputMethodServices.InputMethodService.OnEvaluateFullscreenMode" /></c>,
+ and the current configuration to decide whether the input view should
+ be shown at this point.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onShowInputRequested(int, boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnStartCandidatesView">
+      <MemberSignature Language="C#" Value="public virtual void OnStartCandidatesView (Android.Views.InputMethods.EditorInfo info, bool restarting);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnStartCandidatesView(class Android.Views.InputMethods.EditorInfo info, bool restarting) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onStartCandidatesView", "(Landroid/view/inputmethod/EditorInfo;Z)V", "GetOnStartCandidatesView_Landroid_view_inputmethod_EditorInfo_ZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="info" Type="Android.Views.InputMethods.EditorInfo" />
+        <Parameter Name="restarting" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="info">Description of the type of text being edited.</param>
+        <param name="restarting">Set to true if we are restarting input on the
+ same text field as before.
+</param>
+        <summary>Called when only the candidates view has been shown for showing
+ processing as the user enters text through a hard keyboard.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when only the candidates view has been shown for showing
+ processing as the user enters text through a hard keyboard.
+ This will always be called after <c><see cref="M:Android.InputMethodServices.InputMethodService.OnStartInput(Android.Views.InputMethods.EditorInfo, System.Boolean)" /></c>,
+ allowing you to do your general setup there and just view-specific
+ setup here.  You are guaranteed that <c><see cref="M:Android.InputMethodServices.InputMethodService.OnCreateCandidatesView" /></c>
+ will have been called some time before this function is called.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">Note that this will <i>not</i> be called when the input method
+ is running in full editing mode, and thus receiving
+ <c><see cref="M:Android.InputMethodServices.InputMethodService.OnStartInputView(Android.Views.InputMethods.EditorInfo, System.Boolean)" /></c> to initiate that operation.  This is only
+ for the case when candidates are being shown while the input method
+ editor is hidden but wants to show its candidates UI as text is
+ entered through some other mechanism.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onStartCandidatesView(android.view.inputmethod.EditorInfo, boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnStartInput">
+      <MemberSignature Language="C#" Value="public virtual void OnStartInput (Android.Views.InputMethods.EditorInfo attribute, bool restarting);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnStartInput(class Android.Views.InputMethods.EditorInfo attribute, bool restarting) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onStartInput", "(Landroid/view/inputmethod/EditorInfo;Z)V", "GetOnStartInput_Landroid_view_inputmethod_EditorInfo_ZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="attribute" Type="Android.Views.InputMethods.EditorInfo" />
+        <Parameter Name="restarting" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="attribute">The attributes of the editor that input is starting
+ in.</param>
+        <param name="restarting">Set to true if input is restarting in the same
+ editor such as because the application has changed the text in
+ the editor.  Otherwise will be false, indicating this is a new
+ session with the editor.
+</param>
+        <summary>Called to inform the input method that text input has started in an
+ editor.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called to inform the input method that text input has started in an
+ editor.  You should use this callback to initialize the state of your
+ input to match the state of the editor given to it.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onStartInput(android.view.inputmethod.EditorInfo, boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnStartInputView">
+      <MemberSignature Language="C#" Value="public virtual void OnStartInputView (Android.Views.InputMethods.EditorInfo info, bool restarting);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnStartInputView(class Android.Views.InputMethods.EditorInfo info, bool restarting) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onStartInputView", "(Landroid/view/inputmethod/EditorInfo;Z)V", "GetOnStartInputView_Landroid_view_inputmethod_EditorInfo_ZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="info" Type="Android.Views.InputMethods.EditorInfo" />
+        <Parameter Name="restarting" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="info">Description of the type of text being edited.</param>
+        <param name="restarting">Set to true if we are restarting input on the
+ same text field as before.
+</param>
+        <summary>Called when the input view is being shown and input has started on
+ a new editor.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the input view is being shown and input has started on
+ a new editor.  This will always be called after <c><see cref="M:Android.InputMethodServices.InputMethodService.OnStartInput(Android.Views.InputMethods.EditorInfo, System.Boolean)" /></c>,
+ allowing you to do your general setup there and just view-specific
+ setup here.  You are guaranteed that <c><see cref="M:Android.InputMethodServices.InputMethodService.OnCreateInputView" /></c> will
+ have been called some time before this function is called.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onStartInputView(android.view.inputmethod.EditorInfo, boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnUnbindInput">
+      <MemberSignature Language="C#" Value="public virtual void OnUnbindInput ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnUnbindInput() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onUnbindInput", "()V", "GetOnUnbindInputHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Called when the previous bound client is no longer associated
+ with the input method.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the previous bound client is no longer associated
+ with the input method.  After returning <c><see cref="P:Android.InputMethodServices.InputMethodService.CurrentInputBinding" /></c>
+ and <c><see cref="P:Android.InputMethodServices.InputMethodService.CurrentInputConnection" /></c> will no longer return
+ valid objects.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onUnbindInput()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnUpdateCursor">
+      <MemberSignature Language="C#" Value="public virtual void OnUpdateCursor (Android.Graphics.Rect newCursor);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnUpdateCursor(class Android.Graphics.Rect newCursor) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onUpdateCursor", "(Landroid/graphics/Rect;)V", "GetOnUpdateCursor_Landroid_graphics_Rect_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="newCursor" Type="Android.Graphics.Rect" />
+      </Parameters>
+      <Docs>
+        <param name="newCursor">To be added.</param>
+        <summary>Called when the application has reported a new location of its text
+ cursor.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the application has reported a new location of its text
+ cursor.  This is only called if explicitly requested by the input method.
+ The default implementation does nothing.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onUpdateCursor(android.graphics.Rect)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnUpdateExtractedText">
+      <MemberSignature Language="C#" Value="public virtual void OnUpdateExtractedText (int token, Android.Views.InputMethods.ExtractedText text);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnUpdateExtractedText(int32 token, class Android.Views.InputMethods.ExtractedText text) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onUpdateExtractedText", "(ILandroid/view/inputmethod/ExtractedText;)V", "GetOnUpdateExtractedText_ILandroid_view_inputmethod_ExtractedText_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="token" Type="System.Int32" />
+        <Parameter Name="text" Type="Android.Views.InputMethods.ExtractedText" />
+      </Parameters>
+      <Docs>
+        <param name="token">To be added.</param>
+        <param name="text">To be added.</param>
+        <summary>Called when the application has reported new extracted text to be shown
+ due to changes in its current text state.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the application has reported new extracted text to be shown
+ due to changes in its current text state.  The default implementation
+ here places the new text in the extract edit text, when the input
+ method is running in fullscreen mode.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onUpdateExtractedText(int, android.view.inputmethod.ExtractedText)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnUpdateExtractingViews">
+      <MemberSignature Language="C#" Value="public virtual void OnUpdateExtractingViews (Android.Views.InputMethods.EditorInfo ei);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnUpdateExtractingViews(class Android.Views.InputMethods.EditorInfo ei) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onUpdateExtractingViews", "(Landroid/view/inputmethod/EditorInfo;)V", "GetOnUpdateExtractingViews_Landroid_view_inputmethod_EditorInfo_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="ei" Type="Android.Views.InputMethods.EditorInfo" />
+      </Parameters>
+      <Docs>
+        <param name="ei">To be added.</param>
+        <summary>Called when the fullscreen-mode extracting editor info has changed,
+ to update the state of its UI such as the action buttons shown.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the fullscreen-mode extracting editor info has changed,
+ to update the state of its UI such as the action buttons shown.
+ You do not need to deal with this if you are using the standard
+ full screen extract UI.  If replacing it, you will need to re-implement
+ this to put the appropriate action button in your own UI and handle it,
+ and perform any other changes.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">The standard implementation turns on or off its accessory area
+ depending on whether there is an action button, and hides or shows
+ the entire extract area depending on whether it makes sense for the
+ current editor.  In particular, a <c><see cref="!:Android.Text.IInputType.TYPE_NULL" /></c> or 
+ <c><see cref="!:Android.Text.IInputType.TYPE_TEXT_VARIATION_FILTER" /></c> input type will turn off the
+ extract area since there is no text to be shown.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onUpdateExtractingViews(android.view.inputmethod.EditorInfo)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnUpdateExtractingVisibility">
+      <MemberSignature Language="C#" Value="public virtual void OnUpdateExtractingVisibility (Android.Views.InputMethods.EditorInfo ei);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnUpdateExtractingVisibility(class Android.Views.InputMethods.EditorInfo ei) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onUpdateExtractingVisibility", "(Landroid/view/inputmethod/EditorInfo;)V", "GetOnUpdateExtractingVisibility_Landroid_view_inputmethod_EditorInfo_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="ei" Type="Android.Views.InputMethods.EditorInfo" />
+      </Parameters>
+      <Docs>
+        <param name="ei">To be added.</param>
+        <summary>Called when the fullscreen-mode extracting editor info has changed,
+ to determine whether the extracting (extract text and candidates) portion
+ of the UI should be shown.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the fullscreen-mode extracting editor info has changed,
+ to determine whether the extracting (extract text and candidates) portion
+ of the UI should be shown.  The standard implementation hides or shows
+ the extract area depending on whether it makes sense for the
+ current editor.  In particular, a <c><see cref="!:Android.Text.IInputType.TYPE_NULL" /></c>
+ input type or <c><see cref="F:Android.Views.InputMethods.ImeFlags.NoExtractUi" /></c> flag will
+ turn off the extract area since there is no text to be shown.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onUpdateExtractingVisibility(android.view.inputmethod.EditorInfo)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnUpdateSelection">
+      <MemberSignature Language="C#" Value="public virtual void OnUpdateSelection (int oldSelStart, int oldSelEnd, int newSelStart, int newSelEnd, int candidatesStart, int candidatesEnd);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnUpdateSelection(int32 oldSelStart, int32 oldSelEnd, int32 newSelStart, int32 newSelEnd, int32 candidatesStart, int32 candidatesEnd) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onUpdateSelection", "(IIIIII)V", "GetOnUpdateSelection_IIIIIIHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="oldSelStart" Type="System.Int32" />
+        <Parameter Name="oldSelEnd" Type="System.Int32" />
+        <Parameter Name="newSelStart" Type="System.Int32" />
+        <Parameter Name="newSelEnd" Type="System.Int32" />
+        <Parameter Name="candidatesStart" Type="System.Int32" />
+        <Parameter Name="candidatesEnd" Type="System.Int32" />
+      </Parameters>
+      <Docs>
+        <param name="oldSelStart">To be added.</param>
+        <param name="oldSelEnd">To be added.</param>
+        <param name="newSelStart">To be added.</param>
+        <param name="newSelEnd">To be added.</param>
+        <param name="candidatesStart">To be added.</param>
+        <param name="candidatesEnd">To be added.</param>
+        <summary>Called when the application has reported a new selection region of
+ the text.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the application has reported a new selection region of
+ the text.  This is called whether or not the input method has requested
+ extracted text updates, although if so it will not receive this call
+ if the extracted text has changed as well.
+ 
+ </para>
+          <para tool="javadoc-to-mdoc">The default implementation takes care of updating the cursor in
+ the extract text, if it is being shown.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onUpdateSelection(int, int, int, int, int, int)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnViewClicked">
+      <MemberSignature Language="C#" Value="public virtual void OnViewClicked (bool focusChanged);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnViewClicked(bool focusChanged) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onViewClicked", "(Z)V", "GetOnViewClicked_ZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="focusChanged" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="focusChanged">true if the user changed the focused view by this click.
+</param>
+        <summary>Called when the user tapped or clicked a text view.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the user tapped or clicked a text view.
+ IMEs can't rely on this method being called because this was not part of the original IME
+ protocol, so applications with custom text editing written before this method appeared will
+ not call to inform the IME of this interaction.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onViewClicked(boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 14" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnWindowHidden">
+      <MemberSignature Language="C#" Value="public virtual void OnWindowHidden ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnWindowHidden() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onWindowHidden", "()V", "GetOnWindowHiddenHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Called when the input method window has been hidden from the user,
+ after previously being visible.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the input method window has been hidden from the user,
+ after previously being visible.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onWindowHidden()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="OnWindowShown">
+      <MemberSignature Language="C#" Value="public virtual void OnWindowShown ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnWindowShown() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("onWindowShown", "()V", "GetOnWindowShownHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Called when the input method window has been shown to the user, after
+ previously not being visible.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Called when the input method window has been shown to the user, after
+ previously not being visible.  This is done after all of the UI setup
+ for the window has occurred (creating its views etc).
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#onWindowShown()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="RequestHideSelf">
+      <MemberSignature Language="C#" Value="public virtual void RequestHideSelf (Android.Views.InputMethods.HideSoftInputFlags flags);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void RequestHideSelf(valuetype Android.Views.InputMethods.HideSoftInputFlags flags) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("requestHideSelf", "(I)V", "GetRequestHideSelf_IHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="flags" Type="Android.Views.InputMethods.HideSoftInputFlags">
+          <Attributes>
+            <Attribute>
+              <AttributeName>Android.Runtime.GeneratedEnum</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+      </Parameters>
+      <Docs>
+        <param name="flags">Provides additional operating flags.  Currently may be
+ 0 or have the <c><see cref="F:Android.Views.InputMethods.HideSoftInputFlags.ImplicitOnly" /></c> bit set.
+</param>
+        <summary>Close this input method's soft input area, removing it from the display.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Close this input method's soft input area, removing it from the display.
+ The input method will continue running, but the user can no longer use
+ it to generate input by touching the screen.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#requestHideSelf(int)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="SendDefaultEditorAction">
+      <MemberSignature Language="C#" Value="public virtual bool SendDefaultEditorAction (bool fromEnterKey);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool SendDefaultEditorAction(bool fromEnterKey) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("sendDefaultEditorAction", "(Z)Z", "GetSendDefaultEditorAction_ZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="fromEnterKey" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="fromEnterKey">If true, this will be executed as if the user had
+ pressed an enter key on the keyboard, that is it will <i>not</i>
+ be done if the editor has set <c><see cref="F:Android.Views.InputMethods.ImeFlags.NoEnterAction" /></c>.  If false, the action will be
+ sent regardless of how the editor has set that flag.</param>
+        <summary>Ask the input target to execute its default action via
+ <c><see cref="!:Android.Views.InputMethods.InputConnection.performEditorAction(int)" /></c>.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Ask the input target to execute its default action via
+ <c><see cref="!:Android.Views.InputMethods.InputConnection.performEditorAction(int)" /></c>.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#sendDefaultEditorAction(boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="SendDownUpKeyEvents">
+      <MemberSignature Language="C#" Value="public virtual void SendDownUpKeyEvents (Android.Views.Keycode keyEventCode);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SendDownUpKeyEvents(valuetype Android.Views.Keycode keyEventCode) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("sendDownUpKeyEvents", "(I)V", "GetSendDownUpKeyEvents_IHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="keyEventCode" Type="Android.Views.Keycode">
+          <Attributes>
+            <Attribute>
+              <AttributeName>Android.Runtime.GeneratedEnum</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+      </Parameters>
+      <Docs>
+        <param name="keyEventCode">The raw key code to send, as defined by
+ <c><see cref="T:Android.Views.KeyEvent" /></c>.
+</param>
+        <summary>Send the given key event code (as defined by <c><see cref="T:Android.Views.KeyEvent" /></c>) to the
+ current input connection is a key down + key up event pair.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Send the given key event code (as defined by <c><see cref="T:Android.Views.KeyEvent" /></c>) to the
+ current input connection is a key down + key up event pair.  The sent
+ events have <c><see cref="F:Android.Views.KeyEventFlags.SoftKeyboard" /></c>
+ set, so that the recipient can identify them as coming from a software
+ input method, and
+ <c><see cref="F:Android.Views.KeyEventFlags.KeepTouchMode" /></c>, so
+ that they don't impact the current touch mode of the UI.
+
+ </para>
+          <para tool="javadoc-to-mdoc">Note that it's discouraged to send such key events in normal operation;
+ this is mainly for use with <c><see cref="!:Android.Text.IInputType.TYPE_NULL" /></c> type
+ text fields, or for non-rich input methods. A reasonably capable software
+ input method should use the
+ <c><see cref="!:Android.Views.InputMethods.InputConnection.commitText(java.lang.CharSequence, int)" /></c> family of methods
+ to send text to an application, rather than sending key events.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#sendDownUpKeyEvents(int)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="SendKeyChar">
+      <MemberSignature Language="C#" Value="public virtual void SendKeyChar (char charCode);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SendKeyChar(char charCode) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("sendKeyChar", "(C)V", "GetSendKeyChar_CHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="charCode" Type="System.Char" />
+      </Parameters>
+      <Docs>
+        <param name="charCode">The UTF-16 character code to send.
+</param>
+        <summary>Send the given UTF-16 character to the current input connection.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Send the given UTF-16 character to the current input connection.  Most
+ characters will be delivered simply by calling
+ <c><see cref="!:Android.Views.InputMethods.InputConnection.commitText(java.lang.CharSequence, int)" /></c> with
+ the character; some, however, may be handled different.  In particular,
+ the enter character ('\n') will either be delivered as an action code
+ or a raw key event, as appropriate.  Consider this as a convenience
+ method for IMEs that do not have a full implementation of actions; a
+ fully complying IME will decide of the right action for each event and
+ will likely never call this method except maybe to handle events coming
+ from an actual hardware keyboard.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#sendKeyChar(char)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="SetCandidatesView">
+      <MemberSignature Language="C#" Value="public virtual void SetCandidatesView (Android.Views.View view);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SetCandidatesView(class Android.Views.View view) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("setCandidatesView", "(Landroid/view/View;)V", "GetSetCandidatesView_Landroid_view_View_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="view" Type="Android.Views.View" />
+      </Parameters>
+      <Docs>
+        <param name="view">To be added.</param>
+        <summary>Replaces the current candidates view with a new one.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Replaces the current candidates view with a new one.  You only need to
+ call this when dynamically changing the view; normally, you should
+ implement <c><see cref="M:Android.InputMethodServices.InputMethodService.OnCreateCandidatesView" /></c> and create your view when
+ first needed by the input method.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#setCandidatesView(android.view.View)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="SetCandidatesViewShown">
+      <MemberSignature Language="C#" Value="public virtual void SetCandidatesViewShown (bool shown);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SetCandidatesViewShown(bool shown) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("setCandidatesViewShown", "(Z)V", "GetSetCandidatesViewShown_ZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="shown" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="shown">To be added.</param>
+        <summary>Controls the visibility of the candidates display area.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Controls the visibility of the candidates display area.  By default
+ it is hidden.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#setCandidatesViewShown(boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="SetExtractView">
+      <MemberSignature Language="C#" Value="public virtual void SetExtractView (Android.Views.View view);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SetExtractView(class Android.Views.View view) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("setExtractView", "(Landroid/view/View;)V", "GetSetExtractView_Landroid_view_View_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="view" Type="Android.Views.View" />
+      </Parameters>
+      <Docs>
+        <param name="view">To be added.</param>
+        <summary>
+        </summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#setExtractView(android.view.View)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="SetInputView">
+      <MemberSignature Language="C#" Value="public virtual void SetInputView (Android.Views.View view);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SetInputView(class Android.Views.View view) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("setInputView", "(Landroid/view/View;)V", "GetSetInputView_Landroid_view_View_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="view" Type="Android.Views.View" />
+      </Parameters>
+      <Docs>
+        <param name="view">To be added.</param>
+        <summary>Replaces the current input view with a new one.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Replaces the current input view with a new one.  You only need to
+ call this when dynamically changing the view; normally, you should
+ implement <c><see cref="M:Android.InputMethodServices.InputMethodService.OnCreateInputView" /></c> and create your view when
+ first needed by the input method.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#setInputView(android.view.View)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="ShowStatusIcon">
+      <MemberSignature Language="C#" Value="public virtual void ShowStatusIcon (int iconResId);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void ShowStatusIcon(int32 iconResId) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("showStatusIcon", "(I)V", "GetShowStatusIcon_IHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="iconResId" Type="System.Int32" />
+      </Parameters>
+      <Docs>
+        <param name="iconResId">To be added.</param>
+        <summary>
+        </summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#showStatusIcon(int)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="ShowWindow">
+      <MemberSignature Language="C#" Value="public virtual void ShowWindow (bool showInput);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void ShowWindow(bool showInput) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("showWindow", "(Z)V", "GetShowWindow_ZHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="showInput" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="showInput">To be added.</param>
+        <summary>
+        </summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#showWindow(boolean)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="SwitchInputMethod">
+      <MemberSignature Language="C#" Value="public virtual void SwitchInputMethod (string id);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SwitchInputMethod(string id) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("switchInputMethod", "(Ljava/lang/String;)V", "GetSwitchInputMethod_Ljava_lang_String_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="id" Type="System.String" />
+      </Parameters>
+      <Docs>
+        <param name="id">Unique identifier of the new input method ot start.
+</param>
+        <summary>Force switch to a new input method, as identified by <format type="text/html"><var>id</var></format>.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Force switch to a new input method, as identified by <format type="text/html"><var>id</var></format>.  This
+ input method will be destroyed, and the requested one started on the
+ current input field.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#switchInputMethod(java.lang.String)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="ThresholdClass">
+      <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <ReturnValue>
+        <ReturnType>System.IntPtr</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
+        <value>A <see cref="T:System.IntPtr" /> which contains the <c>java.lang.Class</c> JNI value corresponding to this type.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonVirtualVoidMethod" />.</para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="ThresholdType">
+      <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <ReturnValue>
+        <ReturnType>System.Type</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
+        <value>A <see cref="T:System.Type" /> which provides the declaring type.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This property is used to control virtual vs. non virtual method dispatch against the underlying JNI object. When this property is equal to the declaring type, then virtual method invocation against the JNI object is performed; otherwise, we assume that the method was overridden by a derived type, and perform non-virtual methdo invocation.</para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="UpdateFullscreenMode">
+      <MemberSignature Language="C#" Value="public virtual void UpdateFullscreenMode ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void UpdateFullscreenMode() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("updateFullscreenMode", "()V", "GetUpdateFullscreenModeHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Re-evaluate whether the input method should be running in fullscreen
+ mode, and update its UI if this has changed since the last time it
+ was evaluated.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Re-evaluate whether the input method should be running in fullscreen
+ mode, and update its UI if this has changed since the last time it
+ was evaluated.  This will call <c><see cref="M:Android.InputMethodServices.InputMethodService.OnEvaluateFullscreenMode" /></c> to
+ determine whether it should currently run in fullscreen mode.  You
+ can use <c><see cref="P:Android.InputMethodServices.InputMethodService.IsFullscreenMode" /></c> to determine if the input method
+ is currently running in fullscreen mode.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#updateFullscreenMode()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="UpdateInputViewShown">
+      <MemberSignature Language="C#" Value="public virtual void UpdateInputViewShown ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void UpdateInputViewShown() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("updateInputViewShown", "()V", "GetUpdateInputViewShownHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Re-evaluate whether the soft input area should currently be shown, and
+ update its UI if this has changed since the last time it
+ was evaluated.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Re-evaluate whether the soft input area should currently be shown, and
+ update its UI if this has changed since the last time it
+ was evaluated.  This will call <c><see cref="M:Android.InputMethodServices.InputMethodService.OnEvaluateInputViewShown" /></c> to
+ determine whether the input view should currently be shown.  You
+ can use <c><see cref="P:Android.InputMethodServices.InputMethodService.IsInputViewShown" /></c> to determine if the input view
+ is currently shown.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#updateInputViewShown()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+    <Member MemberName="Window">
+      <MemberSignature Language="C#" Value="public virtual Android.App.Dialog Window { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance class Android.App.Dialog Window" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("getWindow", "()Landroid/app/Dialog;", "GetGetWindowHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.App.Dialog</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>
+        </summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/android/inputmethodservice/InputMethodService.html#getWindow()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 3" />
+      </Docs>
+    </Member>
+  </Members>
+</Type>

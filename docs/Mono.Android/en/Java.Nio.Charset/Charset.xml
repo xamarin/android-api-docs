@@ -1,0 +1,994 @@
+<Type Name="Charset" FullName="Java.Nio.Charset.Charset">
+  <TypeSignature Language="C#" Value="public abstract class Charset : Java.Lang.Object, IDisposable, Java.Lang.IComparable" />
+  <TypeSignature Language="ILAsm" Value=".class public auto ansi abstract beforefieldinit Charset extends Java.Lang.Object implements class Android.Runtime.IJavaObject, class Java.Lang.IComparable, class System.IDisposable" />
+  <AssemblyInfo>
+    <AssemblyName>Mono.Android</AssemblyName>
+    <AssemblyVersion>0.0.0.0</AssemblyVersion>
+  </AssemblyInfo>
+  <Base>
+    <BaseTypeName>Java.Lang.Object</BaseTypeName>
+  </Base>
+  <Interfaces>
+    <Interface>
+      <InterfaceName>Java.Lang.IComparable</InterfaceName>
+    </Interface>
+    <Interface>
+      <InterfaceName>System.IDisposable</InterfaceName>
+    </Interface>
+  </Interfaces>
+  <Attributes>
+    <Attribute>
+      <AttributeName>Android.Runtime.Register("java/nio/charset/Charset", DoNotGenerateAcw=true)</AttributeName>
+    </Attribute>
+  </Attributes>
+  <Docs>
+    <summary>A charset is a named mapping between Unicode characters and byte sequences.</summary>
+    <remarks>
+      <para tool="javadoc-to-mdoc">A charset is a named mapping between Unicode characters and byte sequences. Every
+ <c>Charset</c> can <format type="text/html"><i>decode</i></format>, converting a byte sequence into a sequence of characters,
+ and some can also <format type="text/html"><i>encode</i></format>, converting a sequence of characters into a byte sequence.
+ Use the method <c><see cref="M:Java.Nio.Charset.Charset.CanEncode" /></c> to find out whether a charset supports both.
+
+ <format type="text/html"><h4>Characters</h4></format></para>
+      <para tool="javadoc-to-mdoc">In the context of this class, <format type="text/html"><i>character</i></format> always refers to a Java character: a Unicode
+ code point in the range U+0000 to U+FFFF. (Java represents supplementary characters using surrogates.)
+ Not all byte sequences will represent a character, and not
+ all characters can necessarily be represented by a given charset. The method <c><see cref="M:Java.Nio.Charset.Charset.Contains(Java.Nio.Charset.Charset)" /></c>
+ can be used to determine whether every character representable by one charset can also be
+ represented by another (meaning that a lossless transformation is possible from the contained
+ to the container).
+
+ <format type="text/html"><h4>Encodings</h4></format></para>
+      <para tool="javadoc-to-mdoc">There are many possible ways to represent Unicode characters as byte sequences.
+ See 
+ for detailed discussion.
+
+ </para>
+      <para tool="javadoc-to-mdoc">The most important mappings capable of representing every character are the Unicode
+ Transformation Format (UTF) charsets. Of those, UTF-8 and the UTF-16 family are the most
+ common. UTF-8 (described in )
+ encodes a character using 1 to 4 bytes. UTF-16 uses exactly 2 bytes per character (potentially
+ wasting space, but allowing efficient random access into BMP text), and UTF-32 uses
+ exactly 4 bytes per character (trading off even more space for efficient random access into text
+ that includes supplementary characters).
+
+ </para>
+      <para tool="javadoc-to-mdoc">UTF-16 and UTF-32 encode characters directly, using their code point as a two- or four-byte
+ integer. This means that any given UTF-16 or UTF-32 byte sequence is either big- or
+ little-endian. To assist decoders, Unicode includes a special <format type="text/html"><i>byte order mark</i></format> (BOM)
+ character U+FEFF used to determine the endianness of a sequence. The corresponding byte-swapped
+ code point U+FFFE is guaranteed never to be assigned. If a UTF-16 decoder sees
+ <c>0xfe, 0xff</c>, for example, it knows it's reading a big-endian byte sequence, while
+ <c>0xff, 0xfe</c>, would indicate a little-endian byte sequence.
+
+ </para>
+      <para tool="javadoc-to-mdoc">UTF-8 can contain a BOM, but since the UTF-8 encoding of a character always uses the same
+ byte sequence, there is no information about endianness to convey. Seeing the bytes
+ corresponding to the UTF-8 encoding of U+FEFF (<c>0xef, 0xbb, 0xbf</c>) would only serve to
+ suggest that you're reading UTF-8. Note that BOMs are decoded as the U+FEFF character, and
+ will appear in the output character sequence. This means that a disadvantage to including a BOM
+ in UTF-8 is that most applications that use UTF-8 do not expect to see a BOM. (This is also a
+ reason to prefer UTF-8: it's one less complication to worry about.)
+
+ </para>
+      <para tool="javadoc-to-mdoc">Because a BOM indicates how the data that follows should be interpreted, a BOM should occur
+ as the first character in a character sequence.
+
+ </para>
+      <para tool="javadoc-to-mdoc">See the  for
+ more about dealing with BOMs.
+
+ <format type="text/html"><h4>Endianness and BOM behavior</h4></format></para>
+      <para tool="javadoc-to-mdoc">The following tables show the endianness and BOM behavior of the UTF-16 variants.
+
+ </para>
+      <para tool="javadoc-to-mdoc">This table shows what the encoder writes. "BE" means that the byte sequence is big-endian,
+ "LE" means little-endian. "BE BOM" means a big-endian BOM (that is, <c>0xfe, 0xff</c>).
+ </para>
+      <para tool="javadoc-to-mdoc">
+        <format type="text/html">
+          <table width="100%">
+            <tr>
+              <th>Charset</th>
+              <th>Encoder writes</th>
+            </tr>
+            <tr>
+              <td>UTF-16BE</td>
+              <td>BE, no BOM</td>
+            </tr>
+            <tr>
+              <td>UTF-16LE</td>
+              <td>LE, no BOM</td>
+            </tr>
+            <tr>
+              <td>UTF-16</td>
+              <td>BE, with BE BOM</td>
+            </tr>
+          </table>
+        </format>
+      </para>
+      <para tool="javadoc-to-mdoc">The next table shows how each variant's decoder behaves when reading a byte sequence.
+ The exact meaning of "failure" in the table is dependent on the
+ <c><see cref="T:Java.Nio.Charset.CodingErrorAction" /></c> supplied to <c><see cref="M:Java.Nio.Charset.CharsetDecoder.MalformedInputAction" /></c>, so
+ "BE, failure" means "the byte sequence is treated as big-endian, and a little-endian BOM
+ triggers the malformedInputAction".
+
+ </para>
+      <para tool="javadoc-to-mdoc">The phrase "includes BOM" means that the output includes the U+FEFF byte order mark character.
+
+ </para>
+      <para tool="javadoc-to-mdoc">
+        <format type="text/html">
+          <table width="100%">
+            <tr>
+              <th>Charset</th>
+              <th>BE BOM</th>
+              <th>LE BOM</th>
+              <th>No BOM</th>
+            </tr>
+            <tr>
+              <td>UTF-16BE</td>
+              <td>BE, includes BOM</td>
+              <td>BE, failure</td>
+              <td>BE</td>
+            </tr>
+            <tr>
+              <td>UTF-16LE</td>
+              <td>LE, failure</td>
+              <td>LE, includes BOM</td>
+              <td>LE</td>
+            </tr>
+            <tr>
+              <td>UTF-16</td>
+              <td>BE</td>
+              <td>LE</td>
+              <td>BE</td>
+            </tr>
+          </table>
+        </format>
+        <format type="text/html">
+          <h4>Charset names</h4>
+        </format>
+      </para>
+      <para tool="javadoc-to-mdoc">A charset has a canonical name, returned by <c><see cref="M:Java.Nio.Charset.Charset.Name" /></c>. Most charsets will
+ also have one or more aliases, returned by <c><see cref="M:Java.Nio.Charset.Charset.Aliases" /></c>. A charset can be looked up
+ by canonical name or any of its aliases using <c><see cref="M:Java.Nio.Charset.Charset.ForName(System.String)" /></c>.
+
+ <format type="text/html"><h4>Guaranteed-available charsets</h4></format></para>
+      <para tool="javadoc-to-mdoc">The following charsets are available on every Java implementation:
+ <list type="bullet"><item><term>ISO-8859-1
+ </term></item><item><term>US-ASCII
+ </term></item><item><term>UTF-16
+ </term></item><item><term>UTF-16BE
+ </term></item><item><term>UTF-16LE
+ </term></item><item><term>UTF-8
+ </term></item></list></para>
+      <para tool="javadoc-to-mdoc">All of these charsets support both decoding and encoding. The charsets whose names begin
+ "UTF" can represent all characters, as mentioned above. The "ISO-8859-1" and "US-ASCII" charsets
+ can only represent small subsets of these characters. Except when required to do otherwise for
+ compatibility, new code should use one of the UTF charsets listed above. The platform's default
+ charset is UTF-8. (This is in contrast to some older implementations, where the default charset
+ depended on the user's locale.)
+
+ </para>
+      <para tool="javadoc-to-mdoc">Most implementations will support hundreds of charsets. Use <c><see cref="M:Java.Nio.Charset.Charset.AvailableCharsets" /></c> or
+ <c><see cref="M:Java.Nio.Charset.Charset.IsSupported(System.String)" /></c> to see what's available. If you intend to use the charset if it's
+ available, just call <c><see cref="M:Java.Nio.Charset.Charset.ForName(System.String)" /></c> and catch the exceptions it throws if the charset isn't
+ available.
+
+ </para>
+      <para tool="javadoc-to-mdoc">Additional charsets can be made available by configuring one or more charset
+ providers through provider configuration files. Such files are always named
+ as "java.nio.charset.spi.CharsetProvider" and located in the
+ "META-INF/services" directory of one or more classpaths. The files should be
+ encoded in "UTF-8". Each line of their content specifies the class name of a
+ charset provider which extends <c><see cref="T:Java.Nio.Charset.Spi.CharsetProvider" /></c>.
+ A line should end with '\r', '\n' or '\r\n'. Leading and trailing whitespace
+ is trimmed. Blank lines, and lines (after trimming) starting with "#" which are
+ regarded as comments, are both ignored. Duplicates of names already found are also
+ ignored. Both the configuration files and the provider classes will be loaded
+ using the thread context class loader.
+
+ </para>
+      <para tool="javadoc-to-mdoc">Although class is thread-safe, the <c><see cref="T:Java.Nio.Charset.CharsetDecoder" /></c> and <c><see cref="T:Java.Nio.Charset.CharsetEncoder" /></c> instances
+ it returns are inherently stateful.
+</para>
+      <para tool="javadoc-to-mdoc">
+        <format type="text/html">
+          <a href="http://developer.android.com/reference/java/nio/charset/Charset.html" target="_blank">[Android Documentation]</a>
+        </format>
+      </para>
+    </remarks>
+    <since version="Added in API level 1" />
+  </Docs>
+  <Members>
+    <Member MemberName=".ctor">
+      <MemberSignature Language="C#" Value="protected Charset (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
+      <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
+      <MemberType>Constructor</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Parameters>
+        <Parameter Name="javaReference" Type="System.IntPtr" />
+        <Parameter Name="transfer" Type="Android.Runtime.JniHandleOwnership" />
+      </Parameters>
+      <Docs>
+        <param name="javaReference">A <see cref="T:System.IntPtr" />containing a Java Native Interface (JNI) object reference.</param>
+        <param name="transfer">A <see cref="T:Android.Runtime.JniHandleOwnership" />indicating how to handle <paramref name="javaReference" /></param>
+        <summary>A constructor used when creating managed representations of JNI objects; called by the runtime.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This constructor is invoked by the runtime infrastructure (<see cref="M:Java.Lang.Object.GetObject``1(System.IntPtr,Android.Runtime.JniHandleOwnership)" />) to create a new managed representation for a Java Native Interface object.</para>
+          <para tool="javadoc-to-mdoc">The constructor will initializes the <see cref="P:Android.Runtime.IJavaObject.Handle" /> property of the new instance using <paramref name="javaReference" /> and <paramref name="transfer" />.</para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName=".ctor">
+      <MemberSignature Language="C#" Value="protected Charset (string canonicalName, string[] aliases);" />
+      <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(string canonicalName, string[] aliases) cil managed" />
+      <MemberType>Constructor</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register(".ctor", "(Ljava/lang/String;[Ljava/lang/String;)V", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <Parameters>
+        <Parameter Name="canonicalName" Type="System.String" />
+        <Parameter Name="aliases" Type="System.String[]" />
+      </Parameters>
+      <Docs>
+        <param name="canonicalName">To be added.</param>
+        <param name="aliases">To be added.</param>
+        <summary>Constructs a <c>Charset</c> object.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Constructs a <c>Charset</c> object. Duplicated aliases are
+ ignored.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#Charset(java.lang.String, java.lang.String[])" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+        <exception cref="T:Java.Nio.Charset.IllegalCharsetNameException">on an illegal value being supplied for either
+             <c>canonicalName</c> or for any element of
+             <c>aliases</c>.
+</exception>
+      </Docs>
+    </Member>
+    <Member MemberName="Aliases">
+      <MemberSignature Language="C#" Value="public System.Collections.Generic.ICollection&lt;string&gt; Aliases ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Collections.Generic.ICollection`1&lt;string&gt; Aliases() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("aliases", "()Ljava/util/Set;", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Collections.Generic.ICollection&lt;System.String&gt;</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Gets the set of this charset's aliases.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Gets the set of this charset's aliases.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#aliases()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="AvailableCharsets">
+      <MemberSignature Language="C#" Value="public static System.Collections.Generic.IDictionary&lt;string,Java.Nio.Charset.Charset&gt; AvailableCharsets ();" />
+      <MemberSignature Language="ILAsm" Value=".method public static hidebysig class System.Collections.Generic.IDictionary`2&lt;string, class Java.Nio.Charset.Charset&gt; AvailableCharsets() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("availableCharsets", "()Ljava/util/SortedMap;", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Collections.Generic.IDictionary&lt;System.String,Java.Nio.Charset.Charset&gt;</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Returns an immutable case-insensitive map from canonical names to <c>Charset</c> instances.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Returns an immutable case-insensitive map from canonical names to <c>Charset</c> instances.
+ If multiple charsets have the same canonical name, it is unspecified which is returned in
+ the map. This method may be slow. If you know which charset you're looking for, use
+ <c><see cref="M:Java.Nio.Charset.Charset.ForName(System.String)" /></c>.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#availableCharsets()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="CanEncode">
+      <MemberSignature Language="C#" Value="public virtual bool CanEncode ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool CanEncode() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("canEncode", "()Z", "GetCanEncodeHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Returns true if this charset supports encoding, false otherwise.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Returns true if this charset supports encoding, false otherwise.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#canEncode()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="CompareTo">
+      <MemberSignature Language="C#" Value="public int CompareTo (Java.Nio.Charset.Charset charset);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance int32 CompareTo(class Java.Nio.Charset.Charset charset) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("compareTo", "(Ljava/nio/charset/Charset;)I", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Int32</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="charset" Type="Java.Nio.Charset.Charset" />
+      </Parameters>
+      <Docs>
+        <param name="charset">the given object to be compared with.</param>
+        <summary>Compares this charset with the given charset.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Compares this charset with the given charset. This comparison is
+ based on the case insensitive canonical names of the charsets.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#compareTo(java.nio.charset.Charset)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="Contains">
+      <MemberSignature Language="C#" Value="public abstract bool Contains (Java.Nio.Charset.Charset charset);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool Contains(class Java.Nio.Charset.Charset charset) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("contains", "(Ljava/nio/charset/Charset;)Z", "GetContains_Ljava_nio_charset_Charset_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="charset" Type="Java.Nio.Charset.Charset" />
+      </Parameters>
+      <Docs>
+        <param name="charset">a given charset.</param>
+        <summary>Determines whether this charset is a superset of the given charset.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Determines whether this charset is a superset of the given charset. A charset C1 contains
+ charset C2 if every character representable by C2 is also representable by C1. This means
+ that lossless conversion is possible from C2 to C1 (but not necessarily the other way
+ round). It does <format type="text/html"><i>not</i></format> imply that the two charsets use the same byte sequences for the
+ characters they share.
+
+ </para>
+          <para tool="javadoc-to-mdoc">Note that this method is allowed to be conservative, and some implementations may return
+ false when this charset does contain the other charset. Android's implementation is precise,
+ and will always return true in such cases.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#contains(java.nio.charset.Charset)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="Decode">
+      <MemberSignature Language="C#" Value="public Java.Nio.CharBuffer Decode (Java.Nio.ByteBuffer buffer);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Nio.CharBuffer Decode(class Java.Nio.ByteBuffer buffer) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("decode", "(Ljava/nio/ByteBuffer;)Ljava/nio/CharBuffer;", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Nio.CharBuffer</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="buffer" Type="Java.Nio.ByteBuffer" />
+      </Parameters>
+      <Docs>
+        <param name="buffer">the byte buffer containing the content to be decoded.</param>
+        <summary>Returns a new <c>CharBuffer</c> containing the characters decoded from <c>buffer</c>.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Returns a new <c>CharBuffer</c> containing the characters decoded from <c>buffer</c>.
+ This method uses <c>CodingErrorAction.REPLACE</c>.
+
+ </para>
+          <para tool="javadoc-to-mdoc">Applications should generally create a <c><see cref="T:Java.Nio.Charset.CharsetDecoder" /></c> using <c><see cref="M:Java.Nio.Charset.Charset.NewDecoder" /></c>
+ for performance.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#decode(java.nio.ByteBuffer)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="DefaultCharset">
+      <MemberSignature Language="C#" Value="public static Java.Nio.Charset.Charset DefaultCharset ();" />
+      <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Nio.Charset.Charset DefaultCharset() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("defaultCharset", "()Ljava/nio/charset/Charset;", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Nio.Charset.Charset</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Returns the system's default charset.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Returns the system's default charset. This is determined during VM startup, and will not
+ change thereafter. On Android, the default charset is UTF-8.
+</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#defaultCharset()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="DisplayName">
+      <MemberSignature Language="C#" Value="public virtual string DisplayName ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance string DisplayName() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("displayName", "()Ljava/lang/String;", "GetDisplayNameHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.String</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Gets the name of this charset for the default locale.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Gets the name of this charset for the default locale.
+
+ </para>
+          <para tool="javadoc-to-mdoc">The default implementation returns the canonical name of this charset.
+ Subclasses may return a localized display name.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#displayName()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="DisplayName">
+      <MemberSignature Language="C#" Value="public virtual string DisplayName (Java.Util.Locale l);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance string DisplayName(class Java.Util.Locale l) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("displayName", "(Ljava/util/Locale;)Ljava/lang/String;", "GetDisplayName_Ljava_util_Locale_Handler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.String</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="l" Type="Java.Util.Locale" />
+      </Parameters>
+      <Docs>
+        <param name="l">a certain locale</param>
+        <summary>Gets the name of this charset for the specified locale.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Gets the name of this charset for the specified locale.
+
+ </para>
+          <para tool="javadoc-to-mdoc">The default implementation returns the canonical name of this charset.
+ Subclasses may return a localized display name.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#displayName(java.util.Locale)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="Encode">
+      <MemberSignature Language="C#" Value="public Java.Nio.ByteBuffer Encode (Java.Nio.CharBuffer buffer);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Nio.ByteBuffer Encode(class Java.Nio.CharBuffer buffer) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("encode", "(Ljava/nio/CharBuffer;)Ljava/nio/ByteBuffer;", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Nio.ByteBuffer</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="buffer" Type="Java.Nio.CharBuffer" />
+      </Parameters>
+      <Docs>
+        <param name="buffer">the character buffer containing the content to be encoded.</param>
+        <summary>Returns a new <c>ByteBuffer</c> containing the bytes encoding the characters from
+ <c>buffer</c>.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Returns a new <c>ByteBuffer</c> containing the bytes encoding the characters from
+ <c>buffer</c>.
+ This method uses <c>CodingErrorAction.REPLACE</c>.
+
+ </para>
+          <para tool="javadoc-to-mdoc">Applications should generally create a <c><see cref="T:Java.Nio.Charset.CharsetEncoder" /></c> using <c><see cref="M:Java.Nio.Charset.Charset.NewEncoder" /></c>
+ for performance.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#encode(java.nio.CharBuffer)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="Encode">
+      <MemberSignature Language="C#" Value="public Java.Nio.ByteBuffer Encode (string s);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Nio.ByteBuffer Encode(string s) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("encode", "(Ljava/lang/String;)Ljava/nio/ByteBuffer;", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Nio.ByteBuffer</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="s" Type="System.String" />
+      </Parameters>
+      <Docs>
+        <param name="s">the string to be encoded.</param>
+        <summary>Returns a new <c>ByteBuffer</c> containing the bytes encoding the characters from <c>s</c>.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Returns a new <c>ByteBuffer</c> containing the bytes encoding the characters from <c>s</c>.
+ This method uses <c>CodingErrorAction.REPLACE</c>.
+
+ </para>
+          <para tool="javadoc-to-mdoc">Applications should generally create a <c><see cref="T:Java.Nio.Charset.CharsetEncoder" /></c> using <c><see cref="M:Java.Nio.Charset.Charset.NewEncoder" /></c>
+ for performance.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#encode(java.lang.String)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="Equals">
+      <MemberSignature Language="C#" Value="public override sealed bool Equals (Java.Lang.Object obj);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance bool Equals(class Java.Lang.Object obj) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("equals", "(Ljava/lang/Object;)Z", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="obj" Type="Java.Lang.Object" />
+      </Parameters>
+      <Docs>
+        <param name="obj">the given object to be compared with.</param>
+        <summary>Determines whether this charset equals to the given object.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Determines whether this charset equals to the given object. They are
+ considered to be equal if they have the same canonical name.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#equals(java.lang.Object)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="ForName">
+      <MemberSignature Language="C#" Value="public static Java.Nio.Charset.Charset ForName (string charsetName);" />
+      <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Nio.Charset.Charset ForName(string charsetName) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("forName", "(Ljava/lang/String;)Ljava/nio/charset/Charset;", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Nio.Charset.Charset</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="charsetName" Type="System.String" />
+      </Parameters>
+      <Docs>
+        <param name="charsetName">a charset name (either canonical or an alias)</param>
+        <summary>Returns a <c>Charset</c> instance for the named charset.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Returns a <c>Charset</c> instance for the named charset.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#forName(java.lang.String)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+        <exception cref="T:Java.Nio.Charset.IllegalCharsetNameException">if the specified charset name is illegal.</exception>
+        <exception cref="T:Java.Nio.Charset.UnsupportedCharsetException">if the desired charset is not supported by this runtime.
+</exception>
+      </Docs>
+    </Member>
+    <Member MemberName="GetHashCode">
+      <MemberSignature Language="C#" Value="public override sealed int GetHashCode ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance int32 GetHashCode() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("hashCode", "()I", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Int32</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Gets the hash code of this charset.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Gets the hash code of this charset.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#hashCode()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="IsRegistered">
+      <MemberSignature Language="C#" Value="public bool IsRegistered { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance bool IsRegistered" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>get: Android.Runtime.Register("isRegistered", "()Z", "GetIsRegisteredHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Indicates whether this charset is known to be registered in the IANA
+ Charset Registry.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Indicates whether this charset is known to be registered in the IANA
+ Charset Registry.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#isRegistered()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="IsSupported">
+      <MemberSignature Language="C#" Value="public static bool IsSupported (string charsetName);" />
+      <MemberSignature Language="ILAsm" Value=".method public static hidebysig bool IsSupported(string charsetName) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("isSupported", "(Ljava/lang/String;)Z", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Boolean</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="charsetName" Type="System.String" />
+      </Parameters>
+      <Docs>
+        <param name="charsetName">the name of the charset.</param>
+        <summary>Determines whether the specified charset is supported by this runtime.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Determines whether the specified charset is supported by this runtime.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#isSupported(java.lang.String)" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+        <exception cref="T:Java.Nio.Charset.IllegalCharsetNameException">if the specified charset name is illegal.
+</exception>
+      </Docs>
+    </Member>
+    <Member MemberName="Java.Lang.IComparable.CompareTo">
+      <MemberSignature Language="C#" Value="int IComparable.CompareTo (Java.Lang.Object another);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig newslot virtual instance int32 Java.Lang.IComparable.CompareTo(class Java.Lang.Object another) cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <ReturnValue>
+        <ReturnType>System.Int32</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="another" Type="Java.Lang.Object" />
+      </Parameters>
+      <Docs>
+        <param name="another">To be added.</param>
+        <summary>To be added.</summary>
+        <returns>To be added.</returns>
+        <remarks>To be added.</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Name">
+      <MemberSignature Language="C#" Value="public string Name ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance string Name() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("name", "()Ljava/lang/String;", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.String</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Gets the canonical name of this charset.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Gets the canonical name of this charset.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#name()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="NewDecoder">
+      <MemberSignature Language="C#" Value="public abstract Java.Nio.Charset.CharsetDecoder NewDecoder ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Nio.Charset.CharsetDecoder NewDecoder() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("newDecoder", "()Ljava/nio/charset/CharsetDecoder;", "GetNewDecoderHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Nio.Charset.CharsetDecoder</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Gets a new instance of a decoder for this charset.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Gets a new instance of a decoder for this charset.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#newDecoder()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="NewEncoder">
+      <MemberSignature Language="C#" Value="public abstract Java.Nio.Charset.CharsetEncoder NewEncoder ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Nio.Charset.CharsetEncoder NewEncoder() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("newEncoder", "()Ljava/nio/charset/CharsetEncoder;", "GetNewEncoderHandler")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Nio.Charset.CharsetEncoder</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Gets a new instance of an encoder for this charset.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Gets a new instance of an encoder for this charset.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#newEncoder()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="ThresholdClass">
+      <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <ReturnValue>
+        <ReturnType>System.IntPtr</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
+        <value>A <see cref="T:System.IntPtr" /> which contains the <c>java.lang.Class</c> JNI value corresponding to this type.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonVirtualVoidMethod" />.</para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="ThresholdType">
+      <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <ReturnValue>
+        <ReturnType>System.Type</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
+        <value>A <see cref="T:System.Type" /> which provides the declaring type.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This property is used to control virtual vs. non virtual method dispatch against the underlying JNI object. When this property is equal to the declaring type, then virtual method invocation against the JNI object is performed; otherwise, we assume that the method was overridden by a derived type, and perform non-virtual methdo invocation.</para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="ToString">
+      <MemberSignature Language="C#" Value="public override sealed string ToString ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance string ToString() cil managed" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName>Android.Runtime.Register("toString", "()Ljava/lang/String;", "")</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.String</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Gets a string representation of this charset.</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para tool="javadoc-to-mdoc">Gets a string representation of this charset. Usually this contains the
+ canonical name of the charset.</para>
+          <para tool="javadoc-to-mdoc">
+            <format type="text/html">
+              <a href="http://developer.android.com/reference/java/nio/charset/Charset.html#toString()" target="_blank">[Android Documentation]</a>
+            </format>
+          </para>
+        </remarks>
+        <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+  </Members>
+</Type>
