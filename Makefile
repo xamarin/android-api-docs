@@ -10,8 +10,11 @@ validate:
 	done; \
 	@echo success
 
-assemble:
-	echo mdoc assemble -o MonoAndroid-lib $(wildcard docs/*/en)
+assemble: MonoAndroid-lib.zip
+
+MonoAndroid-lib.tree: docs/MonoAndroid-lib.zip
+MonoAndroid-lib.zip:
+	mdoc --debug assemble -o MonoAndroid-lib $(wildcard docs/*/en)
 
 install: MonoAndroid-lib.tree MonoAndroid-lib.zip
 	cp $^ /Library/Frameworks/Mono.framework/External/monodoc/
