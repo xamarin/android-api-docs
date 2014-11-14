@@ -16,310 +16,20 @@
   </Attributes>
   <Docs>
     <summary>Abstract Loader that provides an <c><see cref="T:Android.OS.AsyncTask`3" /></c> to do the work.</summary>
-    <remarks>
-      <para tool="javadoc-to-mdoc">Abstract Loader that provides an <c><see cref="T:Android.OS.AsyncTask`3" /></c> to do the work.  See
+    <remarks><para tool="javadoc-to-mdoc">Abstract Loader that provides an <c><see cref="T:Android.OS.AsyncTask`3" /></c> to do the work.  See
  <c><see cref="T:Android.Content.Loader" /></c> and <c><see cref="T:Android.App.LoaderManager" /></c> for more details.
 
- </para>
-      <para tool="javadoc-to-mdoc">Here is an example implementation of an AsyncTaskLoader subclass that
+ </para><para tool="javadoc-to-mdoc">Here is an example implementation of an AsyncTaskLoader subclass that
  loads the currently installed applications from the package manager.  This
  implementation takes care of retrieving the application labels and sorting
  its result set from them, monitoring for changes to the installed
  applications, and rebuilding the list when a change in configuration requires
  this (such as a locale change).
 
- <example><code lang="java">/**
- * This class holds the per-item data in our Loader.
- */
-public static class AppEntry {
-    public AppEntry(AppListLoader loader, ApplicationInfo info) {
-        mLoader = loader;
-        mInfo = info;
-        mApkFile = new File(info.sourceDir);
-    }
-
-    public ApplicationInfo getApplicationInfo() {
-        return mInfo;
-    }
-
-    public String getLabel() {
-        return mLabel;
-    }
-
-    public Drawable getIcon() {
-        if (mIcon == null) {
-            if (mApkFile.exists()) {
-                mIcon = mInfo.loadIcon(mLoader.mPm);
-                return mIcon;
-            } else {
-                mMounted = false;
-            }
-        } else if (!mMounted) {
-            // If the app wasn't mounted but is now mounted, reload
-            // its icon.
-            if (mApkFile.exists()) {
-                mMounted = true;
-                mIcon = mInfo.loadIcon(mLoader.mPm);
-                return mIcon;
-            }
-        } else {
-            return mIcon;
-        }
-
-        return mLoader.getContext().getResources().getDrawable(
-                android.R.drawable.sym_def_app_icon);
-    }
-
-    @Override public String toString() {
-        return mLabel;
-    }
-
-    void loadLabel(Context context) {
-        if (mLabel == null || !mMounted) {
-            if (!mApkFile.exists()) {
-                mMounted = false;
-                mLabel = mInfo.packageName;
-            } else {
-                mMounted = true;
-                CharSequence label = mInfo.loadLabel(context.getPackageManager());
-                mLabel = label != null ? label.toString() : mInfo.packageName;
-            }
-        }
-    }
-
-    private final AppListLoader mLoader;
-    private final ApplicationInfo mInfo;
-    private final File mApkFile;
-    private String mLabel;
-    private Drawable mIcon;
-    private boolean mMounted;
-}
-
-/**
- * Perform alphabetical comparison of application entry objects.
- */
-public static final Comparator&lt;AppEntry&gt; ALPHA_COMPARATOR = new Comparator&lt;AppEntry&gt;() {
-    private final Collator sCollator = Collator.getInstance();
-    @Override
-    public int compare(AppEntry object1, AppEntry object2) {
-        return sCollator.compare(object1.getLabel(), object2.getLabel());
-    }
-};
-
-/**
- * Helper for determining if the configuration has changed in an interesting
- * way so we need to rebuild the app list.
- */
-public static class InterestingConfigChanges {
-    final Configuration mLastConfiguration = new Configuration();
-    int mLastDensity;
-
-    boolean applyNewConfig(Resources res) {
-        int configChanges = mLastConfiguration.updateFrom(res.getConfiguration());
-        boolean densityChanged = mLastDensity != res.getDisplayMetrics().densityDpi;
-        if (densityChanged || (configChanges&amp;(ActivityInfo.CONFIG_LOCALE
-                |ActivityInfo.CONFIG_UI_MODE|ActivityInfo.CONFIG_SCREEN_LAYOUT)) != 0) {
-            mLastDensity = res.getDisplayMetrics().densityDpi;
-            return true;
-        }
-        return false;
-    }
-}
-
-/**
- * Helper class to look for interesting changes to the installed apps
- * so that the loader can be updated.
- */
-public static class PackageIntentReceiver extends BroadcastReceiver {
-    final AppListLoader mLoader;
-
-    public PackageIntentReceiver(AppListLoader loader) {
-        mLoader = loader;
-        IntentFilter filter = new IntentFilter(Intent.ACTION_PACKAGE_ADDED);
-        filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
-        filter.addAction(Intent.ACTION_PACKAGE_CHANGED);
-        filter.addDataScheme("package");
-        mLoader.getContext().registerReceiver(this, filter);
-        // Register for events related to sdcard installation.
-        IntentFilter sdFilter = new IntentFilter();
-        sdFilter.addAction(Intent.ACTION_EXTERNAL_APPLICATIONS_AVAILABLE);
-        sdFilter.addAction(Intent.ACTION_EXTERNAL_APPLICATIONS_UNAVAILABLE);
-        mLoader.getContext().registerReceiver(this, sdFilter);
-    }
-
-    @Override public void onReceive(Context context, Intent intent) {
-        // Tell the loader about the change.
-        mLoader.onContentChanged();
-    }
-}
-
-/**
- * A custom Loader that loads all of the installed applications.
- */
-public static class AppListLoader extends AsyncTaskLoader&lt;List&lt;AppEntry&gt;&gt; {
-    final InterestingConfigChanges mLastConfig = new InterestingConfigChanges();
-    final PackageManager mPm;
-
-    List&lt;AppEntry&gt; mApps;
-    PackageIntentReceiver mPackageObserver;
-
-    public AppListLoader(Context context) {
-        super(context);
-
-        // Retrieve the package manager for later use; note we don't
-        // use 'context' directly but instead the save global application
-        // context returned by getContext().
-        mPm = getContext().getPackageManager();
-    }
-
-    /**
-     * This is where the bulk of our work is done.  This function is
-     * called in a background thread and should generate a new set of
-     * data to be published by the loader.
-     */
-    @Override public List&lt;AppEntry&gt; loadInBackground() {
-        // Retrieve all known applications.
-        List&lt;ApplicationInfo&gt; apps = mPm.getInstalledApplications(
-                PackageManager.GET_UNINSTALLED_PACKAGES |
-                PackageManager.GET_DISABLED_COMPONENTS);
-        if (apps == null) {
-            apps = new ArrayList&lt;ApplicationInfo&gt;();
-        }
-
-        final Context context = getContext();
-
-        // Create corresponding array of entries and load their labels.
-        List&lt;AppEntry&gt; entries = new ArrayList&lt;AppEntry&gt;(apps.size());
-        for (int i=0; i&lt;apps.size(); i++) {
-            AppEntry entry = new AppEntry(this, apps.get(i));
-            entry.loadLabel(context);
-            entries.add(entry);
-        }
-
-        // Sort the list.
-        Collections.sort(entries, ALPHA_COMPARATOR);
-
-        // Done!
-        return entries;
-    }
-
-    /**
-     * Called when there is new data to deliver to the client.  The
-     * super class will take care of delivering it; the implementation
-     * here just adds a little more logic.
-     */
-    @Override public void deliverResult(List&lt;AppEntry&gt; apps) {
-        if (isReset()) {
-            // An async query came in while the loader is stopped.  We
-            // don't need the result.
-            if (apps != null) {
-                onReleaseResources(apps);
-            }
-        }
-        List&lt;AppEntry&gt; oldApps = apps;
-        mApps = apps;
-
-        if (isStarted()) {
-            // If the Loader is currently started, we can immediately
-            // deliver its results.
-            super.deliverResult(apps);
-        }
-
-        // At this point we can release the resources associated with
-        // 'oldApps' if needed; now that the new result is delivered we
-        // know that it is no longer in use.
-        if (oldApps != null) {
-            onReleaseResources(oldApps);
-        }
-    }
-
-    /**
-     * Handles a request to start the Loader.
-     */
-    @Override protected void onStartLoading() {
-        if (mApps != null) {
-            // If we currently have a result available, deliver it
-            // immediately.
-            deliverResult(mApps);
-        }
-
-        // Start watching for changes in the app data.
-        if (mPackageObserver == null) {
-            mPackageObserver = new PackageIntentReceiver(this);
-        }
-
-        // Has something interesting in the configuration changed since we
-        // last built the app list?
-        boolean configChange = mLastConfig.applyNewConfig(getContext().getResources());
-
-        if (takeContentChanged() || mApps == null || configChange) {
-            // If the data has changed since the last time it was loaded
-            // or is not currently available, start a load.
-            forceLoad();
-        }
-    }
-
-    /**
-     * Handles a request to stop the Loader.
-     */
-    @Override protected void onStopLoading() {
-        // Attempt to cancel the current load task if possible.
-        cancelLoad();
-    }
-
-    /**
-     * Handles a request to cancel a load.
-     */
-    @Override public void onCanceled(List&lt;AppEntry&gt; apps) {
-        super.onCanceled(apps);
-
-        // At this point we can release the resources associated with 'apps'
-        // if needed.
-        onReleaseResources(apps);
-    }
-
-    /**
-     * Handles a request to completely reset the Loader.
-     */
-    @Override protected void onReset() {
-        super.onReset();
-
-        // Ensure the loader is stopped
-        onStopLoading();
-
-        // At this point we can release the resources associated with 'apps'
-        // if needed.
-        if (mApps != null) {
-            onReleaseResources(mApps);
-            mApps = null;
-        }
-
-        // Stop monitoring for changes.
-        if (mPackageObserver != null) {
-            getContext().unregisterReceiver(mPackageObserver);
-            mPackageObserver = null;
-        }
-    }
-
-    /**
-     * Helper function to take care of releasing resources associated
-     * with an actively loaded data set.
-     */
-    protected void onReleaseResources(List&lt;AppEntry&gt; apps) {
-        // For a simple List&lt;&gt; there is nothing to do.  For something
-        // like a Cursor, we would close it here.
-    }
-}</code></example></para>
-      <para tool="javadoc-to-mdoc">An example implementation of a fragment that uses the above loader to show
+ <sample external-id="71DE2ED5EAEDC15073566DF6EECD52C3" /></para><para tool="javadoc-to-mdoc">An example implementation of a fragment that uses the above loader to show
  the currently installed applications in a list is below.
 
- <sample external-id="D4465E042F27D6B667CE2413A5139397" /></para>
-      <para tool="javadoc-to-mdoc">
-        <format type="text/html">
-          <a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html" target="_blank">[Android Documentation]</a>
-        </format>
-      </para>
-    </remarks>
+ <sample external-id="D4465E042F27D6B667CE2413A5139397" /></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html" target="_blank">[Android Documentation]</a></format></para></remarks>
     <since version="Added in API level 11" />
   </Docs>
   <Members>
@@ -340,16 +50,8 @@ public static class AppListLoader extends AsyncTaskLoader&lt;List&lt;AppEntry&gt
       </Parameters>
       <Docs>
         <param name="context">To be added.</param>
-        <summary>
-        </summary>
-        <remarks>
-          <para tool="javadoc-to-mdoc" />
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#AsyncTaskLoader(android.content.Context)" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+        <summary></summary>
+        <remarks><para tool="javadoc-to-mdoc" /><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#AsyncTaskLoader(android.content.Context)" target="_blank">[Android Documentation]</a></format></para></remarks>
         <since version="Added in API level 11" />
       </Docs>
     </Member>
@@ -414,20 +116,13 @@ public static class AppListLoader extends AsyncTaskLoader&lt;List&lt;AppEntry&gt
       <Parameters />
       <Docs>
         <summary>Called on the main thread to abort a load in progress.</summary>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Called on the main thread to abort a load in progress.
+        <remarks><para tool="javadoc-to-mdoc">Called on the main thread to abort a load in progress.
 
  Override this method to abort the current invocation of <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c>
  that is running in the background on a worker thread.
 
  This method should do nothing if <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c> has not started
- running or if it has already finished.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#cancelLoadInBackground()" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+ running or if it has already finished.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#cancelLoadInBackground()" target="_blank">[Android Documentation]</a></format></para></remarks>
         <since version="Added in API level 16" />
         <altmember cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" />
       </Docs>
@@ -450,14 +145,7 @@ public static class AppListLoader extends AsyncTaskLoader&lt;List&lt;AppEntry&gt
       <Docs>
         <summary>Returns true if the current invocation of <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c> is being canceled.</summary>
         <value>To be added.</value>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Returns true if the current invocation of <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c> is being canceled.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#isLoadInBackgroundCanceled()" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns true if the current invocation of <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c> is being canceled.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#isLoadInBackgroundCanceled()" target="_blank">[Android Documentation]</a></format></para></remarks>
         <since version="Added in API level 16" />
         <altmember cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" />
       </Docs>
@@ -482,8 +170,7 @@ public static class AppListLoader extends AsyncTaskLoader&lt;List&lt;AppEntry&gt
         <summary>Called on a worker thread to perform the actual load and to return
  the result of the load operation.</summary>
         <returns>To be added.</returns>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Called on a worker thread to perform the actual load and to return
+        <remarks><para tool="javadoc-to-mdoc">Called on a worker thread to perform the actual load and to return
  the result of the load operation.
 
  Implementations should not deliver the result directly, but should return them
@@ -499,13 +186,7 @@ public static class AppListLoader extends AsyncTaskLoader&lt;List&lt;AppEntry&gt
  When the load is canceled, this method may either return normally or throw
  <c><see cref="T:Android.OS.OperationCanceledException" /></c>.  In either case, the <c><see cref="T:Android.Content.Loader" /></c> will
  call <c><see cref="!:Android.Content.AsyncTaskLoader.onCanceled(D)" /></c> to perform post-cancellation cleanup and to dispose of the
- result object, if any.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#loadInBackground()" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+ result object, if any.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#loadInBackground()" target="_blank">[Android Documentation]</a></format></para></remarks>
         <since version="Added in API level 11" />
         <exception cref="T:Android.OS.OperationCanceledException">if the load is canceled during execution.</exception>
         <altmember cref="P:Android.Content.AsyncTaskLoader.IsLoadInBackgroundCanceled" />
@@ -555,17 +236,10 @@ public static class AppListLoader extends AsyncTaskLoader&lt;List&lt;AppEntry&gt
       <Docs>
         <summary>Calls <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c>.</summary>
         <returns>To be added.</returns>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Calls <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c>.
+        <remarks><para tool="javadoc-to-mdoc">Calls <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c>.
 
  This method is reserved for use by the loader framework.
- Subclasses should override <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c> instead of this method.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#onLoadInBackground()" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+ Subclasses should override <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c> instead of this method.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#onLoadInBackground()" target="_blank">[Android Documentation]</a></format></para></remarks>
         <since version="Added in API level 11" />
         <exception cref="T:Android.OS.OperationCanceledException">if the load is canceled during execution.</exception>
         <altmember cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" />
@@ -593,16 +267,9 @@ public static class AppListLoader extends AsyncTaskLoader&lt;List&lt;AppEntry&gt
         <param name="delayMS">Amount of delay, in milliseconds.
 </param>
         <summary>Set amount to throttle updates by.</summary>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Set amount to throttle updates by.  This is the minimum time from
+        <remarks><para tool="javadoc-to-mdoc">Set amount to throttle updates by.  This is the minimum time from
  when the last <c><see cref="M:Android.Content.AsyncTaskLoader.LoadInBackground" /></c> call has completed until
- a new load is scheduled.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#setUpdateThrottle(long)" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+ a new load is scheduled.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/android/content/AsyncTaskLoader.html#setUpdateThrottle(long)" target="_blank">[Android Documentation]</a></format></para></remarks>
         <since version="Added in API level 11" />
       </Docs>
     </Member>
