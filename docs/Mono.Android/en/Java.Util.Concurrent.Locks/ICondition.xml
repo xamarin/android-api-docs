@@ -57,7 +57,44 @@
  only notifying a single thread at a time when items or spaces become
  available in the buffer. This can be achieved using two
  <c><see cref="T:Java.Util.Concurrent.Locks.ICondition" /></c> instances.
- <sample external-id="20FBAA1CD13672B4FAD99023C6CAE991" />
+ <example><code lang="java">
+ class BoundedBuffer {
+   final Lock lock = new ReentrantLock();
+   final Condition notFull  = lock.newCondition(); 
+   final Condition notEmpty = lock.newCondition(); 
+
+   final Object[] items = new Object[100];
+   int putptr, takeptr, count;
+
+   public void put(Object x) throws InterruptedException {
+     lock.lock();
+     try {
+       while (count == items.length)
+         notFull.await();
+       items[putptr] = x;
+       if (++putptr == items.length) putptr = 0;
+       ++count;
+       notEmpty.signal();} finally {
+       lock.unlock();
+     }
+   }
+
+   public Object take() throws InterruptedException {
+     lock.lock();
+     try {
+       while (count == 0)
+         notEmpty.await();
+       Object x = items[takeptr];
+       if (++takeptr == items.length) takeptr = 0;
+       --count;
+       notFull.signal();
+       return x;
+     } finally {
+       lock.unlock();
+     }
+   }
+ }
+ </code></example>
 
  (The <c><see cref="T:Java.Util.Concurrent.ArrayBlockingQueue" /></c> class provides
  this functionality, so there is no reason to implement this
@@ -213,7 +250,7 @@
         <remarks><para tool="javadoc-to-mdoc">Causes the current thread to wait until it is signalled or interrupted,
  or the specified waiting time elapses. This method is behaviorally
  equivalent to:
-  <sample external-id="A0CF15239FD6FBAEA0246337043AE9AF" /></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/locks/Condition.html#await(long, java.util.concurrent.TimeUnit)" target="_blank">[Android Documentation]</a></format></para></remarks>
+  <example><code lang="java">awaitNanos(unit.toNanos(time)) &gt; 0</code></example></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/locks/Condition.html#await(long, java.util.concurrent.TimeUnit)" target="_blank">[Android Documentation]</a></format></para></remarks>
         <since version="Added in API level 1" />
         <exception cref="T:Java.Lang.InterruptedException">if the current thread is interrupted
          (and interruption of thread suspension is supported)
@@ -280,7 +317,20 @@
  condition still does not hold. Typical uses of this method take
  the following form:
 
-  <sample external-id="23FE16722D16DEAACC6AA7CEDFA25BF3" /></para><para tool="javadoc-to-mdoc">Design note: This method requires a nanosecond argument so
+  <example><code lang="java">boolean aMethod(long timeout, TimeUnit unit) {
+   long nanos = unit.toNanos(timeout);
+   lock.lock();
+   try {
+     while (!conditionBeingWaitedFor()) {
+       if (nanos &lt;= 0L)
+         return false;
+       nanos = theCondition.awaitNanos(nanos);
+     
+     // ...
+   } finally {
+     lock.unlock();
+   }
+ }}</code></example></para><para tool="javadoc-to-mdoc">Design note: This method requires a nanosecond argument so
  as to avoid truncation errors in reporting remaining times.
  Such precision loss would make it difficult for programmers to
  ensure that total waiting times are not systematically shorter
@@ -409,7 +459,20 @@
 
  </para><para tool="javadoc-to-mdoc">The return value indicates whether the deadline has elapsed,
  which can be used as follows:
-  <sample external-id="2EB75FF1BB9C0A070D9E9941BF36F08F" /></para><para tool="javadoc-to-mdoc"><format type="text/html"><b>Implementation Considerations</b></format></para><para tool="javadoc-to-mdoc">The current thread is assumed to hold the lock associated with this
+  <example><code lang="java">boolean aMethod(Date deadline) {
+   boolean stillWaiting = true;
+   lock.lock();
+   try {
+     while (!conditionBeingWaitedFor()) {
+       if (!stillWaiting)
+         return false;
+       stillWaiting = theCondition.awaitUntil(deadline);
+     
+     // ...
+   } finally {
+     lock.unlock();
+   }
+ }}</code></example></para><para tool="javadoc-to-mdoc"><format type="text/html"><b>Implementation Considerations</b></format></para><para tool="javadoc-to-mdoc">The current thread is assumed to hold the lock associated with this
  <c>Condition</c> when this method is called.
  It is up to the implementation to determine if this is
  the case and if not, how to respond. Typically, an exception will be

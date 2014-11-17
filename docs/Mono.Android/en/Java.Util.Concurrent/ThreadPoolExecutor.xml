@@ -167,7 +167,44 @@
  override one or more of the protected hook methods. For example,
  here is a subclass that adds a simple pause/resume feature:
 
-  <sample external-id="576F127DB032755E0F0D043C1BD045B8" /></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ThreadPoolExecutor.html" target="_blank">[Android Documentation]</a></format></para></remarks>
+  <example><code lang="java">class PausableThreadPoolExecutor extends ThreadPoolExecutor {
+   private boolean isPaused;
+   private ReentrantLock pauseLock = new ReentrantLock();
+   private Condition unpaused = pauseLock.newCondition();
+
+   public PausableThreadPoolExecutor(...) { super(...); 
+
+   protected void beforeExecute(Thread t, Runnable r) {
+     super.beforeExecute(t, r);
+     pauseLock.lock();
+     try {
+       while (isPaused) unpaused.await();
+     } catch (InterruptedException ie) {
+       t.interrupt();
+     } finally {
+       pauseLock.unlock();
+     }
+   }
+
+   public void pause() {
+     pauseLock.lock();
+     try {
+       isPaused = true;
+     } finally {
+       pauseLock.unlock();
+     }
+   }
+
+   public void resume() {
+     pauseLock.lock();
+     try {
+       isPaused = false;
+       unpaused.signalAll();
+     } finally {
+       pauseLock.unlock();
+     }
+   }
+ }}</code></example></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ThreadPoolExecutor.html" target="_blank">[Android Documentation]</a></format></para></remarks>
     <since version="Added in API level 1" />
   </Docs>
   <Members>
@@ -385,7 +422,25 @@
  as in this sample subclass that prints either the direct cause
  or the underlying exception if a task has been aborted:
 
-  <sample external-id="DD78E13DBB1B88918AA78FA25671A06A" /></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ThreadPoolExecutor.html#afterExecute(java.lang.Runnable, java.lang.Throwable)" target="_blank">[Android Documentation]</a></format></para></remarks>
+  <example><code lang="java">class ExtendedExecutor extends ThreadPoolExecutor {
+   // ...
+   protected void afterExecute(Runnable r, Throwable t) {
+     super.afterExecute(r, t);
+     if (t == null &amp;&amp; r instanceof Future&lt;?&gt;) {
+       try {
+         Object result = ((Future&lt;?&gt;) r).get();
+        catch (CancellationException ce) {
+           t = ce;
+       } catch (ExecutionException ee) {
+           t = ee.getCause();
+       } catch (InterruptedException ie) {
+           Thread.currentThread().interrupt(); // ignore/reset
+       }
+     }
+     if (t != null)
+       System.out.println(t);
+   }
+ }}</code></example></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ThreadPoolExecutor.html#afterExecute(java.lang.Runnable, java.lang.Throwable)" target="_blank">[Android Documentation]</a></format></para></remarks>
         <since version="Added in API level 1" />
       </Docs>
     </Member>
@@ -576,6 +631,7 @@
  they next become idle.  If larger, new threads will, if needed,
  be started to execute any queued tasks.</para></remarks>
         <since version="Added in API level 1" />
+        <exception cref="T:Java.Lang.IllegalArgumentException">if <c>corePoolSize </c></exception>
         <exception cref="T:Java.Lang.IllegalArgumentException">if <c>corePoolSize </c></exception>
         <exception cref="T:Java.Lang.IllegalArgumentException">if <c>corePoolSize </c></exception>
         <altmember cref="P:Java.Util.Concurrent.ThreadPoolExecutor.CorePoolSize" />
@@ -779,6 +835,9 @@
         <exception cref="T:Java.Lang.IllegalArgumentException">if the new maximum is
          less than or equal to zero, or
          less than the <c><see cref="P:Java.Util.Concurrent.ThreadPoolExecutor.CorePoolSize" /></c></exception>
+        <exception cref="T:Java.Lang.IllegalArgumentException">if the new maximum is
+         less than or equal to zero, or
+         less than the <c><see cref="P:Java.Util.Concurrent.ThreadPoolExecutor.CorePoolSize" /></c></exception>
         <altmember cref="P:Java.Util.Concurrent.ThreadPoolExecutor.MaximumPoolSize" />
         <exception cref="T:Java.Lang.IllegalArgumentException">if the new maximum is
          less than or equal to zero, or
@@ -938,6 +997,7 @@
         <value>To be added.</value>
         <remarks><para tool="javadoc-to-mdoc: Get method documentation"><format type="text/html"><b>Get method documentation</b> <a href="http://developer.android.com/reference/java/util/concurrent/ThreadPoolExecutor.html#getRejectedExecutionHandler()" target="_blank">[Android Documentation]</a><br /></format>Returns the current handler for unexecutable tasks.</para><para tool="javadoc-to-mdoc: Set method documentation"><format type="text/html"><b>Set method documentation</b> <a href="http://developer.android.com/reference/java/util/concurrent/ThreadPoolExecutor.html#setRejectedExecutionHandler(java.util.concurrent.RejectedExecutionHandler)" target="_blank">[Android Documentation]</a><br /></format>Sets a new handler for unexecutable tasks.</para></remarks>
         <since version="Added in API level 1" />
+        <exception cref="T:Java.Lang.NullPointerException">if handler is null</exception>
         <exception cref="T:Java.Lang.NullPointerException">if handler is null</exception>
         <exception cref="T:Java.Lang.NullPointerException">if handler is null</exception>
         <altmember cref="P:Java.Util.Concurrent.ThreadPoolExecutor.RejectedExecutionHandler" />
@@ -1162,6 +1222,7 @@
         <value>To be added.</value>
         <remarks><para tool="javadoc-to-mdoc: Get method documentation"><format type="text/html"><b>Get method documentation</b> <a href="http://developer.android.com/reference/java/util/concurrent/ThreadPoolExecutor.html#getThreadFactory()" target="_blank">[Android Documentation]</a><br /></format>Returns the thread factory used to create new threads.</para><para tool="javadoc-to-mdoc: Set method documentation"><format type="text/html"><b>Set method documentation</b> <a href="http://developer.android.com/reference/java/util/concurrent/ThreadPoolExecutor.html#setThreadFactory(java.util.concurrent.ThreadFactory)" target="_blank">[Android Documentation]</a><br /></format>Sets the thread factory used to create new threads.</para></remarks>
         <since version="Added in API level 1" />
+        <exception cref="T:Java.Lang.NullPointerException">if threadFactory is null</exception>
         <exception cref="T:Java.Lang.NullPointerException">if threadFactory is null</exception>
         <exception cref="T:Java.Lang.NullPointerException">if threadFactory is null</exception>
         <altmember cref="P:Java.Util.Concurrent.ThreadPoolExecutor.ThreadFactory" />

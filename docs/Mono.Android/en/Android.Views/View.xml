@@ -37,7 +37,7 @@
  assigned in the layout XML files, and are used to find specific views within
  the view tree. A common pattern is to:
  <list type="bullet"><item><term>Define a Button in the layout file and assign it a unique ID.
- <example><code lang="XML">
+ <example><code lang="xml">
  &lt;Button
      android:id="@+id/my_button"
      android:layout_width="wrap_content"
@@ -3856,7 +3856,51 @@
  that it hides and shows.  This can be used with code like the second
  sample (video player) shown in <c><see cref="P:Android.Views.View.SystemUiVisibility" /></c>.
 
- <sample external-id="1C2764B10350CCEA0A65B425D9DC24DA" /></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/android/view/View.html#fitSystemWindows(android.graphics.Rect)" target="_blank">[Android Documentation]</a></format></para></remarks>
+ <example><code lang="xml">&lt;FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    &gt;
+    &lt;view class="com.example.android.apis.view.VideoPlayerActivity$Content"
+        android:id="@+id/content"
+        android:src="@drawable/frantic"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="center"
+        /&gt;
+    &lt;FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fitsSystemWindows="true"
+        android:animateLayoutChanges="true"
+        &gt;
+        &lt;TextView
+            android:id="@+id/title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:textColor="#ffffffff"
+            android:background="#a0000000"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:gravity="left"
+            android:padding="16dp"
+            android:text="A title goes here"
+            /&gt;
+        &lt;Button
+            android:id="@+id/play"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:textSize="28dp"
+            /&gt;
+        &lt;SeekBar
+            android:id="@+id/seekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="16dp"
+            /&gt;
+    &lt;/FrameLayout&gt;
+&lt;/FrameLayout&gt;</code></example></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/android/view/View.html#fitSystemWindows(android.graphics.Rect)" target="_blank">[Android Documentation]</a></format></para></remarks>
         <since version="Added in API level 1" />
         <altmember cref="P:Android.Views.View.FitsSystemWindows" />
         <altmember cref="M:Android.Views.View.SetFitsSystemWindows(System.Boolean)" />
@@ -7568,7 +7612,25 @@
         <summary>Implement this method to handle generic motion events.</summary>
         <returns>To be added.</returns>
         <remarks><para tool="javadoc-to-mdoc">Implement this method to handle generic motion events.
- <sample external-id="57655AD483BC8F64E095A791B28AAB8E" /></para><para tool="javadoc-to-mdoc">
+ <example><code lang="java"> public boolean onGenericMotionEvent(MotionEvent event) {
+     if (event.isFromSource(InputDevice.SOURCE_CLASS_JOYSTICK)) {
+         if (event.getAction() == MotionEvent.ACTION_MOVE) {
+             // process the joystick movement...
+             return true;
+         }
+     }
+     if (event.isFromSource(InputDevice.SOURCE_CLASS_POINTER)) {
+         switch (event.getAction()) {
+             case MotionEvent.ACTION_HOVER_MOVE:
+                 // process the mouse hover movement...
+                 return true;
+             case MotionEvent.ACTION_SCROLL:
+                 // process the scroll wheel movement...
+                 return true;
+         }
+     }
+     return super.onGenericMotionEvent(event);
+ }</code></example></para><para tool="javadoc-to-mdoc">
  Generic motion events describe joystick movements, mouse hovers, track pad
  touches, scroll wheel movements and other input events.  The
  <c><see cref="P:Android.Views.MotionEvent.Source" /></c> of the motion event specifies
@@ -13158,7 +13220,105 @@
  check information in the status bar or access notifications).  In the
  implementation here, this is done simply by tapping on the content.
 
- <sample external-id="A34872973BE61F046E113A7DF7FC66FD" />This second code sample shows a typical implementation of a View
+ <example><code lang="java">public static class Content extends ScrollView
+        implements View.OnSystemUiVisibilityChangeListener, View.OnClickListener {
+    TextView mText;
+    TextView mTitleView;
+    SeekBar mSeekView;
+    boolean mNavVisible;
+    int mBaseSystemUiVisibility = SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            | SYSTEM_UI_FLAG_LAYOUT_STABLE;
+    int mLastSystemUiVis;
+
+    Runnable mNavHider = new Runnable() {
+        @Override public void run() {
+            setNavVisibility(false);
+        }
+    };
+
+    public Content(Context context, AttributeSet attrs) {
+        super(context, attrs);
+
+        mText = new TextView(context);
+        mText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        mText.setText(context.getString(R.string.alert_dialog_two_buttons2ultra_msg));
+        mText.setClickable(false);
+        mText.setOnClickListener(this);
+        mText.setTextIsSelectable(true);
+        addView(mText, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        setOnSystemUiVisibilityChangeListener(this);
+    }
+
+    public void init(TextView title, SeekBar seek) {
+        // This called by the containing activity to supply the surrounding
+        // state of the content browser that it will interact with.
+        mTitleView = title;
+        mSeekView = seek;
+        setNavVisibility(true);
+    }
+
+    @Override public void onSystemUiVisibilityChange(int visibility) {
+        // Detect when we go out of low-profile mode, to also go out
+        // of full screen.  We only do this when the low profile mode
+        // is changing from its last state, and turning off.
+        int diff = mLastSystemUiVis ^ visibility;
+        mLastSystemUiVis = visibility;
+        if ((diff&amp;SYSTEM_UI_FLAG_LOW_PROFILE) != 0
+                &amp;&amp; (visibility&amp;SYSTEM_UI_FLAG_LOW_PROFILE) == 0) {
+            setNavVisibility(true);
+        }
+    }
+
+    @Override protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+
+        // When we become visible, we show our navigation elements briefly
+        // before hiding them.
+        setNavVisibility(true);
+        getHandler().postDelayed(mNavHider, 2000);
+    }
+
+    @Override protected void onScrollChanged(int l, int t, int oldl, int oldt) {
+        super.onScrollChanged(l, t, oldl, oldt);
+
+        // When the user scrolls, we hide navigation elements.
+        setNavVisibility(false);
+    }
+
+    @Override public void onClick(View v) {
+        // When the user clicks, we toggle the visibility of navigation elements.
+        int curVis = getSystemUiVisibility();
+        setNavVisibility((curVis&amp;SYSTEM_UI_FLAG_LOW_PROFILE) != 0);
+    }
+
+    void setBaseSystemUiVisibility(int visibility) {
+        mBaseSystemUiVisibility = visibility;
+    }
+
+    void setNavVisibility(boolean visible) {
+        int newVis = mBaseSystemUiVisibility;
+        if (!visible) {
+            newVis |= SYSTEM_UI_FLAG_LOW_PROFILE | SYSTEM_UI_FLAG_FULLSCREEN;
+        }
+        final boolean changed = newVis == getSystemUiVisibility();
+
+        // Unschedule any pending event to hide navigation if we are
+        // changing the visibility, or making the UI visible.
+        if (changed || visible) {
+            Handler h = getHandler();
+            if (h != null) {
+                h.removeCallbacks(mNavHider);
+            }
+        }
+
+        // Set the new desired visibility.
+        setSystemUiVisibility(newVis);
+        mTitleView.setVisibility(visible ? VISIBLE : INVISIBLE);
+        mSeekView.setVisibility(visible ? VISIBLE : INVISIBLE);
+    }
+}</code></example>This second code sample shows a typical implementation of a View
  in a video playing application.  In this situation, while the video is
  playing the application would like to go into a complete full-screen mode,
  to use as much of the display as possible for the video.  When in this state
@@ -13166,7 +13326,127 @@
  touching on the screen to pop the UI out of full screen mode.  See
  <c><see cref="M:Android.Views.View.FitSystemWindows(Android.Graphics.Rect)" /></c> for a sample layout that goes with this code.
 
- <sample external-id="6F3459C91F61776217589557CD648858" /></para><para tool="javadoc-to-mdoc" /><para tool="javadoc-to-mdoc" /><para tool="javadoc-to-mdoc" /><para tool="javadoc-to-mdoc" /></remarks>
+ <example><code lang="java">public static class Content extends ImageView implements
+        View.OnSystemUiVisibilityChangeListener, View.OnClickListener,
+        ActionBar.OnMenuVisibilityListener {
+    Activity mActivity;
+    TextView mTitleView;
+    Button mPlayButton;
+    SeekBar mSeekView;
+    boolean mAddedMenuListener;
+    boolean mMenusOpen;
+    boolean mPaused;
+    boolean mNavVisible;
+    int mLastSystemUiVis;
+
+    Runnable mNavHider = new Runnable() {
+        @Override public void run() {
+            setNavVisibility(false);
+        }
+    };
+
+    public Content(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        setOnSystemUiVisibilityChangeListener(this);
+        setOnClickListener(this);
+    }
+
+    public void init(Activity activity, TextView title, Button playButton,
+            SeekBar seek) {
+        // This called by the containing activity to supply the surrounding
+        // state of the video player that it will interact with.
+        mActivity = activity;
+        mTitleView = title;
+        mPlayButton = playButton;
+        mSeekView = seek;
+        mPlayButton.setOnClickListener(this);
+        setPlayPaused(true);
+    }
+
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (mActivity != null) {
+            mAddedMenuListener = true;
+            mActivity.getActionBar().addOnMenuVisibilityListener(this);
+        }
+    }
+
+    @Override protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (mAddedMenuListener) {
+            mActivity.getActionBar().removeOnMenuVisibilityListener(this);
+        }
+    }
+
+    @Override public void onSystemUiVisibilityChange(int visibility) {
+        // Detect when we go out of nav-hidden mode, to clear our state
+        // back to having the full UI chrome up.  Only do this when
+        // the state is changing and nav is no longer hidden.
+        int diff = mLastSystemUiVis ^ visibility;
+        mLastSystemUiVis = visibility;
+        if ((diff&amp;SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0
+                &amp;&amp; (visibility&amp;SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
+            setNavVisibility(true);
+        }
+    }
+
+    @Override protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+
+        // When we become visible or invisible, play is paused.
+        setPlayPaused(true);
+    }
+
+    @Override public void onClick(View v) {
+        if (v == mPlayButton) {
+            // Clicking on the play/pause button toggles its state.
+            setPlayPaused(!mPaused);
+        } else {
+            // Clicking elsewhere makes the navigation visible.
+            setNavVisibility(true);
+        }
+    }
+
+    @Override public void onMenuVisibilityChanged(boolean isVisible) {
+        mMenusOpen = isVisible;
+        setNavVisibility(true);
+    }
+
+    void setPlayPaused(boolean paused) {
+        mPaused = paused;
+        mPlayButton.setText(paused ? R.string.play : R.string.pause);
+        setKeepScreenOn(!paused);
+        setNavVisibility(true);
+    }
+
+    void setNavVisibility(boolean visible) {
+        int newVis = SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | SYSTEM_UI_FLAG_LAYOUT_STABLE;
+        if (!visible) {
+            newVis |= SYSTEM_UI_FLAG_LOW_PROFILE | SYSTEM_UI_FLAG_FULLSCREEN
+                    | SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+        }
+
+        // If we are now visible, schedule a timer for us to go invisible.
+        if (visible) {
+            Handler h = getHandler();
+            if (h != null) {
+                h.removeCallbacks(mNavHider);
+                if (!mMenusOpen &amp;&amp; !mPaused) {
+                    // If the menus are open or play is paused, we will not auto-hide.
+                    h.postDelayed(mNavHider, 3000);
+                }
+            }
+        }
+
+        // Set the new desired visibility.
+        setSystemUiVisibility(newVis);
+        mTitleView.setVisibility(visible ? VISIBLE : INVISIBLE);
+        mPlayButton.setVisibility(visible ? VISIBLE : INVISIBLE);
+        mSeekView.setVisibility(visible ? VISIBLE : INVISIBLE);
+    }
+}</code></example></para><para tool="javadoc-to-mdoc" /><para tool="javadoc-to-mdoc" /><para tool="javadoc-to-mdoc" /><para tool="javadoc-to-mdoc" /></remarks>
         <since version="Added in API level 11" />
       </Docs>
     </Member>

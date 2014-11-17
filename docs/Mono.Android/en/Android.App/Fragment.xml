@@ -98,92 +98,173 @@
  at a simple program consisting of a list of items, and display of the
  details of each item.</para><para tool="javadoc-to-mdoc">An activity's layout XML can include <c>&lt;fragment&gt;</c> tags
  to embed fragment instances inside of the layout.  For example, here is
- a simple layout that embeds one fragment:</para><example><code lang="XML">&lt;FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+ a simple layout that embeds one fragment:</para><example><code lang="xml">&lt;FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"&gt;
     &lt;fragment class="com.example.android.apis.app.FragmentLayout$TitlesFragment"
             android:id="@+id/titles"
             android:layout_width="match_parent" android:layout_height="match_parent" /&gt;
-&lt;/FrameLayout&gt;</code></example><para tool="javadoc-to-mdoc">The layout is installed in the activity in the normal way:<example><code lang="C#">protected override void OnCreate(Bundle savedInstanceState) {
-  base.OnCreate(savedInstanceState);
+&lt;/FrameLayout&gt;</code></example><para tool="javadoc-to-mdoc">The layout is installed in the activity in the normal way:<example><code lang="java">@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
 
-  SetContentView(Resource.Layout.fragment_layout);
+    setContentView(R.layout.fragment_layout);
 }</code></example></para><para tool="javadoc-to-mdoc">The titles fragment, showing a list of titles, is fairly simple, relying
  on <c><see cref="T:Android.App.ListFragment" /></c> for most of its work.  Note the implementation of
  clicking an item: depending on the current activity's layout, it can either
  create and display a new fragment to show the details in-place (more about
- this later), or start a new activity to show the details.</para><sample external-id="E87A56956743C5FE21DB7958E012346F" /><para tool="javadoc-to-mdoc">The details fragment showing the contents of a selected item just
+ this later), or start a new activity to show the details.</para><example><code lang="java">public static class TitlesFragment extends ListFragment {
+    boolean mDualPane;
+    int mCurCheckPosition = 0;
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+
+        // Populate list with our static array of titles.
+        setListAdapter(new ArrayAdapter&lt;String&gt;(getActivity(),
+                android.R.layout.simple_list_item_activated_1, Shakespeare.TITLES));
+
+        // Check to see if we have a frame in which to embed the details
+        // fragment directly in the containing UI.
+        View detailsFrame = getActivity().findViewById(R.id.details);
+        mDualPane = detailsFrame != null &amp;&amp; detailsFrame.getVisibility() == View.VISIBLE;
+
+        if (savedInstanceState != null) {
+            // Restore last state for checked position.
+            mCurCheckPosition = savedInstanceState.getInt("curChoice", 0);
+        }
+
+        if (mDualPane) {
+            // In dual-pane mode, the list view highlights the selected item.
+            getListView().setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+            // Make sure our UI is in the correct state.
+            showDetails(mCurCheckPosition);
+        }
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt("curChoice", mCurCheckPosition);
+    }
+
+    @Override
+    public void onListItemClick(ListView l, View v, int position, long id) {
+        showDetails(position);
+    }
+
+    /**
+     * Helper function to show the details of a selected item, either by
+     * displaying a fragment in-place in the current UI, or starting a
+     * whole new activity in which it is displayed.
+     */
+    void showDetails(int index) {
+        mCurCheckPosition = index;
+
+        if (mDualPane) {
+            // We can display everything in-place with fragments, so update
+            // the list to highlight the selected item and show the data.
+            getListView().setItemChecked(index, true);
+
+            // Check what fragment is currently shown, replace if needed.
+            DetailsFragment details = (DetailsFragment)
+                    getFragmentManager().findFragmentById(R.id.details);
+            if (details == null || details.getShownIndex() != index) {
+                // Make new fragment to show this selection.
+                details = DetailsFragment.newInstance(index);
+
+                // Execute a transaction, replacing any existing fragment
+                // with this one inside the frame.
+                FragmentTransaction ft = getFragmentManager().beginTransaction();
+                if (index == 0) {
+                    ft.replace(R.id.details, details);
+                } else {
+                    ft.replace(R.id.a_item, details);
+                }
+                ft.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE);
+                ft.commit();
+            }
+
+        } else {
+            // Otherwise we need to launch a new activity to display
+            // the dialog fragment with selected text.
+            Intent intent = new Intent();
+            intent.setClass(getActivity(), DetailsActivity.class);
+            intent.putExtra("index", index);
+            startActivity(intent);
+        }
+    }
+}</code></example><para tool="javadoc-to-mdoc">The details fragment showing the contents of a selected item just
  displays a string of text based on an index of a string array built in to
- the app:<example><code lang="C#">public class DetailsFragment : Fragment
-{
-  /**
-   * Create a new instance of DetailsFragment, initialized to
-   * show the text at 'index'.
-   */
-  public static DetailsFragment NewInstance(int index)
-  {
-    DetailsFragment f = new DetailsFragment();
+ the app:<example><code lang="java">public static class DetailsFragment extends Fragment {
+    /**
+     * Create a new instance of DetailsFragment, initialized to
+     * show the text at 'index'.
+     */
+    public static DetailsFragment newInstance(int index) {
+        DetailsFragment f = new DetailsFragment();
 
-    // Supply index input as an argument.
-    Bundle args = new Bundle();
-    args.PutInt("index", index);
-    f.Arguments = args;
+        // Supply index input as an argument.
+        Bundle args = new Bundle();
+        args.putInt("index", index);
+        f.setArguments(args);
 
-    return f;
-  }
-
-  public int ShownIndex {
-    get {
-      return this.Arguments.GetInt("index", 0);
-    }
-  }
-
-  public override View OnCreateView(LayoutInflater inflater, ViewGroup container,
-                                    Bundle bundle) {
-    if (container == null) {
-      // We have different layouts, and in one of them this
-      // fragment's containing frame doesn't exist.  The fragment
-      // may still be created from its saved state, but there is
-      // no reason to try to create its view hierarchy because it
-      // won't be displayed.  Note this is not needed -- we could
-      // just run the code below, where we would create and return
-      // the view hierarchy; it would just never be used.
-      return null;
+        return f;
     }
 
-    ScrollView scroller = new ScrollView(this.Activity);
-    TextView text = new TextView(this.Activity);
-    // This ComplexUnitType is in a different location than Android's.
-    int padding = (int)TypedValue.ApplyDimension(ComplexUnitType.Dip,
-                                                 4, this.Activity.Resources.DisplayMetrics);
-    text.SetPadding(padding, padding, padding, padding);
-    scroller.AddView(text);
-    text.SetText(Shakespeare.Dialogue[this.ShownIndex()]);
-    return scroller;
-  }
+    public int getShownIndex() {
+        return getArguments().getInt("index", 0);
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+            Bundle savedInstanceState) {
+        if (container == null) {
+            // We have different layouts, and in one of them this
+            // fragment's containing frame doesn't exist.  The fragment
+            // may still be created from its saved state, but there is
+            // no reason to try to create its view hierarchy because it
+            // won't be displayed.  Note this is not needed -- we could
+            // just run the code below, where we would create and return
+            // the view hierarchy; it would just never be used.
+            return null;
+        }
+
+        ScrollView scroller = new ScrollView(getActivity());
+        TextView text = new TextView(getActivity());
+        int padding = (int)TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                4, getActivity().getResources().getDisplayMetrics());
+        text.setPadding(padding, padding, padding, padding);
+        scroller.addView(text);
+        text.setText(Shakespeare.DIALOGUE[getShownIndex()]);
+        return scroller;
+    }
 }</code></example></para><para tool="javadoc-to-mdoc">In this case when the user clicks on a title, there is no details
  container in the current activity, so the titles fragment's click code will
- launch a new activity to display the details fragment:<example><code lang="C#">public class DetailsActivity : Activity
-{
-  protected overrid void OnCreate(Bundle savedInstanceState) {
-    base.OnCreate (savedInstanceState);
+ launch a new activity to display the details fragment:<example><code lang="java">public static class DetailsActivity extends Activity {
 
-    if (this.Resources.Configuration.Orientation.Equals(Orientation.Horizontal)){
-      // If the screen is now in landscape mode, we can show the
-      // dialog in-line with the list so we don't need this activity.
-      Finish();
-      return;
-    }
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-    if (savedInstanceState == null) {
-      // During initial setup, plug in the details fragment.
-      DetailsFragment details = new DetailsFragment();
-      details.Arguments = this.Intent.Extras;
-      this.FragmentManager.BeginTransaction().Add(Resource.Id.content, details);
+        if (getResources().getConfiguration().orientation
+                == Configuration.ORIENTATION_LANDSCAPE) {
+            // If the screen is now in landscape mode, we can show the
+            // dialog in-line with the list so we don't need this activity.
+            finish();
+            return;
+        }
+
+        if (savedInstanceState == null) {
+            // During initial setup, plug in the details fragment.
+            DetailsFragment details = new DetailsFragment();
+            details.setArguments(getIntent().getExtras());
+            getFragmentManager().beginTransaction().add(android.R.id.content, details).commit();
+        }
     }
-  }
 }</code></example></para><para tool="javadoc-to-mdoc">However the screen may be large enough to show both the list of titles
  and details about the currently selected title.  To use such a layout on
- a landscape screen, this alternative layout can be placed under layout-land:<example><code lang="XML">&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+ a landscape screen, this alternative layout can be placed under layout-land:<example><code lang="xml">&lt;LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="horizontal"
     android:layout_width="match_parent" android:layout_height="match_parent"&gt;
 
@@ -233,19 +314,20 @@
  the activity itself is finished.
 
  </para><para tool="javadoc-to-mdoc">For example, consider this simple fragment that is instantiated with
- an integer argument and displays that in a TextView in its UI:<example><code lang="C#">namespace CodeSnippets
-{
-	public class CountingFragment : Fragment
-	{
+ an integer argument and displays that in a TextView in its UI:<example><code lang="java">public static class CountingFragment extends Fragment {
     int mNum;
 
-    public static CountingFragment NewInstance(int num) {
+    /**
+     * Create a new instance of CountingFragment, providing "num"
+     * as an argument.
+     */
+    static CountingFragment newInstance(int num) {
         CountingFragment f = new CountingFragment();
 
         // Supply num input as an argument.
         Bundle args = new Bundle();
-        args.PutInt("num", num);
-        f.Arguments = args;
+        args.putInt("num", num);
+        f.setArguments(args);
 
         return f;
     }
@@ -253,45 +335,42 @@
     /**
      * When creating, retrieve this instance's number from its arguments.
      */
-    public override void OnCreate(Bundle savedInstanceState) {
-        base.OnCreate(savedInstanceState);
-        mNum = this.Arguments != null ? this.Arguments.GetInt("num") : 1;
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mNum = getArguments() != null ? getArguments().getInt("num") : 1;
     }
 
     /**
      * The Fragment's UI is just a simple text view showing its
      * instance number.
      */
-    public override View OnCreateView(LayoutInflater inflater, ViewGroup container,
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        View v = inflater.Inflate(Resource.Layout.hello_world, container, false);
-        View tv = v.FindViewById(Resource.Id.text);
-        ((TextView)tv).SetText("Fragment #" + mNum, TextView.BufferType.Normal);
-        tv.SetBackgroundDrawable(this.Resources.GetDrawable(Resource.Drawable.gallery_thumb));
+        View v = inflater.inflate(R.layout.hello_world, container, false);
+        View tv = v.findViewById(R.id.text);
+        ((TextView)tv).setText("Fragment #" + mNum);
+        tv.setBackgroundDrawable(getResources().getDrawable(android.R.drawable.gallery_thumb));
         return v;
     }
-
-
-	}
 }</code></example></para><para tool="javadoc-to-mdoc">A function that creates a new instance of the fragment, replacing
  whatever current fragment instance is being shown and pushing that change
  on to the back stack could be written as:
 
- <example><code lang="C#">public void AddFragmentToStack() {
-  mStackLevel++;
+ <example><code lang="java">void addFragmentToStack() {
+    mStackLevel++;
 
-  // Instantiate a new fragment.
-  Fragment newFragment = CountingFragment.NewInstance(mStackLevel);
+    // Instantiate a new fragment.
+    Fragment newFragment = CountingFragment.newInstance(mStackLevel);
 
-  // Add the fragment to the activity, pushing this transaction
-  // onto the back stack.
-  FragmentTransaction ft = this.FragmentManager.BeginTransaction();
-  ft.Replace(Resource.Id.simple_fragment, newFragment);
-  ft.SetTransition(FragmentTransit.FragmentOpen);
-  ft.AddToBackStack(null);
-  ft.Commit();
-
-
+    // Add the fragment to the activity, pushing this transaction
+    // on to the back stack.
+    FragmentTransaction ft = getFragmentManager().beginTransaction();
+    ft.replace(R.id.simple_fragment, newFragment);
+    ft.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
+    ft.addToBackStack(null);
+    ft.commit();
 }</code></example></para><para tool="javadoc-to-mdoc">After each call to this function, a new entry is on the stack, and
  pressing back will pop it to return the user to whatever previous state
  the activity UI was in.
@@ -1525,80 +1604,76 @@
  <c><see cref="M:Android.App.Fragment.OnAttach(Android.App.Activity)" /></c> has been called; all you should do here is
  parse the attributes and save them away.
 
- <example><code lang="C#">public class MyFragment : Fragment
-{
-  string mLabel;
+ <example><code lang="java">public static class MyFragment extends Fragment {
+    CharSequence mLabel;
 
-  /**
-   * Create a new instance of MyFragment that will be initialized
-   * with the given arguments.
-   **/
-  static MyFragment NewInstance(ICharSequence label) {
-    MyFragment f = new MyFragment();
-    Bundle b = new Bundle();
-    b.PutCharSequence("label", label);
-    f.Arguments =  b;
-    return f;
-  }
-
-  /**
-   * Parse attributes during inflation from a view hierarchy into the
-   * arguments we handle.
-   */
-  public override void OnInflate(Activity activity, IAttributeSet attrs, Bundle bundle) {
-    base.OnInflate(activity, attrs, bundle);
-
-
-    TypedArray a = activity.ObtainStyledAttributes(attrs, Resource.styleable.FragmentArguments);
-    mLabel = a.getText(Resource.styleable.FragmentArguments_android_label);
-    a.Recycle();
-  }
-
-  /**
-   * During creation, if arguments have been supplied to the fragment
-   * then parse those out.
-   */
-
-  public override void OnCreate(Bundle bundle) {
-    base.OnCreate(bundle);
-
-    Bundle args = this.Arguments;
-    if (args != null) {
-      mLabel = args.GetCharSequence("label", mLabel);
+    /**
+     * Create a new instance of MyFragment that will be initialized
+     * with the given arguments.
+     */
+    static MyFragment newInstance(CharSequence label) {
+        MyFragment f = new MyFragment();
+        Bundle b = new Bundle();
+        b.putCharSequence("label", label);
+        f.setArguments(b);
+        return f;
     }
 
-  }
+    /**
+     * Parse attributes during inflation from a view hierarchy into the
+     * arguments we handle.
+     */
+    @Override public void onInflate(Activity activity, AttributeSet attrs,
+            Bundle savedInstanceState) {
+        super.onInflate(activity, attrs, savedInstanceState);
 
-  /**
-   * Create the view for this fragment, using the arguments given to it.
-   */
+        TypedArray a = activity.obtainStyledAttributes(attrs,
+                R.styleable.FragmentArguments);
+        mLabel = a.getText(R.styleable.FragmentArguments_android_label);
+        a.recycle();
+    }
 
-  public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-    View v = inflater.Inflate(Resource.Layout.hello_world, container, false);
-    View tv = v.FindViewById(Resource.Id.text);
-    ((TextView)tv).SetText(mLabel != null ? mLabel : "(no label)", TextView.BufferType.Editable);
-    tv.SetBackgroundDrawable(this.Resources.GetDrawable(Android.Resource.Drawable.gallery_thumb));
-    return v;
+    /**
+     * During creation, if arguments have been supplied to the fragment
+     * then parse those out.
+     */
+    @Override public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-  }
+        Bundle args = getArguments();
+        if (args != null) {
+            mLabel = args.getCharSequence("label", mLabel);
+        }
+    }
 
-}</code></example><example><code lang="XML">&lt;declare-styleable name="FragmentArguments"&gt;
+    /**
+     * Create the view for this fragment, using the arguments given to it.
+     */
+    @Override public View onCreateView(LayoutInflater inflater, ViewGroup container,
+            Bundle savedInstanceState) {
+        View v = inflater.inflate(R.layout.hello_world, container, false);
+        View tv = v.findViewById(R.id.text);
+        ((TextView)tv).setText(mLabel != null ? mLabel : "(no label)");
+        tv.setBackgroundDrawable(getResources().getDrawable(android.R.drawable.gallery_thumb));
+        return v;
+    }
+}</code></example><example><code lang="xml">&lt;declare-styleable name="FragmentArguments"&gt;
     &lt;attr name="android:label" /&gt;
-&lt;/declare-styleable&gt;</code></example><example><code lang="XML">&lt;fragment class="com.example.android.apis.app.FragmentArguments$MyFragment"
+&lt;/declare-styleable&gt;</code></example><example><code lang="xml">&lt;fragment class="com.example.android.apis.app.FragmentArguments$MyFragment"
         android:id="@+id/embedded"
         android:layout_width="0px" android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:label="@string/fragment_arguments_embedded" /&gt;</code></example><example><code lang="C#">protected override void OnCreate(Bundle savedInstanceState) {
-  base.OnCreate(savedInstanceState);
-  SetContentView(Resource.Layout.fragment_arguments);
+        android:label="@string/fragment_arguments_embedded" /&gt;</code></example><example><code lang="java">@Override protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.fragment_arguments);
 
-  if (bundle == null) {
-    // First-time init; create fragment to embed in activity.
-    FragmentTransaction ft = this.FragmentManager.BeginTransaction();
-    Fragment newFragment = MyFragment.NewInstance("From Arguments");
-    ft.Add(Resource.Id.created, newFragment);
-    ft.Commit();
-  }
+    if (savedInstanceState == null) {
+        // First-time init; create fragment to embed in activity.
+        FragmentTransaction ft = getFragmentManager().beginTransaction();
+        Fragment newFragment = MyFragment.newInstance("From Arguments");
+        ft.add(R.id.created, newFragment);
+        ft.commit();
+    }
 }</code></example></fragment></format></para><para tool="javadoc-to-mdoc">This is called every time the fragment is inflated, even if it is
  being inflated into a new instance with saved state.  It typically makes
  sense to re-parse the parameters each time, to allow them to change with

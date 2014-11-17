@@ -48,14 +48,61 @@
  until the driver is ready for them to proceed;
  </term></item><item><term>The second is a completion signal that allows the driver to wait
  until all workers have completed.
- </term></item></list><sample external-id="247D028BC1385A42689384A30AD21283" /></para><para tool="javadoc-to-mdoc">Another typical usage would be to divide a problem into N parts,
+ </term></item></list><example><code lang="java">class Driver { // ...
+   void main() throws InterruptedException {
+     CountDownLatch startSignal = new CountDownLatch(1);
+     CountDownLatch doneSignal = new CountDownLatch(N);
+
+     for (int i = 0; i 
+ }
+
+ class Worker implements Runnable {
+   private final CountDownLatch startSignal;
+   private final CountDownLatch doneSignal;
+   Worker(CountDownLatch startSignal, CountDownLatch doneSignal) {
+     this.startSignal = startSignal;
+     this.doneSignal = doneSignal;
+   }
+   public void run() {
+     try {
+       startSignal.await();
+       doWork();
+       doneSignal.countDown();
+     } catch (InterruptedException ex) {} // return;
+   }
+
+   void doWork() { ... }
+ }}</code></example></para><para tool="javadoc-to-mdoc">Another typical usage would be to divide a problem into N parts,
  describe each part with a Runnable that executes that portion and
  counts down on the latch, and queue all the Runnables to an
  Executor.  When all sub-parts are complete, the coordinating thread
  will be able to pass through await. (When threads must repeatedly
  count down in this way, instead use a <c><see cref="T:Java.Util.Concurrent.CyclicBarrier" /></c>.)
 
-  <sample external-id="57C8F895A007E4D71CBFAD1D744E9D61" /></para><para tool="javadoc-to-mdoc">Memory consistency effects: Until the count reaches
+  <example><code lang="java">class Driver2 { // ...
+   void main() throws InterruptedException {
+     CountDownLatch doneSignal = new CountDownLatch(N);
+     Executor e = ...
+
+     for (int i = 0; i 
+ }
+
+ class WorkerRunnable implements Runnable {
+   private final CountDownLatch doneSignal;
+   private final int i;
+   WorkerRunnable(CountDownLatch doneSignal, int i) {
+     this.doneSignal = doneSignal;
+     this.i = i;
+   }
+   public void run() {
+     try {
+       doWork(i);
+       doneSignal.countDown();
+     } catch (InterruptedException ex) {} // return;
+   }
+
+   void doWork() { ... }
+ }}</code></example></para><para tool="javadoc-to-mdoc">Memory consistency effects: Until the count reaches
  zero, actions in a thread prior to calling
  <c>countDown()</c>
  actions following a successful return from a corresponding

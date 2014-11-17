@@ -102,7 +102,17 @@
  does not automatically enforce FIFO acquisition policies.  The core
  of exclusive synchronization takes the form:
 
- <sample external-id="261C90EBAE781CD1D882860A31604222" />
+ <example><code lang="java">
+ Acquire:
+     while (!tryAcquire(arg)) {
+        enqueue thread if it is not already queued;
+        possibly block current thread;
+     }
+
+ Release:
+     if (tryRelease(arg))
+        unblock the first queued thread;
+ </code></example>
 
  (Shared mode is similar but may involve cascading signals.)
 
@@ -154,13 +164,89 @@
  It also supports conditions and exposes
  one of the instrumentation methods:
 
-  <sample external-id="37812F006FD3E7B7D50C0572257BFC07" /></para><para tool="javadoc-to-mdoc">Here is a latch class that is like a
+  <example><code lang="java">class Mutex implements Lock, java.io.Serializable {
+
+   // Our internal helper class
+   private static class Sync extends AbstractQueuedSynchronizer {
+     // Reports whether in locked state
+     protected boolean isHeldExclusively() {
+       return getState() == 1;
+     
+
+     // Acquires the lock if state is zero
+     public boolean tryAcquire(int acquires) {
+       assert acquires == 1; // Otherwise unused
+       if (compareAndSetState(0, 1)) {
+         setExclusiveOwnerThread(Thread.currentThread());
+         return true;
+       }
+       return false;
+     }
+
+     // Releases the lock by setting state to zero
+     protected boolean tryRelease(int releases) {
+       assert releases == 1; // Otherwise unused
+       if (getState() == 0) throw new IllegalMonitorStateException();
+       setExclusiveOwnerThread(null);
+       setState(0);
+       return true;
+     }
+
+     // Provides a Condition
+     Condition newCondition() { return new ConditionObject(); }
+
+     // Deserializes properly
+     private void readObject(ObjectInputStream s)
+         throws IOException, ClassNotFoundException {
+       s.defaultReadObject();
+       setState(0); // reset to unlocked state
+     }
+   }
+
+   // The sync object does all the hard work. We just forward to it.
+   private final Sync sync = new Sync();
+
+   public void lock()                { sync.acquire(1); }
+   public boolean tryLock()          { return sync.tryAcquire(1); }
+   public void unlock()              { sync.release(1); }
+   public Condition newCondition()   { return sync.newCondition(); }
+   public boolean isLocked()         { return sync.isHeldExclusively(); }
+   public boolean hasQueuedThreads() { return sync.hasQueuedThreads(); }
+   public void lockInterruptibly() throws InterruptedException {
+     sync.acquireInterruptibly(1);
+   }
+   public boolean tryLock(long timeout, TimeUnit unit)
+       throws InterruptedException {
+     return sync.tryAcquireNanos(1, unit.toNanos(timeout));
+   }
+ }}</code></example></para><para tool="javadoc-to-mdoc">Here is a latch class that is like a
  <c><see cref="T:Java.Util.Concurrent.CountDownLatch" /></c>
  except that it only requires a single <c>signal</c> to
  fire. Because a latch is non-exclusive, it uses the <c>shared</c>
  acquire and release methods.
 
-  <sample external-id="174DD91F12E3FCE417416453D037EEEF" /></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/locks/AbstractQueuedSynchronizer.html" target="_blank">[Android Documentation]</a></format></para></remarks>
+  <example><code lang="java">class BooleanLatch {
+
+   private static class Sync extends AbstractQueuedSynchronizer {
+     boolean isSignalled() { return getState() != 0; 
+
+     protected int tryAcquireShared(int ignore) {
+       return isSignalled() ? 1 : -1;
+     }
+
+     protected boolean tryReleaseShared(int ignore) {
+       setState(1);
+       return true;
+     }
+   }
+
+   private final Sync sync = new Sync();
+   public boolean isSignalled() { return sync.isSignalled(); }
+   public void signal()         { sync.releaseShared(1); }
+   public void await() throws InterruptedException {
+     sync.acquireSharedInterruptibly(1);
+   }
+ }}</code></example></para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/locks/AbstractQueuedSynchronizer.html" target="_blank">[Android Documentation]</a></format></para></remarks>
     <since version="Added in API level 1" />
   </Docs>
   <Members>

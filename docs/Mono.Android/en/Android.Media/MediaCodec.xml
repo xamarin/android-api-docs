@@ -21,7 +21,45 @@
  encoder/decoder components.
 
  </para><para tool="javadoc-to-mdoc">MediaCodec is generally used like this:
- <sample external-id="9A5B1D328BB632C0A1B6CBABFDA5AC9F" />
+ <example><code lang="java">
+ MediaCodec codec = MediaCodec.createDecoderByType(type);
+ codec.configure(format, ...);
+ codec.start();
+
+ // if API level &lt;= 20, get input and output buffer arrays here
+ ByteBuffer[] inputBuffers = codec.getInputBuffers();
+ ByteBuffer[] outputBuffers = codec.getOutputBuffers();
+ for (;;) {
+   int inputBufferIndex = codec.dequeueInputBuffer(timeoutUs);
+   if (inputBufferIndex &gt;= 0) {
+     // if API level &gt;= 21, get input buffer here
+     ByteBuffer inputBuffer = codec.getInputBuffer(inputBufferIndex);
+     // fill inputBuffers[inputBufferIndex] with valid data
+     ...
+     codec.queueInputBuffer(inputBufferIndex, ...);
+   }
+
+   int outputBufferIndex = codec.dequeueOutputBuffer(timeoutUs);
+   if (outputBufferIndex &gt;= 0) {
+     // if API level &gt;= 21, get output buffer here
+     ByteBuffer outputBuffer = codec.getOutputBuffer(outputBufferIndex);
+     // outputBuffer is ready to be processed or rendered.
+     ...
+     codec.releaseOutputBuffer(outputBufferIndex, ...);
+   } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+     // no needed to handle if API level &gt;= 21 and using getOutputBuffer(int)
+     outputBuffers = codec.getOutputBuffers();
+   } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+     // Subsequent data will conform to new format.
+     // can ignore if API level &gt;= 21 and using getOutputFormat(outputBufferIndex)
+     MediaFormat format = codec.getOutputFormat();
+     ...
+   }
+ }
+ codec.stop();
+ codec.release();
+ codec = null;
+ </code></example>
 
  Each codec maintains a number of input and output buffers that are
  referred to by index in API calls.

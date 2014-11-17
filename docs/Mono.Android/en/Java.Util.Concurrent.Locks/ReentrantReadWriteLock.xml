@@ -103,7 +103,38 @@
  particularly tricky when handling multiple locks in a non-nested
  fashion):
 
- <sample external-id="2983E6E2C8BEB698237F98A163D841E9" />
+ <example><code lang="java">class CachedData {
+   Object data;
+   volatile boolean cacheValid;
+   final ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+
+   void processCachedData() {
+     rwl.readLock().lock();
+     if (!cacheValid) {
+       // Must release read lock before acquiring write lock
+       rwl.readLock().unlock();
+       rwl.writeLock().lock();
+       try {
+         // Recheck state because another thread might have
+         // acquired write lock and changed state before we did.
+         if (!cacheValid) {
+           data = ...
+           cacheValid = true;
+         
+         // Downgrade by acquiring read lock before releasing write lock
+         rwl.readLock().lock();
+       } finally {
+         rwl.writeLock().unlock(); // Unlock write, still hold read
+       }
+     }
+
+     try {
+       use(data);
+     } finally {
+       rwl.readLock().unlock();
+     }
+   }
+ }}</code></example>
 
  ReentrantReadWriteLocks can be used to improve concurrency in some
  uses of some kinds of Collections. This is typically worthwhile
@@ -113,7 +144,33 @@
  is a class using a TreeMap that is expected to be large and
  concurrently accessed.
 
-  <sample external-id="D1209201B45FEA48174C061C5051589E" /><format type="text/html"><h3>Implementation Notes</h3></format></para><para tool="javadoc-to-mdoc">This lock supports a maximum of 65535 recursive write locks
+  <example><code lang="java">class RWDictionary {
+   private final Map m = new TreeMap();
+   private final ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+   private final Lock r = rwl.readLock();
+   private final Lock w = rwl.writeLock();
+
+   public Data get(String key) {
+     r.lock();
+     try { return m.get(key); 
+     finally { r.unlock(); }
+   }
+   public String[] allKeys() {
+     r.lock();
+     try { return m.keySet().toArray(); }
+     finally { r.unlock(); }
+   }
+   public Data put(String key, Data value) {
+     w.lock();
+     try { return m.put(key, value); }
+     finally { w.unlock(); }
+   }
+   public void clear() {
+     w.lock();
+     try { m.clear(); }
+     finally { w.unlock(); }
+   }
+ }}</code></example><format type="text/html"><h3>Implementation Notes</h3></format></para><para tool="javadoc-to-mdoc">This lock supports a maximum of 65535 recursive write locks
  and 65535 read locks. Attempts to exceed these limits result in
  <c><see cref="T:Java.Lang.Error" /></c> throws from locking methods.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock.html" target="_blank">[Android Documentation]</a></format></para></remarks>
     <since version="Added in API level 1" />

@@ -33,7 +33,39 @@
  </para><para tool="javadoc-to-mdoc"><format type="text/html"><b>Sample usage:</b></format> Here is an example of
   using a barrier in a parallel decomposition design:
 
-  <sample external-id="68EEFA24C52E3303243F2312E54EE3A8" />
+  <example><code lang="java">class Solver {
+   final int N;
+   final float[][] data;
+   final CyclicBarrier barrier;
+
+   class Worker implements Runnable {
+     int myRow;
+     Worker(int row) { myRow = row; 
+     public void run() {
+       while (!done()) {
+         processRow(myRow);
+
+         try {
+           barrier.await();
+         } catch (InterruptedException ex) {
+           return;
+         } catch (BrokenBarrierException ex) {
+           return;
+         }
+       }
+     }
+   }
+
+   public Solver(float[][] matrix) {
+     data = matrix;
+     N = matrix.length;
+     barrier = new CyclicBarrier(N,
+                                 new Runnable() {
+                                   public void run() {
+                                     mergeRows(...);
+                                   }
+                                 });
+     for (int i = 0; i </code></example>
 
  Here, each worker thread processes a row of the matrix then waits at the
  barrier until all rows have been processed. When all rows are processed
@@ -48,7 +80,9 @@
  <c><see cref="M:Java.Util.Concurrent.CyclicBarrier.Await" /></c> returns the arrival index of that thread at the barrier.
  You can then choose which thread should execute the barrier action, for
  example:
-  <sample external-id="CAB1B3E72AAE85CE133406F6B133FAE2" /></para><para tool="javadoc-to-mdoc">The <c>CyclicBarrier</c> uses an all-or-none breakage model
+  <example><code lang="java">if (barrier.await() == 0) {
+   // log the completion of this iteration
+ }</code></example></para><para tool="javadoc-to-mdoc">The <c>CyclicBarrier</c> uses an all-or-none breakage model
  for failed synchronization attempts: If a thread leaves a barrier
  point prematurely because of interruption, failure, or timeout, all
  other threads waiting at that barrier point will also leave

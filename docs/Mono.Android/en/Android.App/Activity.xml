@@ -132,7 +132,23 @@
  to do their initial setup; many will also implement
  <c><see cref="M:Android.App.Activity.OnPause" /></c> to commit changes to data and
  otherwise prepare to stop interacting with the user.  You should always
- call up to your superclass when implementing these methods.</para><sample external-id="38A74510142DBE1AF8F269CED265E621" /><para tool="javadoc-to-mdoc">In general the movement through an activity's lifecycle looks like
+ call up to your superclass when implementing these methods.</para><example><code lang="java">
+ public class Activity extends ApplicationContext {
+     protected void onCreate(Bundle savedInstanceState);
+
+     protected void onStart();
+
+     protected void onRestart();
+
+     protected void onResume();
+
+     protected void onPause();
+
+     protected void onStop();
+
+     protected void onDestroy();
+ }
+ </code></example><para tool="javadoc-to-mdoc">In general the movement through an activity's lifecycle looks like
  this:<format type="text/html"><table border="2" width="85%" align="center" frame="hsides" rules="rows"><colgroup align="left" span="3" /><colgroup align="left" /><colgroup align="center" /><colgroup align="center" /><thead><tr><th colspan="3">Method</th><th>Description</th><th>Killable?</th><th>Next</th></tr></thead><tbody><tr><th colspan="3" align="left" border="0"><c><see cref="M:Android.App.Activity.OnCreate(Android.OS.Bundle)" /></c></th><td>Called when the activity is first created.
              This is where you should do all of your normal static set up:
              create views, bind data to lists, etc.  This method also
@@ -237,7 +253,36 @@
  information appears back on the
  parent's <c>Activity.onActivityResult()</c>, along with the integer
  identifier it originally supplied.</para><para tool="javadoc-to-mdoc">If a child activity fails for any reason (such as crashing), the parent
- activity will receive a result with the code RESULT_CANCELED.<sample external-id="D64DB0A6F60123488DDF12EB8802FA2A" /><format type="text/html"><h3>Saving Persistent State</h3></format></para><para tool="javadoc-to-mdoc">There are generally two kinds of persistent state than an activity
+ activity will receive a result with the code RESULT_CANCELED.<example><code lang="java">
+ public class MyActivity extends Activity {
+     ...
+
+     static final int PICK_CONTACT_REQUEST = 0;
+
+     public boolean onKeyDown(int keyCode, KeyEvent event) {
+         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
+             // When the user center presses, let them pick a contact.
+             startActivityForResult(
+                 new Intent(Intent.ACTION_PICK,
+                 new Uri("content://contacts")),
+                 PICK_CONTACT_REQUEST);
+            return true;
+         }
+         return false;
+     }
+
+     protected void onActivityResult(int requestCode, int resultCode,
+             Intent data) {
+         if (requestCode == PICK_CONTACT_REQUEST) {
+             if (resultCode == RESULT_OK) {
+                 // A contact was picked.  Here we will just display it
+                 // to the user.
+                 startActivity(new Intent(Intent.ACTION_VIEW, data));
+             }
+         }
+     }
+ }
+ </code></example><format type="text/html"><h3>Saving Persistent State</h3></format></para><para tool="javadoc-to-mdoc">There are generally two kinds of persistent state than an activity
  will deal with: shared document-like data (typically stored in a SQLite
  database using a <c><see cref="T:Android.Content.ContentProvider" /></c>)
  and internal state such as user preferences.</para><para tool="javadoc-to-mdoc">For content provider data, we suggest that activities use a
@@ -277,7 +322,32 @@
  object stored under a specific name.
  (Note that it is not possible to share settings data across application
  packages -- for that you will need a content provider.)</para><para tool="javadoc-to-mdoc">Here is an excerpt from a calendar activity that stores the user's
- preferred view mode in its persistent settings:<sample external-id="9243888B5D7E1C7CF598DD07E6CA6A8C" /><format type="text/html"><h3>Permissions</h3></format></para><para tool="javadoc-to-mdoc">The ability to start a particular Activity can be enforced when it is
+ preferred view mode in its persistent settings:<example><code lang="java">
+ public class CalendarActivity extends Activity {
+     ...
+
+     static final int DAY_VIEW_MODE = 0;
+     static final int WEEK_VIEW_MODE = 1;
+
+     private SharedPreferences mPrefs;
+     private int mCurViewMode;
+
+     protected void onCreate(Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
+
+         SharedPreferences mPrefs = getSharedPreferences();
+         mCurViewMode = mPrefs.getInt("view_mode", DAY_VIEW_MODE);
+     }
+
+     protected void onPause() {
+         super.onPause();
+
+         SharedPreferences.Editor ed = mPrefs.edit();
+         ed.putInt("view_mode", mCurViewMode);
+         ed.commit();
+     }
+ }
+ </code></example><format type="text/html"><h3>Permissions</h3></format></para><para tool="javadoc-to-mdoc">The ability to start a particular Activity can be enforced when it is
  declared in its
  manifest's <c><see cref="!:NoType:android/R$styleable;Href=../../../reference/android/R.styleable.html#AndroidManifestActivity" /></c>
  tag.  By doing so, other applications will need to declare a corresponding

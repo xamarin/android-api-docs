@@ -30,7 +30,42 @@
  to swap buffers between threads so that the thread filling the
  buffer gets a freshly emptied one when it needs it, handing off the
  filled one to the thread emptying the buffer.
-  <sample external-id="1263C9BA9EBBEC4A89D4B36A8380443D" /></para><para tool="javadoc-to-mdoc">Memory consistency effects: For each pair of threads that
+  <example><code lang="java">class FillAndEmpty {
+   Exchanger exchanger = new Exchanger();
+   DataBuffer initialEmptyBuffer = ... a made-up type
+   DataBuffer initialFullBuffer = ...
+
+   class FillingLoop implements Runnable {
+     public void run() {
+       DataBuffer currentBuffer = initialEmptyBuffer;
+       try {
+         while (currentBuffer != null) {
+           addToBuffer(currentBuffer);
+           if (currentBuffer.isFull())
+             currentBuffer = exchanger.exchange(currentBuffer);
+         
+       } catch (InterruptedException ex) { ... handle ... }
+     }
+   }
+
+   class EmptyingLoop implements Runnable {
+     public void run() {
+       DataBuffer currentBuffer = initialFullBuffer;
+       try {
+         while (currentBuffer != null) {
+           takeFromBuffer(currentBuffer);
+           if (currentBuffer.isEmpty())
+             currentBuffer = exchanger.exchange(currentBuffer);
+         }
+       } catch (InterruptedException ex) { ... handle ...}
+     }
+   }
+
+   void start() {
+     new Thread(new FillingLoop()).start();
+     new Thread(new EmptyingLoop()).start();
+   }
+ }}</code></example></para><para tool="javadoc-to-mdoc">Memory consistency effects: For each pair of threads that
  successfully exchange objects via an <c>Exchanger</c>, actions
  prior to the <c>exchange()</c> in each thread
  

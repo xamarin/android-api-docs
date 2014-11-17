@@ -53,13 +53,56 @@
  Here is a sketch of a network service in which threads in a thread
  pool service incoming requests. It uses the preconfigured <c><see cref="M:Java.Util.Concurrent.Executors.NewFixedThreadPool(System.Int32)" /></c> factory method:
 
-  <sample external-id="FA357BF847C932B74A8DC71E5D41C092" />
+  <example><code lang="java">class NetworkService implements Runnable {
+   private final ServerSocket serverSocket;
+   private final ExecutorService pool;
+
+   public NetworkService(int port, int poolSize)
+       throws IOException {
+     serverSocket = new ServerSocket(port);
+     pool = Executors.newFixedThreadPool(poolSize);
+   
+
+   public void run() { // run the service
+     try {
+       for (;;) {
+         pool.execute(new Handler(serverSocket.accept()));
+       }
+     } catch (IOException ex) {
+       pool.shutdown();
+     }
+   }
+ }
+
+ class Handler implements Runnable {
+   private final Socket socket;
+   Handler(Socket socket) { this.socket = socket; }
+   public void run() {
+     // read and service request on socket
+   }
+ }}</code></example>
 
  The following method shuts down an <c>ExecutorService</c> in two phases,
  first by calling <c>shutdown</c> to reject incoming tasks, and then
  calling <c>shutdownNow</c>, if necessary, to cancel any lingering tasks:
 
-  <sample external-id="1E095B6A6E61D23490E9BCD5F335BBC3" /></para><para tool="javadoc-to-mdoc">Memory consistency effects: Actions in a thread prior to the
+  <example><code lang="java">void shutdownAndAwaitTermination(ExecutorService pool) {
+   pool.shutdown(); // Disable new tasks from being submitted
+   try {
+     // Wait a while for existing tasks to terminate
+     if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
+       pool.shutdownNow(); // Cancel currently executing tasks
+       // Wait a while for tasks to respond to being cancelled
+       if (!pool.awaitTermination(60, TimeUnit.SECONDS))
+           System.err.println("Pool did not terminate");
+     
+   } catch (InterruptedException ie) {
+     // (Re-)Cancel if current thread also interrupted
+     pool.shutdownNow();
+     // Preserve interrupt status
+     Thread.currentThread().interrupt();
+   }
+ }}</code></example></para><para tool="javadoc-to-mdoc">Memory consistency effects: Actions in a thread prior to the
  submission of a <c>Runnable</c> or <c>Callable</c> task to an
  <c>ExecutorService</c>
  any actions taken by that task, which in turn <format type="text/html"><i>happen-before</i></format> the

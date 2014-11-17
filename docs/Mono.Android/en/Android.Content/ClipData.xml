@@ -142,7 +142,70 @@ private final void performPaste() {
  </para><para tool="javadoc-to-mdoc">For example, the implementation of <c><see cref="!:NoType:android/content/ClipData$Item;Href=../../../reference/android/content/ClipData.Item.html#coerceToText(android.content.Context)" /></c>
  itself uses this to try to retrieve a URI clip as a stream of text:
 
- <sample external-id="0FA3C95F1F5FAA9CA3C081CA663AA7FD" /><format type="text/html"><h3>Implementing Copy or Drag</h3></format></para><para tool="javadoc-to-mdoc">To be the source of a clip, the application must construct a ClippedData
+ <example><code lang="java">public CharSequence coerceToText(Context context) {
+    // If this Item has an explicit textual value, simply return that.
+    CharSequence text = getText();
+    if (text != null) {
+        return text;
+    }
+
+    // If this Item has a URI value, try using that.
+    Uri uri = getUri();
+    if (uri != null) {
+
+        // First see if the URI can be opened as a plain text stream
+        // (of any sub-type).  If so, this is the best textual
+        // representation for it.
+        FileInputStream stream = null;
+        try {
+            // Ask for a stream of the desired type.
+            AssetFileDescriptor descr = context.getContentResolver()
+                    .openTypedAssetFileDescriptor(uri, "text/*", null);
+            stream = descr.createInputStream();
+            InputStreamReader reader = new InputStreamReader(stream, "UTF-8");
+
+            // Got it...  copy the stream into a local string and return it.
+            StringBuilder builder = new StringBuilder(128);
+            char[] buffer = new char[8192];
+            int len;
+            while ((len=reader.read(buffer)) &gt; 0) {
+                builder.append(buffer, 0, len);
+            }
+            return builder.toString();
+
+        } catch (FileNotFoundException e) {
+            // Unable to open content URI as text...  not really an
+            // error, just something to ignore.
+
+        } catch (IOException e) {
+            // Something bad has happened.
+            Log.w("ClippedData", "Failure loading text", e);
+            return e.toString();
+
+        } finally {
+            if (stream != null) {
+                try {
+                    stream.close();
+                } catch (IOException e) {
+                }
+            }
+        }
+
+        // If we couldn't open the URI as a stream, then the URI itself
+        // probably serves fairly well as a textual representation.
+        return uri.toString();
+    }
+
+    // Finally, if all we have is an Intent, then we can just turn that
+    // into text.  Not the most user-friendly thing, but it's something.
+    Intent intent = getIntent();
+    if (intent != null) {
+        return intent.toUri(Intent.URI_INTENT_SCHEME);
+    }
+
+    // Shouldn't get here, but just in case...
+    return "";
+}</code></example><format type="text/html"><h3>Implementing Copy or Drag</h3></format></para><para tool="javadoc-to-mdoc">To be the source of a clip, the application must construct a ClippedData
  object that any recipient can interpret best for their context.  If the clip
  is to contain a simple text, Intent, or URI, this is easy: an <c><see cref="!:NoType:android/content/ClipData$Item;Href=../../../reference/android/content/ClipData.Item.html" /></c>
  containing the appropriate data type can be constructed and used.
