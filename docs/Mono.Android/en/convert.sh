@@ -517,8 +517,6 @@ cd ..
 cd System.IO
 sed -i '' -e 's/'$'\r''$//' *.xml
 cd ..
-sed -i '' -e 's/'$'\r''$//' *.xml
-cd ..
 cd System.Linq
 sed -i '' -e 's/'$'\r''$//' *.xml
 cd ..
