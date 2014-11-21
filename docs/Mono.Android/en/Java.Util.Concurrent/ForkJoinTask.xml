@@ -25,8 +25,146 @@
     </Attribute>
   </Attributes>
   <Docs>
-    <summary>To be added.</summary>
-    <remarks>To be added.</remarks>
+    <summary>Abstract base class for tasks that run within a <c><see cref="T:Java.Util.Concurrent.ForkJoinPool" /></c>.</summary>
+    <remarks><para tool="javadoc-to-mdoc">Abstract base class for tasks that run within a <c><see cref="T:Java.Util.Concurrent.ForkJoinPool" /></c>.
+ A <c>ForkJoinTask</c> is a thread-like entity that is much
+ lighter weight than a normal thread.  Huge numbers of tasks and
+ subtasks may be hosted by a small number of actual threads in a
+ ForkJoinPool, at the price of some usage limitations.
+
+ </para><para tool="javadoc-to-mdoc">A "main" <c>ForkJoinTask</c> begins execution when it is
+ explicitly submitted to a <c><see cref="T:Java.Util.Concurrent.ForkJoinPool" /></c>, or, if not already
+ engaged in a ForkJoin computation, commenced in the <c>ForkJoinPool.commonPool()</c> via <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Fork" /></c>, <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Invoke" /></c>, or
+ related methods.  Once started, it will usually in turn start other
+ subtasks.  As indicated by the name of this class, many programs
+ using <c>ForkJoinTask</c> employ only methods <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Fork" /></c> and
+ <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Join" /></c>, or derivatives such as <c><see cref="!:Java.Util.Concurrent.ForkJoinTask.invokeAll(java.util.concurrent.ForkJoinTask&lt;?&gt;...)" /></c>.  However, this class also
+ provides a number of other methods that can come into play in
+ advanced usages, as well as extension mechanics that allow support
+ of new forms of fork/join processing.
+
+ </para><para tool="javadoc-to-mdoc">A <c>ForkJoinTask</c> is a lightweight form of <c><see cref="T:Java.Util.Concurrent.IFuture" /></c>.
+ The efficiency of <c>ForkJoinTask</c>s stems from a set of
+ restrictions (that are only partially statically enforceable)
+ reflecting their main use as computational tasks calculating pure
+ functions or operating on purely isolated objects.  The primary
+ coordination mechanisms are <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Fork" /></c>, that arranges
+ asynchronous execution, and <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Join" /></c>, that doesn't proceed
+ until the task's result has been computed.  Computations should
+ ideally avoid <c>synchronized</c> methods or blocks, and should
+ minimize other blocking synchronization apart from joining other
+ tasks or using synchronizers such as Phasers that are advertised to
+ cooperate with fork/join scheduling. Subdividable tasks should also
+ not perform blocking I/O, and should ideally access variables that
+ are completely independent of those accessed by other running
+ tasks. These guidelines are loosely enforced by not permitting
+ checked exceptions such as <c>IOExceptions</c> to be
+ thrown. However, computations may still encounter unchecked
+ exceptions, that are rethrown to callers attempting to join
+ them. These exceptions may additionally include <c><see cref="T:Java.Util.Concurrent.RejectedExecutionException" /></c> stemming from internal resource
+ exhaustion, such as failure to allocate internal task
+ queues. Rethrown exceptions behave in the same way as regular
+ exceptions, but, when possible, contain stack traces (as displayed
+ for example using <c>ex.printStackTrace()</c>) of both the thread
+ that initiated the computation as well as the thread actually
+ encountering the exception; minimally only the latter.
+
+ </para><para tool="javadoc-to-mdoc">It is possible to define and use ForkJoinTasks that may block,
+ but doing do requires three further considerations: (1) Completion
+ of few if any <i>other</i> tasks should be dependent on a task
+ that blocks on external synchronization or I/O. Event-style async
+ tasks that are never joined often fall into this category.
+ (2) To minimize resource impact, tasks should be small; ideally
+ performing only the (possibly) blocking action. (3) Unless the <c><see cref="!:NoType:java/util/concurrent/ForkJoinPool$ManagedBlocker;Href=../../../../reference/java/util/concurrent/ForkJoinPool.ManagedBlocker.html" /></c> API is used, or the number of possibly
+ blocked tasks is known to be less than the pool's <c><see cref="P:Java.Util.Concurrent.ForkJoinPool.Parallelism" /></c> level, the pool cannot guarantee that
+ enough threads will be available to ensure progress or good
+ performance.
+
+ </para><para tool="javadoc-to-mdoc">The primary method for awaiting completion and extracting
+ results of a task is <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Join" /></c>, but there are several variants:
+ The <c><see cref="M:Java.Util.Concurrent.IFuture.Get" /></c> methods support interruptible and/or timed
+ waits for completion and report results using <c>Future</c>
+ conventions. Method <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Invoke" /></c> is semantically
+ equivalent to <c>fork(); join()</c> but always attempts to begin
+ execution in the current thread. The "<i>quiet</i>" forms of
+ these methods do not extract results or report exceptions. These
+ may be useful when a set of tasks are being executed, and you need
+ to delay processing of results or exceptions until all complete.
+ Method <c>invokeAll</c> (available in multiple versions)
+ performs the most common form of parallel invocation: forking a set
+ of tasks and joining them all.
+
+ </para><para tool="javadoc-to-mdoc">In the most typical usages, a fork-join pair act like a call
+ (fork) and return (join) from a parallel recursive function. As is
+ the case with other forms of recursive calls, returns (joins)
+ should be performed innermost-first. For example, <c>a.fork();
+ b.fork(); b.join(); a.join();</c> is likely to be substantially more
+ efficient than joining <c>a</c> before <c>b</c>.
+
+ </para><para tool="javadoc-to-mdoc">The execution status of tasks may be queried at several levels
+ of detail: <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.IsDone" /></c> is true if a task completed in any way
+ (including the case where a task was cancelled without executing);
+ <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.IsCompletedNormally" /></c> is true if a task completed without
+ cancellation or encountering an exception; <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.IsCancelled" /></c> is
+ true if the task was cancelled (in which case <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.Exception" /></c>
+ returns a <c><see cref="T:Java.Util.Concurrent.CancellationException" /></c>); and
+ <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.IsCompletedAbnormally" /></c> is true if a task was either
+ cancelled or encountered an exception, in which case <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.Exception" /></c> will return either the encountered exception or
+ <c><see cref="T:Java.Util.Concurrent.CancellationException" /></c>.
+
+ </para><para tool="javadoc-to-mdoc">The ForkJoinTask class is not usually directly subclassed.
+ Instead, you subclass one of the abstract classes that support a
+ particular style of fork/join processing, typically <c><see cref="T:Java.Util.Concurrent.RecursiveAction" /></c> for most computations that do not return results
+ and <c><see cref="T:Java.Util.Concurrent.RecursiveTask" /></c> for those that do. Normally, a concrete
+ ForkJoinTask subclass declares fields comprising its parameters,
+ established in a constructor, and then defines a <c>compute</c>
+ method that somehow uses the control methods supplied by this base class.
+
+ </para><para tool="javadoc-to-mdoc">Method <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Join" /></c> and its variants are appropriate for use
+ only when completion dependencies are acyclic; that is, the
+ parallel computation can be described as a directed acyclic graph
+ (DAG). Otherwise, executions may encounter a form of deadlock as
+ tasks cyclically wait for each other.  However, this framework
+ supports other methods and techniques (for example the use of
+ <c><see cref="T:Java.Util.Concurrent.Phaser" /></c>, <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.HelpQuiesce" /></c>, and <c><see cref="!:Java.Util.Concurrent.ForkJoinTask.complete(V)" /></c>) that
+ may be of use in constructing custom subclasses for problems that
+ are not statically structured as DAGs. To support such usages, a
+ ForkJoinTask may be atomically <i>tagged</i> with a <c>short</c>
+ value using <c>setForkJoinTaskTag</c> or <c>compareAndSetForkJoinTaskTag</c> and checked using <c>getForkJoinTaskTag</c>. The ForkJoinTask implementation does not use
+ these <c>protected</c> methods or tags for any purpose, but they
+ may be of use in the construction of specialized subclasses.  For
+ example, parallel graph traversals can use the supplied methods to
+ avoid revisiting nodes/tasks that have already been processed.
+ (Method names for tagging are bulky in part to encourage definition
+ of methods that reflect their usage patterns.)
+
+ </para><para tool="javadoc-to-mdoc">Most base support methods are <c>final</c>, to prevent
+ overriding of implementations that are intrinsically tied to the
+ underlying lightweight task scheduling framework.  Developers
+ creating new basic styles of fork/join processing should minimally
+ implement <c>protected</c> methods <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Exec" /></c>, <c><see cref="!:Java.Util.Concurrent.ForkJoinTask.setRawResult(V)" /></c>, and <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.RawRawResult" /></c>, while also introducing
+ an abstract computational method that can be implemented in its
+ subclasses, possibly relying on other <c>protected</c> methods
+ provided by this class.
+
+ </para><para tool="javadoc-to-mdoc">ForkJoinTasks should perform relatively small amounts of
+ computation. Large tasks should be split into smaller subtasks,
+ usually via recursive decomposition. As a very rough rule of thumb,
+ a task should perform more than 100 and less than 10000 basic
+ computational steps, and should avoid indefinite looping. If tasks
+ are too big, then parallelism cannot improve throughput. If too
+ small, then memory and internal task maintenance overhead may
+ overwhelm processing.
+
+ </para><para tool="javadoc-to-mdoc">This class provides <c>adapt</c> methods for <c><see cref="T:Java.Lang.IRunnable" /></c>
+ and <c><see cref="T:Java.Util.Concurrent.ICallable" /></c>, that may be of use when mixing execution of
+ <c>ForkJoinTasks</c> with other kinds of tasks. When all tasks are
+ of this form, consider using a pool constructed in <i>asyncMode</i>.
+
+ </para><para tool="javadoc-to-mdoc">ForkJoinTasks are <c>Serializable</c>, which enables them to be
+ used in extensions such as remote execution frameworks. It is
+ sensible to serialize tasks only before or after, but not during,
+ execution. Serialization is not relied on during execution itself.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html" target="_blank">[Android Documentation]</a></format></para></remarks>
   </Docs>
   <Members>
     <Member MemberName=".ctor">
@@ -43,8 +181,8 @@
       </Attributes>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <remarks>To be added.</remarks>
+        <summary></summary>
+        <remarks><para tool="javadoc-to-mdoc" /><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#ForkJoinTask()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName=".ctor">
@@ -59,10 +197,13 @@
         <Parameter Name="transfer" Type="Android.Runtime.JniHandleOwnership" />
       </Parameters>
       <Docs>
-        <param name="javaReference">To be added.</param>
-        <param name="transfer">To be added.</param>
-        <summary>To be added.</summary>
-        <remarks>To be added.</remarks>
+        <param name="javaReference">A <see cref="T:System.IntPtr" />containing a Java Native Interface (JNI) object reference.</param>
+        <param name="transfer">A <see cref="T:Android.Runtime.JniHandleOwnership" />indicating how to handle <paramref name="javaReference" /></param>
+        <summary>A constructor used when creating managed representations of JNI objects; called by the runtime.</summary>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This constructor is invoked by the runtime infrastructure (<see cref="M:Java.Lang.Object.GetObject``1(System.IntPtr,Android.Runtime.JniHandleOwnership)" />) to create a new managed representation for a Java Native Interface object.</para>
+          <para tool="javadoc-to-mdoc">The constructor will initializes the <see cref="P:Android.Runtime.IJavaObject.Handle" /> property of the new instance using <paramref name="javaReference" /> and <paramref name="transfer" />.</para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Adapt">
@@ -84,10 +225,14 @@
         <Parameter Name="runnable" Type="Java.Lang.IRunnable" />
       </Parameters>
       <Docs>
-        <param name="runnable">To be added.</param>
-        <summary>To be added.</summary>
+        <param name="runnable">the runnable action</param>
+        <summary>Returns a new <c>ForkJoinTask</c> that performs the <c>run</c>
+ method of the given <c>Runnable</c> as its action, and returns
+ a null result upon <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Join" /></c>.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns a new <c>ForkJoinTask</c> that performs the <c>run</c>
+ method of the given <c>Runnable</c> as its action, and returns
+ a null result upon <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Join" /></c>.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#adapt(java.lang.Runnable)" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="Adapt">
@@ -161,10 +306,29 @@
         <Parameter Name="mayInterruptIfRunning" Type="System.Boolean" />
       </Parameters>
       <Docs>
-        <param name="mayInterruptIfRunning">To be added.</param>
-        <summary>To be added.</summary>
+        <param name="mayInterruptIfRunning">this value has no effect in the
+ default implementation because interrupts are not used to
+ control cancellation.</param>
+        <summary>Attempts to cancel execution of this task.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Attempts to cancel execution of this task. This attempt will
+ fail if the task has already completed or could not be
+ cancelled for some other reason. If successful, and this task
+ has not started when <c>cancel</c> is called, execution of
+ this task is suppressed. After this method returns
+ successfully, unless there is an intervening call to <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Reinitialize" /></c>, subsequent calls to <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.IsCancelled" /></c>,
+ <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.IsDone" /></c>, and <c>cancel</c> will return <c>true</c>
+ and calls to <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Join" /></c> and related methods will result in
+ <c>CancellationException</c>.
+
+ </para><para tool="javadoc-to-mdoc">This method may be overridden in subclasses, but if so, must
+ still ensure that these properties hold. In particular, the
+ <c>cancel</c> method itself must not throw exceptions.
+
+ </para><para tool="javadoc-to-mdoc">This method is designed to be invoked by <i>other</i>
+ tasks. To terminate the current task, you can just return or
+ throw an unchecked exception from its computation method, or
+ invoke <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.CompleteExceptionally(Java.Lang.Throwable)" /></c>.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#cancel(boolean)" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="Complete">
@@ -210,9 +374,21 @@
         <Parameter Name="ex" Type="Java.Lang.Throwable" />
       </Parameters>
       <Docs>
-        <param name="ex">To be added.</param>
-        <summary>To be added.</summary>
-        <remarks>To be added.</remarks>
+        <param name="ex">the exception to throw. If this exception is not a
+ <c>RuntimeException</c> or <c>Error</c>, the actual exception
+ thrown will be a <c>RuntimeException</c> with cause <c>ex</c>.
+</param>
+        <summary>Completes this task abnormally, and if not already aborted or
+ cancelled, causes it to throw the given exception upon
+ <c>join</c> and related operations.</summary>
+        <remarks><para tool="javadoc-to-mdoc">Completes this task abnormally, and if not already aborted or
+ cancelled, causes it to throw the given exception upon
+ <c>join</c> and related operations. This method may be used
+ to induce exceptions in asynchronous tasks, or to force
+ completion of tasks that would not otherwise complete.  Its use
+ in other situations is discouraged.  This method is
+ overridable, but overridden versions must invoke <c>super</c>
+ implementation to maintain guarantees.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#completeExceptionally(java.lang.Throwable)" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="Exception">
@@ -231,9 +407,13 @@
         <ReturnType>Java.Lang.Throwable</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns the exception thrown by the base computation, or a
+ <c>CancellationException</c> if cancelled, or <c>null</c> if
+ none or if the method has not yet completed.</summary>
         <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns the exception thrown by the base computation, or a
+ <c>CancellationException</c> if cancelled, or <c>null</c> if
+ none or if the method has not yet completed.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#getException()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="Exec">
@@ -253,9 +433,20 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Immediately performs the base action of this task and returns
+ true if, upon return from this method, this task is guaranteed
+ to have completed normally.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Immediately performs the base action of this task and returns
+ true if, upon return from this method, this task is guaranteed
+ to have completed normally. This method may return false
+ otherwise, to indicate that this task is not necessarily
+ complete (or is not known to be complete), for example in
+ asynchronous actions that require explicit invocations of
+ completion methods. This method may also throw an (unchecked)
+ exception to indicate abnormal exit. This method is designed to
+ support extensions, and should not in general be called
+ otherwise.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#exec()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="Fork">
@@ -275,9 +466,18 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Arranges to asynchronously execute this task in the pool the
+ current task is running in, if applicable, or using the <c>ForkJoinPool.commonPool()</c> if not <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.InForkJoinPool" /></c>.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Arranges to asynchronously execute this task in the pool the
+ current task is running in, if applicable, or using the <c>ForkJoinPool.commonPool()</c> if not <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.InForkJoinPool" /></c>.  While
+ it is not necessarily enforced, it is a usage error to fork a
+ task more than once unless it has completed and been
+ reinitialized.  Subsequent modifications to the state of this
+ task or any data it operates on are not necessarily
+ consistently observable by any thread other than the one
+ executing it unless preceded by a call to <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Join" /></c> or
+ related methods, or a call to <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.IsDone" /></c> returning <c>true</c>.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#fork()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="Get">
@@ -297,9 +497,17 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Waits if necessary for the computation to complete, and then
+ retrieves its result.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Waits if necessary for the computation to complete, and then
+ retrieves its result.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#get()" target="_blank">[Android Documentation]</a></format></para></remarks>
+        <exception cref="T:Java.Util.Concurrent.CancellationException">if the computation was cancelled</exception>
+        <exception cref="T:Java.Util.Concurrent.ExecutionException">if the computation threw an
+ exception</exception>
+        <exception cref="T:Java.Lang.InterruptedException">if the current thread is not a
+ member of a ForkJoinPool and was interrupted while waiting
+</exception>
       </Docs>
     </Member>
     <Member MemberName="Get">
@@ -322,11 +530,20 @@
         <Parameter Name="unit" Type="Java.Util.Concurrent.TimeUnit" />
       </Parameters>
       <Docs>
-        <param name="timeout">To be added.</param>
-        <param name="unit">To be added.</param>
-        <summary>To be added.</summary>
+        <param name="timeout">the maximum time to wait</param>
+        <param name="unit">the time unit of the timeout argument</param>
+        <summary>Waits if necessary for at most the given time for the computation
+ to complete, and then retrieves its result, if available.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Waits if necessary for at most the given time for the computation
+ to complete, and then retrieves its result, if available.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#get(long, java.util.concurrent.TimeUnit)" target="_blank">[Android Documentation]</a></format></para></remarks>
+        <exception cref="T:Java.Util.Concurrent.CancellationException">if the computation was cancelled</exception>
+        <exception cref="T:Java.Util.Concurrent.ExecutionException">if the computation threw an
+ exception</exception>
+        <exception cref="T:Java.Lang.InterruptedException">if the current thread is not a
+ member of a ForkJoinPool and was interrupted while waiting</exception>
+        <exception cref="T:Java.Util.Concurrent.TimeoutException">if the wait timed out
+</exception>
       </Docs>
     </Member>
     <Member MemberName="HelpQuiesce">
@@ -346,8 +563,14 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <remarks>To be added.</remarks>
+        <summary>Possibly executes tasks until the pool hosting the current task
+ <c><see cref="P:Java.Util.Concurrent.ForkJoinPool.IsQuiescent" /></c>.</summary>
+        <remarks><para tool="javadoc-to-mdoc">Possibly executes tasks until the pool hosting the current task
+ <c><see cref="P:Java.Util.Concurrent.ForkJoinPool.IsQuiescent" /></c>. This method may
+ be of use in designs in which many tasks are forked, but none
+ are explicitly joined, instead executing them until all are
+ processed.
+</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#helpQuiesce()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="InForkJoinPool">
@@ -367,9 +590,9 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns <c>true</c> if the current thread is a <c><see cref="T:Java.Util.Concurrent.ForkJoinWorkerThread" /></c> executing as a ForkJoinPool computation.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns <c>true</c> if the current thread is a <c><see cref="T:Java.Util.Concurrent.ForkJoinWorkerThread" /></c> executing as a ForkJoinPool computation.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#inForkJoinPool()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="Invoke">
@@ -389,9 +612,15 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Commences performing this task, awaits its completion if
+ necessary, and returns its result, or throws an (unchecked)
+ <c>RuntimeException</c> or <c>Error</c> if the underlying
+ computation did so.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Commences performing this task, awaits its completion if
+ necessary, and returns its result, or throws an (unchecked)
+ <c>RuntimeException</c> or <c>Error</c> if the underlying
+ computation did so.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#invoke()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="InvokeAll">
@@ -491,9 +720,11 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns <c>true</c> if this task was cancelled before it completed
+ normally.</summary>
         <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns <c>true</c> if this task was cancelled before it completed
+ normally.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#isCancelled()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="IsCompletedAbnormally">
@@ -512,9 +743,9 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns <c>true</c> if this task threw an exception or was cancelled.</summary>
         <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns <c>true</c> if this task threw an exception or was cancelled.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#isCompletedAbnormally()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="IsCompletedNormally">
@@ -533,9 +764,11 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns <c>true</c> if this task completed without throwing an
+ exception and was not cancelled.</summary>
         <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns <c>true</c> if this task completed without throwing an
+ exception and was not cancelled.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#isCompletedNormally()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="IsDone">
@@ -554,9 +787,13 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns <c>true</c> if this task completed.</summary>
         <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns <c>true</c> if this task completed.
+
+ Completion may be due to normal termination, an exception, or
+ cancellation -- in all of these cases, this method will return
+ <c>true</c>.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#isDone()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="Join">
@@ -576,9 +813,13 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns the result of the computation when it <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.IsDone" /></c>.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns the result of the computation when it <c><see cref="P:Java.Util.Concurrent.ForkJoinTask.IsDone" /></c>.  This method differs from <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Get" /></c> in that
+ abnormal completion results in <c>RuntimeException</c> or
+ <c>Error</c>, not <c>ExecutionException</c>, and that
+ interrupts of the calling thread do <i>not</i> cause the
+ method to abruptly return by throwing <c>InterruptedException</c>.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#join()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="PeekNextLocalTask">
@@ -598,9 +839,18 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns, but does not unschedule or execute, a task queued by
+ the current thread but not yet executed, if one is immediately
+ available.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns, but does not unschedule or execute, a task queued by
+ the current thread but not yet executed, if one is immediately
+ available. There is no guarantee that this task will actually
+ be polled or executed next. Conversely, this method may return
+ null even if a task exists but cannot be accessed without
+ contention with other threads.  This method is designed
+ primarily to support extensions, and is unlikely to be useful
+ otherwise.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#peekNextLocalTask()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="PollNextLocalTask">
@@ -620,9 +870,15 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Unschedules and returns, without executing, the next task
+ queued by the current thread but not yet executed, if the
+ current thread is operating in a ForkJoinPool.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Unschedules and returns, without executing, the next task
+ queued by the current thread but not yet executed, if the
+ current thread is operating in a ForkJoinPool.  This method is
+ designed primarily to support extensions, and is unlikely to be
+ useful otherwise.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#pollNextLocalTask()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="PollTask">
@@ -642,9 +898,21 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
+        <summary>If the current thread is operating in a ForkJoinPool,
+ unschedules and returns, without executing, the next task
+ queued by the current thread but not yet executed, if one is
+ available, or if not available, a task that was forked by some
+ other thread, if available.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">If the current thread is operating in a ForkJoinPool,
+ unschedules and returns, without executing, the next task
+ queued by the current thread but not yet executed, if one is
+ available, or if not available, a task that was forked by some
+ other thread, if available. Availability may be transient, so a
+ <c>null</c> result does not necessarily imply quiescence of
+ the pool this task is operating in.  This method is designed
+ primarily to support extensions, and is unlikely to be useful
+ otherwise.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#pollTask()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="Pool">
@@ -663,9 +931,12 @@
         <ReturnType>Java.Util.Concurrent.ForkJoinPool</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns the pool hosting the current task execution, or null
+ if this task is executing outside of any ForkJoinPool.</summary>
         <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns the pool hosting the current task execution, or null
+ if this task is executing outside of any ForkJoinPool.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#getPool()" target="_blank">[Android Documentation]</a></format></para></remarks>
+        <altmember cref="M:Java.Util.Concurrent.ForkJoinTask.InForkJoinPool" />
       </Docs>
     </Member>
     <Member MemberName="QueuedTaskCount">
@@ -684,9 +955,13 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns an estimate of the number of tasks that have been
+ forked by the current worker thread but not yet executed.</summary>
         <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns an estimate of the number of tasks that have been
+ forked by the current worker thread but not yet executed. This
+ value may be useful for heuristic decisions about whether to
+ fork other tasks.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#getQueuedTaskCount()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="QuietlyInvoke">
@@ -706,8 +981,13 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <remarks>To be added.</remarks>
+        <summary>Commences performing this task and awaits its completion if
+ necessary, without returning its result or throwing its
+ exception.</summary>
+        <remarks><para tool="javadoc-to-mdoc">Commences performing this task and awaits its completion if
+ necessary, without returning its result or throwing its
+ exception.
+</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#quietlyInvoke()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="QuietlyJoin">
@@ -727,8 +1007,13 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <remarks>To be added.</remarks>
+        <summary>Joins this task, without returning its result or throwing its
+ exception.</summary>
+        <remarks><para tool="javadoc-to-mdoc">Joins this task, without returning its result or throwing its
+ exception. This method may be useful when processing
+ collections of tasks when some have been cancelled or otherwise
+ known to have aborted.
+</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#quietlyJoin()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="RawRawResult">
@@ -747,9 +1032,15 @@
         <ReturnType>Java.Lang.Object</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns the result that would be returned by <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Join" /></c>, even
+ if this task completed abnormally, or <c>null</c> if this task
+ is not known to have been completed.</summary>
         <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns the result that would be returned by <c><see cref="M:Java.Util.Concurrent.ForkJoinTask.Join" /></c>, even
+ if this task completed abnormally, or <c>null</c> if this task
+ is not known to have been completed.  This method is designed
+ to aid debugging, as well as to support extensions. Its use in
+ any other context is discouraged.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#getRawResult()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="Reinitialize">
@@ -769,8 +1060,21 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <remarks>To be added.</remarks>
+        <summary>Resets the internal bookkeeping state of this task, allowing a
+ subsequent <c>fork</c>.</summary>
+        <remarks><para tool="javadoc-to-mdoc">Resets the internal bookkeeping state of this task, allowing a
+ subsequent <c>fork</c>. This method allows repeated reuse of
+ this task, but only if reuse occurs when this task has either
+ never been forked, or has been forked, then completed and all
+ outstanding joins of this task have also completed. Effects
+ under any other usage conditions are not guaranteed.
+ This method may be useful when executing
+ pre-constructed trees of subtasks in loops.
+
+ </para><para tool="javadoc-to-mdoc">Upon completion of this method, <c>isDone()</c> reports
+ <c>false</c>, and <c>getException()</c> reports <c>null</c>. However, the value returned by <c>getRawResult</c> is
+ unaffected. To clear this value, you can invoke <c>setRawResult(null)</c>.
+</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#reinitialize()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="SetRawResult">
@@ -813,9 +1117,20 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Returns an estimate of how many more locally queued tasks are
+ held by the current worker thread than there are other worker
+ threads that might steal them, or zero if this thread is not
+ operating in a ForkJoinPool.</summary>
         <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Returns an estimate of how many more locally queued tasks are
+ held by the current worker thread than there are other worker
+ threads that might steal them, or zero if this thread is not
+ operating in a ForkJoinPool. This value may be useful for
+ heuristic decisions about whether to fork other tasks. In many
+ usages of ForkJoinTasks, at steady state, each worker should
+ aim to maintain a small constant surplus (for example, 3) of
+ tasks, and to process computations locally if this threshold is
+ exceeded.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#getSurplusQueuedTaskCount()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
@@ -829,9 +1144,11 @@
         <ReturnType>System.IntPtr</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
+        <value>A <see cref="T:System.IntPtr" /> which contains the <c>java.lang.Class</c> JNI value corresponding to this type.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonVirtualVoidMethod" />.</para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
@@ -845,9 +1162,11 @@
         <ReturnType>System.Type</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
+        <value>A <see cref="T:System.Type" /> which provides the declaring type.</value>
+        <remarks>
+          <para tool="javadoc-to-mdoc">This property is used to control virtual vs. non virtual method dispatch against the underlying JNI object. When this property is equal to the declaring type, then virtual method invocation against the JNI object is performed; otherwise, we assume that the method was overridden by a derived type, and perform non-virtual methdo invocation.</para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="TryUnfork">
@@ -867,9 +1186,14 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
+        <summary>Tries to unschedule this task for execution.</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks><para tool="javadoc-to-mdoc">Tries to unschedule this task for execution. This method will
+ typically (but is not guaranteed to) succeed if this task is
+ the most recently forked task by the current thread, and has
+ not commenced executing in another thread.  This method may be
+ useful when arranging alternative local processing of tasks
+ that could have been, but were not, stolen.</para><para tool="javadoc-to-mdoc"><format type="text/html"><a href="http://developer.android.com/reference/java/util/concurrent/ForkJoinTask.html#tryUnfork()" target="_blank">[Android Documentation]</a></format></para></remarks>
       </Docs>
     </Member>
   </Members>
