@@ -1,4 +1,4 @@
-﻿<Type Name="Service" FullName="Android.App.Service">
+<Type Name="Service" FullName="Android.App.Service">
   <TypeSignature Language="C#" Value="public abstract class Service : Android.Content.ContextWrapper, Android.Content.IComponentCallbacks2, IDisposable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi abstract beforefieldinit Service extends Android.Content.ContextWrapper implements class Android.Content.IComponentCallbacks, class Android.Content.IComponentCallbacks2, class Android.Runtime.IJavaObject, class System.IDisposable" />
   <AssemblyInfo>
@@ -47,7 +47,7 @@
  as a standard implementation of Service that has its own thread where it
  schedules its work to be done.</para>
       <para tool="javadoc-to-mdoc">Topics covered here:
- <list type="number"><item><term></term></item><item><term></term></item><item><term></term></item><item><term></term></item><item><term></term></item><item><term></term></item></list><format type="text/html"><h3>Developer Guides</h3></format></para>
+ <list type="number"><item><term /></item><item><term /></item><item><term /></item><item><term /></item><item><term /></item><item><term></term></item></list><format type="text/html"><h3>Developer Guides</h3></format></para>
       <para tool="javadoc-to-mdoc">For a detailed discussion about how to create services, read the
  <format type="text/html"><a href="http://developer.android.com/reference/../guide/topics/fundamentals/services.html">Services</a></format> developer guide.</para>
       <format type="text/html">
@@ -146,7 +146,7 @@
  </para>
       <para tool="javadoc-to-mdoc">As of <c><see cref="!:NoType:android/os/Build$VERSION_CODES;Href=../../../reference/android/os/Build.VERSION_CODES.html#GINGERBREAD" /></c>, when using
  <c><see cref="M:Android.Content.Context.StartService(Android.Content.Intent)" /></c>, you can
- also set <c><see cref="F:Android.Content.ActivityFlags.GrantReadUriPermission" /></c> and/or <c><see cref="F:Android.Content.ActivityFlags.GrantWriteUriPermission" /></c> on the Intent.  This will grant the
+ also set <c><see cref="!:Android.Content.Intent.FLAG_GRANT_READ_URI_PERMISSION" /></c> and/or <c><see cref="!:Android.Content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION" /></c> on the Intent.  This will grant the
  Service temporary access to the specific URIs in the Intent.  Access will
  remain until the Service has called <c><see cref="M:Android.App.Service.StopSelf(System.Int32)" /></c> for that start
  command or a later one, or until the Service has been completely stopped.
@@ -235,81 +235,7 @@
       <para tool="javadoc-to-mdoc">An example of this use of a Service is shown here.  First is the Service
  itself, publishing a custom class when bound:
  
- <example><code lang="java">public class LocalService extends Service {
-    private NotificationManager mNM;
-
-    // Unique Identification Number for the Notification.
-    // We use it on Notification start, and to cancel it.
-    private int NOTIFICATION = R.string.local_service_started;
-
-    /**
-     * Class for clients to access.  Because we know this service always
-     * runs in the same process as its clients, we don't need to deal with
-     * IPC.
-     */
-    public class LocalBinder extends Binder {
-        LocalService getService() {
-            return LocalService.this;
-        }
-    }
-
-    @Override
-    public void onCreate() {
-        mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-
-        // Display a notification about us starting.  We put an icon in the status bar.
-        showNotification();
-    }
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i("LocalService", "Received start id " + startId + ": " + intent);
-        // We want this service to continue running until it is explicitly
-        // stopped, so return sticky.
-        return START_STICKY;
-    }
-
-    @Override
-    public void onDestroy() {
-        // Cancel the persistent notification.
-        mNM.cancel(NOTIFICATION);
-
-        // Tell the user we stopped.
-        Toast.makeText(this, R.string.local_service_stopped, Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return mBinder;
-    }
-
-    // This is the object that receives interactions from clients.  See
-    // RemoteService for a more complete example.
-    private final IBinder mBinder = new LocalBinder();
-
-    /**
-     * Show a notification while this service is running.
-     */
-    private void showNotification() {
-        // In this sample, we'll use the same text for the ticker and the expanded notification
-        CharSequence text = getText(R.string.local_service_started);
-
-        // Set the icon, scrolling text and timestamp
-        Notification notification = new Notification(R.drawable.stat_sample, text,
-                System.currentTimeMillis());
-
-        // The PendingIntent to launch our activity if the user selects this notification
-        PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
-                new Intent(this, LocalServiceActivities.Controller.class), 0);
-
-        // Set the info for the views that show in the notification panel.
-        notification.setLatestEventInfo(this, getText(R.string.local_service_label),
-                       text, contentIntent);
-
-        // Send the notification.
-        mNM.notify(NOTIFICATION, notification);
-    }
-}</code></example></para>
+ <sample external-id="F0330B6743730FCE6A9F779A6FA2EE94" /></para>
       <para tool="javadoc-to-mdoc">With that done, one can now write client code that directly accesses the
  running service, such as:
  
@@ -374,123 +300,7 @@ protected void onDestroy() {
  is shown here.  First is the Service itself, publishing a Messenger to
  an internal Handler when bound:
  
- <example><code lang="java">public class MessengerService extends Service {
-    /** For showing and hiding our notification. */
-    NotificationManager mNM;
-    /** Keeps track of all current registered clients. */
-    ArrayList&lt;Messenger&gt; mClients = new ArrayList&lt;Messenger&gt;();
-    /** Holds last value set by a client. */
-    int mValue = 0;
-
-    /**
-     * Command to the service to register a client, receiving callbacks
-     * from the service.  The Message's replyTo field must be a Messenger of
-     * the client where callbacks should be sent.
-     */
-    static final int MSG_REGISTER_CLIENT = 1;
-
-    /**
-     * Command to the service to unregister a client, ot stop receiving callbacks
-     * from the service.  The Message's replyTo field must be a Messenger of
-     * the client as previously given with MSG_REGISTER_CLIENT.
-     */
-    static final int MSG_UNREGISTER_CLIENT = 2;
-
-    /**
-     * Command to service to set a new value.  This can be sent to the
-     * service to supply a new value, and will be sent by the service to
-     * any registered clients with the new value.
-     */
-    static final int MSG_SET_VALUE = 3;
-
-    /**
-     * Handler of incoming messages from clients.
-     */
-    class IncomingHandler extends Handler {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case MSG_REGISTER_CLIENT:
-                    mClients.add(msg.replyTo);
-                    break;
-                case MSG_UNREGISTER_CLIENT:
-                    mClients.remove(msg.replyTo);
-                    break;
-                case MSG_SET_VALUE:
-                    mValue = msg.arg1;
-                    for (int i=mClients.size()-1; i&gt;=0; i--) {
-                        try {
-                            mClients.get(i).send(Message.obtain(null,
-                                    MSG_SET_VALUE, mValue, 0));
-                        } catch (RemoteException e) {
-                            // The client is dead.  Remove it from the list;
-                            // we are going through the list from back to front
-                            // so this is safe to do inside the loop.
-                            mClients.remove(i);
-                        }
-                    }
-                    break;
-                default:
-                    super.handleMessage(msg);
-            }
-        }
-    }
-
-    /**
-     * Target we publish for clients to send messages to IncomingHandler.
-     */
-    final Messenger mMessenger = new Messenger(new IncomingHandler());
-
-    @Override
-    public void onCreate() {
-        mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-
-        // Display a notification about us starting.
-        showNotification();
-    }
-
-    @Override
-    public void onDestroy() {
-        // Cancel the persistent notification.
-        mNM.cancel(R.string.remote_service_started);
-
-        // Tell the user we stopped.
-        Toast.makeText(this, R.string.remote_service_stopped, Toast.LENGTH_SHORT).show();
-    }
-
-    /**
-     * When binding to the service, we return an interface to our messenger
-     * for sending messages to the service.
-     */
-    @Override
-    public IBinder onBind(Intent intent) {
-        return mMessenger.getBinder();
-    }
-
-    /**
-     * Show a notification while this service is running.
-     */
-    private void showNotification() {
-        // In this sample, we'll use the same text for the ticker and the expanded notification
-        CharSequence text = getText(R.string.remote_service_started);
-
-        // Set the icon, scrolling text and timestamp
-        Notification notification = new Notification(R.drawable.stat_sample, text,
-                System.currentTimeMillis());
-
-        // The PendingIntent to launch our activity if the user selects this notification
-        PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
-                new Intent(this, Controller.class), 0);
-
-        // Set the info for the views that show in the notification panel.
-        notification.setLatestEventInfo(this, getText(R.string.remote_service_label),
-                       text, contentIntent);
-
-        // Send the notification.
-        // We use a string id because it is a unique number.  We use it later to cancel.
-        mNM.notify(R.string.remote_service_started, notification);
-    }
-}</code></example></para>
+ <sample external-id="979A206A90DB1905D5269C00962DC6D4" /></para>
       <para tool="javadoc-to-mdoc">If we want to make this service run in a remote process (instead of the
  standard one for its .apk), we can use <c>android:process</c> in its
  manifest tag to specify one:
@@ -639,8 +449,7 @@ void doUnbindService() {
       </Attributes>
       <Parameters />
       <Docs>
-        <summary>
-        </summary>
+        <summary></summary>
         <remarks>
           <para tool="javadoc-to-mdoc" />
           <para tool="javadoc-to-mdoc">
@@ -668,7 +477,7 @@ void doUnbindService() {
         <param name="transfer">A <see cref="T:Android.Runtime.JniHandleOwnership" />indicating how to handle <paramref name="javaReference" /></param>
         <summary>A constructor used when creating managed representations of JNI objects; called by the runtime.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">This constructor is invoked by the runtime infrastructure (<see cref="M:Java.Lang.Object.GetObject{T}(System.IntPtr,Android.Runtime.JniHandleOwnership)" />) to create a new managed representation for a Java Native Interface object.</para>
+          <para tool="javadoc-to-mdoc">This constructor is invoked by the runtime infrastructure (<see cref="M:Java.Lang.Object.GetObject``1(System.IntPtr,Android.Runtime.JniHandleOwnership)" />) to create a new managed representation for a Java Native Interface object.</para>
           <para tool="javadoc-to-mdoc">The constructor will initializes the <see cref="P:Android.Runtime.IJavaObject.Handle" /> property of the new instance using <paramref name="javaReference" /> and <paramref name="transfer" />.</para>
         </remarks>
       </Docs>
@@ -933,11 +742,11 @@ void doUnbindService() {
  any caches or other unnecessary resources you may be holding on to.
  The system will perform a garbage collection for you after returning from this method.
  </para>
-          <para tool="javadoc-to-mdoc">Preferably, you should implement <c><see cref="M:Android.App.Application.OnTrimMemory" /></c> from
+          <para tool="javadoc-to-mdoc">Preferably, you should implement <c><see cref="!:Android.Content.ComponentCallbacks2.onTrimMemory(int)" /></c> from
  <c><see cref="T:Android.Content.ComponentCallbacks2" /></c> to incrementally unload your resources based on various
  levels of memory demands.  That API is available for API level 14 and higher, so you should
  only use this <c><see cref="M:Android.Content.IComponentCallbacks.OnLowMemory" /></c> method as a fallback for older versions, which can be
- treated the same as <c><see cref="M:Android.App.Application.OnTrimMemory" /></c> with the <c><see cref="F:Android.Content.ComponentCallbacks2.TrimMemoryComplete" /></c> level.</para>
+ treated the same as <c><see cref="!:Android.Content.ComponentCallbacks2.onTrimMemory(int)" /></c> with the <c><see cref="F:Android.Content.ComponentCallbacks2.TrimMemoryComplete" /></c> level.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/app/Service.html#onLowMemory()" target="_blank">[Android Documentation]</a>
@@ -1012,8 +821,7 @@ void doUnbindService() {
       <Docs>
         <param name="intent">To be added.</param>
         <param name="startId">To be added.</param>
-        <summary>
-        </summary>
+        <summary></summary>
         <remarks>
           <para tool="javadoc-to-mdoc" />
           <para tool="javadoc-to-mdoc">
@@ -1469,7 +1277,7 @@ public void onDestroy() {
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary tool="true">Old version of <see cref="M:Android.App.Service.StopSelfResult(System.Int32)" /> that doesn't return a result.</summary>
+        <summary tool="true">Stop the service, if it was previously started.</summary>
         <remarks>
           <para tool="javadoc-to-mdoc">Stop the service, if it was previously started.  This is the same as
  calling <c><see cref="M:Android.Content.Context.StopService(Android.Content.Intent)" /></c> for this particular service.</para>
@@ -1577,7 +1385,7 @@ public void onDestroy() {
         <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
         <value>A <see cref="T:System.IntPtr" /> which contains the <c>java.lang.Class</c> JNI value corresponding to this type.</value>
         <remarks>
-          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonvirtualVoidMethod" />.</para>
+          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonVirtualVoidMethod" />.</para>
         </remarks>
       </Docs>
     </Member>
