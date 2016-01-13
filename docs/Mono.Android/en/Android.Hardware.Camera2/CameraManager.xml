@@ -57,7 +57,7 @@
       </Parameters>
       <Docs>
         <param name="cameraId">The id of the camera device to query</param>
-        <summary tool="true">Query the capabilities of a camera device.</summary>
+        <summary tool="true"></summary>
         <returns>To be added.</returns>
         <remarks>
           <para tool="javadoc-to-mdoc" />
@@ -71,10 +71,7 @@
         </remarks>
         <exception cref="T:Java.Lang.IllegalArgumentException">if the cameraId does not match any
          known camera device.</exception>
-        <exception cref="T:Android.Hardware.Camera2.CameraAccessException">if the camera is disabled by device policy, or
-         the camera device has been disconnected.</exception>
-        <exception cref="T:Java.Lang.SecurityException">if the application does not have permission to
-         access the camera</exception>
+        <exception cref="T:Android.Hardware.Camera2.CameraAccessException">if the camera device has been disconnected.</exception>
         <altmember cref="M:Android.Hardware.Camera2.CameraManager.GetCameraIdList" />
         <altmember cref="M:Android.App.Admin.DevicePolicyManager.SetCameraDisabled(Android.Content.ComponentName, System.Boolean)" />
       </Docs>
@@ -97,12 +94,12 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>Return the list of currently connected camera devices by
- identifier.</summary>
+        <summary>Return the list of currently connected camera devices by identifier, including
+ cameras that may be in use by other camera API clients.</summary>
         <returns>To be added.</returns>
         <remarks>
-          <para tool="javadoc-to-mdoc">Return the list of currently connected camera devices by
- identifier.
+          <para tool="javadoc-to-mdoc">Return the list of currently connected camera devices by identifier, including
+ cameras that may be in use by other camera API clients.
 
  </para>
           <para tool="javadoc-to-mdoc">Non-removable cameras use integers starting at 0 for their
@@ -155,10 +152,21 @@
           <para tool="javadoc-to-mdoc">Use <c><see cref="M:Android.Hardware.Camera2.CameraManager.GetCameraIdList" /></c> to get the list of available camera
  devices. Note that even if an id is listed, open may fail if the device
  is disconnected between the calls to <c><see cref="M:Android.Hardware.Camera2.CameraManager.GetCameraIdList" /></c> and
- <c><see cref="M:Android.Hardware.Camera2.CameraManager.OpenCamera(System.String, .StateCallback, .StateCallback)" /></c>.</para>
+ <c><see cref="M:Android.Hardware.Camera2.CameraManager.OpenCamera(System.String, .StateCallback, .StateCallback)" /></c>, or if a higher-priority camera API client begins using the
+ camera device.</para>
+          <para tool="javadoc-to-mdoc">As of API level 23, devices for which the
+ <c><see cref="!:NoType:android/hardware/camera2/CameraManager$AvailabilityCallback;Href=../../../../reference/android/hardware/camera2/CameraManager.AvailabilityCallback.html#onCameraUnavailable(java.lang.String)" /></c> callback has been called due to the
+ device being in use by a lower-priority, background camera API client can still potentially
+ be opened by calling this method when the calling camera API client has a higher priority
+ than the current camera API client using this device.  In general, if the top, foreground
+ activity is running within your application process, your process will be given the highest
+ priority when accessing the camera, and this method will succeed even if the camera device is
+ in use by another camera API client. Any lower-priority application that loses control of the
+ camera in this way will receive an
+ <c><see cref="!:NoType:android/hardware/camera2/CameraDevice$StateCallback;Href=../../../../reference/android/hardware/camera2/CameraDevice.StateCallback.html#onDisconnected(android.hardware.camera2.CameraDevice)" /></c> callback.</para>
           <para tool="javadoc-to-mdoc">Once the camera is successfully opened, <c><see cref="!:NoType:android/hardware/camera2/CameraDevice$StateCallback;Href=../../../../reference/android/hardware/camera2/CameraDevice.StateCallback.html#onOpened(android.hardware.camera2.CameraDevice)" /></c> will
  be invoked with the newly opened <c><see cref="T:Android.Hardware.Camera2.CameraDevice" /></c>. The camera device can then be set up
- for operation by calling <c><see cref="M:Android.Hardware.Camera2.CameraDevice.CreateCaptureSession" /></c> and
+ for operation by calling <c><see cref="android.hardware.camera2.CameraCaptureSession.StateCallback," tool="ReplaceLinkValue" /></c> and
  <c><see cref="M:Android.Hardware.Camera2.CameraDevice.CreateCaptureRequest(Android.Hardware.Camera2.CameraTemplate)" /></c></para>
           <para tool="javadoc-to-mdoc">If the camera becomes disconnected during initialization
  after this function call returns,
@@ -175,7 +183,7 @@
           </para>
         </remarks>
         <exception cref="T:Android.Hardware.Camera2.CameraAccessException">if the camera is disabled by device policy,
- or the camera has become or was disconnected.</exception>
+ has been disconnected, or is being used by a higher-priority camera API client.</exception>
         <exception cref="T:Java.Lang.IllegalArgumentException">if cameraId or the callback was null,
  or the cameraId does not match any currently or previously available
  camera device.</exception>
@@ -206,9 +214,8 @@
       </Parameters>
       <Docs>
         <param name="callback">the new callback to send camera availability notices to</param>
-        <param name="handler">The handler on which the callback should be invoked, or
- <c>null</c> to use the current thread's <c><see cref="T:Android.OS.Looper" /></c>.
-</param>
+        <param name="handler">The handler on which the callback should be invoked, or <c>null</c> to use
+             the current thread's <c><see cref="T:Android.OS.Looper" /></c>.</param>
         <summary>Register a callback to be notified about camera device availability.</summary>
         <remarks>
           <para tool="javadoc-to-mdoc">Register a callback to be notified about camera device availability.
@@ -219,11 +226,26 @@
           <para tool="javadoc-to-mdoc">The first time a callback is registered, it is immediately called
  with the availability status of all currently known camera devices.</para>
           <para tool="javadoc-to-mdoc">
+            <c>
+              <see cref="!:NoType:android/hardware/camera2/CameraManager$AvailabilityCallback;Href=../../../../reference/android/hardware/camera2/CameraManager.AvailabilityCallback.html#onCameraUnavailable(java.lang.String)" />
+            </c> will be called whenever a camera
+ device is opened by any camera API client. As of API level 23, other camera API clients may
+ still be able to open such a camera device, evicting the existing client if they have higher
+ priority than the existing client of a camera device. See open() for more details.</para>
+          <para tool="javadoc-to-mdoc">Since this callback will be registered with the camera service, remember to unregister it
+ once it is no longer needed; otherwise the callback will continue to receive events
+ indefinitely and it may prevent other resources from being released. Specifically, the
+ callbacks will be invoked independently of the general activity lifecycle and independently
+ of the state of individual CameraManager instances.</para>
+          <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/hardware/camera2/CameraManager.html#registerAvailabilityCallback(android.hardware.camera2.CameraManager.AvailabilityCallback, android.os.Handler)" target="_blank">[Android Documentation]</a>
             </format>
           </para>
         </remarks>
+        <exception cref="T:Java.Lang.IllegalArgumentException">if the handler is <c>null</c> but the current thread has
+             no looper.
+</exception>
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
@@ -240,7 +262,7 @@
         <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
         <value>A <see cref="T:System.IntPtr" /> which contains the <c>java.lang.Class</c> JNI value corresponding to this type.</value>
         <remarks>
-          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonvirtualVoidMethod" />.</para>
+          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonvirtualVoidMethod" tool="ReplaceLinkValue" />.</para>
         </remarks>
       </Docs>
     </Member>

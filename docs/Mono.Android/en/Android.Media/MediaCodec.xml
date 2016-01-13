@@ -15,224 +15,476 @@
     </Attribute>
   </Attributes>
   <Docs since="16">
-    <summary>MediaCodec class can be used to access low-level media codec, i.e.
- encoder/decoder components.</summary>
+    <summary>MediaCodec class can be used to access low-level media codecs, i.e. encoder/decoder components.</summary>
     <remarks>
-      <para tool="javadoc-to-mdoc">MediaCodec class can be used to access low-level media codec, i.e.
- encoder/decoder components.
+      <para tool="javadoc-to-mdoc">MediaCodec class can be used to access low-level media codecs, i.e. encoder/decoder components.
+ It is part of the Android low-level multimedia support infrastructure (normally used together
+ with <c><see cref="T:Android.Media.MediaExtractor" /></c>, <c><see cref="T:Android.Media.MediaSync" /></c>, <c><see cref="T:Android.Media.MediaMuxer" /></c>, <c><see cref="T:Android.Media.MediaCrypto" /></c>,
+ <c><see cref="T:Android.Media.MediaDrm" /></c>, <c><see cref="T:Android.Media.Image" /></c>, <c><see cref="T:Android.Views.Surface" /></c>, and <c><see cref="T:Android.Media.AudioTrack" /></c>.)
+ </para>
+      <para tool="javadoc-to-mdoc">
+        <format type="text/html">
+          <center>
+            <object style="width: 540px; height: 205px;" type="image/svg+xml" data="../../../images/media/mediacodec_buffers.svg">
+              <img src="../../../images/media/mediacodec_buffers.png" style="width: 540px; height: 205px" alt="MediaCodec buffer flow diagram" />
+            </object>
+          </center>
+        </format>
+      </para>
+      <para tool="javadoc-to-mdoc">
+ In broad terms, a codec processes input data to generate output data. It processes data
+ asynchronously and uses a set of input and output buffers. At a simplistic level, you request
+ (or receive) an empty input buffer, fill it up with data and send it to the codec for
+ processing. The codec uses up the data and transforms it into one of its empty output buffers.
+ Finally, you request (or receive) a filled output buffer, consume its contents and release it
+ back to the codec.
+
+ <format type="text/html"><h3>Data Types</h3></format></para>
+      <para tool="javadoc-to-mdoc">
+ Codecs operate on three kinds of data: compressed data, raw audio data and raw video data.
+ All three kinds of data can be processed using <c><see cref="T:Java.Nio.ByteBuffer" /></c>, but you should use
+ a <c><see cref="T:Android.Views.Surface" /></c> for raw video data to improve codec performance. Surface uses native video
+ buffers without mapping or copying them to ByteBuffers; thus, it is much more efficient.
+ You normally cannot access the raw video data when using a Surface, but you can use the
+ <c><see cref="T:Android.Media.ImageReader" /></c> class to access unsecured decoded (raw) video frames. This may still be more
+ efficient than using ByteBuffers, as some native buffers may be mapped into <see cref="!:Java.Nio.ByteBuffer.isDirect()" /> ByteBuffers. When using ByteBuffer mode, you can access raw video
+ frames using the <c><see cref="T:Android.Media.Image" /></c> class and <c><see cref="M:Android.Media.MediaCodec.GetInputImage(System.Int32)" /></c>/<c><see cref="M:Android.Media.MediaCodec.GetOutputImage(System.Int32)" /></c>.
+
+ <format type="text/html"><h4>Compressed Buffers</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ Input buffers (for decoders) and output buffers (for encoders) contain compressed data according
+ to the <see cref="F:Android.Media.MediaFormat.KeyMime" />. For video types this is a single
+ compressed video frame. For audio data this is normally a single access unit (an encoded audio
+ segment typically containing a few milliseconds of audio as dictated by the format type), but
+ this requirement is slightly relaxed in that a buffer may contain multiple encoded access units
+ of audio. In either case, buffers do not start or end on arbitrary byte boundaries, but rather on
+ frame/access unit boundaries.
+
+ <format type="text/html"><h4>Raw Audio Buffers</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ Raw audio buffers contain entire frames of PCM audio data, which is one sample for each channel
+ in channel order. Each sample is a <see cref="!:Android.Media.AudioFormat.ENCODING_PCM_16BIT" />.
+
+ <sample external-id="55DD747FAF1A7582D290F690C5E09A1E" /><format type="text/html"><h4>Raw Video Buffers</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ In ByteBuffer mode video buffers are laid out according to their <see cref="F:Android.Media.MediaFormat.KeyColorFormat" />. You can get the supported color formats as an array
+ from <c><see cref="P:Android.Media.MediaCodec.CodecInfo" /></c><c>.</c><c><see cref="M:Android.Media.MediaCodecInfo.GetCapabilitiesForType(System.String)" /></c><c>.</c><c><see cref="!:NoType:android/media/MediaCodecInfo$CodecCapabilities;Href=../../../reference/android/media/MediaCodecInfo.CodecCapabilities.html#colorFormats" /></c>.
+ Video codecs may support three kinds of color formats:
+ <list type="bullet"><item><term><i>native raw video format:</i> This is marked by <c><see cref="!:NoType:android/media/MediaCodecInfo$CodecCapabilities;Href=../../../reference/android/media/MediaCodecInfo.CodecCapabilities.html#COLOR_FormatSurface" /></c> and it can be used with an input or output Surface.</term></item><item><term><i>flexible YUV buffers</i> (such as <c><see cref="!:NoType:android/media/MediaCodecInfo$CodecCapabilities;Href=../../../reference/android/media/MediaCodecInfo.CodecCapabilities.html#COLOR_FormatYUV420Flexible" /></c>): These can be used with an input/output Surface,
+ as well as in ByteBuffer mode, by using <c><see cref="M:Android.Media.MediaCodec.GetInputImage(System.Int32)" /></c>/<c><see cref="M:Android.Media.MediaCodec.GetOutputImage(System.Int32)" /></c>.</term></item><item><term><i>other, specific formats:</i> These are normally only supported in ByteBuffer
+ mode. Some color formats are vendor specific. Others are defined in <c><see cref="!:NoType:android/media/MediaCodecInfo$CodecCapabilities;Href=../../../reference/android/media/MediaCodecInfo.CodecCapabilities.html" /></c>.
+ For color formats that are equivalent to a flexible format, you can still use <c><see cref="M:Android.Media.MediaCodec.GetInputImage(System.Int32)" /></c>/<c><see cref="M:Android.Media.MediaCodec.GetOutputImage(System.Int32)" /></c>.</term></item></list></para>
+      <para tool="javadoc-to-mdoc">
+ All video codecs support flexible YUV 4:2:0 buffers since <c><see cref="F:Android.OS.Build.VERSION_CODES.Lollipop" tool="ReplaceLinkValue" /></c>.
+
+ <format type="text/html"><h3>States</h3></format></para>
+      <para tool="javadoc-to-mdoc">
+ During its life a codec conceptually exists in one of three states: Stopped, Executing or
+ Released. The Stopped collective state is actually the conglomeration of three states:
+ Uninitialized, Configured and Error, whereas the Executing state conceptually progresses through
+ three sub-states: Flushed, Running and End-of-Stream.
+ </para>
+      <para tool="javadoc-to-mdoc">
+        <format type="text/html">
+          <center>
+            <object style="width: 516px; height: 353px;" type="image/svg+xml" data="../../../images/media/mediacodec_states.svg">
+              <img src="../../../images/media/mediacodec_states.png" style="width: 519px; height: 356px" alt="MediaCodec state diagram" />
+            </object>
+          </center>
+        </format>
+      </para>
+      <para tool="javadoc-to-mdoc">
+ When you create a codec using one of the factory methods, the codec is in the Uninitialized
+ state. First, you need to configure it via <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c>, which brings
+ it to the Configured state, then call <c><see cref="M:Android.Media.MediaCodec.Start" /></c> to move it to the Executing state. In this
+ state you can process data through the buffer queue manipulation described above.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ The Executing state has three sub-states: Flushed, Running and End-of-Stream. Immediately after
+ <c><see cref="M:Android.Media.MediaCodec.Start" /></c> the codec is in the Flushed sub-state, where it holds all the buffers. As soon
+ as the first input buffer is dequeued, the codec moves to the Running sub-state, where it spends
+ most of its life. When you queue an input buffer with the <see cref="F:Android.Media.MediaCodec.BufferFlagEndOfStream" />, the codec transitions to the End-of-Stream sub-state. In this state the
+ codec no longer accepts further input buffers, but still generates output buffers until the
+ end-of-stream is reached on the output. You can move back to the Flushed sub-state at any time
+ while in the Executing state using <c><see cref="M:Android.Media.MediaCodec.Flush" /></c>.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ Call <c><see cref="M:Android.Media.MediaCodec.Stop" /></c> to return the codec to the Uninitialized state, whereupon it may be configured
+ again. When you are done using a codec, you must release it by calling <c><see cref="M:Android.Media.MediaCodec.Release" /></c>.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ On rare occasions the codec may encounter an error and move to the Error state. This is
+ communicated using an invalid return value from a queuing operation, or sometimes via an
+ exception. Call <c><see cref="M:Android.Media.MediaCodec.Reset" /></c> to make the codec usable again. You can call it from any state to
+ move the codec back to the Uninitialized state. Otherwise, call <c><see cref="M:Android.Media.MediaCodec.Release" /></c> to move to the
+ terminal Released state.
+
+ <format type="text/html"><h3>Creation</h3></format></para>
+      <para tool="javadoc-to-mdoc">
+ Use <c><see cref="T:Android.Media.MediaCodecList" /></c> to create a MediaCodec for a specific <c><see cref="T:Android.Media.MediaFormat" /></c>. When
+ decoding a file or a stream, you can get the desired format from <c><see cref="M:Android.Media.MediaExtractor.GetTrackFormat(System.Int32)" /></c>. Inject any specific features that
+ you want to add using <c><see cref="M:Android.Media.MediaFormat.SetFeatureEnabled(System.String, System.Boolean)" /></c>, then
+ call <c><see cref="M:Android.Media.MediaCodecList.FindDecoderForFormat(Android.Media.MediaFormat)" /></c> to get the
+ name of a codec that can handle that specific media format. Finally, create the codec using
+ <c><see cref="M:Android.Media.MediaCodec.CreateByCodecName(System.String)" /></c>.
+ </para>
+      <para tool="javadoc-to-mdoc">
+        <i>Note:</i> On <c><see cref="F:Android.OS.Build.VERSION_CODES.Lollipop" tool="ReplaceLinkValue" /></c>, the format to
+ <c>MediaCodecList.findDecoder</c>/<c>EncoderForFormat</c> must not contain a <see cref="F:Android.Media.MediaFormat.KeyFrameRate" />. Use
+ <c>format.setString(MediaFormat.KEY_FRAME_RATE, null)</c>
+ to clear any existing frame rate setting in the format.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ You can also create the preferred codec for a specific MIME type using <c><see cref="M:Android.Media.MediaCodec.CreateDecoderByType(System.String)" /></c>/<c><see cref="M:Android.Media.MediaCodec.CreateEncoderByType(System.String)" /></c>.
+ This, however, cannot be used to inject features, and may create a codec that cannot handle the
+ specific desired media format.
+
+ <format type="text/html"><h4>Creating secure decoders</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ On versions <c><see cref="F:Android.OS.Build+VERSION_CODES.KitKat" tool="ReplaceLinkValue" /></c> and earlier, secure codecs might
+ not be listed in <c><see cref="T:Android.Media.MediaCodecList" /></c>, but may still be available on the system. Secure codecs
+ that exist can be instantiated by name only, by appending <c>".secure"</c> to the name of a
+ regular codec (the name of all secure codecs must end in <c>".secure"</c>.) <c><see cref="M:Android.Media.MediaCodec.CreateByCodecName(System.String)" /></c> will throw an <c>IOException</c> if the codec is not present on the system.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ From <c><see cref="F:Android.OS.Build.VERSION_CODES.Lollipop" tool="ReplaceLinkValue" /></c> onwards, you should use the <c><see cref="!:NoType:android/media/MediaCodecInfo$CodecCapabilities;Href=../../../reference/android/media/MediaCodecInfo.CodecCapabilities.html#FEATURE_SecurePlayback" /></c> feature in the media format to create a secure decoder.
+
+ <format type="text/html"><h3>Initialization</h3></format></para>
+      <para tool="javadoc-to-mdoc">
+ After creating the codec, you can set a callback using <c><see cref="M:Android.Media.MediaCodec.SetCallback(.Callback)" /></c> if you
+ want to process data asynchronously. Then, <see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /> the codec using the
+ specific media format. This is when you can specify the output <c><see cref="T:Android.Views.Surface" /></c> for video
+ producers &amp;ndash; codecs that generate raw video data (e.g. video decoders). This is also when
+ you can set the decryption parameters for secure codecs (see <c><see cref="T:Android.Media.MediaCrypto" /></c>). Finally, since
+ some codecs can operate in multiple modes, you must specify whether you want it to work as a
+ decoder or an encoder.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ Since <c><see cref="F:Android.OS.Build.VERSION_CODES.Lollipop" tool="ReplaceLinkValue" /></c>, you can query the resulting input and
+ output format in the Configured state. You can use this to verify the resulting configuration,
+ e.g. color formats, before starting the codec.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ If you want to process raw input video buffers natively with a video consumer &amp;ndash; a codec
+ that processes raw video input, such as a video encoder &amp;ndash; create a destination Surface for
+ your input data using <c><see cref="M:Android.Media.MediaCodec.CreateInputSurface" /></c> after configuration. Alternately, set up the
+ codec to use a previously created <see cref="M:Android.Media.MediaCodec.CreatePersistentInputSurface" /> by calling <c><see cref="M:Android.Media.MediaCodec.SetInputSurface(Android.Views.Surface)" /></c>.
+
+ <format type="text/html"><h4 id="CSD">Codec-specific Data</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ Some formats, notably AAC audio and MPEG4, H.264 and H.265 video formats require the actual data
+ to be prefixed by a number of buffers containing setup data, or codec specific data. When
+ processing such compressed formats, this data must be submitted to the codec after <c><see cref="M:Android.Media.MediaCodec.Start" /></c> and before any frame data. Such data must be marked using the flag <c><see cref="F:Android.Media.MediaCodec.BufferFlagCodecConfig" /></c> in a call to <c><see cref="M:Android.Media.MediaCodec.QueueInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c>.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ Codec-specific data can also be included in the format passed to <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c> in
+ ByteBuffer entries with keys "csd-0", "csd-1", etc. These keys are always included in the track
+ <c><see cref="T:Android.Media.MediaFormat" /></c> obtained from the <c><see cref="M:Android.Media.MediaExtractor.GetTrackFormat(System.Int32)" /></c>.
+ Codec-specific data in the format is automatically submitted to the codec upon <c><see cref="M:Android.Media.MediaCodec.Start" /></c>;
+ you <i>MUST NOT</i> submit this data explicitly. If the format did not contain codec
+ specific data, you can choose to submit it using the specified number of buffers in the correct
+ order, according to the format requirements. Alternately, you can concatenate all codec-specific
+ data and submit it as a single codec-config buffer.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ Android uses the following codec-specific data buffers. These are also required to be set in
+ the track format for proper <c><see cref="T:Android.Media.MediaMuxer" /></c> track configuration. Each parameter set and the
+ codec-specific-data sections marked with (<format type="text/html"><sup>*</sup></format>) must start with a start code of
+ <c>"\x00\x00\x00\x01"</c>.
+ </para>
+      <para tool="javadoc-to-mdoc">
+        <format type="text/html">
+          <style>
+//<![CDATA[
+td.NA { background: #ccc; } .mid &gt; tr &gt; td { vertical-align: middle; }
+//]]>//
+</style>
+        </format>
+        <format type="text/html">
+          <table>
+            <thead>
+              <th>Format</th>
+              <th>CSD buffer #0</th>
+              <th>CSD buffer #1</th>
+              <th>CSD buffer #2</th>
+            </thead>
+            <tbody class="mid">
+              <tr>
+                <td>AAC</td>
+                <td>Decoder-specific information from ESDS<sup>*</sup></td>
+                <td class="NA">Not Used</td>
+                <td class="NA">Not Used</td>
+              </tr>
+              <tr>
+                <td>VORBIS</td>
+                <td>Identification header</td>
+                <td>Setup header</td>
+                <td class="NA">Not Used</td>
+              </tr>
+              <tr>
+                <td>OPUS</td>
+                <td>Identification header</td>
+                <td>Pre-skip in nanosecs<br />
+        (unsigned 64-bit <see cref="M:Java.Nio.ByteOrder.NativeOrder" /> integer.)<br />
+        This overrides the pre-skip value in the identification header.</td>
+                <td>Seek Pre-roll in nanosecs<br />
+        (unsigned 64-bit <see cref="M:Java.Nio.ByteOrder.NativeOrder" /> integer.)</td>
+              </tr>
+              <tr>
+                <td>MPEG-4</td>
+                <td>Decoder-specific information from ESDS<sup>*</sup></td>
+                <td class="NA">Not Used</td>
+                <td class="NA">Not Used</td>
+              </tr>
+              <tr>
+                <td>H.264 AVC</td>
+                <td>SPS (Sequence Parameter Sets<sup>*</sup>)</td>
+                <td>PPS (Picture Parameter Sets<sup>*</sup>)</td>
+                <td class="NA">Not Used</td>
+              </tr>
+              <tr>
+                <td>H.265 HEVC</td>
+                <td>VPS (Video Parameter Sets<sup>*</sup>) +<br />
+     SPS (Sequence Parameter Sets<sup>*</sup>) +<br />
+     PPS (Picture Parameter Sets<sup>*</sup>)</td>
+                <td class="NA">Not Used</td>
+                <td class="NA">Not Used</td>
+              </tr>
+            </tbody>
+          </table>
+        </format>
+      </para>
+      <para tool="javadoc-to-mdoc">
+        <i>Note:</i> care must be taken if the codec is flushed immediately or shortly
+ after start, before any output buffer or output format change has been returned, as the codec
+ specific data may be lost during the flush. You must resubmit the data using buffers marked with
+ <c><see cref="F:Android.Media.MediaCodec.BufferFlagCodecConfig" /></c> after such flush to ensure proper codec operation.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ Encoders (or codecs that generate compressed data) will create and return the codec specific data
+ before any valid output buffer in output buffers marked with the <see cref="F:Android.Media.MediaCodec.BufferFlagCodecConfig" />. Buffers containing codec-specific-data have no
+ meaningful timestamps.
+
+ <format type="text/html"><h3>Data Processing</h3></format></para>
+      <para tool="javadoc-to-mdoc">
+ Each codec maintains a set of input and output buffers that are referred to by a buffer-ID in
+ API calls. After a successful call to <c><see cref="M:Android.Media.MediaCodec.Start" /></c> the client "owns" neither input nor output
+ buffers. In synchronous mode, call <c><see cref="M:Android.Media.MediaCodec.DequeueInputBuffer(System.Int64)" /></c>/<c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c> to obtain (get ownership of) an input or output
+ buffer from the codec. In asynchronous mode, you will automatically receive available buffers via
+ the <c><see cref="!:NoType:android/media/MediaCodec$Callback;Href=../../../reference/android/media/MediaCodec.Callback.html#onInputBufferAvailable(android.media.MediaCodec, int)" /></c>/<c><see cref="!:NoType:android/media/MediaCodec$Callback;Href=../../../reference/android/media/MediaCodec.Callback.html#onOutputBufferAvailable(android.media.MediaCodec, int, android.media.MediaCodec.BufferInfo)" /></c> callbacks.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ Upon obtaining an input buffer, fill it with data and submit it to the codec using <c><see cref="M:Android.Media.MediaCodec.QueueInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c> &amp;ndash; or <c><see cref="M:Android.Media.MediaCodec.QueueSecureInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c> if using decryption. Do not submit multiple input buffers with the same
+ timestamp (unless it is  marked as such).
+ </para>
+      <para tool="javadoc-to-mdoc">
+ The codec in turn will return a read-only output buffer via the <c><see cref="!:NoType:android/media/MediaCodec$Callback;Href=../../../reference/android/media/MediaCodec.Callback.html#onOutputBufferAvailable(android.media.MediaCodec, int, android.media.MediaCodec.BufferInfo)" /></c> callback in asynchronous mode, or in
+ response to a <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c> call in synchronous mode. After the
+ output buffer has been processed, call one of the <c><see cref="M:Android.Media.MediaCodec.ReleaseOutputBuffer(System.Int32, System.Boolean)" /></c> methods to return the buffer to the codec.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ While you are not required to resubmit/release buffers immediately to the codec, holding onto
+ input and/or output buffers may stall the codec, and this behavior is device dependent.
+ <i>Specifically, it is possible that a codec may hold off on generating output buffers until
+ <i>all</i> outstanding buffers have been released/resubmitted.</i> Therefore, try to
+ hold onto to available buffers as little as possible.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ Depending on the API version, you can process data in three ways:
+ <format type="text/html"><table><thead><tr><th>Processing Mode</th><th>API version &lt;= 20<br />Jelly Bean/KitKat</th><th>API version &gt;= 21<br />Lollipop and later</th></tr></thead><tbody><tr><td>Synchronous API using buffer arrays</td><td>Supported</td><td>Deprecated</td></tr><tr><td>Synchronous API using buffers</td><td class="NA">Not Available</td><td>Supported</td></tr><tr><td>Asynchronous API using buffers</td><td class="NA">Not Available</td><td>Supported</td></tr></tbody></table></format><format type="text/html"><h4>Asynchronous Processing using Buffers</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ Since <c><see cref="F:Android.OS.Build.VERSION_CODES.Lollipop" tool="ReplaceLinkValue" /></c>, the preferred method is to process data
+ asynchronously by setting a callback before calling <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c>. Asynchronous
+ mode changes the state transitions slightly, because you must call <c><see cref="M:Android.Media.MediaCodec.Start" /></c> after <c><see cref="M:Android.Media.MediaCodec.Flush" /></c> to transition the codec to the Running sub-state and start receiving input buffers.
+ Similarly, upon an initial call to <c>start</c> the codec will move directly to the Running
+ sub-state and start passing available input buffers via the callback.
+ </para>
+      <para tool="javadoc-to-mdoc">
+        <format type="text/html">
+          <center>
+            <object style="width: 516px; height: 353px;" type="image/svg+xml" data="../../../images/media/mediacodec_async_states.svg">
+              <img src="../../../images/media/mediacodec_async_states.png" style="width: 516px; height: 353px" alt="MediaCodec state diagram for asynchronous operation" />
+            </object>
+          </center>
+        </format>
+      </para>
+      <para tool="javadoc-to-mdoc">
+ MediaCodec is typically used like this in asynchronous mode:
+ <sample external-id="92E5049858349B9E65132C35E5E0FDFF" /><format type="text/html"><h4>Synchronous Processing using Buffers</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ Since <c><see cref="F:Android.OS.Build.VERSION_CODES.Lollipop" tool="ReplaceLinkValue" /></c>, you should retrieve input and output
+ buffers using <c><see cref="M:Android.Media.MediaCodec.GetInputBuffer(System.Int32)" /></c>/<c><see cref="M:Android.Media.MediaCodec.GetOutputBuffer(System.Int32)" /></c> and/or
+ <c><see cref="M:Android.Media.MediaCodec.GetInputImage(System.Int32)" /></c>/<c><see cref="M:Android.Media.MediaCodec.GetOutputImage(System.Int32)" /></c> even when using the
+ codec in synchronous mode. This allows certain optimizations by the framework, e.g. when
+ processing dynamic content. This optimization is disabled if you call <c><see cref="M:Android.Media.MediaCodec.GetInputBuffers" /></c>/<c><see cref="M:Android.Media.MediaCodec.GetOutputBuffers" /></c>.
 
  </para>
-      <para tool="javadoc-to-mdoc">MediaCodec is generally used like this:
- <example><code lang="java">
- MediaCodec codec = MediaCodec.createDecoderByType(type);
- codec.configure(format, ...);
- codec.start();
+      <para tool="javadoc-to-mdoc">
+        <i>Note:</i> do not mix the methods of using buffers and buffer arrays at the same
+ time. Specifically, only call <c>getInput</c>/<c>OutputBuffers</c> directly after <c><see cref="M:Android.Media.MediaCodec.Start" /></c> or after having dequeued an output buffer ID with the value of <c><see cref="F:Android.Media.MediaCodec.InfoOutputFormatChanged" /></c>.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ MediaCodec is typically used like this in synchronous mode:
+ <sample external-id="6FFF95F3F9647AD17AF7D7C61BB15E06" /><format type="text/html"><h4>Synchronous Processing using Buffer Arrays (deprecated)</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ In versions <c><see cref="F:Android.OS.Build+VERSION_CODES.KitKat" tool="ReplaceLinkValue" /></c> and before, the set of input and
+ output buffers are represented by the <c>ByteBuffer[]</c> arrays. After a successful call to
+ <c><see cref="M:Android.Media.MediaCodec.Start" /></c>, retrieve the buffer arrays using <c><see cref="M:Android.Media.MediaCodec.GetInputBuffers" /></c>/<c><see cref="M:Android.Media.MediaCodec.GetOutputBuffers" /></c>. Use the buffer ID-s as indices into these arrays (when
+ non-negative), as demonstrated in the sample below. Note that there is no inherent correlation
+ between the size of the arrays and the number of input and output buffers used by the system,
+ although the array size provides an upper bound.
+ <sample external-id="415F3C7EEECEF535A20CE063CAFCAA36" /><format type="text/html"><h4>End-of-stream Handling</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ When you reach the end of the input data, you must signal it to the codec by specifying the
+ <c><see cref="F:Android.Media.MediaCodec.BufferFlagEndOfStream" /></c> flag in the call to <c><see cref="M:Android.Media.MediaCodec.QueueInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c>. You can do this on the last valid input buffer, or by submitting an additional
+ empty input buffer with the end-of-stream flag set. If using an empty buffer, the timestamp will
+ be ignored.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ The codec will continue to return output buffers until it eventually signals the end of the
+ output stream by specifying the same end-of-stream flag in the <c><see cref="!:NoType:android/media/MediaCodec$BufferInfo;Href=../../../reference/android/media/MediaCodec.BufferInfo.html" /></c> set in <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c> or returned via <c><see cref="!:NoType:android/media/MediaCodec$Callback;Href=../../../reference/android/media/MediaCodec.Callback.html#onOutputBufferAvailable(android.media.MediaCodec, int, android.media.MediaCodec.BufferInfo)" /></c>. This can be set on the last valid output buffer, or on an empty buffer
+ after the last valid output buffer. The timestamp of such empty buffer should be ignored.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ Do not submit additional input buffers after signaling the end of the input stream, unless the
+ codec has been flushed, or stopped and restarted.
 
- // if API level &lt;= 20, get input and output buffer arrays here
- ByteBuffer[] inputBuffers = codec.getInputBuffers();
- ByteBuffer[] outputBuffers = codec.getOutputBuffers();
- for (;;) {
-   int inputBufferIndex = codec.dequeueInputBuffer(timeoutUs);
-   if (inputBufferIndex &gt;= 0) {
-     // if API level &gt;= 21, get input buffer here
-     ByteBuffer inputBuffer = codec.getInputBuffer(inputBufferIndex);
-     // fill inputBuffers[inputBufferIndex] with valid data
-     ...
-     codec.queueInputBuffer(inputBufferIndex, ...);
-   }
+ <format type="text/html"><h4>Using an Output Surface</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ The data processing is nearly identical to the ByteBuffer mode when using an output <c><see cref="T:Android.Views.Surface" /></c>; however, the output buffers will not be accessible, and are represented as <c>null</c>
+ values. E.g. <c><see cref="M:Android.Media.MediaCodec.GetOutputBuffer(System.Int32)" /></c>/<c><see cref="M:Android.Media.MediaCodec.GetOutputImage(System.Int32)" /></c> will
+ return <c>null</c> and <c><see cref="M:Android.Media.MediaCodec.GetOutputBuffers" /></c> will return an array containing only <c>null</c>-s.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ When using an output Surface, you can select whether or not to render each output buffer on the
+ surface. You have three choices:
+ <list type="bullet"><item><term><i>Do not render the buffer:</i> Call <c><see cref="M:Android.Media.MediaCodec.ReleaseOutputBuffer(System.Int32, System.Boolean)" /></c>.</term></item><item><term><i>Render the buffer with the default timestamp:</i> Call <c><see cref="M:Android.Media.MediaCodec.ReleaseOutputBuffer(System.Int32, System.Boolean)" /></c>.</term></item><item><term><i>Render the buffer with a specific timestamp:</i> Call <c><see cref="M:Android.Media.MediaCodec.ReleaseOutputBuffer(System.Int32, System.Int64)" /></c>.</term></item></list></para>
+      <para tool="javadoc-to-mdoc">
+ Since <c><see cref="!:NoType:android/os/Build$VERSION_CODES;Href=../../../reference/android/os/Build.VERSION_CODES.html#M" /></c>, the default timestamp is the <see cref="!:NoType:android/media/MediaCodec$BufferInfo;Href=../../../reference/android/media/MediaCodec.BufferInfo.html#presentationTimeUs" /> of the buffer (converted to nanoseconds).
+ It was not defined prior to that.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ Also since <c><see cref="!:NoType:android/os/Build$VERSION_CODES;Href=../../../reference/android/os/Build.VERSION_CODES.html#M" /></c>, you can change the output Surface
+ dynamically using <c><see cref="M:Android.Media.MediaCodec.SetOutputSurface(Android.Views.Surface)" /></c>.
 
-   int outputBufferIndex = codec.dequeueOutputBuffer(timeoutUs);
-   if (outputBufferIndex &gt;= 0) {
-     // if API level &gt;= 21, get output buffer here
-     ByteBuffer outputBuffer = codec.getOutputBuffer(outputBufferIndex);
-     // outputBuffer is ready to be processed or rendered.
-     ...
-     codec.releaseOutputBuffer(outputBufferIndex, ...);
-   } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-     // no needed to handle if API level &gt;= 21 and using getOutputBuffer(int)
-     outputBuffers = codec.getOutputBuffers();
-   } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-     // Subsequent data will conform to new format.
-     // can ignore if API level &gt;= 21 and using getOutputFormat(outputBufferIndex)
-     MediaFormat format = codec.getOutputFormat();
-     ...
-   }
- }
- codec.stop();
- codec.release();
- codec = null;
- </code></example>
-
- Each codec maintains a number of input and output buffers that are
- referred to by index in API calls.
+ <format type="text/html"><h4>Using an Input Surface</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ When using an input Surface, there are no accessible input buffers, as buffers are automatically
+ passed from the input surface to the codec. Calling <c><see cref="M:Android.Media.MediaCodec.DequeueInputBuffer(System.Int64)" /></c> will throw an <c>IllegalStateException</c>, and <c><see cref="M:Android.Media.MediaCodec.GetInputBuffers" /></c>
+ returns a bogus <c>ByteBuffer[]</c> array that <i>MUST NOT</i> be written into.
  </para>
       <para tool="javadoc-to-mdoc">
- For API levels 20 and below:
- The contents of these buffers are represented by the ByteBuffer[] arrays
- accessible through <c><see cref="M:Android.Media.MediaCodec.GetInputBuffers" /></c> and <c><see cref="M:Android.Media.MediaCodec.GetOutputBuffers" /></c>.
- </para>
-      <para tool="javadoc-to-mdoc">
- After a successful call to <c><see cref="M:Android.Media.MediaCodec.Start" /></c> the client "owns" neither
- input nor output buffers, subsequent calls to <c><see cref="M:Android.Media.MediaCodec.DequeueInputBuffer(System.Int64)" /></c>
- and <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c> then transfer ownership from the codec
- to the client.</para>
-      <para tool="javadoc-to-mdoc">
- The client is not required to resubmit/release buffers immediately
- to the codec, the sample code above simply does this for simplicity's sake.
- Nonetheless, it is possible that a codec may hold off on generating
- output buffers until all outstanding buffers have been
- released/resubmitted.
- </para>
-      <para tool="javadoc-to-mdoc">
- Once the client has an input buffer available it can fill it with data
- and submit it it to the codec via a call to <c><see cref="M:Android.Media.MediaCodec.QueueInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c>.
- Do not submit multiple input buffers with the same timestamp (unless
- it is codec-specific data marked as such using the flag
- <c><see cref="F:Android.Media.MediaCodec.BufferFlagCodecConfig" /></c>).
- </para>
-      <para tool="javadoc-to-mdoc">
- The codec in turn will return an output buffer to the client in response
- to <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c>. After the output buffer has been processed
- a call to <c><see cref="M:Android.Media.MediaCodec.ReleaseOutputBuffer(System.Int32, System.Boolean)" /></c> will return it to the codec.
- If a video surface has been provided in the call to <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c>,
- <c><see cref="M:Android.Media.MediaCodec.ReleaseOutputBuffer(System.Int32, System.Boolean)" /></c> optionally allows rendering of the buffer
- to the surface.</para>
-      <para tool="javadoc-to-mdoc">
-
- Input buffers (for decoders) and Output buffers (for encoders) contain
- encoded data according to the format's type. For video types this data
- is all the encoded data representing a single moment in time, for audio
- data this is slightly relaxed in that a buffer may contain multiple
- encoded frames of audio. In either case, buffers do not start and end on
- arbitrary byte boundaries, this is not a stream of bytes, it's a stream
- of access units.</para>
-      <para tool="javadoc-to-mdoc">
-
- Most formats also require the actual data to be prefixed by a number
- of buffers containing setup data, or codec specific data, i.e. the
- first few buffers submitted to the codec object after starting it must
- be codec specific data marked as such using the flag <c><see cref="F:Android.Media.MediaCodec.BufferFlagCodecConfig" /></c>
- in a call to <c><see cref="M:Android.Media.MediaCodec.QueueInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c>.
- </para>
-      <para tool="javadoc-to-mdoc">
- Codec specific data included in the format passed to <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c>
- (in ByteBuffer entries with keys "csd-0", "csd-1", ...) is automatically
- submitted to the codec, this data MUST NOT be submitted explicitly by the
- client.
- </para>
-      <para tool="javadoc-to-mdoc">
- Once the client reaches the end of the input data it signals the end of
- the input stream by specifying a flag of <c><see cref="F:Android.Media.MediaCodec.BufferFlagEndOfStream" /></c> in the call to
- <c><see cref="M:Android.Media.MediaCodec.QueueInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c>. The codec will continue to return output buffers
- until it eventually signals the end of the output stream by specifying
- the same flag (<c><see cref="F:Android.Media.MediaCodec.BufferFlagEndOfStream" /></c>) on the BufferInfo returned in
- <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c>.  Do not submit additional input buffers after
- signaling the end of the input stream, unless the codec has been flushed,
- or stopped and restarted.
+ Call <c><see cref="M:Android.Media.MediaCodec.SignalEndOfInputStream" /></c> to signal end-of-stream. The input surface will stop
+ submitting data to the codec immediately after this call.
  </para>
       <para tool="javadoc-to-mdoc">
         <format type="text/html">
           <h3>Seeking &amp; Adaptive Playback Support</h3>
         </format>
+      </para>
+      <para tool="javadoc-to-mdoc">
+ Video decoders (and in general codecs that consume compressed video data) behave differently
+ regarding seek and format change whether or not they support and are configured for adaptive
+ playback. You can check if a decoder supports <see cref="!:NoType:android/media/MediaCodecInfo$CodecCapabilities;Href=../../../reference/android/media/MediaCodecInfo.CodecCapabilities.html#FEATURE_AdaptivePlayback" /> via <c><see cref="!:NoType:android/media/MediaCodecInfo$CodecCapabilities;Href=../../../reference/android/media/MediaCodecInfo.CodecCapabilities.html#isFeatureSupported(java.lang.String)" /></c>. Adaptive
+ playback support for video decoders is only activated if you configure the codec to decode onto a
+ <c><see cref="T:Android.Views.Surface" /></c>.
 
- You can check if a decoder supports adaptive playback via <c><see cref="!:NoType:android/media/MediaCodecInfo$CodecCapabilities;Href=../../../reference/android/media/MediaCodecInfo.CodecCapabilities.html#isFeatureSupported(java.lang.String)" /></c>.  Adaptive playback
- is only supported if you configure the codec to decode onto a <c><see cref="T:Android.Views.Surface" /></c>.
-
- <format type="text/html"><h4>For decoders that do not support adaptive playback (including
- when not decoding onto a Surface)</h4></format>
-
- In order to start decoding data that's not adjacent to previously submitted
- data (i.e. after a seek) <i>one must</i><c><see cref="M:Android.Media.MediaCodec.Flush" /></c> the decoder.
- Any input or output buffers the client may own at the point of the flush are
- immediately revoked, i.e. after a call to <c><see cref="M:Android.Media.MediaCodec.Flush" /></c> the client does not
- own any buffers anymore.
+ <format type="text/html"><h4 id="KeyFrames">Stream Boundary and Key Frames</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ It is important that the input data after <c><see cref="M:Android.Media.MediaCodec.Start" /></c> or <c><see cref="M:Android.Media.MediaCodec.Flush" /></c> starts at a suitable
+ stream boundary: the first frame must a key frame. A <i>key frame</i> can be decoded
+ completely on its own (for most codecs this means an I-frame), and no frames that are to be
+ displayed after a key frame refer to frames before the key frame.
  </para>
       <para tool="javadoc-to-mdoc">
- It is important that the input data after a flush starts at a suitable
- stream boundary.  The first frame must be able to be decoded completely on
- its own (for most codecs this means an I-frame), and that no frames should
- refer to frames before that first new frame.
- Note that the format of the data submitted after a flush must not change,
- flush does not support format discontinuities,
- for this a full <c><see cref="M:Android.Media.MediaCodec.Stop" /></c>, <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c>, <c><see cref="M:Android.Media.MediaCodec.Start" /></c>
- cycle is necessary.
-
- <format type="text/html"><h4>For decoders that support adaptive playback</h4></format>
-
- In order to start decoding data that's not adjacent to previously submitted
- data (i.e. after a seek) it is <i>not necessary</i> to <c><see cref="M:Android.Media.MediaCodec.Flush" /></c> the
- decoder.
+ The following table summarizes suitable key frames for various video formats.
+ <format type="text/html"><table><thead><tr><th>Format</th><th>Suitable key frame</th></tr></thead><tbody class="mid"><tr><td>VP9/VP8</td><td>a suitable intraframe where no subsequent frames refer to frames prior to this frame.<br /><i>(There is no specific name for such key frame.)</i></td></tr><tr><td>H.265 HEVC</td><td>IDR or CRA</td></tr><tr><td>H.264 AVC</td><td>IDR</td></tr><tr><td>MPEG-4<br />H.263<br />MPEG-2</td><td>a suitable I-frame where no subsequent frames refer to frames prior to this frame.<br /><i>(There is no specific name for such key frame.)</i></td></tr></tbody></table></format><format type="text/html"><h4>For decoders that do not support adaptive playback (including when not decoding onto a
+ Surface)</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ In order to start decoding data that is not adjacent to previously submitted data (i.e. after a
+ seek) you <i>MUST</i> flush the decoder. Since all output buffers are immediately
+ revoked at the point of the flush, you may want to first signal then wait for the end-of-stream
+ before you call <c>flush</c>. It is important that the input data after a flush starts at a
+ suitable stream boundary/key frame.
  </para>
       <para tool="javadoc-to-mdoc">
- It is still important that the input data after the discontinuity starts
- at a suitable stream boundary (e.g. I-frame), and that no new frames refer
- to frames before the first frame of the new input data segment.
+        <i>Note:</i> the format of the data submitted after a flush must not change; <c><see cref="M:Android.Media.MediaCodec.Flush" /></c> does not support format discontinuities; for that, a full <c><see cref="M:Android.Media.MediaCodec.Stop" /></c> - <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c> - <c><see cref="M:Android.Media.MediaCodec.Start" /></c> cycle is necessary.
+
  </para>
       <para tool="javadoc-to-mdoc">
- For some video formats it is also possible to change the picture size
- mid-stream.  To do this for H.264, the new Sequence Parameter Set (SPS) and
- Picture Parameter Set (PPS) values must be packaged together with an
- Instantaneous Decoder Refresh (IDR) frame in a single buffer, which then
- can be enqueued as a regular input buffer.
- The client will receive an <c><see cref="F:Android.Media.MediaCodec.InfoOutputFormatChanged" /></c> return
- value from <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c> or
- <c><see cref="!:NoType:android/media/MediaCodec$Callback;Href=../../../reference/android/media/MediaCodec.Callback.html#onOutputBufferAvailable(android.media.MediaCodec, int, android.media.MediaCodec.BufferInfo)" /></c>
- just after the picture-size change takes place and before any
+        <i>Also note:</i> if you flush the codec too soon after <c><see cref="M:Android.Media.MediaCodec.Start" /></c> &amp;ndash;
+ generally, before the first output buffer or output format change is received &amp;ndash; you
+ will need to resubmit the codec-specific-data to the codec. See the  for more info.
+
+ <format type="text/html"><h4>For decoders that support and are configured for adaptive playback</h4></format></para>
+      <para tool="javadoc-to-mdoc">
+ In order to start decoding data that is not adjacent to previously submitted data (i.e. after a
+ seek) it is <i>not necessary</i> to flush the decoder; however, input data after the
+ discontinuity must start at a suitable stream boundary/key frame.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ For some video formats - namely H.264, H.265, VP8 and VP9 - it is also possible to change the
+ picture size or configuration mid-stream. To do this you must package the entire new
+ codec-specific configuration data together with the key frame into a single buffer (including
+ any start codes), and submit it as a <i>regular</i> input buffer.
+ </para>
+      <para tool="javadoc-to-mdoc">
+ You will receive an <c><see cref="F:Android.Media.MediaCodec.InfoOutputFormatChanged" /></c> return value from <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c> or a <c><see cref="!:NoType:android/media/MediaCodec$Callback;Href=../../../reference/android/media/MediaCodec.Callback.html#onOutputBufferAvailable(android.media.MediaCodec, int, android.media.MediaCodec.BufferInfo)" /></c> callback just after the picture-size change takes place and before any
  frames with the new size have been returned.
  </para>
       <para tool="javadoc-to-mdoc">
- Be careful when calling <c><see cref="M:Android.Media.MediaCodec.Flush" /></c> shortly after you have changed
- the picture size.  If you have not received confirmation of the picture
- size change, you will need to repeat the request for the new picture size.
- E.g. for H.264 you will need to prepend the PPS/SPS to the new IDR
- frame to ensure that the codec receives the picture size change request.
+        <i>Note:</i> just as the case for codec-specific data, be careful when calling
+ <c><see cref="M:Android.Media.MediaCodec.Flush" /></c> shortly after you have changed the picture size. If you have not received
+ confirmation of the picture size change, you will need to repeat the request for the new picture
+ size.
 
- <format type="text/html"><h3>States and error handling</h3></format></para>
-      <para tool="javadoc-to-mdoc"> During its life, a codec conceptually exists in one of the following states:
- Initialized, Configured, Executing, Error, Uninitialized, (omitting transitory states
- between them). When created by one of the factory methods,
- the codec is in the Initialized state; <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c> brings it to the
- Configured state; <c><see cref="M:Android.Media.MediaCodec.Start" /></c> brings it to the Executing state.
- In the Executing state, decoding or encoding occurs through the buffer queue
- manipulation described above. The method <c><see cref="M:Android.Media.MediaCodec.Stop" /></c>
- returns the codec to the Initialized state, whereupon it may be configured again,
- and <c><see cref="M:Android.Media.MediaCodec.Release" /></c> brings the codec to the terminal Uninitialized state.  When
- a codec error occurs, the codec moves to the Error state.  Use <c><see cref="M:Android.Media.MediaCodec.Reset" /></c> to
- bring the codec back to the Initialized state, or <c><see cref="M:Android.Media.MediaCodec.Release" /></c> to move it
- to the Uninitialized state.
-
+ <format type="text/html"><h3>Error handling</h3></format></para>
+      <para tool="javadoc-to-mdoc">
+ The factory methods <c><see cref="M:Android.Media.MediaCodec.CreateByCodecName(System.String)" /></c> and <c><see cref="M:Android.Media.MediaCodec.CreateDecoderByType(System.String)" /></c>/<c><see cref="M:Android.Media.MediaCodec.CreateEncoderByType(System.String)" /></c> throw <c>IOException</c> on failure
+ which you must catch or declare to pass up. MediaCodec methods throw <c>IllegalStateException</c> when the method is called from a codec state that does not allow it; this
+ is typically due to incorrect application API usage. Methods involving secure buffers may throw
+ <c><see cref="!:NoType:android/media/MediaCodec$CryptoException;Href=../../../reference/android/media/MediaCodec.CryptoException.html" /></c>, which has further error information obtainable from <c><see cref="!:NoType:android/media/MediaCodec$CryptoException;Href=../../../reference/android/media/MediaCodec.CryptoException.html#getErrorCode()" /></c>.
  </para>
-      <para tool="javadoc-to-mdoc"> The factory methods
- <c><see cref="M:Android.Media.MediaCodec.CreateByCodecName(System.String)" /></c>,
- <c><see cref="M:Android.Media.MediaCodec.CreateDecoderByType(System.String)" /></c>,
- and <c><see cref="M:Android.Media.MediaCodec.CreateEncoderByType(System.String)" /></c>
- throw <c><see cref="T:Java.IO.IOException" /></c> on failure which
- the caller must catch or declare to pass up.
- MediaCodec methods throw <c><see cref="T:Java.Lang.IllegalStateException" /></c>
- when the method is called from a codec state that does not allow it;
- this is typically due to incorrect application API usage.
- Methods involving secure buffers may throw
- <c><see cref="!:NoType:android/media/MediaCodec$CryptoException;Href=../../../reference/android/media/MediaCodec.CryptoException.html#MediaCodec.CryptoException(int, java.lang.String)" /></c>, which
- has further error information obtainable from <c><see cref="!:NoType:android/media/MediaCodec$CryptoException;Href=../../../reference/android/media/MediaCodec.CryptoException.html#getErrorCode()" /></c>.
+      <para tool="javadoc-to-mdoc">
+ Internal codec errors result in a <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html" /></c>, which may be due to media content
+ corruption, hardware failure, resource exhaustion, and so forth, even when the application is
+ correctly using the API. The recommended action when receiving a <c>CodecException</c>
+ can be determined by calling <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isRecoverable()" /></c> and <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isTransient()" /></c>:
+ <list type="bullet"><item><term><i>recoverable errors:</i> If <c>isRecoverable()</c> returns true, then call
+ <c><see cref="M:Android.Media.MediaCodec.Stop" /></c>, <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c>, and <c><see cref="M:Android.Media.MediaCodec.Start" /></c> to recover.</term></item><item><term><i>transient errors:</i> If <c>isTransient()</c> returns true, then resources are
+ temporarily unavailable and the method may be retried at a later time.</term></item><item><term><i>fatal errors:</i> If both <c>isRecoverable()</c> and <c>isTransient()</c>
+ return false, then the <c>CodecException</c> is fatal and the codec must be <see cref="M:Android.Media.MediaCodec.Reset" /> or <see cref="M:Android.Media.MediaCodec.Release" />.</term></item></list></para>
+      <para tool="javadoc-to-mdoc">
+ Both <c>isRecoverable()</c> and <c>isTransient()</c> do not return true at the same time.
 
- </para>
-      <para tool="javadoc-to-mdoc"> Internal codec errors result in a <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html" /></c>,
- which may be due to media content corruption, hardware failure, resource exhaustion,
- and so forth, even when the application is correctly using the API.
- The recommended action when receiving a <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html" /></c> can be determined by
- calling <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isRecoverable()" /></c> and
- <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isTransient()" /></c>.
- If <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isRecoverable()" /></c> returns true,
- then a <c><see cref="M:Android.Media.MediaCodec.Stop" /></c>, <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c>, and <c><see cref="M:Android.Media.MediaCodec.Start" /></c> can be performed to recover.
- If <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isTransient()" /></c> returns true,
- then resources are temporarily unavailable and the method may be retried at a later time.
- If both <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isRecoverable()" /></c>
- and <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isTransient()" /></c> return false,
- then the <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html" /></c> is fatal and the codec must be
- <c><see cref="M:Android.Media.MediaCodec.Reset" /></c> or <c><see cref="M:Android.Media.MediaCodec.Release" /></c>.
- Both <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isRecoverable()" /></c> and
- <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isTransient()" /></c> do not return true at the same time.
-</para>
+ <format type="text/html"><h2 id="History">Valid API Calls and API History</h2></format></para>
+      <para tool="javadoc-to-mdoc">
+ This sections summarizes the valid API calls in each state and the API history of the MediaCodec
+ class. For API version numbers, see <c><see cref="!:NoType:android/os/Build$VERSION_CODES;Href=../../../reference/android/os/Build.VERSION_CODES.html" /></c>.
+
+ <format type="text/html"><style>
+//<![CDATA[
+
+ .api &gt; tr &gt; th, .api &gt; tr &gt; td { text-align: center; padding: 4px 4px; }
+ .api &gt; tr &gt; th     { vertical-align: bottom; }
+ .api &gt; tr &gt; td     { vertical-align: middle; }
+ .sml &gt; tr &gt; th, .sml &gt; tr &gt; td { text-align: center; padding: 2px 4px; }
+ .fn { text-align: left; }
+ .fn &gt; code &gt; a { font: 14px/19px Roboto Condensed, sans-serif; }
+ .deg45 {
+   white-space: nowrap; background: none; border: none; vertical-align: bottom;
+   width: 30px; height: 83px;
+ }
+ .deg45 &gt; div {
+   transform: skew(-45deg, 0deg) translate(1px, -67px);
+   transform-origin: bottom left 0;
+   width: 30px; height: 20px;
+ }
+ .deg45 &gt; div &gt; div { border: 1px solid #ddd; background: #999; height: 90px; width: 42px; }
+ .deg45 &gt; div &gt; div &gt; div { transform: skew(45deg, 0deg) translate(-55px, 55px) rotate(-45deg); }
+ 
+//]]>//
+</style></format><format type="text/html"><table align="right" style="width: 0%"><thead><tr><th>Symbol</th><th>Meaning</th></tr></thead><tbody class="sml"><tr><td>&amp;#9679;</td><td>Supported</td></tr><tr><td>&amp;#8277;</td><td>Semantics changed</td></tr><tr><td>&amp;#9675;</td><td>Experimental support</td></tr><tr><td>[ ]</td><td>Deprecated</td></tr><tr><td>&amp;#9099;</td><td>Restricted to surface input mode</td></tr><tr><td>&amp;#9094;</td><td>Restricted to surface output mode</td></tr><tr><td>&amp;#9639;</td><td>Restricted to ByteBuffer input mode</td></tr><tr><td>&amp;#8617;</td><td>Restricted to synchronous mode</td></tr><tr><td>&amp;#8644;</td><td>Restricted to asynchronous mode</td></tr><tr><td>( )</td><td>Can be called, but shouldn't</td></tr></tbody></table></format><format type="text/html"><table style="width: 100%;"><thead class="api"><tr><th class="deg45">Uninitialized</th><th class="deg45">Configured</th><th class="deg45">Flushed</th><th class="deg45">Running</th><th class="deg45">End of Stream</th><th class="deg45">Error</th><th class="deg45">Released</th><th /><th colspan="8">SDK Version</th></tr><tr><th colspan="7">State</th><th>Method</th><th>16</th><th>17</th><th>18</th><th>19</th><th>20</th><th>21</th><th>22</th><th>23</th></tr></thead><tbody class="api"><tr><td /><td /><td /><td /><td /><td /><td /><td class="fn"><c><see cref="M:Android.Media.MediaCodec.CreateByCodecName(System.String)" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td /><td /><td /><td /><td /><td /><td /><td class="fn"><c><see cref="M:Android.Media.MediaCodec.CreateDecoderByType(System.String)" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td /><td /><td /><td /><td /><td /><td /><td class="fn"><c><see cref="M:Android.Media.MediaCodec.CreateEncoderByType(System.String)" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td /><td /><td /><td /><td /><td /><td /><td class="fn"><c><see cref="M:Android.Media.MediaCodec.CreatePersistentInputSurface" /></c></td><td /><td /><td /><td /><td /><td /><td /><td>&amp;#9679;</td></tr><tr><td>16+</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#8277;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>18+</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.CreateInputSurface" /></c></td><td /><td /><td>&amp;#9099;</td><td>&amp;#9099;</td><td>&amp;#9099;</td><td>&amp;#9099;</td><td>&amp;#9099;</td><td>&amp;#9099;</td></tr><tr><td>-</td><td>-</td><td>16+</td><td>16+</td><td>(16+)</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.DequeueInputBuffer(System.Int64)" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9639;</td><td>&amp;#9639;</td><td>&amp;#9639;</td><td>&amp;#8277;&amp;#9639;&amp;#8617;</td><td>&amp;#9639;&amp;#8617;</td><td>&amp;#9639;&amp;#8617;</td></tr><tr><td>-</td><td>-</td><td>16+</td><td>16+</td><td>16+</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#8277;&amp;#8617;</td><td>&amp;#8617;</td><td>&amp;#8617;</td></tr><tr><td>-</td><td>-</td><td>16+</td><td>16+</td><td>16+</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.Flush" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>18+</td><td>18+</td><td>18+</td><td>18+</td><td>18+</td><td>18+</td><td>-</td><td class="fn"><c><see cref="P:Android.Media.MediaCodec.CodecInfo" /></c></td><td /><td /><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>(21+)</td><td>21+</td><td>(21+)</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.GetInputBuffer(System.Int32)" /></c></td><td /><td /><td /><td /><td /><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>16+</td><td>(16+)</td><td>(16+)</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.GetInputBuffers" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>[&amp;#8277;&amp;#8617;]</td><td>[&amp;#8617;]</td><td>[&amp;#8617;]</td></tr><tr><td>-</td><td>21+</td><td>(21+)</td><td>(21+)</td><td>(21+)</td><td>-</td><td>-</td><td class="fn"><c><see cref="P:Android.Media.MediaCodec.InputFormat" /></c></td><td /><td /><td /><td /><td /><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>(21+)</td><td>21+</td><td>(21+)</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.GetInputImage(System.Int32)" /></c></td><td /><td /><td /><td /><td /><td>&amp;#9675;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>18+</td><td>18+</td><td>18+</td><td>18+</td><td>18+</td><td>18+</td><td>-</td><td class="fn"><c><see cref="P:Android.Media.MediaCodec.Name" /></c></td><td /><td /><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>(21+)</td><td>21+</td><td>21+</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.GetOutputBuffer(System.Int32)" /></c></td><td /><td /><td /><td /><td /><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>16+</td><td>16+</td><td>16+</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.GetOutputBuffers" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>[&amp;#8277;&amp;#8617;]</td><td>[&amp;#8617;]</td><td>[&amp;#8617;]</td></tr><tr><td>-</td><td>21+</td><td>16+</td><td>16+</td><td>16+</td><td>-</td><td>-</td><td class="fn"><c><see cref="P:Android.Media.MediaCodec.OutputFormat" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>(21+)</td><td>21+</td><td>21+</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.GetOutputFormat(System.Int32)" /></c></td><td /><td /><td /><td /><td /><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>(21+)</td><td>21+</td><td>21+</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.GetOutputImage(System.Int32)" /></c></td><td /><td /><td /><td /><td /><td>&amp;#9675;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>-</td><td>16+</td><td>(16+)</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.QueueInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#8277;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>-</td><td>16+</td><td>(16+)</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.QueueSecureInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#8277;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>16+</td><td>16+</td><td>16+</td><td>16+</td><td>16+</td><td>16+</td><td>16+</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.Release" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>-</td><td>16+</td><td>16+</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.ReleaseOutputBuffer(System.Int32, System.Boolean)" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#8277;</td><td>&amp;#9679;</td><td>&amp;#8277;</td></tr><tr><td>-</td><td>-</td><td>-</td><td>21+</td><td>21+</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.ReleaseOutputBuffer(System.Int32, System.Int64)" /></c></td><td /><td /><td /><td /><td /><td>&amp;#9094;</td><td>&amp;#9094;</td><td>&amp;#9094;</td></tr><tr><td>21+</td><td>21+</td><td>21+</td><td>21+</td><td>21+</td><td>21+</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.Reset" /></c></td><td /><td /><td /><td /><td /><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>21+</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.SetCallback(.Callback)" /></c></td><td /><td /><td /><td /><td /><td>&amp;#9679;</td><td>&amp;#9679;</td><td><c><see cref="M:Android.Media.MediaCodec.SetCallback(.Callback, Android.OS.Handler)" /></c></td></tr><tr><td>-</td><td>23+</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.SetInputSurface(Android.Views.Surface)" /></c></td><td /><td /><td /><td /><td /><td /><td /><td>&amp;#9099;</td></tr><tr><td>23+</td><td>23+</td><td>23+</td><td>23+</td><td>23+</td><td>(23+)</td><td>(23+)</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.SetOnFrameRenderedListener(.IOnFrameRenderedListener, Android.OS.Handler)" /></c></td><td /><td /><td /><td /><td /><td /><td /><td>&amp;#9675; &amp;#9094;</td></tr><tr><td>-</td><td>23+</td><td>23+</td><td>23+</td><td>23+</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.SetOutputSurface(Android.Views.Surface)" /></c></td><td /><td /><td /><td /><td /><td /><td /><td>&amp;#9094;</td></tr><tr><td>19+</td><td>19+</td><td>19+</td><td>19+</td><td>19+</td><td>(19+)</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.SetParameters(Android.OS.Bundle)" /></c></td><td /><td /><td /><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>16+</td><td>16+</td><td>16+</td><td>16+</td><td>(16+)</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.SetVideoScalingMode(Android.Media.VideoScalingMode)" /></c></td><td>&amp;#9094;</td><td>&amp;#9094;</td><td>&amp;#9094;</td><td>&amp;#9094;</td><td>&amp;#9094;</td><td>&amp;#9094;</td><td>&amp;#9094;</td><td>&amp;#9094;</td></tr><tr><td>-</td><td>-</td><td>18+</td><td>18+</td><td>-</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.SignalEndOfInputStream" /></c></td><td /><td /><td>&amp;#9099;</td><td>&amp;#9099;</td><td>&amp;#9099;</td><td>&amp;#9099;</td><td>&amp;#9099;</td><td>&amp;#9099;</td></tr><tr><td>-</td><td>16+</td><td>21+(&amp;#8644;)</td><td>-</td><td>-</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.Start" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#8277;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr><tr><td>-</td><td>-</td><td>16+</td><td>16+</td><td>16+</td><td>-</td><td>-</td><td class="fn"><c><see cref="M:Android.Media.MediaCodec.Stop" /></c></td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td><td>&amp;#9679;</td></tr></tbody></table></format></para>
       <para tool="javadoc-to-mdoc">
         <format type="text/html">
           <a href="http://developer.android.com/reference/android/media/MediaCodec.html" target="_blank">[Android Documentation]</a>
@@ -409,7 +661,7 @@
           </para>
         </remarks>
         <since version="Added in API level 18" />
-        <exception cref="T:Java.Lang.IllegalStateException">if in the Uninitialized state.
+        <exception cref="T:Java.Lang.IllegalStateException">if in the Released state.
 </exception>
       </Docs>
     </Member>
@@ -442,11 +694,17 @@
       </Parameters>
       <Docs>
         <param name="format">The format of the input data (decoder) or the desired
-               format of the output data (encoder).</param>
+               format of the output data (encoder). Passing <c>null</c>
+               as <c>format</c> is equivalent to passing an
+               <c><see cref="C:Android.Media.MediaFormat" /></c>.</param>
         <param name="surface">Specify a surface on which to render the output of this
-                decoder.</param>
+                decoder. Pass <c>null</c> as <c>surface</c> if the
+                codec does not generate raw video output (e.g. not a video
+                decoder) and/or if you want to configure the codec for
+                <c><see cref="T:Java.Nio.ByteBuffer" /></c> output.</param>
         <param name="crypto">Specify a crypto object to facilitate secure decryption
-                of the media data.</param>
+                of the media data. Pass <c>null</c> as <c>crypto</c> for
+                non-secure codecs.</param>
         <param name="flags">Specify <c><see cref="F:Android.Media.MediaCodec.ConfigureFlagEncode" /></c> to configure the
                 component as an encoder.</param>
         <summary>Configures a component.</summary>
@@ -463,7 +721,9 @@
  or the format is unacceptable (e.g. missing a mandatory key),
  or the flags are not set properly
  (e.g. missing <c><see cref="F:Android.Media.MediaCodec.ConfigureFlagEncode" /></c> for an encoder).</exception>
-        <exception cref="T:Java.Lang.IllegalStateException">if not in the Initialized state.
+        <exception cref="T:Java.Lang.IllegalStateException">if not in the Uninitialized state.</exception>
+        <exception cref="!:NoType:android/media/MediaCodec$CryptoException;Href=../../../reference/android/media/MediaCodec.CryptoException.html">upon DRM error.</exception>
+        <exception cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html">upon codec error.
 </exception>
       </Docs>
     </Member>
@@ -560,10 +820,10 @@
       </Parameters>
       <Docs>
         <param name="type">The mime type of the input data.</param>
-        <summary>Instantiate a decoder supporting input data of the given mime type.</summary>
+        <summary>Instantiate the preferred decoder supporting input data of the given mime type.</summary>
         <returns>To be added.</returns>
         <remarks>
-          <para tool="javadoc-to-mdoc">Instantiate a decoder supporting input data of the given mime type.
+          <para tool="javadoc-to-mdoc">Instantiate the preferred decoder supporting input data of the given mime type.
 
  The following is a partial list of defined mime types and their semantics:
  <list type="bullet"><item><term>"video/x-vnd.on2.vp8" - VP8 video (i.e. video in .webm)
@@ -579,7 +839,9 @@
  </term></item><item><term>"audio/vorbis" - vorbis audio
  </term></item><item><term>"audio/g711-alaw" - G.711 alaw audio
  </term></item><item><term>"audio/g711-mlaw" - G.711 ulaw audio
- </term></item></list></para>
+ </term></item></list><i>Note:</i> It is preferred to use <c><see cref="M:Android.Media.MediaCodecList.FindDecoderForFormat(Android.Media.MediaFormat)" /></c>
+ and <c><see cref="M:Android.Media.MediaCodec.CreateByCodecName(System.String)" /></c> to ensure that the resulting codec can handle a
+ given format.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/MediaCodec.html#createDecoderByType(java.lang.String)" target="_blank">[Android Documentation]</a>
@@ -613,10 +875,14 @@
       </Parameters>
       <Docs>
         <param name="type">The desired mime type of the output data.</param>
-        <summary>Instantiate an encoder supporting output data of the given mime type.</summary>
+        <summary>Instantiate the preferred encoder supporting output data of the given mime type.</summary>
         <returns>To be added.</returns>
         <remarks>
-          <para tool="javadoc-to-mdoc">Instantiate an encoder supporting output data of the given mime type.</para>
+          <para tool="javadoc-to-mdoc">Instantiate the preferred encoder supporting output data of the given mime type.
+
+ <i>Note:</i> It is preferred to use <c><see cref="M:Android.Media.MediaCodecList.FindEncoderForFormat(Android.Media.MediaFormat)" /></c>
+ and <c><see cref="M:Android.Media.MediaCodec.CreateByCodecName(System.String)" /></c> to ensure that the resulting codec can handle a
+ given format.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/MediaCodec.html#createEncoderByType(java.lang.String)" target="_blank">[Android Documentation]</a>
@@ -692,8 +958,7 @@
       </ReturnValue>
       <MemberValue>1</MemberValue>
       <Docs>
-        <summary>
-        </summary>
+        <summary></summary>
         <remarks>
           <para tool="javadoc-to-mdoc" />
           <para tool="javadoc-to-mdoc">
@@ -725,8 +990,7 @@
       </ReturnValue>
       <MemberValue>0</MemberValue>
       <Docs>
-        <summary>
-        </summary>
+        <summary></summary>
         <remarks>
           <para tool="javadoc-to-mdoc" />
           <para tool="javadoc-to-mdoc">
@@ -807,7 +1071,7 @@
         <remarks>
           <para tool="javadoc-to-mdoc">Dequeue an output buffer, block at most "timeoutUs" microseconds.
  Returns the index of an output buffer that has been successfully
- decoded or one of the INFO_* constants below.</para>
+ decoded or one of the INFO_* constants.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/MediaCodec.html#dequeueOutputBuffer(android.media.MediaCodec.BufferInfo, long)" target="_blank">[Android Documentation]</a>
@@ -838,22 +1102,27 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>Flush both input and output ports of the component, all indices
- previously returned in calls to <c><see cref="M:Android.Media.MediaCodec.DequeueInputBuffer(System.Int64)" /></c> and
- <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c> become invalid.</summary>
+        <summary>Flush both input and output ports of the component.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Flush both input and output ports of the component, all indices
- previously returned in calls to <c><see cref="M:Android.Media.MediaCodec.DequeueInputBuffer(System.Int64)" /></c> and
- <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c> become invalid.
+          <para tool="javadoc-to-mdoc">Flush both input and output ports of the component.
  </para>
           <para tool="javadoc-to-mdoc">
- If codec is configured in asynchronous mode, call <c><see cref="M:Android.Media.MediaCodec.Start" /></c>
- after <c>flush</c> has returned to resume codec operations. The
- codec will not request input buffers until this has happened.
+ Upon return, all indices previously returned in calls to <c><see cref="M:Android.Media.MediaCodec.DequeueInputBuffer(System.Int64)" /></c> and <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c> &amp;mdash; or obtained
+ via <c><see cref="!:NoType:android/media/MediaCodec$Callback;Href=../../../reference/android/media/MediaCodec.Callback.html#onInputBufferAvailable(android.media.MediaCodec, int)" /></c> or
+ <c><see cref="!:NoType:android/media/MediaCodec$Callback;Href=../../../reference/android/media/MediaCodec.Callback.html#onOutputBufferAvailable(android.media.MediaCodec, int, android.media.MediaCodec.BufferInfo)" /></c> callbacks &amp;mdash; become
+ invalid, and all buffers are owned by the codec.
  </para>
           <para tool="javadoc-to-mdoc">
- If codec is configured in synchronous mode, codec will resume
- automatically if an input surface was created.  Otherwise, it
+ If the codec is configured in asynchronous mode, call <c><see cref="M:Android.Media.MediaCodec.Start" /></c>
+ after <c>flush</c> has returned to resume codec operations. The codec
+ will not request input buffers until this has happened.
+ <i>Note, however, that there may still be outstanding <c>onOutputBufferAvailable</c>
+ callbacks that were not handled prior to calling <c>flush</c>.
+ The indices returned via these callbacks also become invalid upon calling <c>flush</c> and
+ should be discarded.</i></para>
+          <para tool="javadoc-to-mdoc">
+ If the codec is configured in synchronous mode, codec will resume
+ automatically if it is configured with an input surface.  Otherwise, it
  will resume when <c><see cref="M:Android.Media.MediaCodec.DequeueInputBuffer(System.Int64)" /></c> is called.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
@@ -1292,11 +1561,11 @@
             </format>
           </para>
         </remarks>
+        <since version="Added in API level 21" />
         <exception cref="T:Java.Lang.IllegalStateException">if not in the Executing or
                                Configured state.</exception>
         <exception cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html">upon codec error.
 </exception>
-        <since version="Added in API level 21" />
       </Docs>
     </Member>
     <Member MemberName="Name">
@@ -1327,7 +1596,7 @@
           </para>
         </remarks>
         <since version="Added in API level 18" />
-        <exception cref="T:Java.Lang.IllegalStateException">if in the Uninitialized state.
+        <exception cref="T:Java.Lang.IllegalStateException">if in the Released state.
 </exception>
       </Docs>
     </Member>
@@ -1497,7 +1766,9 @@
         <param name="size">The number of bytes of valid input data.</param>
         <param name="presentationTimeUs">The presentation timestamp in microseconds for this
                            buffer. This is normally the media time at which this
-                           buffer should be presented (rendered).</param>
+                           buffer should be presented (rendered). When using an output
+                           surface, this will be propagated as the <c><see cref="P:Android.Graphics.SurfaceTexture.Timestamp" /></c> for the frame (after
+                           conversion to nanoseconds).</param>
         <param name="flags">A bitmask of flags
               <c><see cref="F:Android.Media.MediaCodec.BufferFlagCodecConfig" /></c> and <c><see cref="F:Android.Media.MediaCodec.BufferFlagEndOfStream" /></c>.
               While not prohibited, most codecs do not use the
@@ -1532,7 +1803,16 @@
           <para tool="javadoc-to-mdoc">
  To indicate that this is the final piece of input data (or rather that
  no more input data follows unless the decoder is subsequently flushed)
- specify the flag <c><see cref="F:Android.Media.MediaCodec.BufferFlagEndOfStream" /></c>.</para>
+ specify the flag <c><see cref="F:Android.Media.MediaCodec.BufferFlagEndOfStream" /></c>.
+ </para>
+          <para tool="javadoc-to-mdoc">
+            <i>Note:</i> Prior to <c><see cref="!:NoType:android/os/Build$VERSION_CODES;Href=../../../reference/android/os/Build.VERSION_CODES.html#M" /></c>,
+ <c>presentationTimeUs</c> was not propagated to the frame timestamp of (rendered)
+ Surface output buffers, and the resulting frame timestamp was undefined.
+ Use <c><see cref="M:Android.Media.MediaCodec.ReleaseOutputBuffer(System.Int32, System.Int64)" /></c> to ensure a specific frame timestamp is set.
+ Similarly, since frame timestamps can be used by the destination surface for rendering
+ synchronization, <i>care must be taken to normalize presentationTimeUs so as to not be
+ mistaken for a system time. (See <see cref="M:Android.Media.MediaCodec.ReleaseOutputBuffer(System.Int32, System.Int64)" />).</i></para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/MediaCodec.html#queueInputBuffer(int, int, int, long, int)" target="_blank">[Android Documentation]</a>
@@ -1591,7 +1871,8 @@
  potentially encrypted.</summary>
         <remarks>
           <para tool="javadoc-to-mdoc">Similar to <c><see cref="M:Android.Media.MediaCodec.QueueInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c> but submits a buffer that is
- potentially encrypted.</para>
+ potentially encrypted.
+ <i>Check out further notes at <c><see cref="M:Android.Media.MediaCodec.QueueInputBuffer(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)" /></c>.</i></para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/MediaCodec.html#queueSecureInputBuffer(int, int, android.media.MediaCodec.CryptoInfo, long, int)" target="_blank">[Android Documentation]</a>
@@ -1624,11 +1905,11 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>Make sure you call this when you're done to free up any opened
- component instance instead of relying on the garbage collector
- to do this for you at some point in the future.</summary>
+        <summary>Free up resources used by the codec instance.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Make sure you call this when you're done to free up any opened
+          <para tool="javadoc-to-mdoc">Free up resources used by the codec instance.
+
+ Make sure you call this when you're done to free up any opened
  component instance instead of relying on the garbage collector
  to do this for you at some point in the future.
 </para>
@@ -1665,12 +1946,14 @@
               from a call to <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c>.</param>
         <param name="render">If a valid surface was specified when configuring the codec,
                passing true renders this output buffer to the surface.</param>
-        <summary>If you are done with a buffer, use this call to return the buffer to
- the codec.</summary>
+        <summary>If you are done with a buffer, use this call to return the buffer to the codec
+ or to render it on the output surface.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">If you are done with a buffer, use this call to return the buffer to
- the codec. If you previously specified a surface when configuring this
- video decoder you can optionally render the buffer.
+          <para tool="javadoc-to-mdoc">If you are done with a buffer, use this call to return the buffer to the codec
+ or to render it on the output surface. If you configured the codec with an
+ output surface, setting <c>render</c> to <c>true</c> will first send the buffer
+ to that output surface. The surface will release the buffer back to the codec once
+ it is no longer used/displayed.
 
  Once an output buffer is released to the codec, it MUST NOT
  be used until it is later retrieved by <c><see cref="M:Android.Media.MediaCodec.GetOutputBuffer(System.Int32)" /></c> in response
@@ -1779,9 +2062,9 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>Returns the codec to its initial (Initialized) state.</summary>
+        <summary>Returns the codec to its initial (Uninitialized) state.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Returns the codec to its initial (Initialized) state.
+          <para tool="javadoc-to-mdoc">Returns the codec to its initial (Uninitialized) state.
 
  Call this if an <c><see cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html#isRecoverable()" /></c>
  error has occured to reset the codec to its initial state after creation.</para>
@@ -1793,7 +2076,7 @@
         </remarks>
         <exception cref="!:NoType:android/media/MediaCodec$CodecException;Href=../../../reference/android/media/MediaCodec.CodecException.html">if an unrecoverable error has occured and the codec
  could not be reset.</exception>
-        <exception cref="T:Java.Lang.IllegalStateException">if in the Uninitialized state.
+        <exception cref="T:Java.Lang.IllegalStateException">if in the Released state.
 </exception>
       </Docs>
     </Member>
@@ -1816,29 +2099,24 @@
         <Parameter Name="cb" Type="Android.Media.MediaCodec+Callback" />
       </Parameters>
       <Docs>
-        <param name="cb">The callback that will run.
-</param>
-        <summary>Sets an asynchronous callback for actionable MediaCodec events.</summary>
+        <param name="cb">The callback that will run.  Use <c>null</c> to clear a previously
+           set callback (before <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c> is called and run
+           in synchronous mode).</param>
+        <summary>Sets an asynchronous callback for actionable MediaCodec events on the default
+ looper.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Sets an asynchronous callback for actionable MediaCodec events.
-
- If the client intends to use the component in asynchronous mode,
- a valid callback should be provided before <c><see cref="M:Android.Media.MediaCodec.Configure(Android.Media.MediaFormat, Android.Views.Surface, Android.Views.Surface, Android.Views.Surface)" /></c> is called.
-
- When asynchronous callback is enabled, the client should not call
- <c><see cref="M:Android.Media.MediaCodec.GetInputBuffers" /></c>, <c><see cref="M:Android.Media.MediaCodec.GetOutputBuffers" /></c>,
- <c><see cref="M:Android.Media.MediaCodec.DequeueInputBuffer(System.Int64)" /></c> or <c><see cref="M:Android.Media.MediaCodec.DequeueOutputBuffer(.BufferInfo, System.Int64)" /></c>.
+          <para tool="javadoc-to-mdoc">Sets an asynchronous callback for actionable MediaCodec events on the default
+ looper.
  </para>
           <para tool="javadoc-to-mdoc">
- Also, <c><see cref="M:Android.Media.MediaCodec.Flush" /></c> behaves differently in asynchronous mode.  After calling
- <c>flush</c>, you must call <c><see cref="M:Android.Media.MediaCodec.Start" /></c> to "resume" receiving input buffers,
- even if an input surface was created.</para>
+ Same as <c><see cref="M:Android.Media.MediaCodec.SetCallback(.Callback, Android.OS.Handler)" /></c> with handler set to null.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/MediaCodec.html#setCallback(android.media.MediaCodec.Callback)" target="_blank">[Android Documentation]</a>
             </format>
           </para>
         </remarks>
+        <altmember cref="M:Android.Media.MediaCodec.SetCallback(.Callback, Android.OS.Handler)" />
       </Docs>
     </Member>
     <Member MemberName="SetParameters">
@@ -1860,17 +2138,18 @@
         <Parameter Name="params" Type="Android.OS.Bundle" />
       </Parameters>
       <Docs>
-        <param name="params">To be added.</param>
+        <param name="params">The bundle of parameters to set.</param>
         <summary>Communicate additional parameter changes to the component instance.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Communicate additional parameter changes to the component instance.</para>
+          <para tool="javadoc-to-mdoc">Communicate additional parameter changes to the component instance.
+ <format type="text/html"><b>Note:</b></format> Some of these parameter changes may silently fail to apply.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/MediaCodec.html#setParameters(android.os.Bundle)" target="_blank">[Android Documentation]</a>
             </format>
           </para>
         </remarks>
-        <exception cref="T:Java.Lang.IllegalStateException">if in the Uninitialized state.
+        <exception cref="T:Java.Lang.IllegalStateException">if in the Released state.
 </exception>
       </Docs>
     </Member>
@@ -1913,7 +2192,7 @@
         </remarks>
         <since version="Added in API level 16" />
         <exception cref="T:Java.Lang.IllegalArgumentException">if mode is not recognized.</exception>
-        <exception cref="T:Java.Lang.IllegalStateException">if in the Uninitialized state.
+        <exception cref="T:Java.Lang.IllegalStateException">if in the Released state.
 </exception>
       </Docs>
     </Member>
@@ -2021,7 +2300,7 @@
           </para>
         </remarks>
         <since version="Added in API level 16" />
-        <exception cref="T:Java.Lang.IllegalStateException">if in the Uninitialized state.
+        <exception cref="T:Java.Lang.IllegalStateException">if in the Released state.
 </exception>
       </Docs>
     </Member>
@@ -2039,7 +2318,7 @@
         <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
         <value>A <see cref="T:System.IntPtr" /> which contains the <c>java.lang.Class</c> JNI value corresponding to this type.</value>
         <remarks>
-          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonvirtualVoidMethod" />.</para>
+          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonvirtualVoidMethod" tool="ReplaceLinkValue" />.</para>
         </remarks>
       </Docs>
     </Member>

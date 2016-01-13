@@ -74,7 +74,7 @@
         <param name="transfer">A <see cref="T:Android.Runtime.JniHandleOwnership" />indicating how to handle <paramref name="javaReference" /></param>
         <summary>A constructor used when creating managed representations of JNI objects; called by the runtime.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">This constructor is invoked by the runtime infrastructure (<see cref="M:Java.Lang.Object.GetObject{T}(System.IntPtr,Android.Runtime.JniHandleOwnership)" />) to create a new managed representation for a Java Native Interface object.</para>
+          <para tool="javadoc-to-mdoc">This constructor is invoked by the runtime infrastructure (<see cref="M:Java.Lang.Object.GetObject{T,U}(System.IntPtr,Android.Runtime.JniHandleOwnership)" tool="ReplaceLinkValue" />) to create a new managed representation for a Java Native Interface object.</para>
           <para tool="javadoc-to-mdoc">The constructor will initializes the <see cref="P:Android.Runtime.IJavaObject.Handle" /> property of the new instance using <paramref name="javaReference" /> and <paramref name="transfer" />.</para>
         </remarks>
       </Docs>
@@ -467,11 +467,11 @@
         <ReturnType>Android.Media.Encoding</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>Returns the configured audio data format.</summary>
+        <summary>Returns the configured audio data encoding.</summary>
         <value>To be added.</value>
         <remarks>
-          <para tool="javadoc-to-mdoc">Returns the configured audio data format. See <c><see cref="!:Android.Media.AudioFormat.ENCODING_PCM_16BIT" /></c>
- and <c><see cref="!:Android.Media.AudioFormat.ENCODING_PCM_8BIT" /></c>.
+          <para tool="javadoc-to-mdoc">Returns the configured audio data encoding. See <c><see cref="!:Android.Media.AudioFormat.ENCODING_PCM_8BIT" /></c>,
+ <c><see cref="!:Android.Media.AudioFormat.ENCODING_PCM_16BIT" /></c>, and <c><see cref="!:Android.Media.AudioFormat.ENCODING_PCM_FLOAT" /></c>.
 </para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
@@ -527,12 +527,17 @@
         <ReturnType>Android.Media.ChannelOut</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>Returns the configured channel configuration.</summary>
+        <summary>Returns the configured channel position mask.</summary>
         <value>To be added.</value>
         <remarks>
-          <para tool="javadoc-to-mdoc">Returns the configured channel configuration.
- See <c><see cref="!:Android.Media.AudioFormat.CHANNEL_OUT_MONO" /></c>
- and <c><see cref="!:Android.Media.AudioFormat.CHANNEL_OUT_STEREO" /></c>.
+          <para tool="javadoc-to-mdoc">Returns the configured channel position mask.
+ </para>
+          <para tool="javadoc-to-mdoc"> For example, refer to <c><see cref="!:Android.Media.AudioFormat.CHANNEL_OUT_MONO" /></c>,
+ <c><see cref="!:Android.Media.AudioFormat.CHANNEL_OUT_STEREO" /></c>, <c><see cref="!:Android.Media.AudioFormat.CHANNEL_OUT_5POINT1" /></c>.
+ This method may return <c><see cref="F:Android.Media.AudioFormat.ChannelInvalid" /></c> if
+ a channel index mask was used. Consider
+ <c><see cref="P:Android.Media.AudioTrack.Format" /></c> instead, to obtain an <c><see cref="T:Android.Media.AudioFormat" /></c>,
+ which contains both the channel position mask and the channel index mask.
 </para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
@@ -692,8 +697,14 @@
         <summary>Flushes the audio data currently queued for playback.</summary>
         <remarks>
           <para tool="javadoc-to-mdoc">Flushes the audio data currently queued for playback. Any data that has
- not been played back will be discarded.  No-op if not stopped or paused,
+ been written but not yet presented will be discarded.  No-op if not stopped or paused,
  or if the track's creation mode is not <c><see cref="!:Android.Media.AudioTrack.MODE_STREAM" /></c>.
+ <format type="text/html"><br /></format> Note that although data written but not yet presented is discarded, there is no
+ guarantee that all of the buffer space formerly used by that data
+ is available for a subsequent write.
+ For example, a call to <c><see cref="M:Android.Media.AudioTrack.Write(System.Byte[], System.Int32, System.Int32)" /></c> with <c>sizeInBytes</c>
+ less than or equal to the total buffer size
+ may return a short actual transfer count.
 </para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
@@ -833,9 +844,13 @@
  </para>
           <para tool="javadoc-to-mdoc">
  If you need to track timestamps during initial warmup or after a routing or mode change,
- you should request a new timestamp once per second until the reported timestamps
- show that the audio clock is stable.
- Thereafter, query for a new timestamp approximately once every 10 seconds to once per minute.
+ you should request a new timestamp periodically until the reported timestamps
+ show that the frame position is advancing, or until it becomes clear that
+ timestamps are unavailable for this route.
+ </para>
+          <para tool="javadoc-to-mdoc">
+ After the clock is advancing at a stable rate,
+ query for a new timestamp approximately once every 10 seconds to once per minute.
  Calling this method more often is inefficient.
  It is also counter-productive to call this method more often than recommended,
  because the short-term differences between successive timestamp reports are not meaningful.
@@ -851,7 +866,6 @@
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/AudioTrack.html#getTimestamp(android.media.AudioTimestamp)" target="_blank">[Android Documentation]</a>
-              <since version="Added in API level 19" />
             </format>
           </para>
         </remarks>
@@ -957,17 +971,10 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>Returns the "native frame count", derived from the bufferSizeInBytes specified at
-  creation time and converted to frame units.</summary>
+        <summary>Returns the frame count of the native <c>AudioTrack</c> buffer.</summary>
         <value>To be added.</value>
         <remarks>
-          <para tool="javadoc-to-mdoc">Returns the "native frame count", derived from the bufferSizeInBytes specified at
-  creation time and converted to frame units.
-  If track's creation mode is <c><see cref="!:Android.Media.AudioTrack.MODE_STATIC" /></c>,
-  it is equal to the specified bufferSizeInBytes converted to frame units.
-  If track's creation mode is <c><see cref="!:Android.Media.AudioTrack.MODE_STREAM" /></c>,
-  it is typically greater than or equal to the specified bufferSizeInBytes converted to frame
-  units; it may be rounded up to a larger value if needed by the target device implementation.</para>
+          <para tool="javadoc-to-mdoc">Returns the frame count of the native <c>AudioTrack</c> buffer.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/AudioTrack.html#getNativeFrameCount()" target="_blank">[Android Documentation]</a>
@@ -975,6 +982,7 @@
           </para>
         </remarks>
         <since version="Added in API level 3" />
+        <exception cref="!:NoType:IllegalStateException" />
       </Docs>
     </Member>
     <Member MemberName="NotificationMarkerPosition">
@@ -1073,7 +1081,27 @@
         <summary>Starts playing an AudioTrack.</summary>
         <remarks>
           <para tool="javadoc-to-mdoc">Starts playing an AudioTrack.
- If track's creation mode is <c><see cref="!:Android.Media.AudioTrack.MODE_STATIC" /></c>, you must have called write() prior.</para>
+ </para>
+          <para tool="javadoc-to-mdoc">
+ If track's creation mode is <c><see cref="!:Android.Media.AudioTrack.MODE_STATIC" /></c>, you must have called one of
+ the write methods (<c><see cref="M:Android.Media.AudioTrack.Write(System.Byte[], System.Int32, System.Int32)" /></c>, <c><see cref="M:Android.Media.AudioTrack.Write(System.Byte[], System.Int32, System.Int32, System.Int32)" /></c>,
+ <c><see cref="M:Android.Media.AudioTrack.Write(System.Int16[], System.Int32, System.Int32)" /></c>, <c><see cref="M:Android.Media.AudioTrack.Write(System.Int16[], System.Int32, System.Int32, System.Int32)" /></c>,
+ <c><see cref="M:Android.Media.AudioTrack.Write(System.Single[], System.Int32, System.Int32, System.Int32)" /></c>, or <c><see cref="M:Android.Media.AudioTrack.Write(Java.Nio.ByteBuffer, System.Int32, System.Int32)" /></c>) prior to
+ play().
+ </para>
+          <para tool="javadoc-to-mdoc">
+ If the mode is <c><see cref="!:Android.Media.AudioTrack.MODE_STREAM" /></c>, you can optionally prime the data path prior to
+ calling play(), by writing up to <c>bufferSizeInBytes</c> (from constructor).
+ If you don't call write() first, or if you call write() but with an insufficient amount of
+ data, then the track will be in underrun state at play().  In this case,
+ playback will not actually start playing until the data path is filled to a
+ device-specific minimum level.  This requirement for the path to be filled
+ to a minimum level is also true when resuming audio playback after calling stop().
+ Similarly the buffer will need to be filled up again after
+ the track underruns due to failure to call write() in a timely manner with sufficient data.
+ For portability, an application should prime the data path to the maximum allowed
+ by writing data until the write() method returns a short transfer count.
+ This allows play() to start immediately, and reduces the chance of underrun.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/AudioTrack.html#play()" target="_blank">[Android Documentation]</a>
@@ -1081,7 +1109,8 @@
           </para>
         </remarks>
         <since version="Added in API level 3" />
-        <exception cref="T:Java.Lang.IllegalStateException" />
+        <exception cref="T:Java.Lang.IllegalStateException">if the track isn't properly initialized
+</exception>
       </Docs>
     </Member>
     <Member MemberName="PlaybackHeadPosition">
@@ -1108,7 +1137,10 @@
  unsigned 32-bits.  That is, the next position after 0x7FFFFFFF is (int) 0x80000000.
  This is a continuously advancing counter.  It will wrap (overflow) periodically,
  for example approximately once every 27:03:11 hours:minutes:seconds at 44.1 kHz.
- It is reset to zero by flush(), reload(), and stop().
+ It is reset to zero by <c><see cref="M:Android.Media.AudioTrack.Flush" /></c>, <c><see cref="M:Android.Media.AudioTrack.ReloadStaticData" /></c>, and <c><see cref="M:Android.Media.AudioTrack.Stop" /></c>.
+ If the track's creation mode is <c><see cref="!:Android.Media.AudioTrack.MODE_STATIC" /></c>, the return value indicates
+ the total number of frames played since reset,
+ <format type="text/html"><i>not</i></format> the current offset within the buffer.
 </para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
@@ -1135,10 +1167,10 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>Returns the current playback rate in Hz.</summary>
+        <summary>Returns the current playback sample rate rate in Hz.</summary>
         <value>To be added.</value>
         <remarks>
-          <para tool="javadoc-to-mdoc">Returns the current playback rate in Hz.
+          <para tool="javadoc-to-mdoc">Returns the current playback sample rate rate in Hz.
 </para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
@@ -1261,13 +1293,23 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>Notifies the native resource to reuse the audio data already loaded in the native
- layer, that is to rewind to start of buffer.</summary>
+        <summary>Sets the playback head position within the static buffer to zero,
+ that is it rewinds to start of static buffer.</summary>
         <returns>To be added.</returns>
         <remarks>
-          <para tool="javadoc-to-mdoc">Notifies the native resource to reuse the audio data already loaded in the native
- layer, that is to rewind to start of buffer.
- The track's creation mode must be <c><see cref="!:Android.Media.AudioTrack.MODE_STATIC" /></c>.</para>
+          <para tool="javadoc-to-mdoc">Sets the playback head position within the static buffer to zero,
+ that is it rewinds to start of static buffer.
+ The track must be stopped or paused, and
+ the track's creation mode must be <c><see cref="!:Android.Media.AudioTrack.MODE_STATIC" /></c>.
+ </para>
+          <para tool="javadoc-to-mdoc">
+ As of <c><see cref="!:NoType:android/os/Build$VERSION_CODES;Href=../../../reference/android/os/Build.VERSION_CODES.html#M" /></c>, also resets the value returned by
+ <c><see cref="P:Android.Media.AudioTrack.PlaybackHeadPosition" /></c> to zero.
+ For earlier API levels, the reset behavior is unspecified.
+ </para>
+          <para tool="javadoc-to-mdoc">
+ Use <c><see cref="M:Android.Media.AudioTrack.SetPlaybackHeadPosition(System.Int32)" /></c> with a zero position
+ if the reset of <c>getPlaybackHeadPosition()</c> is not needed.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/AudioTrack.html#reloadStaticData()" target="_blank">[Android Documentation]</a>
@@ -1386,17 +1428,29 @@
         <Parameter Name="loopCount" Type="System.Int32" />
       </Parameters>
       <Docs>
-        <param name="startInFrames">loop start marker expressed in frames
+        <param name="startInFrames">loop start marker expressed in frames.
  Zero corresponds to start of buffer.
  The start marker must not be greater than or equal to the buffer size in frames, or negative.</param>
-        <param name="endInFrames">loop end marker expressed in frames
+        <param name="endInFrames">loop end marker expressed in frames.
  The total buffer size in frames corresponds to end of buffer.
  The end marker must not be greater than the buffer size in frames.
  For looping, the end marker must not be less than or equal to the start marker,
  but to disable looping
- it is permitted for start marker, end marker, and loop count to all be 0.</param>
-        <param name="loopCount">the number of times the loop is looped.
-    A value of -1 means infinite looping, and 0 disables looping.</param>
+ it is permitted for start marker, end marker, and loop count to all be 0.
+ If any input parameters are out of range, this method returns <c><see cref="F:Android.Media.AudioTrack.ErrorBadValue" /></c>.
+ If the loop period (endInFrames - startInFrames) is too small for the implementation to
+ support,
+ <c><see cref="F:Android.Media.AudioTrack.ErrorBadValue" /></c> is returned.
+ The loop range is the interval [startInFrames, endInFrames).
+ <format type="text/html"><br /></format>
+ As of <c><see cref="!:NoType:android/os/Build$VERSION_CODES;Href=../../../reference/android/os/Build.VERSION_CODES.html#M" /></c>, the position is left unchanged,
+ unless it is greater than or equal to the loop end marker, in which case
+ it is forced to the loop start marker.
+ For earlier API levels, the effect on position is unspecified.</param>
+        <param name="loopCount">the number of times the loop is looped; must be greater than or equal to -1.
+    A value of -1 means infinite looping, and 0 disables looping.
+    A value of positive N means to "loop" (go back) N times.  For example,
+    a value of one means to play the region two times in total.</param>
         <summary>Sets the loop points and the loop count.</summary>
         <returns>To be added.</returns>
         <remarks>
@@ -1478,13 +1532,21 @@
         <Parameter Name="positionInFrames" Type="System.Int32" />
       </Parameters>
       <Docs>
-        <param name="positionInFrames">playback head position expressed in frames
+        <param name="positionInFrames">playback head position within buffer, expressed in frames.
  Zero corresponds to start of buffer.
- The position must not be greater than the buffer size in frames, or negative.</param>
-        <summary>Sets the playback head position.</summary>
+ The position must not be greater than the buffer size in frames, or negative.
+ Though this method and <c><see cref="P:Android.Media.AudioTrack.PlaybackHeadPosition" /></c> have similar names,
+ the position values have different meanings.
+ <format type="text/html"><br /></format>
+ If looping is currently enabled and the new position is greater than or equal to the
+ loop end marker, the behavior varies by API level:
+ as of <c><see cref="!:NoType:android/os/Build$VERSION_CODES;Href=../../../reference/android/os/Build.VERSION_CODES.html#M" /></c>,
+ the looping is first disabled and then the position is set.
+ For earlier API levels, the behavior is unspecified.</param>
+        <summary>Sets the playback head position within the static buffer.</summary>
         <returns>To be added.</returns>
         <remarks>
-          <para tool="javadoc-to-mdoc">Sets the playback head position.
+          <para tool="javadoc-to-mdoc">Sets the playback head position within the static buffer.
  The track must be stopped or paused for the position to be changed,
  and must use the <c><see cref="!:Android.Media.AudioTrack.MODE_STATIC" /></c> mode.</para>
           <para tool="javadoc-to-mdoc">
@@ -1597,12 +1659,17 @@
           <para tool="javadoc-to-mdoc">Sets the playback sample rate for this track. This sets the sampling rate at which
  the audio data will be consumed and played back
  (as set by the sampleRateInHz parameter in the
- <c><see cref="C:Android.Media.AudioTrack.AudioTrack(System.IntPtr,Android.Runtime.JniHandleOwnership)" /></c> constructor),
+ <c><see cref="C:Android.Media.AudioTrack.AudioTrack(System.IntPtr,Android.Runtime.JniHandleOwnership)" tool="ReplaceLinkValue" /></c> constructor),
  not the original sampling rate of the
  content. For example, setting it to half the sample rate of the content will cause the
  playback to last twice as long, but will also result in a pitch shift down by one octave.
  The valid sample rate range is from 1 Hz to twice the value returned by
- <c><see cref="M:Android.Media.AudioTrack.GetNativeOutputSampleRate(Android.Media.Stream)" /></c>.</para>
+ <c><see cref="M:Android.Media.AudioTrack.GetNativeOutputSampleRate(Android.Media.Stream)" /></c>.
+ Use <c><see cref="P:Android.Media.AudioTrack.PlaybackParams" /></c> for speed control.
+ </para>
+          <para tool="javadoc-to-mdoc"> This method may also be used to repurpose an existing <c>AudioTrack</c>
+ for playback of content of differing sample rate,
+ but with identical encoding and channel mask.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/AudioTrack.html#setPlaybackRate(int)" target="_blank">[Android Documentation]</a>
@@ -1636,7 +1703,8 @@
         <Parameter Name="periodInFrames" Type="System.Int32" />
       </Parameters>
       <Docs>
-        <param name="periodInFrames">update period expressed in frames</param>
+        <param name="periodInFrames">update period expressed in frames.
+ Zero period means no position updates.  A negative period is not allowed.</param>
         <summary>Sets the period for the periodic notification event.</summary>
         <returns>To be added.</returns>
         <remarks>
@@ -1935,7 +2003,7 @@
         <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
         <value>A <see cref="T:System.IntPtr" /> which contains the <c>java.lang.Class</c> JNI value corresponding to this type.</value>
         <remarks>
-          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonvirtualVoidMethod" />.</para>
+          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonvirtualVoidMethod" tool="ReplaceLinkValue" />.</para>
         </remarks>
       </Docs>
     </Member>
@@ -2003,9 +2071,20 @@
         <remarks>
           <para tool="javadoc-to-mdoc">Writes the audio data to the audio sink for playback (streaming mode),
  or copies audio data for later playback (static buffer mode).
- In static buffer mode, copies the data to the buffer starting at its 0 offset, and the write
- mode is ignored.
- In streaming mode, the blocking behavior will depend on the write mode.</para>
+ The audioData in ByteBuffer should match the format specified in the AudioTrack constructor.
+ </para>
+          <para tool="javadoc-to-mdoc">
+ In streaming mode, the blocking behavior depends on the write mode.  If the write mode is
+ <c><see cref="!:Android.Media.AudioTrack.WRITE_BLOCKING" /></c>, the write will normally block until all the data has been enqueued
+ for playback, and will return a full transfer count.  However, if the write mode is
+ <c><see cref="!:Android.Media.AudioTrack.WRITE_NON_BLOCKING" /></c>, or the track is stopped or paused on entry, or another thread
+ interrupts the write by calling stop or pause, or an I/O error
+ occurs during the write, then the write may return a short transfer count.
+ </para>
+          <para tool="javadoc-to-mdoc">
+ In static buffer mode, copies the data to the buffer starting at offset 0,
+ and the write mode is ignored.
+ Note that the actual playback of this data might occur after this function returns.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/AudioTrack.html#write(java.nio.ByteBuffer, int, int)" target="_blank">[Android Documentation]</a>
@@ -2045,11 +2124,18 @@
         <remarks>
           <para tool="javadoc-to-mdoc">Writes the audio data to the audio sink for playback (streaming mode),
  or copies audio data for later playback (static buffer mode).
- In streaming mode, will block until all data has been written to the audio sink.
+ The format specified in the AudioTrack constructor should be
+ <c><see cref="!:Android.Media.AudioFormat.ENCODING_PCM_8BIT" /></c> to correspond to the data in the array.
+ </para>
+          <para tool="javadoc-to-mdoc">
+ In streaming mode, the write will normally block until all the data has been enqueued for
+ playback, and will return a full transfer count.  However, if the track is stopped or paused
+ on entry, or another thread interrupts the write by calling stop or pause, or an I/O error
+ occurs during the write, then the write may return a short transfer count.
+ </para>
+          <para tool="javadoc-to-mdoc">
  In static buffer mode, copies the data to the buffer starting at offset 0.
- Note that the actual playback of this data might occur after this function
- returns. This function is thread safe with respect to <c><see cref="M:Android.Media.AudioTrack.Stop" /></c> calls,
- in which case all of the specified data might not be written to the audio sink.</para>
+ Note that the actual playback of this data might occur after this function returns.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/AudioTrack.html#write(byte[], int, int)" target="_blank">[Android Documentation]</a>
@@ -2090,11 +2176,18 @@
         <remarks>
           <para tool="javadoc-to-mdoc">Writes the audio data to the audio sink for playback (streaming mode),
  or copies audio data for later playback (static buffer mode).
- In streaming mode, will block until all data has been written to the audio sink.
+ The format specified in the AudioTrack constructor should be
+ <c><see cref="!:Android.Media.AudioFormat.ENCODING_PCM_16BIT" /></c> to correspond to the data in the array.
+ </para>
+          <para tool="javadoc-to-mdoc">
+ In streaming mode, the write will normally block until all the data has been enqueued for
+ playback, and will return a full transfer count.  However, if the track is stopped or paused
+ on entry, or another thread interrupts the write by calling stop or pause, or an I/O error
+ occurs during the write, then the write may return a short transfer count.
+ </para>
+          <para tool="javadoc-to-mdoc">
  In static buffer mode, copies the data to the buffer starting at offset 0.
- Note that the actual playback of this data might occur after this function
- returns. This function is thread safe with respect to <c><see cref="M:Android.Media.AudioTrack.Stop" /></c> calls,
- in which case all of the specified data might not be written to the audio sink.</para>
+ Note that the actual playback of this data might occur after this function returns.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/AudioTrack.html#write(short[], int, int)" target="_blank">[Android Documentation]</a>
@@ -2157,16 +2250,21 @@
         <remarks>
           <para tool="javadoc-to-mdoc">Writes the audio data to the audio sink for playback (streaming mode),
  or copies audio data for later playback (static buffer mode).
- In static buffer mode, copies the data to the buffer starting at offset 0,
- and the write mode is ignored.
- In streaming mode, the blocking behavior will depend on the write mode.
+ The format specified in the AudioTrack constructor should be
+ <c><see cref="!:Android.Media.AudioFormat.ENCODING_PCM_FLOAT" /></c> to correspond to the data in the array.
  </para>
           <para tool="javadoc-to-mdoc">
- Note that the actual playback of this data might occur after this function
- returns. This function is thread safe with respect to <c><see cref="M:Android.Media.AudioTrack.Stop" /></c> calls,
- in which case all of the specified data might not be written to the audio sink.
+ In streaming mode, the blocking behavior depends on the write mode.  If the write mode is
+ <c><see cref="!:Android.Media.AudioTrack.WRITE_BLOCKING" /></c>, the write will normally block until all the data has been enqueued
+ for playback, and will return a full transfer count.  However, if the write mode is
+ <c><see cref="!:Android.Media.AudioTrack.WRITE_NON_BLOCKING" /></c>, or the track is stopped or paused on entry, or another thread
+ interrupts the write by calling stop or pause, or an I/O error
+ occurs during the write, then the write may return a short transfer count.
  </para>
-          <para tool="javadoc-to-mdoc" />
+          <para tool="javadoc-to-mdoc">
+ In static buffer mode, copies the data to the buffer starting at offset 0,
+ and the write mode is ignored.
+ Note that the actual playback of this data might occur after this function returns.</para>
           <para tool="javadoc-to-mdoc">
             <format type="text/html">
               <a href="http://developer.android.com/reference/android/media/AudioTrack.html#write(float[], int, int, int)" target="_blank">[Android Documentation]</a>
