@@ -1,4 +1,4 @@
-﻿<Type Name="Presentation" FullName="Android.App.Presentation">
+<Type Name="Presentation" FullName="Android.App.Presentation">
   <TypeSignature Language="C#" Value="public class Presentation : Android.App.Dialog" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi beforefieldinit Presentation extends Android.App.Dialog" />
   <AssemblyInfo>
@@ -16,376 +16,7 @@
   </Attributes>
   <Docs since="17">
     <summary>Base class for presentations.</summary>
-    <remarks>
-      <para tool="javadoc-to-mdoc">Base class for presentations.
- <format type="text/html"><h3>Choosing a presentation display</h3></format><format type="text/html"><h4>Using the media router to choose a presentation display</h4></format><example><code lang="java">
- MediaRouter mediaRouter = (MediaRouter) context.getSystemService(Context.MEDIA_ROUTER_SERVICE);
- MediaRouter.RouteInfo route = mediaRouter.getSelectedRoute();
- if (route != null) {
-     Display presentationDisplay = route.getPresentationDisplay();
-     if (presentationDisplay != null) {
-         Presentation presentation = new MyPresentation(context, presentationDisplay);
-         presentation.show();
-     }
- }</code></example><example><code lang="java">/**
- * &lt;h3&gt;Presentation Activity&lt;/h3&gt;
- *
- * &lt;p&gt;
- * This demonstrates how to create an activity that shows some content
- * on a secondary display using a {@link Presentation}.
- * &lt;/p&gt;&lt;p&gt;
- * The activity uses the {@link MediaRouter} API to automatically detect when
- * a presentation display is available and to allow the user to control the
- * media routes using a menu item.  When a presentation display is available,
- * we stop showing content in the main activity and instead open up a
- * {@link Presentation} on the preferred presentation display.  When a presentation
- * display is removed, we revert to showing content in the main activity.
- * We also write information about displays and display-related events to
- * the Android log which you can read using &lt;code&gt;adb logcat&lt;/code&gt;.
- * &lt;/p&gt;&lt;p&gt;
- * You can try this out using an HDMI or Wifi display or by using the
- * "Simulate secondary displays" feature in Development Settings to create a few
- * simulated secondary displays.  Each display will appear in the list along with a
- * checkbox to show a presentation on that display.
- * &lt;/p&gt;&lt;p&gt;
- * See also the {@link PresentationActivity} sample which
- * uses the low-level display manager to enumerate displays and to show multiple
- * simultaneous presentations on different displays.
- * &lt;/p&gt;
- */
-public class PresentationWithMediaRouterActivity extends Activity {
-    private final String TAG = "PresentationWithMediaRouterActivity";
-
-    private MediaRouter mMediaRouter;
-    private DemoPresentation mPresentation;
-    private GLSurfaceView mSurfaceView;
-    private TextView mInfoTextView;
-    private boolean mPaused;
-
-    /**
-     * Initialization of the Activity after it is first created.  Must at least
-     * call {@link android.app.Activity#setContentView setContentView()} to
-     * describe what is to be displayed in the screen.
-     */
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        // Be sure to call the super class.
-        super.onCreate(savedInstanceState);
-
-        // Get the media router service.
-        mMediaRouter = (MediaRouter)getSystemService(Context.MEDIA_ROUTER_SERVICE);
-
-        // See assets/res/any/layout/presentation_with_media_router_activity.xml for this
-        // view layout definition, which is being set here as
-        // the content of our screen.
-        setContentView(R.layout.presentation_with_media_router_activity);
-
-        // Set up the surface view for visual interest.
-        mSurfaceView = (GLSurfaceView)findViewById(R.id.surface_view);
-        mSurfaceView.setRenderer(new CubeRenderer(false));
-
-        // Get a text view where we will show information about what's happening.
-        mInfoTextView = (TextView)findViewById(R.id.info);
-    }
-
-    @Override
-    protected void onResume() {
-        // Be sure to call the super class.
-        super.onResume();
-
-        // Listen for changes to media routes.
-        mMediaRouter.addCallback(MediaRouter.ROUTE_TYPE_LIVE_VIDEO, mMediaRouterCallback);
-
-        // Update the presentation based on the currently selected route.
-        mPaused = false;
-        updatePresentation();
-    }
-
-    @Override
-    protected void onPause() {
-        // Be sure to call the super class.
-        super.onPause();
-
-        // Stop listening for changes to media routes.
-        mMediaRouter.removeCallback(mMediaRouterCallback);
-
-        // Pause rendering.
-        mPaused = true;
-        updateContents();
-    }
-
-    @Override
-    protected void onStop() {
-        // Be sure to call the super class.
-        super.onStop();
-
-        // Dismiss the presentation when the activity is not visible.
-        if (mPresentation != null) {
-            Log.i(TAG, "Dismissing presentation because the activity is no longer visible.");
-            mPresentation.dismiss();
-            mPresentation = null;
-        }
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Be sure to call the super class.
-        super.onCreateOptionsMenu(menu);
-
-        // Inflate the menu and configure the media router action provider.
-        getMenuInflater().inflate(R.menu.presentation_with_media_router_menu, menu);
-
-        MenuItem mediaRouteMenuItem = menu.findItem(R.id.menu_media_route);
-        MediaRouteActionProvider mediaRouteActionProvider =
-                (MediaRouteActionProvider)mediaRouteMenuItem.getActionProvider();
-        mediaRouteActionProvider.setRouteTypes(MediaRouter.ROUTE_TYPE_LIVE_VIDEO);
-
-        // Return true to show the menu.
-        return true;
-    }
-
-    private void updatePresentation() {
-        // Get the current route and its presentation display.
-        MediaRouter.RouteInfo route = mMediaRouter.getSelectedRoute(
-                MediaRouter.ROUTE_TYPE_LIVE_VIDEO);
-        Display presentationDisplay = route != null ? route.getPresentationDisplay() : null;
-
-        // Dismiss the current presentation if the display has changed.
-        if (mPresentation != null &amp;&amp; mPresentation.getDisplay() != presentationDisplay) {
-            Log.i(TAG, "Dismissing presentation because the current route no longer "
-                    + "has a presentation display.");
-            mPresentation.dismiss();
-            mPresentation = null;
-        }
-
-        // Show a new presentation if needed.
-        if (mPresentation == null &amp;&amp; presentationDisplay != null) {
-            Log.i(TAG, "Showing presentation on display: " + presentationDisplay);
-            mPresentation = new DemoPresentation(this, presentationDisplay);
-            mPresentation.setOnDismissListener(mOnDismissListener);
-            try {
-                mPresentation.show();
-            } catch (WindowManager.InvalidDisplayException ex) {
-                Log.w(TAG, "Couldn't show presentation!  Display was removed in "
-                        + "the meantime.", ex);
-                mPresentation = null;
-            }
-        }
-
-        // Update the contents playing in this activity.
-        updateContents();
-    }
-
-    private void updateContents() {
-        // Show either the content in the main activity or the content in the presentation
-        // along with some descriptive text about what is happening.
-        if (mPresentation != null) {
-            mInfoTextView.setText(getResources().getString(
-                    R.string.presentation_with_media_router_now_playing_remotely,
-                    mPresentation.getDisplay().getName()));
-            mSurfaceView.setVisibility(View.INVISIBLE);
-            mSurfaceView.onPause();
-            if (mPaused) {
-                mPresentation.getSurfaceView().onPause();
-            } else {
-                mPresentation.getSurfaceView().onResume();
-            }
-        } else {
-            mInfoTextView.setText(getResources().getString(
-                    R.string.presentation_with_media_router_now_playing_locally,
-                    getWindowManager().getDefaultDisplay().getName()));
-            mSurfaceView.setVisibility(View.VISIBLE);
-            if (mPaused) {
-                mSurfaceView.onPause();
-            } else {
-                mSurfaceView.onResume();
-            }
-        }
-    }
-
-    private final MediaRouter.SimpleCallback mMediaRouterCallback =
-            new MediaRouter.SimpleCallback() {
-        @Override
-        public void onRouteSelected(MediaRouter router, int type, RouteInfo info) {
-            Log.d(TAG, "onRouteSelected: type=" + type + ", info=" + info);
-            updatePresentation();
-        }
-
-        @Override
-        public void onRouteUnselected(MediaRouter router, int type, RouteInfo info) {
-            Log.d(TAG, "onRouteUnselected: type=" + type + ", info=" + info);
-            updatePresentation();
-        }
-
-        @Override
-        public void onRoutePresentationDisplayChanged(MediaRouter router, RouteInfo info) {
-            Log.d(TAG, "onRoutePresentationDisplayChanged: info=" + info);
-            updatePresentation();
-        }
-    };
-
-    /**
-     * Listens for when presentations are dismissed.
-     */
-    private final DialogInterface.OnDismissListener mOnDismissListener =
-            new DialogInterface.OnDismissListener() {
-        @Override
-        public void onDismiss(DialogInterface dialog) {
-            if (dialog == mPresentation) {
-                Log.i(TAG, "Presentation was dismissed.");
-                mPresentation = null;
-                updateContents();
-            }
-        }
-    };
-
-    /**
-     * The presentation to show on the secondary display.
-     * &lt;p&gt;
-     * Note that this display may have different metrics from the display on which
-     * the main activity is showing so we must be careful to use the presentation's
-     * own {@link Context} whenever we load resources.
-     * &lt;/p&gt;
-     */
-    private final static class DemoPresentation extends Presentation {
-        private GLSurfaceView mSurfaceView;
-
-        public DemoPresentation(Context context, Display display) {
-            super(context, display);
-        }
-
-        @Override
-        protected void onCreate(Bundle savedInstanceState) {
-            // Be sure to call the super class.
-            super.onCreate(savedInstanceState);
-
-            // Get the resources for the context of the presentation.
-            // Notice that we are getting the resources from the context of the presentation.
-            Resources r = getContext().getResources();
-
-            // Inflate the layout.
-            setContentView(R.layout.presentation_with_media_router_content);
-
-            // Set up the surface view for visual interest.
-            mSurfaceView = (GLSurfaceView)findViewById(R.id.surface_view);
-            mSurfaceView.setRenderer(new CubeRenderer(false));
-        }
-
-        public GLSurfaceView getSurfaceView() {
-            return mSurfaceView;
-        }
-    }
-}</code></example><format type="text/html"><h4>Using the display manager to choose a presentation display</h4></format><example><code lang="java">
- DisplayManager displayManager = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
- Display[] presentationDisplays = displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
- if (presentationDisplays.length &gt; 0) {
-     // If there is more than one suitable presentation display, then we could consider
-     // giving the user a choice.  For this example, we simply choose the first display
-     // which is the one the system recommends as the preferred presentation display.
-     Display display = presentationDisplays[0];
-     Presentation presentation = new MyPresentation(context, presentationDisplay);
-     presentation.show();
- }</code></example><sample external-id="83E25E6823C2C07EAE6D1330689C71AE" /></para>
-      <para tool="javadoc-to-mdoc">
- A presentation is a special kind of dialog whose purpose is to present
- content on a secondary display.  A <c><see cref="T:Android.App.Presentation" /></c> is associated with
- the target <c><see cref="T:Android.Views.Display" /></c> at creation time and configures its context and
- resource configuration according to the display's metrics.
- </para>
-      <para tool="javadoc-to-mdoc">
- Notably, the <c><see cref="T:Android.Content.Context" /></c> of a presentation is different from the context
- of its containing <c><see cref="T:Android.App.Activity" /></c>.  It is important to inflate the layout
- of a presentation and load other resources using the presentation's own context
- to ensure that assets of the correct size and density for the target display
- are loaded.
- </para>
-      <para tool="javadoc-to-mdoc">
- A presentation is automatically canceled (see <c><see cref="M:Android.App.Dialog.Cancel" /></c>) when
- the display to which it is attached is removed.  An activity should take
- care of pausing and resuming whatever content is playing within the presentation
- whenever the activity itself is paused or resumed.
- </para>
-      <para tool="javadoc-to-mdoc">
- Before showing a <c><see cref="T:Android.App.Presentation" /></c> it's important to choose the <c><see cref="T:Android.Views.Display" /></c>
- on which it will appear.  Choosing a presentation display is sometimes difficult
- because there may be multiple displays attached.  Rather than trying to guess
- which display is best, an application should let the system choose a suitable
- presentation display.
- </para>
-      <para tool="javadoc-to-mdoc">
- There are two main ways to choose a <c><see cref="T:Android.Views.Display" /></c>.
- </para>
-      <para tool="javadoc-to-mdoc">
- The easiest way to choose a presentation display is to use the
- <c><see cref="T:Android.Media.MediaRouter" /></c> API.  The media router service keeps
- track of which audio and video routes are available on the system.
- The media router sends notifications whenever routes are selected or unselected
- or when the preferred presentation display of a route changes.
- So an application can simply watch for these notifications and show or dismiss
- a presentation on the preferred presentation display automatically.
- </para>
-      <para tool="javadoc-to-mdoc">
- The preferred presentation display is the display that the media router recommends
- that the application should use if it wants to show content on the secondary display.
- Sometimes there may not be a preferred presentation display in which
- case the application should show its content locally without using a presentation.
- </para>
-      <para tool="javadoc-to-mdoc">
- Here's how to use the media router to create and show a presentation on the preferred
- presentation display using <c><see cref="!:NoType:android/media/MediaRouter$RouteInfo;Href=../../../reference/android/media/MediaRouter.RouteInfo.html#getPresentationDisplay()" /></c>.
- </para>
-      <para tool="javadoc-to-mdoc">
- The following sample code from <c>ApiDemos</c> demonstrates how to use the media
- router to automatically switch between showing content in the main activity and showing
- the content in a presentation when a presentation display is available.
- </para>
-      <para tool="javadoc-to-mdoc">
- Another way to choose a presentation display is to use the <c><see cref="T:Android.Hardware.Display.DisplayManager" /></c> API
- directly.  The display manager service provides functions to enumerate and describe all
- displays that are attached to the system including displays that may be used
- for presentations.
- </para>
-      <para tool="javadoc-to-mdoc">
- The display manager keeps track of all displays in the system.  However, not all
- displays are appropriate for showing presentations.  For example, if an activity
- attempted to show a presentation on the main display it might obscure its own content
- (it's like opening a dialog on top of your activity).
- </para>
-      <para tool="javadoc-to-mdoc">
- Here's how to identify suitable displays for showing presentations using
- <c><see cref="M:Android.Hardware.Display.DisplayManager.GetDisplays(System.String)" /></c> and the
- <c><see cref="F:Android.Hardware.Display.DisplayManager.DisplayCategoryPresentation" /></c> category.
- </para>
-      <para tool="javadoc-to-mdoc">
- The following sample code from <c>ApiDemos</c> demonstrates how to use the display
- manager to enumerate displays and show content on multiple presentation displays
- simultaneously.
- </para>
-      <format type="text/html">
-        <h5 class="jd-tagtitle">See Also</h5>
-      </format>
-      <list type="bullet">
-        <item>
-          <term>
-            <c>
-              <see cref="F:Android.Media.MediaRouter.RouteTypeLiveVideo" />
-            </c>
-          </term>
-        </item>
-        <item>
-          <term>
-            <c>
-              <see cref="T:Android.Hardware.Display.DisplayManager" />
-            </c>
-          </term>
-        </item>
-      </list>
-      <para tool="javadoc-to-mdoc">
-        <format type="text/html">
-          <a href="http://developer.android.com/reference/android/app/Presentation.html" target="_blank">[Android Documentation]</a>
-        </format>
-      </para>
-    </remarks>
+    <remarks />
     <since version="Added in API level 17" />
   </Docs>
   <Members>
@@ -410,15 +41,7 @@ public class PresentationWithMediaRouterActivity extends Activity {
         <param name="display">To be added.</param>
         <summary>Creates a new presentation that is attached to the specified display
  using the default theme.</summary>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Creates a new presentation that is attached to the specified display
- using the default theme.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/Presentation.html#Presentation(android.content.Context, android.view.Display)" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+        <remarks />
         <since version="Added in API level 17" />
       </Docs>
     </Member>
@@ -437,10 +60,7 @@ public class PresentationWithMediaRouterActivity extends Activity {
         <param name="javaReference">A <see cref="T:System.IntPtr" />containing a Java Native Interface (JNI) object reference.</param>
         <param name="transfer">A <see cref="T:Android.Runtime.JniHandleOwnership" />indicating how to handle <paramref name="javaReference" /></param>
         <summary>A constructor used when creating managed representations of JNI objects; called by the runtime.</summary>
-        <remarks>
-          <para tool="javadoc-to-mdoc">This constructor is invoked by the runtime infrastructure (<see cref="M:Java.Lang.Object.GetObject{T,U}(System.IntPtr,Android.Runtime.JniHandleOwnership)" tool="ReplaceLinkValue" />) to create a new managed representation for a Java Native Interface object.</para>
-          <para tool="javadoc-to-mdoc">The constructor will initializes the <see cref="P:Android.Runtime.IJavaObject.Handle" /> property of the new instance using <paramref name="javaReference" /> and <paramref name="transfer" />.</para>
-        </remarks>
+        <remarks />
       </Docs>
     </Member>
     <Member MemberName=".ctor">
@@ -466,15 +86,7 @@ public class PresentationWithMediaRouterActivity extends Activity {
         <param name="theme">To be added.</param>
         <summary>Creates a new presentation that is attached to the specified display
  using the optionally specified theme.</summary>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Creates a new presentation that is attached to the specified display
- using the optionally specified theme.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/Presentation.html#Presentation(android.content.Context, android.view.Display, int)" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+        <remarks />
         <since version="Added in API level 17" />
       </Docs>
     </Member>
@@ -496,14 +108,7 @@ public class PresentationWithMediaRouterActivity extends Activity {
       <Docs>
         <summary>Gets the <c><see cref="T:Android.Views.Display" /></c> that this presentation appears on.</summary>
         <value>To be added.</value>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Gets the <c><see cref="T:Android.Views.Display" /></c> that this presentation appears on.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/Presentation.html#getDisplay()" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+        <remarks />
         <since version="Added in API level 17" />
       </Docs>
     </Member>
@@ -526,19 +131,7 @@ public class PresentationWithMediaRouterActivity extends Activity {
       <Docs>
         <summary>Called by the system when the properties of the <c><see cref="T:Android.Views.Display" /></c> to which
  the presentation is attached have changed.</summary>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Called by the system when the properties of the <c><see cref="T:Android.Views.Display" /></c> to which
- the presentation is attached have changed.
-
- If the display metrics have changed (for example, if the display has been
- resized or rotated), then the system automatically calls
- <c><see cref="M:Android.App.Dialog.Cancel" /></c> to dismiss the presentation.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/Presentation.html#onDisplayChanged()" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+        <remarks />
         <since version="Added in API level 17" />
         <altmember cref="P:Android.App.Presentation.Display" />
       </Docs>
@@ -562,18 +155,7 @@ public class PresentationWithMediaRouterActivity extends Activity {
       <Docs>
         <summary>Called by the system when the <c><see cref="T:Android.Views.Display" /></c> to which the presentation
  is attached has been removed.</summary>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Called by the system when the <c><see cref="T:Android.Views.Display" /></c> to which the presentation
- is attached has been removed.
-
- The system automatically calls <c><see cref="M:Android.App.Dialog.Cancel" /></c> to dismiss the presentation
- after sending this event.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/Presentation.html#onDisplayRemoved()" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+        <remarks />
         <since version="Added in API level 17" />
         <altmember cref="P:Android.App.Presentation.Display" />
       </Docs>
@@ -596,16 +178,7 @@ public class PresentationWithMediaRouterActivity extends Activity {
       <Docs>
         <summary>Gets the <c><see cref="T:Android.Content.Res.Resources" /></c> that should be used to inflate the layout of this presentation.</summary>
         <value>To be added.</value>
-        <remarks>
-          <para tool="javadoc-to-mdoc">Gets the <c><see cref="T:Android.Content.Res.Resources" /></c> that should be used to inflate the layout of this presentation.
- This resources object has been configured according to the metrics of the
- display that the presentation appears on.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/Presentation.html#getResources()" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
-        </remarks>
+        <remarks />
         <since version="Added in API level 17" />
       </Docs>
     </Member>
@@ -622,9 +195,7 @@ public class PresentationWithMediaRouterActivity extends Activity {
       <Docs>
         <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
         <value>A <see cref="T:System.IntPtr" /> which contains the <c>java.lang.Class</c> JNI value corresponding to this type.</value>
-        <remarks>
-          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonvirtualVoidMethod" tool="ReplaceLinkValue" />.</para>
-        </remarks>
+        <remarks />
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
@@ -640,9 +211,7 @@ public class PresentationWithMediaRouterActivity extends Activity {
       <Docs>
         <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
         <value>A <see cref="T:System.Type" /> which provides the declaring type.</value>
-        <remarks>
-          <para tool="javadoc-to-mdoc">This property is used to control virtual vs. non virtual method dispatch against the underlying JNI object. When this property is equal to the declaring type, then virtual method invocation against the JNI object is performed; otherwise, we assume that the method was overridden by a derived type, and perform non-virtual methdo invocation.</para>
-        </remarks>
+        <remarks />
       </Docs>
     </Member>
   </Members>
