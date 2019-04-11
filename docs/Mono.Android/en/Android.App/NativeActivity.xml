@@ -1,6 +1,8 @@
-﻿<Type Name="NativeActivity" FullName="Android.App.NativeActivity">
+<Type Name="NativeActivity" FullName="Android.App.NativeActivity">
   <TypeSignature Language="C#" Value="public class NativeActivity : Android.App.Activity, Android.Views.InputQueue.ICallback, Android.Views.ISurfaceHolderCallback2, Android.Views.ViewTreeObserver.IOnGlobalLayoutListener, IDisposable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi beforefieldinit NativeActivity extends Android.App.Activity implements class Android.Runtime.IJavaObject, class Android.Views.InputQueue/ICallback, class Android.Views.ISurfaceHolderCallback, class Android.Views.ISurfaceHolderCallback2, class Android.Views.ViewTreeObserver/IOnGlobalLayoutListener, class System.IDisposable" />
+  <TypeSignature Language="DocId" Value="T:Android.App.NativeActivity" />
+  <TypeSignature Language="F#" Value="type NativeActivity = class&#xA;    inherit Activity&#xA;    interface InputQueue.ICallback&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface ISurfaceHolderCallback2&#xA;    interface ISurfaceHolderCallback&#xA;    interface ViewTreeObserver.IOnGlobalLayoutListener" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
     <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -10,7 +12,13 @@
   </Base>
   <Interfaces>
     <Interface>
+      <InterfaceName>Android.Runtime.IJavaObject</InterfaceName>
+    </Interface>
+    <Interface>
       <InterfaceName>Android.Views.InputQueue+ICallback</InterfaceName>
+    </Interface>
+    <Interface>
+      <InterfaceName>Android.Views.ISurfaceHolderCallback</InterfaceName>
     </Interface>
     <Interface>
       <InterfaceName>Android.Views.ISurfaceHolderCallback2</InterfaceName>
@@ -24,345 +32,19 @@
   </Interfaces>
   <Attributes>
     <Attribute>
-      <AttributeName>Android.Runtime.Register("android/app/NativeActivity", DoNotGenerateAcw=true)</AttributeName>
+      <AttributeName>Android.Runtime.Register("android/app/NativeActivity", ApiSince=9, DoNotGenerateAcw=true)</AttributeName>
     </Attribute>
   </Attributes>
   <Docs since="9">
     <summary>Convenience for implementing an activity that will be implemented
  purely in native code.</summary>
     <remarks>
-      <para tool="javadoc-to-mdoc">Convenience for implementing an activity that will be implemented
- purely in native code.  That is, a game (or game-like thing).  There
- is no need to derive from this class; you can simply declare it in your
- manifest, and use the NDK APIs from there.
-
- </para>
-      <para tool="javadoc-to-mdoc">A typical manifest would look like:
-
- <example><code lang="xml">&lt;manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.example.native_activity"
-        android:versionCode="1"
-        android:versionName="1.0"&gt;
-
-    &lt;!-- This is the platform API where NativeActivity was introduced. --&gt;
-    &lt;uses-sdk android:minSdkVersion="9" /&gt;
-
-    &lt;!-- This .apk has no Java code itself, so set hasCode to false. --&gt;
-    &lt;application android:label="@string/app_name" android:hasCode="false"&gt;
-
-        &lt;!-- Our activity is the built-in NativeActivity framework class.
-             This will take care of integrating with our NDK code. --&gt;
-        &lt;activity android:name="android.app.NativeActivity"
-                android:label="@string/app_name"
-                android:configChanges="orientation|keyboardHidden"&gt;
-            &lt;!-- Tell NativeActivity the name of or .so --&gt;
-            &lt;meta-data android:name="android.app.lib_name"
-                    android:value="native-activity" /&gt;
-            &lt;intent-filter&gt;
-                &lt;action android:name="android.intent.action.MAIN" /&gt;
-                &lt;category android:name="android.intent.category.LAUNCHER" /&gt;
-            &lt;/intent-filter&gt;
-        &lt;/activity&gt;
-    &lt;/application&gt;
-
-&lt;/manifest&gt; </code></example></para>
-      <para tool="javadoc-to-mdoc">A very simple example of native code that is run by NativeActivity
- follows.  This reads input events from the user and uses OpenGLES to
- draw into the native activity's window.
-
- <example><code lang="java">#include &lt;jni.h&gt;
-#include &lt;errno.h&gt;
-
-#include &lt;EGL/egl.h&gt;
-#include &lt;GLES/gl.h&gt;
-
-#include &lt;android/sensor.h&gt;
-#include &lt;android/log.h&gt;
-#include &lt;android_native_app_glue.h&gt;
-
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "native-activity", __VA_ARGS__))
-#define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
-
-/**
- * Our saved state data.
- */
-struct saved_state {
-    float angle;
-    int32_t x;
-    int32_t y;
-};
-
-/**
- * Shared state for our app.
- */
-struct engine {
-    struct android_app* app;
-
-    ASensorManager* sensorManager;
-    const ASensor* accelerometerSensor;
-    ASensorEventQueue* sensorEventQueue;
-
-    int animating;
-    EGLDisplay display;
-    EGLSurface surface;
-    EGLContext context;
-    int32_t width;
-    int32_t height;
-    struct saved_state state;
-};
-
-/**
- * Initialize an EGL context for the current display.
- */
-static int engine_init_display(struct engine* engine) {
-    // initialize OpenGL ES and EGL
-
-    /*
-     * Here specify the attributes of the desired configuration.
-     * Below, we select an EGLConfig with at least 8 bits per color
-     * component compatible with on-screen windows
-     */
-    const EGLint attribs[] = {
-            EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-            EGL_BLUE_SIZE, 8,
-            EGL_GREEN_SIZE, 8,
-            EGL_RED_SIZE, 8,
-            EGL_NONE
-    };
-    EGLint w, h, dummy, format;
-    EGLint numConfigs;
-    EGLConfig config;
-    EGLSurface surface;
-    EGLContext context;
-
-    EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-
-    eglInitialize(display, 0, 0);
-
-    /* Here, the application chooses the configuration it desires. In this
-     * sample, we have a very simplified selection process, where we pick
-     * the first EGLConfig that matches our criteria */
-    eglChooseConfig(display, attribs, &amp;config, 1, &amp;numConfigs);
-
-    /* EGL_NATIVE_VISUAL_ID is an attribute of the EGLConfig that is
-     * guaranteed to be accepted by ANativeWindow_setBuffersGeometry().
-     * As soon as we picked a EGLConfig, we can safely reconfigure the
-     * ANativeWindow buffers to match, using EGL_NATIVE_VISUAL_ID. */
-    eglGetConfigAttrib(display, config, EGL_NATIVE_VISUAL_ID, &amp;format);
-
-    ANativeWindow_setBuffersGeometry(engine-&gt;app-&gt;window, 0, 0, format);
-
-    surface = eglCreateWindowSurface(display, config, engine-&gt;app-&gt;window, NULL);
-    context = eglCreateContext(display, config, NULL, NULL);
-
-    if (eglMakeCurrent(display, surface, surface, context) == EGL_FALSE) {
-        LOGW("Unable to eglMakeCurrent");
-        return -1;
-    }
-
-    eglQuerySurface(display, surface, EGL_WIDTH, &amp;w);
-    eglQuerySurface(display, surface, EGL_HEIGHT, &amp;h);
-
-    engine-&gt;display = display;
-    engine-&gt;context = context;
-    engine-&gt;surface = surface;
-    engine-&gt;width = w;
-    engine-&gt;height = h;
-    engine-&gt;state.angle = 0;
-
-    // Initialize GL state.
-    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
-    glEnable(GL_CULL_FACE);
-    glShadeModel(GL_SMOOTH);
-    glDisable(GL_DEPTH_TEST);
-
-    return 0;
-}
-
-/**
- * Just the current frame in the display.
- */
-static void engine_draw_frame(struct engine* engine) {
-    if (engine-&gt;display == NULL) {
-        // No display.
-        return;
-    }
-
-    // Just fill the screen with a color.
-    glClearColor(((float)engine-&gt;state.x)/engine-&gt;width, engine-&gt;state.angle,
-            ((float)engine-&gt;state.y)/engine-&gt;height, 1);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    eglSwapBuffers(engine-&gt;display, engine-&gt;surface);
-}
-
-/**
- * Tear down the EGL context currently associated with the display.
- */
-static void engine_term_display(struct engine* engine) {
-    if (engine-&gt;display != EGL_NO_DISPLAY) {
-        eglMakeCurrent(engine-&gt;display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-        if (engine-&gt;context != EGL_NO_CONTEXT) {
-            eglDestroyContext(engine-&gt;display, engine-&gt;context);
-        }
-        if (engine-&gt;surface != EGL_NO_SURFACE) {
-            eglDestroySurface(engine-&gt;display, engine-&gt;surface);
-        }
-        eglTerminate(engine-&gt;display);
-    }
-    engine-&gt;animating = 0;
-    engine-&gt;display = EGL_NO_DISPLAY;
-    engine-&gt;context = EGL_NO_CONTEXT;
-    engine-&gt;surface = EGL_NO_SURFACE;
-}
-
-/**
- * Process the next input event.
- */
-static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
-    struct engine* engine = (struct engine*)app-&gt;userData;
-    if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
-        engine-&gt;animating = 1;
-        engine-&gt;state.x = AMotionEvent_getX(event, 0);
-        engine-&gt;state.y = AMotionEvent_getY(event, 0);
-        return 1;
-    }
-    return 0;
-}
-
-/**
- * Process the next main command.
- */
-static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
-    struct engine* engine = (struct engine*)app-&gt;userData;
-    switch (cmd) {
-        case APP_CMD_SAVE_STATE:
-            // The system has asked us to save our current state.  Do so.
-            engine-&gt;app-&gt;savedState = malloc(sizeof(struct saved_state));
-            *((struct saved_state*)engine-&gt;app-&gt;savedState) = engine-&gt;state;
-            engine-&gt;app-&gt;savedStateSize = sizeof(struct saved_state);
-            break;
-        case APP_CMD_INIT_WINDOW:
-            // The window is being shown, get it ready.
-            if (engine-&gt;app-&gt;window != NULL) {
-                engine_init_display(engine);
-                engine_draw_frame(engine);
-            }
-            break;
-        case APP_CMD_TERM_WINDOW:
-            // The window is being hidden or closed, clean it up.
-            engine_term_display(engine);
-            break;
-        case APP_CMD_GAINED_FOCUS:
-            // When our app gains focus, we start monitoring the accelerometer.
-            if (engine-&gt;accelerometerSensor != NULL) {
-                ASensorEventQueue_enableSensor(engine-&gt;sensorEventQueue,
-                        engine-&gt;accelerometerSensor);
-                // We'd like to get 60 events per second (in us).
-                ASensorEventQueue_setEventRate(engine-&gt;sensorEventQueue,
-                        engine-&gt;accelerometerSensor, (1000L/60)*1000);
-            }
-            break;
-        case APP_CMD_LOST_FOCUS:
-            // When our app loses focus, we stop monitoring the accelerometer.
-            // This is to avoid consuming battery while not being used.
-            if (engine-&gt;accelerometerSensor != NULL) {
-                ASensorEventQueue_disableSensor(engine-&gt;sensorEventQueue,
-                        engine-&gt;accelerometerSensor);
-            }
-            // Also stop animating.
-            engine-&gt;animating = 0;
-            engine_draw_frame(engine);
-            break;
-    }
-}
-
-/**
- * This is the main entry point of a native application that is using
- * android_native_app_glue.  It runs in its own thread, with its own
- * event loop for receiving input events and doing other things.
- */
-void android_main(struct android_app* state) {
-    struct engine engine;
-
-    // Make sure glue isn't stripped.
-    app_dummy();
-
-    memset(&amp;engine, 0, sizeof(engine));
-    state-&gt;userData = &amp;engine;
-    state-&gt;onAppCmd = engine_handle_cmd;
-    state-&gt;onInputEvent = engine_handle_input;
-    engine.app = state;
-
-    // Prepare to monitor accelerometer
-    engine.sensorManager = ASensorManager_getInstance();
-    engine.accelerometerSensor = ASensorManager_getDefaultSensor(engine.sensorManager,
-            ASENSOR_TYPE_ACCELEROMETER);
-    engine.sensorEventQueue = ASensorManager_createEventQueue(engine.sensorManager,
-            state-&gt;looper, LOOPER_ID_USER, NULL, NULL);
-
-    if (state-&gt;savedState != NULL) {
-        // We are starting with a previous saved state; restore from it.
-        engine.state = *(struct saved_state*)state-&gt;savedState;
-    }
-
-    // loop waiting for stuff to do.
-
-    while (1) {
-        // Read all pending events.
-        int ident;
-        int events;
-        struct android_poll_source* source;
-
-        // If not animating, we will block forever waiting for events.
-        // If animating, we loop until all events are read, then continue
-        // to draw the next frame of animation.
-        while ((ident=ALooper_pollAll(engine.animating ? 0 : -1, NULL, &amp;events,
-                (void**)&amp;source)) &gt;= 0) {
-
-            // Process this event.
-            if (source != NULL) {
-                source-&gt;process(state, source);
-            }
-
-            // If a sensor has data, process it now.
-            if (ident == LOOPER_ID_USER) {
-                if (engine.accelerometerSensor != NULL) {
-                    ASensorEvent event;
-                    while (ASensorEventQueue_getEvents(engine.sensorEventQueue,
-                            &amp;event, 1) &gt; 0) {
-                        LOGI("accelerometer: x=%f y=%f z=%f",
-                                event.acceleration.x, event.acceleration.y,
-                                event.acceleration.z);
-                    }
-                }
-            }
-
-            // Check if we are exiting.
-            if (state-&gt;destroyRequested != 0) {
-                engine_term_display(&amp;engine);
-                return;
-            }
-        }
-
-        if (engine.animating) {
-            // Done with events; draw next animation frame.
-            engine.state.angle += .01f;
-            if (engine.state.angle &gt; 1) {
-                engine.state.angle = 0;
-            }
-
-            // Drawing is throttled to the screen update rate, so there
-            // is no need to do timing here.
-            engine_draw_frame(&amp;engine);
-        }
-    }
-}</code></example></para>
-      <para tool="javadoc-to-mdoc">
+      <para>
         <format type="text/html">
-          <a href="http://developer.android.com/reference/android/app/NativeActivity.html" target="_blank">[Android Documentation]</a>
+          <a href="https://developer.android.com/reference/android/app/NativeActivity" title="Reference documentation">Android platform documentation</a>
         </format>
       </para>
+      <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
     </remarks>
     <since version="Added in API level 9" />
   </Docs>
@@ -370,9 +52,11 @@ void android_main(struct android_app* state) {
     <Member MemberName=".ctor">
       <MemberSignature Language="C#" Value="public NativeActivity ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor() cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.App.NativeActivity.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -381,14 +65,10 @@ void android_main(struct android_app* state) {
       </Attributes>
       <Parameters />
       <Docs>
-        <summary></summary>
+        <summary>
+        </summary>
         <remarks>
-          <para tool="javadoc-to-mdoc" />
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/NativeActivity.html#NativeActivity()" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 9" />
       </Docs>
@@ -396,9 +76,12 @@ void android_main(struct android_app* state) {
     <Member MemberName=".ctor">
       <MemberSignature Language="C#" Value="protected NativeActivity (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.App.NativeActivity.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
+      <MemberSignature Language="F#" Value="new Android.App.NativeActivity : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.App.NativeActivity" Usage="new Android.App.NativeActivity (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -409,17 +92,40 @@ void android_main(struct android_app* state) {
         <param name="transfer">A <see cref="T:Android.Runtime.JniHandleOwnership" />indicating how to handle <paramref name="javaReference" /></param>
         <summary>A constructor used when creating managed representations of JNI objects; called by the runtime.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">This constructor is invoked by the runtime infrastructure (<see cref="M:Java.Lang.Object.GetObject{T,U}(System.IntPtr,Android.Runtime.JniHandleOwnership)" tool="ReplaceLinkValue" />) to create a new managed representation for a Java Native Interface object.</para>
-          <para tool="javadoc-to-mdoc">The constructor will initializes the <see cref="P:Android.Runtime.IJavaObject.Handle" /> property of the new instance using <paramref name="javaReference" /> and <paramref name="transfer" />.</para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
+      <MemberSignature Language="DocId" Value="P:Android.App.NativeActivity.JniPeerMembers" />
+      <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.App.NativeActivity.JniPeerMembers" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <ReturnValue>
+        <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>To be added.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
       </Docs>
     </Member>
     <Member MemberName="MetaDataFuncName">
       <MemberSignature Language="C#" Value="public const string MetaDataFuncName;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string MetaDataFuncName" />
+      <MemberSignature Language="DocId" Value="F:Android.App.NativeActivity.MetaDataFuncName" />
+      <MemberSignature Language="F#" Value="val mutable MetaDataFuncName : string" Usage="Android.App.NativeActivity.MetaDataFuncName" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -432,18 +138,9 @@ void android_main(struct android_app* state) {
       <Docs>
         <summary>Optional meta-that can be in the manifest for this component, specifying
  the name of the main entry point for this native activity in the
- <c><see cref="F:Android.App.NativeActivity.MetaDataLibName" /></c> native code.</summary>
+ <see cref="F:Android.App.NativeActivity.MetaDataLibName" /> native code.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Optional meta-that can be in the manifest for this component, specifying
- the name of the main entry point for this native activity in the
- <c><see cref="F:Android.App.NativeActivity.MetaDataLibName" /></c> native code.  If not specified,
- "ANativeActivity_onCreate" is used.
-</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/NativeActivity.html#META_DATA_FUNC_NAME" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 9" />
       </Docs>
@@ -451,9 +148,12 @@ void android_main(struct android_app* state) {
     <Member MemberName="MetaDataLibName">
       <MemberSignature Language="C#" Value="public const string MetaDataLibName;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string MetaDataLibName" />
+      <MemberSignature Language="DocId" Value="F:Android.App.NativeActivity.MetaDataLibName" />
+      <MemberSignature Language="F#" Value="val mutable MetaDataLibName : string" Usage="Android.App.NativeActivity.MetaDataLibName" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -467,15 +167,7 @@ void android_main(struct android_app* state) {
         <summary>Optional meta-that can be in the manifest for this component, specifying
  the name of the native shared library to load.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Optional meta-that can be in the manifest for this component, specifying
- the name of the native shared library to load.  If not specified,
- "main" is used.
-</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/NativeActivity.html#META_DATA_LIB_NAME" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 9" />
       </Docs>
@@ -483,9 +175,15 @@ void android_main(struct android_app* state) {
     <Member MemberName="OnGlobalLayout">
       <MemberSignature Language="C#" Value="public virtual void OnGlobalLayout ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnGlobalLayout() cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.App.NativeActivity.OnGlobalLayout" />
+      <MemberSignature Language="F#" Value="abstract member OnGlobalLayout : unit -&gt; unit&#xA;override this.OnGlobalLayout : unit -&gt; unit" Usage="nativeActivity.OnGlobalLayout " />
       <MemberType>Method</MemberType>
+      <Implements>
+        <InterfaceMember>M:Android.Views.ViewTreeObserver.IOnGlobalLayoutListener.OnGlobalLayout</InterfaceMember>
+      </Implements>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -501,14 +199,7 @@ void android_main(struct android_app* state) {
  within the view tree changes
 </summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Callback method to be invoked when the global layout state or the visibility of views
- within the view tree changes
-</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/NativeActivity.html#onGlobalLayout()" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 9" />
       </Docs>
@@ -516,9 +207,15 @@ void android_main(struct android_app* state) {
     <Member MemberName="OnInputQueueCreated">
       <MemberSignature Language="C#" Value="public virtual void OnInputQueueCreated (Android.Views.InputQueue queue);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnInputQueueCreated(class Android.Views.InputQueue queue) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.App.NativeActivity.OnInputQueueCreated(Android.Views.InputQueue)" />
+      <MemberSignature Language="F#" Value="abstract member OnInputQueueCreated : Android.Views.InputQueue -&gt; unit&#xA;override this.OnInputQueueCreated : Android.Views.InputQueue -&gt; unit" Usage="nativeActivity.OnInputQueueCreated queue" />
       <MemberType>Method</MemberType>
+      <Implements>
+        <InterfaceMember>M:Android.Views.InputQueue.ICallback.OnInputQueueCreated(Android.Views.InputQueue)</InterfaceMember>
+      </Implements>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -536,14 +233,7 @@ void android_main(struct android_app* state) {
         <summary>Called when the given InputQueue is now associated with the
  thread making this call, so it can start receiving events from it.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Called when the given InputQueue is now associated with the
- thread making this call, so it can start receiving events from it.
-</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/NativeActivity.html#onInputQueueCreated(android.view.InputQueue)" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 9" />
       </Docs>
@@ -551,9 +241,15 @@ void android_main(struct android_app* state) {
     <Member MemberName="OnInputQueueDestroyed">
       <MemberSignature Language="C#" Value="public virtual void OnInputQueueDestroyed (Android.Views.InputQueue queue);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnInputQueueDestroyed(class Android.Views.InputQueue queue) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.App.NativeActivity.OnInputQueueDestroyed(Android.Views.InputQueue)" />
+      <MemberSignature Language="F#" Value="abstract member OnInputQueueDestroyed : Android.Views.InputQueue -&gt; unit&#xA;override this.OnInputQueueDestroyed : Android.Views.InputQueue -&gt; unit" Usage="nativeActivity.OnInputQueueDestroyed queue" />
       <MemberType>Method</MemberType>
+      <Implements>
+        <InterfaceMember>M:Android.Views.InputQueue.ICallback.OnInputQueueDestroyed(Android.Views.InputQueue)</InterfaceMember>
+      </Implements>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -571,14 +267,7 @@ void android_main(struct android_app* state) {
         <summary>Called when the given InputQueue is no longer associated with
  the thread and thus not dispatching events.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Called when the given InputQueue is no longer associated with
- the thread and thus not dispatching events.
-</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/NativeActivity.html#onInputQueueDestroyed(android.view.InputQueue)" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 9" />
       </Docs>
@@ -586,9 +275,15 @@ void android_main(struct android_app* state) {
     <Member MemberName="SurfaceChanged">
       <MemberSignature Language="C#" Value="public virtual void SurfaceChanged (Android.Views.ISurfaceHolder holder, Android.Graphics.Format format, int width, int height);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SurfaceChanged(class Android.Views.ISurfaceHolder holder, valuetype Android.Graphics.Format format, int32 width, int32 height) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.App.NativeActivity.SurfaceChanged(Android.Views.ISurfaceHolder,Android.Graphics.Format,System.Int32,System.Int32)" />
+      <MemberSignature Language="F#" Value="abstract member SurfaceChanged : Android.Views.ISurfaceHolder * Android.Graphics.Format * int * int -&gt; unit&#xA;override this.SurfaceChanged : Android.Views.ISurfaceHolder * Android.Graphics.Format * int * int -&gt; unit" Usage="nativeActivity.SurfaceChanged (holder, format, width, height)" />
       <MemberType>Method</MemberType>
+      <Implements>
+        <InterfaceMember>M:Android.Views.ISurfaceHolderCallback.SurfaceChanged(Android.Views.ISurfaceHolder,Android.Graphics.Format,System.Int32,System.Int32)</InterfaceMember>
+      </Implements>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -600,7 +295,13 @@ void android_main(struct android_app* state) {
       </ReturnValue>
       <Parameters>
         <Parameter Name="holder" Type="Android.Views.ISurfaceHolder" />
-        <Parameter Name="format" Type="Android.Graphics.Format" />
+        <Parameter Name="format" Type="Android.Graphics.Format">
+          <Attributes>
+            <Attribute>
+              <AttributeName>Android.Runtime.GeneratedEnum</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
         <Parameter Name="width" Type="System.Int32" />
         <Parameter Name="height" Type="System.Int32" />
       </Parameters>
@@ -613,15 +314,7 @@ void android_main(struct android_app* state) {
         <summary>This is called immediately after any structural changes (format or
  size) have been made to the surface.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">This is called immediately after any structural changes (format or
- size) have been made to the surface.  You should at this point update
- the imagery in the surface.  This method is always called at least
- once, after <c><see cref="M:Android.Views.ISurfaceHolderCallback.SurfaceCreated(Android.Views.ISurfaceHolder)" /></c>.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/NativeActivity.html#surfaceChanged(android.view.SurfaceHolder, int, int, int)" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 9" />
       </Docs>
@@ -629,9 +322,15 @@ void android_main(struct android_app* state) {
     <Member MemberName="SurfaceCreated">
       <MemberSignature Language="C#" Value="public virtual void SurfaceCreated (Android.Views.ISurfaceHolder holder);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SurfaceCreated(class Android.Views.ISurfaceHolder holder) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.App.NativeActivity.SurfaceCreated(Android.Views.ISurfaceHolder)" />
+      <MemberSignature Language="F#" Value="abstract member SurfaceCreated : Android.Views.ISurfaceHolder -&gt; unit&#xA;override this.SurfaceCreated : Android.Views.ISurfaceHolder -&gt; unit" Usage="nativeActivity.SurfaceCreated holder" />
       <MemberType>Method</MemberType>
+      <Implements>
+        <InterfaceMember>M:Android.Views.ISurfaceHolderCallback.SurfaceCreated(Android.Views.ISurfaceHolder)</InterfaceMember>
+      </Implements>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -649,16 +348,7 @@ void android_main(struct android_app* state) {
 </param>
         <summary>This is called immediately after the surface is first created.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">This is called immediately after the surface is first created.
- Implementations of this should start up whatever rendering code
- they desire.  Note that only one thread can ever draw into
- a <c><see cref="T:Android.Views.Surface" /></c>, so you should not draw into the Surface here
- if your normal rendering will be in another thread.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/NativeActivity.html#surfaceCreated(android.view.SurfaceHolder)" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 9" />
       </Docs>
@@ -666,9 +356,15 @@ void android_main(struct android_app* state) {
     <Member MemberName="SurfaceDestroyed">
       <MemberSignature Language="C#" Value="public virtual void SurfaceDestroyed (Android.Views.ISurfaceHolder holder);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SurfaceDestroyed(class Android.Views.ISurfaceHolder holder) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.App.NativeActivity.SurfaceDestroyed(Android.Views.ISurfaceHolder)" />
+      <MemberSignature Language="F#" Value="abstract member SurfaceDestroyed : Android.Views.ISurfaceHolder -&gt; unit&#xA;override this.SurfaceDestroyed : Android.Views.ISurfaceHolder -&gt; unit" Usage="nativeActivity.SurfaceDestroyed holder" />
       <MemberType>Method</MemberType>
+      <Implements>
+        <InterfaceMember>M:Android.Views.ISurfaceHolderCallback.SurfaceDestroyed(Android.Views.ISurfaceHolder)</InterfaceMember>
+      </Implements>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -686,16 +382,7 @@ void android_main(struct android_app* state) {
 </param>
         <summary>This is called immediately before a surface is being destroyed.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">This is called immediately before a surface is being destroyed. After
- returning from this call, you should no longer try to access this
- surface.  If you have a rendering thread that directly accesses
- the surface, you must ensure that thread is no longer touching the 
- Surface before returning from this function.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/NativeActivity.html#surfaceDestroyed(android.view.SurfaceHolder)" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 9" />
       </Docs>
@@ -703,9 +390,15 @@ void android_main(struct android_app* state) {
     <Member MemberName="SurfaceRedrawNeeded">
       <MemberSignature Language="C#" Value="public virtual void SurfaceRedrawNeeded (Android.Views.ISurfaceHolder holder);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SurfaceRedrawNeeded(class Android.Views.ISurfaceHolder holder) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.App.NativeActivity.SurfaceRedrawNeeded(Android.Views.ISurfaceHolder)" />
+      <MemberSignature Language="F#" Value="abstract member SurfaceRedrawNeeded : Android.Views.ISurfaceHolder -&gt; unit&#xA;override this.SurfaceRedrawNeeded : Android.Views.ISurfaceHolder -&gt; unit" Usage="nativeActivity.SurfaceRedrawNeeded holder" />
       <MemberType>Method</MemberType>
+      <Implements>
+        <InterfaceMember>M:Android.Views.ISurfaceHolderCallback2.SurfaceRedrawNeeded(Android.Views.ISurfaceHolder)</InterfaceMember>
+      </Implements>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -724,17 +417,7 @@ void android_main(struct android_app* state) {
         <summary>Called when the application needs to redraw the content of its
  surface, after it is resized or for some other reason.</summary>
         <remarks>
-          <para tool="javadoc-to-mdoc">Called when the application needs to redraw the content of its
- surface, after it is resized or for some other reason.  By not
- returning from here until the redraw is complete, you can ensure that
- the user will not see your surface in a bad state (at its new
- size before it has been correctly drawn that way).  This will
- typically be preceeded by a call to <c><see cref="M:Android.Views.ISurfaceHolderCallback.SurfaceChanged(Android.Views.ISurfaceHolder, Android.Graphics.Format, Android.Graphics.Format, Android.Graphics.Format)" /></c>.</para>
-          <para tool="javadoc-to-mdoc">
-            <format type="text/html">
-              <a href="http://developer.android.com/reference/android/app/NativeActivity.html#surfaceRedrawNeeded(android.view.SurfaceHolder)" target="_blank">[Android Documentation]</a>
-            </format>
-          </para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 9" />
       </Docs>
@@ -742,9 +425,12 @@ void android_main(struct android_app* state) {
     <Member MemberName="ThresholdClass">
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
+      <MemberSignature Language="DocId" Value="P:Android.App.NativeActivity.ThresholdClass" />
+      <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.App.NativeActivity.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.IntPtr</ReturnType>
@@ -753,16 +439,19 @@ void android_main(struct android_app* state) {
         <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
         <value>A <see cref="T:System.IntPtr" /> which contains the <c>java.lang.Class</c> JNI value corresponding to this type.</value>
         <remarks>
-          <para tool="javadoc-to-mdoc">This property is used to control which <c>jclass</c> is provided to methods like <see cref="M:Android.Runtime.JNIEnv.CallNonvirtualVoidMethod" tool="ReplaceLinkValue" />.</para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
+      <MemberSignature Language="DocId" Value="P:Android.App.NativeActivity.ThresholdType" />
+      <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.App.NativeActivity.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
+        <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Type</ReturnType>
@@ -771,7 +460,7 @@ void android_main(struct android_app* state) {
         <summary>This API supports the Mono for Android infrastructure and is not intended to be used directly from your code.</summary>
         <value>A <see cref="T:System.Type" /> which provides the declaring type.</value>
         <remarks>
-          <para tool="javadoc-to-mdoc">This property is used to control virtual vs. non virtual method dispatch against the underlying JNI object. When this property is equal to the declaring type, then virtual method invocation against the JNI object is performed; otherwise, we assume that the method was overridden by a derived type, and perform non-virtual methdo invocation.</para>
+          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
       </Docs>
     </Member>
