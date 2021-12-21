@@ -106,22 +106,6 @@
       <Docs>
         <param name="attributes">To be added.</param>
         <param name="format">To be added.</param>
-        <param name="sessionId">To be added.</param>
-        <param name="streamType">the type of the audio stream. See
-              <c>AudioManager#STREAM_VOICE_CALL</c>, <c>AudioManager#STREAM_SYSTEM</c>,
-              <c>AudioManager#STREAM_RING</c>, <c>AudioManager#STREAM_MUSIC</c>,
-              <c>AudioManager#STREAM_ALARM</c>, and <c>AudioManager#STREAM_NOTIFICATION</c>.</param>
-        <param name="sampleRateInHz">the initial source sample rate expressed in Hz.
-              <c>AudioFormat#SAMPLE_RATE_UNSPECIFIED</c> means to use a route-dependent value
-              which is usually the sample rate of the sink.
-              <c>#getSampleRate()</c> can be used to retrieve the actual sample rate chosen.</param>
-        <param name="channelConfig">describes the configuration of the audio channels.
-              See <c>AudioFormat#CHANNEL_OUT_MONO</c> and
-              <c>AudioFormat#CHANNEL_OUT_STEREO</c></param>
-        <param name="audioFormat">the format in which the audio data is represented.
-              See <c>AudioFormat#ENCODING_PCM_16BIT</c>,
-              <c>AudioFormat#ENCODING_PCM_8BIT</c>,
-              and <c>AudioFormat#ENCODING_PCM_FLOAT</c>.</param>
         <param name="bufferSizeInBytes">the total size (in bytes) of the internal buffer where audio data is
               read from for playback. This should be a nonzero multiple of the frame size in bytes.
               &lt;p&gt; If the track's creation mode is <c>#MODE_STATIC</c>,
@@ -140,6 +124,7 @@
               See <c>#getMinBufferSize(int, int, int)</c> to determine the estimated minimum buffer size
               for an AudioTrack instance in streaming mode.</param>
         <param name="mode">streaming or static buffer. See <c>#MODE_STATIC</c> and <c>#MODE_STREAM</c></param>
+        <param name="sessionId">To be added.</param>
         <summary>Class constructor.</summary>
         <remarks>
           <para>
@@ -456,20 +441,18 @@
         <Parameter Name="sessionId" Type="System.Int32" />
       </Parameters>
       <Docs>
-        <param name="sessionId">To be added.</param>
         <param name="streamType">the type of the audio stream. See
               <c>AudioManager#STREAM_VOICE_CALL</c>, <c>AudioManager#STREAM_SYSTEM</c>,
               <c>AudioManager#STREAM_RING</c>, <c>AudioManager#STREAM_MUSIC</c>,
               <c>AudioManager#STREAM_ALARM</c>, and <c>AudioManager#STREAM_NOTIFICATION</c>.</param>
         <param name="sampleRateInHz">the initial source sample rate expressed in Hz.
               <c>AudioFormat#SAMPLE_RATE_UNSPECIFIED</c> means to use a route-dependent value
-              which is usually the sample rate of the sink.
-              <c>#getSampleRate()</c> can be used to retrieve the actual sample rate chosen.</param>
+              which is usually the sample rate of the sink.</param>
         <param name="channelConfig">describes the configuration of the audio channels.
               See <c>AudioFormat#CHANNEL_OUT_MONO</c> and
               <c>AudioFormat#CHANNEL_OUT_STEREO</c></param>
         <param name="audioFormat">the format in which the audio data is represented.
-              See <c>AudioFormat#ENCODING_PCM_16BIT</c>,
+              See <c>AudioFormat#ENCODING_PCM_16BIT</c> and
               <c>AudioFormat#ENCODING_PCM_8BIT</c>,
               and <c>AudioFormat#ENCODING_PCM_FLOAT</c>.</param>
         <param name="bufferSizeInBytes">the total size (in bytes) of the internal buffer where audio data is
@@ -487,14 +470,16 @@
               actual size in frames of the buffer created, which
               determines the minimum frequency to write
               to the streaming &lt;code&gt;AudioTrack&lt;/code&gt; to avoid underrun.
+              You can write data into this buffer in smaller chunks than this size.
               See <c>#getMinBufferSize(int, int, int)</c> to determine the estimated minimum buffer size
               for an AudioTrack instance in streaming mode.</param>
         <param name="mode">streaming or static buffer. See <c>#MODE_STATIC</c> and <c>#MODE_STREAM</c></param>
-        <summary>Class constructor.</summary>
+        <param name="sessionId">Id of audio session the AudioTrack must be attached to</param>
+        <summary>Class constructor with audio session.</summary>
         <remarks>
           <para>
             <format type="text/html">
-              <a href="https://developer.android.com/reference/android/media/AudioTrack#AudioTrack(int,%20int,%20int,%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.AudioTrack(int, int, int, int, int, int)</code>.</a>
+              <a href="https://developer.android.com/reference/android/media/AudioTrack#AudioTrack(int,%20int,%20int,%20int,%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.AudioTrack(int, int, int, int, int, int, int)</code>.</a>
             </format>
           </para>
           <para>
@@ -4254,27 +4239,17 @@
         <Parameter Name="sizeInBytes" Type="System.Int32" />
       </Parameters>
       <Docs>
-        <param name="offsetInBytes">the offset expressed in bytes in audioData where the data to play
-    starts.</param>
-        <param name="audioData">the buffer that holds the data to write, starting at the position reported
-                by &lt;code&gt;audioData.position()&lt;/code&gt;.
-                &lt;BR&gt;Note that upon return, the buffer position (&lt;code&gt;audioData.position()&lt;/code&gt;) will
-                have been advanced to reflect the amount of data that was successfully written to
-                the AudioTrack.</param>
-        <param name="sizeInBytes">number of bytes to write.  It is recommended but not enforced
-                that the number of bytes requested be a multiple of the frame size (sample size in
-                bytes multiplied by the channel count).
-                &lt;BR&gt;Note this may differ from &lt;code&gt;audioData.remaining()&lt;/code&gt;, but cannot exceed it.</param>
-        <param name="writeMode">one of <c>#WRITE_BLOCKING</c>, <c>#WRITE_NON_BLOCKING</c>. It has no
-                effect in static mode.
-                &lt;BR&gt;With <c>#WRITE_BLOCKING</c>, the write will block until all data has been written
-                    to the audio sink.
-                &lt;BR&gt;With <c>#WRITE_NON_BLOCKING</c>, the write will return immediately after
-                queuing as much audio data for playback as possible without blocking.</param>
+        <param name="audioData">the array that holds the data to play.</param>
+        <param name="offsetInBytes">the offset expressed in bytes in audioData where the data to write
+               starts.
+               Must not be negative, or cause the data access to go out of bounds of the array.</param>
+        <param name="sizeInBytes">the number of bytes to write in audioData after the offset.
+               Must not be negative, or cause the data access to go out of bounds of the array.</param>
         <summary>Writes the audio data to the audio sink for playback (streaming mode),
             or copies audio data for later playback (static buffer mode).</summary>
         <returns>zero or the positive number of bytes that were written, or one of the following
-               error codes.
+               error codes. The number of bytes will be a multiple of the frame size in bytes
+               not to exceed sizeInBytes.
             &lt;ul&gt;
             &lt;li&gt;<c>#ERROR_INVALID_OPERATION</c> if the track isn't properly initialized&lt;/li&gt;
             &lt;li&gt;<c>#ERROR_BAD_VALUE</c> if the parameters don't resolve to valid data and indexes&lt;/li&gt;
@@ -4282,11 +4257,13 @@
                needs to be recreated. The dead object error code is not returned if some data was
                successfully transferred. In this case, the error is returned at the next write()&lt;/li&gt;
             &lt;li&gt;<c>#ERROR</c> in case of other error&lt;/li&gt;
-            &lt;/ul&gt;</returns>
+            &lt;/ul&gt;
+            This is equivalent to <c>#write(byte[], int, int, int)</c> with &lt;code&gt;writeMode&lt;/code&gt;
+            set to  <c>#WRITE_BLOCKING</c>.</returns>
         <remarks>
           <para>
             <format type="text/html">
-              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(java.nio.ByteBuffer,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(java.nio.ByteBuffer, int, int)</code>.</a>
+              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(byte[],%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(byte[], int, int)</code>.</a>
             </format>
           </para>
           <para>
@@ -4323,28 +4300,17 @@
         <Parameter Name="sizeInShorts" Type="System.Int32" />
       </Parameters>
       <Docs>
+        <param name="audioData">the array that holds the data to play.</param>
         <param name="offsetInShorts">the offset expressed in shorts in audioData where the data to play
-     starts.</param>
-        <param name="sizeInShorts">the number of shorts to read in audioData after the offset.</param>
-        <param name="audioData">the buffer that holds the data to write, starting at the position reported
-                by &lt;code&gt;audioData.position()&lt;/code&gt;.
-                &lt;BR&gt;Note that upon return, the buffer position (&lt;code&gt;audioData.position()&lt;/code&gt;) will
-                have been advanced to reflect the amount of data that was successfully written to
-                the AudioTrack.</param>
-        <param name="sizeInBytes">number of bytes to write.  It is recommended but not enforced
-                that the number of bytes requested be a multiple of the frame size (sample size in
-                bytes multiplied by the channel count).
-                &lt;BR&gt;Note this may differ from &lt;code&gt;audioData.remaining()&lt;/code&gt;, but cannot exceed it.</param>
-        <param name="writeMode">one of <c>#WRITE_BLOCKING</c>, <c>#WRITE_NON_BLOCKING</c>. It has no
-                effect in static mode.
-                &lt;BR&gt;With <c>#WRITE_BLOCKING</c>, the write will block until all data has been written
-                    to the audio sink.
-                &lt;BR&gt;With <c>#WRITE_NON_BLOCKING</c>, the write will return immediately after
-                queuing as much audio data for playback as possible without blocking.</param>
+                starts.
+               Must not be negative, or cause the data access to go out of bounds of the array.</param>
+        <param name="sizeInShorts">the number of shorts to read in audioData after the offset.
+               Must not be negative, or cause the data access to go out of bounds of the array.</param>
         <summary>Writes the audio data to the audio sink for playback (streaming mode),
             or copies audio data for later playback (static buffer mode).</summary>
-        <returns>zero or the positive number of bytes that were written, or one of the following
-               error codes.
+        <returns>zero or the positive number of shorts that were written, or one of the following
+               error codes. The number of shorts will be a multiple of the channel count not to
+               exceed sizeInShorts.
             &lt;ul&gt;
             &lt;li&gt;<c>#ERROR_INVALID_OPERATION</c> if the track isn't properly initialized&lt;/li&gt;
             &lt;li&gt;<c>#ERROR_BAD_VALUE</c> if the parameters don't resolve to valid data and indexes&lt;/li&gt;
@@ -4352,11 +4318,13 @@
                needs to be recreated. The dead object error code is not returned if some data was
                successfully transferred. In this case, the error is returned at the next write()&lt;/li&gt;
             &lt;li&gt;<c>#ERROR</c> in case of other error&lt;/li&gt;
-            &lt;/ul&gt;</returns>
+            &lt;/ul&gt;
+            This is equivalent to <c>#write(short[], int, int, int)</c> with &lt;code&gt;writeMode&lt;/code&gt;
+            set to  <c>#WRITE_BLOCKING</c>.</returns>
         <remarks>
           <para>
             <format type="text/html">
-              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(java.nio.ByteBuffer,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(java.nio.ByteBuffer, int, int)</code>.</a>
+              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(short[],%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(short[], int, int)</code>.</a>
             </format>
           </para>
           <para>
@@ -4401,7 +4369,6 @@
         <Parameter Name="timestamp" Type="System.Int64" />
       </Parameters>
       <Docs>
-        <param name="timestamp">To be added.</param>
         <param name="audioData">the buffer that holds the data to write, starting at the position reported
                 by &lt;code&gt;audioData.position()&lt;/code&gt;.
                 &lt;BR&gt;Note that upon return, the buffer position (&lt;code&gt;audioData.position()&lt;/code&gt;) will
@@ -4411,14 +4378,14 @@
                 that the number of bytes requested be a multiple of the frame size (sample size in
                 bytes multiplied by the channel count).
                 &lt;BR&gt;Note this may differ from &lt;code&gt;audioData.remaining()&lt;/code&gt;, but cannot exceed it.</param>
-        <param name="writeMode">one of <c>#WRITE_BLOCKING</c>, <c>#WRITE_NON_BLOCKING</c>. It has no
-                effect in static mode.
+        <param name="writeMode">one of <c>#WRITE_BLOCKING</c>, <c>#WRITE_NON_BLOCKING</c>.
                 &lt;BR&gt;With <c>#WRITE_BLOCKING</c>, the write will block until all data has been written
                     to the audio sink.
                 &lt;BR&gt;With <c>#WRITE_NON_BLOCKING</c>, the write will return immediately after
                 queuing as much audio data for playback as possible without blocking.</param>
-        <summary>Writes the audio data to the audio sink for playback (streaming mode),
-            or copies audio data for later playback (static buffer mode).</summary>
+        <param name="timestamp">The timestamp, in nanoseconds, of the first decodable audio frame in the
+                provided audioData.</param>
+        <summary>Writes the audio data to the audio sink for playback in streaming mode on a HW_AV_SYNC track.</summary>
         <returns>zero or the positive number of bytes that were written, or one of the following
                error codes.
             &lt;ul&gt;
@@ -4432,7 +4399,7 @@
         <remarks>
           <para>
             <format type="text/html">
-              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(java.nio.ByteBuffer,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(java.nio.ByteBuffer, int, int)</code>.</a>
+              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(java.nio.ByteBuffer,%20int,%20int,%20long)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(java.nio.ByteBuffer, int, int, long)</code>.</a>
             </format>
           </para>
           <para>
@@ -4476,26 +4443,23 @@
         </Parameter>
       </Parameters>
       <Docs>
-        <param name="offsetInBytes">To be added.</param>
-        <param name="audioData">the buffer that holds the data to write, starting at the position reported
-                by &lt;code&gt;audioData.position()&lt;/code&gt;.
-                &lt;BR&gt;Note that upon return, the buffer position (&lt;code&gt;audioData.position()&lt;/code&gt;) will
-                have been advanced to reflect the amount of data that was successfully written to
-                the AudioTrack.</param>
-        <param name="sizeInBytes">number of bytes to write.  It is recommended but not enforced
-                that the number of bytes requested be a multiple of the frame size (sample size in
-                bytes multiplied by the channel count).
-                &lt;BR&gt;Note this may differ from &lt;code&gt;audioData.remaining()&lt;/code&gt;, but cannot exceed it.</param>
+        <param name="audioData">the array that holds the data to play.</param>
+        <param name="offsetInBytes">the offset expressed in bytes in audioData where the data to write
+               starts.
+               Must not be negative, or cause the data access to go out of bounds of the array.</param>
+        <param name="sizeInBytes">the number of bytes to write in audioData after the offset.
+               Must not be negative, or cause the data access to go out of bounds of the array.</param>
         <param name="writeMode">one of <c>#WRITE_BLOCKING</c>, <c>#WRITE_NON_BLOCKING</c>. It has no
                 effect in static mode.
-                &lt;BR&gt;With <c>#WRITE_BLOCKING</c>, the write will block until all data has been written
+                &lt;br&gt;With <c>#WRITE_BLOCKING</c>, the write will block until all data has been written
                     to the audio sink.
-                &lt;BR&gt;With <c>#WRITE_NON_BLOCKING</c>, the write will return immediately after
+                &lt;br&gt;With <c>#WRITE_NON_BLOCKING</c>, the write will return immediately after
                 queuing as much audio data for playback as possible without blocking.</param>
         <summary>Writes the audio data to the audio sink for playback (streaming mode),
             or copies audio data for later playback (static buffer mode).</summary>
         <returns>zero or the positive number of bytes that were written, or one of the following
-               error codes.
+               error codes. The number of bytes will be a multiple of the frame size in bytes
+               not to exceed sizeInBytes.
             &lt;ul&gt;
             &lt;li&gt;<c>#ERROR_INVALID_OPERATION</c> if the track isn't properly initialized&lt;/li&gt;
             &lt;li&gt;<c>#ERROR_BAD_VALUE</c> if the parameters don't resolve to valid data and indexes&lt;/li&gt;
@@ -4507,7 +4471,7 @@
         <remarks>
           <para>
             <format type="text/html">
-              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(java.nio.ByteBuffer,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(java.nio.ByteBuffer, int, int)</code>.</a>
+              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(byte[],%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(byte[], int, int, int)</code>.</a>
             </format>
           </para>
           <para>
@@ -4551,27 +4515,23 @@
         </Parameter>
       </Parameters>
       <Docs>
-        <param name="offsetInShorts">To be added.</param>
-        <param name="sizeInShorts">To be added.</param>
-        <param name="audioData">the buffer that holds the data to write, starting at the position reported
-                by &lt;code&gt;audioData.position()&lt;/code&gt;.
-                &lt;BR&gt;Note that upon return, the buffer position (&lt;code&gt;audioData.position()&lt;/code&gt;) will
-                have been advanced to reflect the amount of data that was successfully written to
-                the AudioTrack.</param>
-        <param name="sizeInBytes">number of bytes to write.  It is recommended but not enforced
-                that the number of bytes requested be a multiple of the frame size (sample size in
-                bytes multiplied by the channel count).
-                &lt;BR&gt;Note this may differ from &lt;code&gt;audioData.remaining()&lt;/code&gt;, but cannot exceed it.</param>
+        <param name="audioData">the array that holds the data to write.</param>
+        <param name="offsetInShorts">the offset expressed in shorts in audioData where the data to write
+                starts.
+               Must not be negative, or cause the data access to go out of bounds of the array.</param>
+        <param name="sizeInShorts">the number of shorts to read in audioData after the offset.
+               Must not be negative, or cause the data access to go out of bounds of the array.</param>
         <param name="writeMode">one of <c>#WRITE_BLOCKING</c>, <c>#WRITE_NON_BLOCKING</c>. It has no
                 effect in static mode.
-                &lt;BR&gt;With <c>#WRITE_BLOCKING</c>, the write will block until all data has been written
+                &lt;br&gt;With <c>#WRITE_BLOCKING</c>, the write will block until all data has been written
                     to the audio sink.
-                &lt;BR&gt;With <c>#WRITE_NON_BLOCKING</c>, the write will return immediately after
+                &lt;br&gt;With <c>#WRITE_NON_BLOCKING</c>, the write will return immediately after
                 queuing as much audio data for playback as possible without blocking.</param>
         <summary>Writes the audio data to the audio sink for playback (streaming mode),
             or copies audio data for later playback (static buffer mode).</summary>
-        <returns>zero or the positive number of bytes that were written, or one of the following
-               error codes.
+        <returns>zero or the positive number of shorts that were written, or one of the following
+               error codes. The number of shorts will be a multiple of the channel count not to
+               exceed sizeInShorts.
             &lt;ul&gt;
             &lt;li&gt;<c>#ERROR_INVALID_OPERATION</c> if the track isn't properly initialized&lt;/li&gt;
             &lt;li&gt;<c>#ERROR_BAD_VALUE</c> if the parameters don't resolve to valid data and indexes&lt;/li&gt;
@@ -4583,7 +4543,7 @@
         <remarks>
           <para>
             <format type="text/html">
-              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(java.nio.ByteBuffer,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(java.nio.ByteBuffer, int, int)</code>.</a>
+              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(short[],%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(short[], int, int, int)</code>.</a>
             </format>
           </para>
           <para>
@@ -4627,28 +4587,32 @@
         </Parameter>
       </Parameters>
       <Docs>
+        <param name="audioData">the array that holds the data to write.
+                The implementation does not clip for sample values within the nominal range
+                [-1.0f, 1.0f], provided that all gains in the audio pipeline are
+                less than or equal to unity (1.0f), and in the absence of post-processing effects
+                that could add energy, such as reverb.  For the convenience of applications
+                that compute samples using filters with non-unity gain,
+                sample values +3 dB beyond the nominal range are permitted.
+                However such values may eventually be limited or clipped, depending on various gains
+                and later processing in the audio path.  Therefore applications are encouraged
+                to provide samples values within the nominal range.</param>
         <param name="offsetInFloats">the offset, expressed as a number of floats,
-     in audioData where the data to play starts.</param>
-        <param name="sizeInFloats">the number of floats to read in audioData after the offset.</param>
-        <param name="audioData">the buffer that holds the data to write, starting at the position reported
-                by &lt;code&gt;audioData.position()&lt;/code&gt;.
-                &lt;BR&gt;Note that upon return, the buffer position (&lt;code&gt;audioData.position()&lt;/code&gt;) will
-                have been advanced to reflect the amount of data that was successfully written to
-                the AudioTrack.</param>
-        <param name="sizeInBytes">number of bytes to write.  It is recommended but not enforced
-                that the number of bytes requested be a multiple of the frame size (sample size in
-                bytes multiplied by the channel count).
-                &lt;BR&gt;Note this may differ from &lt;code&gt;audioData.remaining()&lt;/code&gt;, but cannot exceed it.</param>
+                in audioData where the data to write starts.
+               Must not be negative, or cause the data access to go out of bounds of the array.</param>
+        <param name="sizeInFloats">the number of floats to write in audioData after the offset.
+               Must not be negative, or cause the data access to go out of bounds of the array.</param>
         <param name="writeMode">one of <c>#WRITE_BLOCKING</c>, <c>#WRITE_NON_BLOCKING</c>. It has no
                 effect in static mode.
-                &lt;BR&gt;With <c>#WRITE_BLOCKING</c>, the write will block until all data has been written
+                &lt;br&gt;With <c>#WRITE_BLOCKING</c>, the write will block until all data has been written
                     to the audio sink.
-                &lt;BR&gt;With <c>#WRITE_NON_BLOCKING</c>, the write will return immediately after
+                &lt;br&gt;With <c>#WRITE_NON_BLOCKING</c>, the write will return immediately after
                 queuing as much audio data for playback as possible without blocking.</param>
         <summary>Writes the audio data to the audio sink for playback (streaming mode),
             or copies audio data for later playback (static buffer mode).</summary>
-        <returns>zero or the positive number of bytes that were written, or one of the following
-               error codes.
+        <returns>zero or the positive number of floats that were written, or one of the following
+               error codes. The number of floats will be a multiple of the channel count not to
+               exceed sizeInFloats.
             &lt;ul&gt;
             &lt;li&gt;<c>#ERROR_INVALID_OPERATION</c> if the track isn't properly initialized&lt;/li&gt;
             &lt;li&gt;<c>#ERROR_BAD_VALUE</c> if the parameters don't resolve to valid data and indexes&lt;/li&gt;
@@ -4660,7 +4624,7 @@
         <remarks>
           <para>
             <format type="text/html">
-              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(java.nio.ByteBuffer,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(java.nio.ByteBuffer, int, int)</code>.</a>
+              <a href="https://developer.android.com/reference/android/media/AudioTrack#write(float[],%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.AudioTrack.write(float[], int, int, int)</code>.</a>
             </format>
           </para>
           <para>
