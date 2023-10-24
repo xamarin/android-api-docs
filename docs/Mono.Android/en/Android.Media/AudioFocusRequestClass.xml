@@ -1,9 +1,9 @@
 <Type Name="AudioFocusRequestClass" FullName="Android.Media.AudioFocusRequestClass">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class AudioFocusRequestClass&#xA;Inherits Object" />
+  <TypeSignature Language="C++ CLI" Value="public ref class AudioFocusRequestClass sealed : Java::Lang::Object" />
   <TypeSignature Language="C#" Value="public sealed class AudioFocusRequestClass : Java.Lang.Object" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit AudioFocusRequestClass extends Java.Lang.Object" />
   <TypeSignature Language="DocId" Value="T:Android.Media.AudioFocusRequestClass" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class AudioFocusRequestClass&#xA;Inherits Object" />
-  <TypeSignature Language="C++ CLI" Value="public ref class AudioFocusRequestClass sealed : Java::Lang::Object" />
   <TypeSignature Language="F#" Value="type AudioFocusRequestClass = class&#xA;    inherit Object" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -19,6 +19,14 @@
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/media/AudioFocusRequest", ApiSince=26, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
     <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
       <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
     </Attribute>
@@ -26,6 +34,191 @@
   <Docs>
     <summary>A class to encapsulate information about an audio focus request.</summary>
     <remarks>
+      <para>A class to encapsulate information about an audio focus request.
+            An <c>AudioFocusRequest</c> instance is built by <c>Builder</c>, and is used to
+            request and abandon audio focus, respectively
+            with <c>AudioManager#requestAudioFocus(AudioFocusRequest)</c> and
+            <c>AudioManager#abandonAudioFocusRequest(AudioFocusRequest)</c>.
+            
+            &lt;h3&gt;What is audio focus?&lt;/h3&gt;</para>
+      <para>Audio focus is a concept introduced in API 8. It is used to convey the fact that a user can
+            only focus on a single audio stream at a time, e.g. listening to music or a podcast, but not
+            both at the same time. In some cases, multiple audio streams can be playing at the same time,
+            but there is only one the user would really listen to (focus on), while the other plays in
+            the background. An example of this is driving directions being spoken while music plays at
+            a reduced volume (a.k.a. ducking).</para>
+      <para>When an application requests audio focus, it expresses its intention to “own” audio focus to
+            play audio. Let’s review the different types of focus requests, the return value after a request,
+            and the responses to a loss.
+            &lt;p class="note"&gt;Note: applications should not play anything until granted focus.</para>
+      <para>&lt;h3&gt;The different types of focus requests&lt;/h3&gt;</para>
+      <para>There are four focus request types. A successful focus request with each will yield different
+            behaviors by the system and the other application that previously held audio focus.
+            &lt;ul&gt;
+            &lt;li&gt;<c>AudioManager#AUDIOFOCUS_GAIN</c> expresses the fact that your application is now the
+            sole source of audio that the user is listening to. The duration of the audio playback is
+            unknown, and is possibly very long: after the user finishes interacting with your application,
+            (s)he doesn’t expect another audio stream to resume. Examples of uses of this focus gain are
+            for music playback, for a game or a video player.&lt;/li&gt;
+            
+            &lt;li&gt;<c>AudioManager#AUDIOFOCUS_GAIN_TRANSIENT</c> is for a situation when you know your
+            application is temporarily grabbing focus from the current owner, but the user expects playback
+            to go back to where it was once your application no longer requires audio focus. An example is
+            for playing an alarm, or during a VoIP call. The playback is known to be finite: the alarm will
+            time-out or be dismissed, the VoIP call has a beginning and an end. When any of those events
+            ends, and if the user was listening to music when it started, the user expects music to resume,
+            but didn’t wish to listen to both at the same time.&lt;/li&gt;
+            
+            &lt;li&gt;<c>AudioManager#AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK</c>: this focus request type is similar
+            to <c>AUDIOFOCUS_GAIN_TRANSIENT</c> for the temporary aspect of the focus request, but it also
+            expresses the fact during the time you own focus, you allow another application to keep playing
+            at a reduced volume, “ducked”. Examples are when playing driving directions or notifications,
+            it’s ok for music to keep playing, but not loud enough that it would prevent the directions to
+            be hard to understand. A typical attenuation by the “ducked” application is a factor of 0.2f
+            (or -14dB), that can for instance be applied with <c>MediaPlayer.setVolume(0.2f)</c> when
+            using this class for playback.&lt;/li&gt;
+            
+            &lt;li&gt;<c>AudioManager#AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE</c> is also for a temporary request,
+            but also expresses that your application expects the device to not play anything else. This is
+            typically used if you are doing audio recording or speech recognition, and don’t want for
+            examples notifications to be played by the system during that time.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>An <c>AudioFocusRequest</c> instance always contains one of the four types of requests
+            explained above. It is passed when building an <c>AudioFocusRequest</c> instance with its
+            builder in the <c>Builder</c> constructor
+            <c>AudioFocusRequest.Builder#Builder(int)</c>, or
+            with <c>AudioFocusRequest.Builder#setFocusGain(int)</c> after copying an existing instance with
+            <c>AudioFocusRequest.Builder#Builder(AudioFocusRequest)</c>.
+            
+            &lt;h3&gt;Qualifying your focus request&lt;/h3&gt;
+            &lt;h4&gt;Use case requiring a focus request&lt;/h4&gt;</para>
+      <para>Any focus request is qualified by the <c>AudioAttributes</c>
+            (see <c>Builder#setAudioAttributes(AudioAttributes)</c>) that describe the audio use case that
+            will follow the request (once it's successful or granted). It is recommended to use the
+            same <c>AudioAttributes</c> for the request as the attributes you are using for audio/media
+            playback.
+            &lt;br&gt;If no attributes are set, default attributes of <c>AudioAttributes#USAGE_MEDIA</c> are used.
+            
+            &lt;h4&gt;Delayed focus&lt;/h4&gt;</para>
+      <para>Audio focus can be "locked" by the system for a number of reasons: during a phone call, when
+            the car to which the device is connected plays an emergency message... To support these
+            situations, the application can request to be notified when its request is fulfilled, by flagging
+            its request as accepting delayed focus, with <c>Builder#setAcceptsDelayedFocusGain(boolean)</c>.
+            &lt;br&gt;If focus is requested while being locked by the system,
+            <c>AudioManager#requestAudioFocus(AudioFocusRequest)</c> will return
+            <c>AudioManager#AUDIOFOCUS_REQUEST_DELAYED</c>. When focus isn't locked anymore, the focus
+            listener set with <c>Builder#setOnAudioFocusChangeListener(OnAudioFocusChangeListener)</c>
+            or with <c>Builder#setOnAudioFocusChangeListener(OnAudioFocusChangeListener, Handler)</c> will
+            be called to notify the application it now owns audio focus.
+            
+            &lt;h4&gt;Pausing vs ducking&lt;/h4&gt;</para>
+      <para>When an application requested audio focus with
+            <c>AudioManager#AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK</c>, the system will duck the current focus
+            owner.
+            &lt;p class="note"&gt;Note: this behavior is &lt;b&gt;new for Android O&lt;/b&gt;, whereas applications targeting
+            SDK level up to API 25 had to implement the ducking themselves when they received a focus
+            loss of <c>AudioManager#AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK</c>.</para>
+      <para>But ducking is not always the behavior expected by the user. A typical example is when the
+            device plays driving directions while the user is listening to an audio book or podcast, and
+            expects the audio playback to pause, instead of duck, as it is hard to understand a navigation
+            prompt and spoken content at the same time. Therefore the system will not automatically duck
+            when it detects it would be ducking spoken content: such content is detected when the
+            <c>AudioAttributes</c> of the player are qualified by
+            <c>AudioAttributes#CONTENT_TYPE_SPEECH</c>. Refer for instance to
+            <c>AudioAttributes.Builder#setContentType(int)</c> and
+            <c>MediaPlayer#setAudioAttributes(AudioAttributes)</c> if you are writing a media playback
+            application for audio book, podcasts... Since the system will not automatically duck applications
+            that play speech, it calls their focus listener instead to notify them of
+            <c>AudioManager#AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK</c>, so they can pause instead. Note that
+            this behavior is independent of the use of <c>AudioFocusRequest</c>, but tied to the use
+            of <c>AudioAttributes</c>.</para>
+      <para>If your application requires pausing instead of ducking for any other reason than playing
+            speech, you can also declare so with <c>Builder#setWillPauseWhenDucked(boolean)</c>, which will
+            cause the system to call your focus listener instead of automatically ducking.
+            
+            &lt;h4&gt;Example&lt;/h4&gt;</para>
+      <para>The example below covers the following steps to be found in any application that would play
+            audio, and use audio focus. Here we play an audio book, and our application is intended to pause
+            rather than duck when it loses focus. These steps consist in:
+            &lt;ul&gt;
+            &lt;li&gt;Creating <c>AudioAttributes</c> to be used for the playback and the focus request.&lt;/li&gt;
+            &lt;li&gt;Configuring and creating the <c>AudioFocusRequest</c> instance that defines the intended
+                focus behaviors.&lt;/li&gt;
+            &lt;li&gt;Requesting audio focus and checking the return code to see if playback can happen right
+                away, or is delayed.&lt;/li&gt;
+            &lt;li&gt;Implementing a focus change listener to respond to focus gains and losses.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para />
+      <code lang="text/java">// initialization of the audio attributes and focus request
+            mAudioManager = (AudioManager) Context.getSystemService(Context.AUDIO_SERVICE);
+            mPlaybackAttributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build();
+            mFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(mPlaybackAttributes)
+                    .setAcceptsDelayedFocusGain(true)
+                    .setWillPauseWhenDucked(true)
+                    .setOnAudioFocusChangeListener(this, mMyHandler)
+                    .build();
+            mMediaPlayer = new MediaPlayer();
+            mMediaPlayer.setAudioAttributes(mPlaybackAttributes);
+            final Object mFocusLock = new Object();
+            
+            boolean mPlaybackDelayed = false;
+            
+            // requesting audio focus
+            int res = mAudioManager.requestAudioFocus(mFocusRequest);
+            synchronized (mFocusLock) {
+                if (res == AudioManager.AUDIOFOCUS_REQUEST_FAILED) {
+                    mPlaybackDelayed = false;
+                } else if (res == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                    mPlaybackDelayed = false;
+                    playbackNow();
+                } else if (res == AudioManager.AUDIOFOCUS_REQUEST_DELAYED) {
+                   mPlaybackDelayed = true;
+                }
+            }
+            
+            // implementation of the OnAudioFocusChangeListener
+            &amp;#64;Override
+            public void onAudioFocusChange(int focusChange) {
+                switch (focusChange) {
+                    case AudioManager.AUDIOFOCUS_GAIN:
+                        if (mPlaybackDelayed || mResumeOnFocusGain) {
+                            synchronized (mFocusLock) {
+                                mPlaybackDelayed = false;
+                                mResumeOnFocusGain = false;
+                            }
+                            playbackNow();
+                        }
+                        break;
+                    case AudioManager.AUDIOFOCUS_LOSS:
+                        synchronized (mFocusLock) {
+                            // this is not a transient loss, we shouldn't automatically resume for now
+                            mResumeOnFocusGain = false;
+                            mPlaybackDelayed = false;
+                        }
+                        pausePlayback();
+                        break;
+                    case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                    case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                        // we handle all transient losses the same way because we never duck audio books
+                        synchronized (mFocusLock) {
+                            // we should only resume if playback was interrupted
+                            mResumeOnFocusGain = mMediaPlayer.isPlaying();
+                            mPlaybackDelayed = false;
+                        }
+                        pausePlayback();
+                        break;
+                }
+            }
+            
+            // Important:
+            // Also set "mResumeOnFocusGain" to false when the user pauses or stops playback: this way your
+            // application doesn't automatically restart when it gains focus, even though the user had
+            // stopped it.
+            </code>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/media/AudioFocusRequest" title="Reference documentation">Java documentation for <code>android.media.AudioFocusRequest</code>.</a>
@@ -40,11 +233,11 @@
   </Docs>
   <Members>
     <Member MemberName="AcceptsDelayedFocusGain">
+      <MemberSignature Language="VB.NET" Value="Public Function AcceptsDelayedFocusGain () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool AcceptsDelayedFocusGain();" />
       <MemberSignature Language="C#" Value="public bool AcceptsDelayedFocusGain ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool AcceptsDelayedFocusGain() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.AudioFocusRequestClass.AcceptsDelayedFocusGain" />
-      <MemberSignature Language="VB.NET" Value="Public Function AcceptsDelayedFocusGain () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool AcceptsDelayedFocusGain();" />
       <MemberSignature Language="F#" Value="member this.AcceptsDelayedFocusGain : unit -&gt; bool" Usage="audioFocusRequestClass.AcceptsDelayedFocusGain " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -70,6 +263,8 @@
             a focus gain granted after a temporary request failure.</summary>
         <returns>whether delayed focus gain is supported.</returns>
         <remarks>
+          <para>Returns whether the application that would use this <c>AudioFocusRequest</c> supports
+            a focus gain granted after a temporary request failure.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFocusRequest#acceptsDelayedFocusGain()" title="Reference documentation">Java documentation for <code>android.media.AudioFocusRequest.acceptsDelayedFocusGain()</code>.</a>
@@ -84,11 +279,11 @@
       </Docs>
     </Member>
     <Member MemberName="AudioAttributes">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property AudioAttributes As AudioAttributes" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Media::AudioAttributes ^ AudioAttributes { Android::Media::AudioAttributes ^ get(); };" />
       <MemberSignature Language="C#" Value="public Android.Media.AudioAttributes AudioAttributes { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Android.Media.AudioAttributes AudioAttributes" />
       <MemberSignature Language="DocId" Value="P:Android.Media.AudioFocusRequestClass.AudioAttributes" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property AudioAttributes As AudioAttributes" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Media::AudioAttributes ^ AudioAttributes { Android::Media::AudioAttributes ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.AudioAttributes : Android.Media.AudioAttributes" Usage="Android.Media.AudioFocusRequestClass.AudioAttributes" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -113,6 +308,8 @@
             attributes if none were set.</summary>
         <value>non-null <c>AudioAttributes</c>.</value>
         <remarks>
+          <para>Returns the <c>AudioAttributes</c> set for this <c>AudioFocusRequest</c>, or the default
+            attributes if none were set.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFocusRequest#getAudioAttributes()" title="Reference documentation">Java documentation for <code>android.media.AudioFocusRequest.getAudioAttributes()</code>.</a>
@@ -127,11 +324,11 @@
       </Docs>
     </Member>
     <Member MemberName="FocusGain">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property FocusGain As AudioFocus" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Media::AudioFocus FocusGain { Android::Media::AudioFocus get(); };" />
       <MemberSignature Language="C#" Value="public Android.Media.AudioFocus FocusGain { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance valuetype Android.Media.AudioFocus FocusGain" />
       <MemberSignature Language="DocId" Value="P:Android.Media.AudioFocusRequestClass.FocusGain" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property FocusGain As AudioFocus" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Media::AudioFocus FocusGain { Android::Media::AudioFocus get(); };" />
       <MemberSignature Language="F#" Value="member this.FocusGain : Android.Media.AudioFocus" Usage="Android.Media.AudioFocusRequestClass.FocusGain" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -158,6 +355,7 @@
             <c>AudioManager#AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK</c>, and
             <c>AudioManager#AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE</c>.</value>
         <remarks>
+          <para>Returns the type of audio focus request configured for this <c>AudioFocusRequest</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFocusRequest#getFocusGain()" title="Reference documentation">Java documentation for <code>android.media.AudioFocusRequest.getFocusGain()</code>.</a>
@@ -172,11 +370,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Media.AudioFocusRequestClass.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Media.AudioFocusRequestClass.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -205,11 +403,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Media.AudioFocusRequestClass.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Media.AudioFocusRequestClass.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -238,11 +436,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Media.AudioFocusRequestClass.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Media.AudioFocusRequestClass.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -271,11 +469,11 @@
       </Docs>
     </Member>
     <Member MemberName="WillPauseWhenDucked">
+      <MemberSignature Language="VB.NET" Value="Public Function WillPauseWhenDucked () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool WillPauseWhenDucked();" />
       <MemberSignature Language="C#" Value="public bool WillPauseWhenDucked ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool WillPauseWhenDucked() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.AudioFocusRequestClass.WillPauseWhenDucked" />
-      <MemberSignature Language="VB.NET" Value="Public Function WillPauseWhenDucked () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool WillPauseWhenDucked();" />
       <MemberSignature Language="F#" Value="member this.WillPauseWhenDucked : unit -&gt; bool" Usage="audioFocusRequestClass.WillPauseWhenDucked " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -301,6 +499,8 @@
             when it is requested to duck.</summary>
         <returns>the duck/pause behavior.</returns>
         <remarks>
+          <para>Returns whether the application that would use this <c>AudioFocusRequest</c> would pause
+            when it is requested to duck.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFocusRequest#willPauseWhenDucked()" title="Reference documentation">Java documentation for <code>android.media.AudioFocusRequest.willPauseWhenDucked()</code>.</a>

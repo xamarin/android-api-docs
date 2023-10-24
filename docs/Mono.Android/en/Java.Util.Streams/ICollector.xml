@@ -1,9 +1,9 @@
 <Type Name="ICollector" FullName="Java.Util.Streams.ICollector">
+  <TypeSignature Language="VB.NET" Value="Public Interface ICollector&#xA;Implements IDisposable, IJavaObject, IJavaPeerable" />
+  <TypeSignature Language="C++ CLI" Value="public interface class ICollector : Android::Runtime::IJavaObject, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="C#" Value="public interface ICollector : Android.Runtime.IJavaObject, IDisposable, Java.Interop.IJavaPeerable" />
   <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract beforefieldinit ICollector implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Streams.ICollector" />
-  <TypeSignature Language="VB.NET" Value="Public Interface ICollector&#xA;Implements IDisposable, IJavaObject, IJavaPeerable" />
-  <TypeSignature Language="C++ CLI" Value="public interface class ICollector : Android::Runtime::IJavaObject, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="F#" Value="type ICollector = interface&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -29,14 +29,125 @@
       <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T", "A", "R" })]</AttributeName>
       <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T", "A", "R" })&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <param name="&lt;T&gt;&lt;T&gt;">the type of input elements to the reduction operation</param>
     <param name="&lt;A&gt;&lt;A&gt;">the mutable accumulation type of the reduction operation (often
                        hidden as an implementation detail)</param>
     <param name="&lt;R&gt;&lt;R&gt;">the result type of the reduction operation</param>
-    <summary>A "package-summary.</summary>
+    <summary>A mutable reduction operation that
+            accumulates input elements into a mutable result container, optionally transforming
+            the accumulated result into a final representation after all input elements
+            have been processed.</summary>
     <remarks>
+      <para>A mutable reduction operation that
+            accumulates input elements into a mutable result container, optionally transforming
+            the accumulated result into a final representation after all input elements
+            have been processed.  Reduction operations can be performed either sequentially
+            or in parallel.</para>
+      <para>Examples of mutable reduction operations include:
+            accumulating elements into a <c>Collection</c>; concatenating
+            strings using a <c>StringBuilder</c>; computing summary information about
+            elements such as sum, min, max, or average; computing "pivot table" summaries
+            such as "maximum valued transaction by seller", etc.  The class <c>Collectors</c>
+            provides implementations of many common mutable reductions.</para>
+      <para>A <c>Collector</c> is specified by four functions that work together to
+            accumulate entries into a mutable result container, and optionally perform
+            a final transform on the result.  They are: &lt;ul&gt;
+                &lt;li&gt;creation of a new result container (<c>#supplier()</c>)&lt;/li&gt;
+                &lt;li&gt;incorporating a new data element into a result container (<c>#accumulator()</c>)&lt;/li&gt;
+                &lt;li&gt;combining two result containers into one (<c>#combiner()</c>)&lt;/li&gt;
+                &lt;li&gt;performing an optional final transform on the container (<c>#finisher()</c>)&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>Collectors also have a set of characteristics, such as
+            <c>Characteristics#CONCURRENT</c>, that provide hints that can be used by a
+            reduction implementation to provide better performance.</para>
+      <para>A sequential implementation of a reduction using a collector would
+            create a single result container using the supplier function, and invoke the
+            accumulator function once for each input element.  A parallel implementation
+            would partition the input, create a result container for each partition,
+            accumulate the contents of each partition into a subresult for that partition,
+            and then use the combiner function to merge the subresults into a combined
+            result.</para>
+      <para>To ensure that sequential and parallel executions produce equivalent
+            results, the collector functions must satisfy an &lt;em&gt;identity&lt;/em&gt; and an
+            associativity constraints.</para>
+      <para>The identity constraint says that for any partially accumulated result,
+            combining it with an empty result container must produce an equivalent
+            result.  That is, for a partially accumulated result <c>a</c> that is the
+            result of any series of accumulator and combiner invocations, <c>a</c> must
+            be equivalent to <c>combiner.apply(a, supplier.get())</c>.</para>
+      <para>The associativity constraint says that splitting the computation must
+            produce an equivalent result.  That is, for any input elements <c>t1</c>
+            and <c>t2</c>, the results <c>r1</c> and <c>r2</c> in the computation
+            below must be equivalent:</para>
+      <code lang="text/java">{@code
+                A a1 = supplier.get();
+                accumulator.accept(a1, t1);
+                accumulator.accept(a1, t2);
+                R r1 = finisher.apply(a1);  // result without splitting
+            
+                A a2 = supplier.get();
+                accumulator.accept(a2, t1);
+                A a3 = supplier.get();
+                accumulator.accept(a3, t2);
+                R r2 = finisher.apply(combiner.apply(a2, a3));  // result with splitting
+            } </code>
+      <para>For collectors that do not have the <c>UNORDERED</c> characteristic,
+            two accumulated results <c>a1</c> and <c>a2</c> are equivalent if
+            <c>finisher.apply(a1).equals(finisher.apply(a2))</c>.  For unordered
+            collectors, equivalence is relaxed to allow for non-equality related to
+            differences in order.  (For example, an unordered collector that accumulated
+            elements to a <c>List</c> would consider two lists equivalent if they
+            contained the same elements, ignoring order.)</para>
+      <para>Libraries that implement reduction based on <c>Collector</c>, such as
+            <c>Stream#collect(Collector)</c>, must adhere to the following constraints:
+            &lt;ul&gt;
+                &lt;li&gt;The first argument passed to the accumulator function, both
+                arguments passed to the combiner function, and the argument passed to the
+                finisher function must be the result of a previous invocation of the
+                result supplier, accumulator, or combiner functions.&lt;/li&gt;
+                &lt;li&gt;The implementation should not do anything with the result of any of
+                the result supplier, accumulator, or combiner functions other than to
+                pass them again to the accumulator, combiner, or finisher functions,
+                or return them to the caller of the reduction operation.&lt;/li&gt;
+                &lt;li&gt;If a result is passed to the combiner or finisher
+                function, and the same object is not returned from that function, it is
+                never used again.&lt;/li&gt;
+                &lt;li&gt;Once a result is passed to the combiner or finisher function, it
+                is never passed to the accumulator function again.&lt;/li&gt;
+                &lt;li&gt;For non-concurrent collectors, any result returned from the result
+                supplier, accumulator, or combiner functions must be serially
+                thread-confined.  This enables collection to occur in parallel without
+                the <c>Collector</c> needing to implement any additional synchronization.
+                The reduction implementation must manage that the input is properly
+                partitioned, that partitions are processed in isolation, and combining
+                happens only after accumulation is complete.&lt;/li&gt;
+                &lt;li&gt;For concurrent collectors, an implementation is free to (but not
+                required to) implement reduction concurrently.  A concurrent reduction
+                is one where the accumulator function is called concurrently from
+                multiple threads, using the same concurrently-modifiable result container,
+                rather than keeping the result isolated during accumulation.
+                A concurrent reduction should only be applied if the collector has the
+                <c>Characteristics#UNORDERED</c> characteristics or if the
+                originating data is unordered.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>In addition to the predefined implementations in <c>Collectors</c>, the
+            static factory methods <c>#of(Supplier, BiConsumer, BinaryOperator, Characteristics...)</c>
+            can be used to construct collectors.  For example, you could create a collector
+            that accumulates widgets into a <c>TreeSet</c> with:</para>
+      <code lang="text/java">{@code
+                Collector&lt;Widget, ?, TreeSet&lt;Widget&gt;&gt; intoSet =
+                    Collector.of(TreeSet::new, TreeSet::add,
+                                 (left, right) -&gt; { left.addAll(right); return left; });
+            }</code>
+      <para>(This behavior is also implemented by the predefined collector
+            <c>Collectors#toCollection(Supplier)</c>).</para>
+      <para>Added in 1.8.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/stream/Collector" title="Reference documentation">Java documentation for <code>java.util.stream.Collector</code>.</a>
@@ -51,11 +162,11 @@
   </Docs>
   <Members>
     <Member MemberName="Accumulator">
+      <MemberSignature Language="VB.NET" Value="Public Function Accumulator () As IBiConsumer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Util::Functions::IBiConsumer ^ Accumulator();" />
       <MemberSignature Language="C#" Value="public Java.Util.Functions.IBiConsumer? Accumulator ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Functions.IBiConsumer Accumulator() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Streams.ICollector.Accumulator" />
-      <MemberSignature Language="VB.NET" Value="Public Function Accumulator () As IBiConsumer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Util::Functions::IBiConsumer ^ Accumulator();" />
       <MemberSignature Language="F#" Value="abstract member Accumulator : unit -&gt; Java.Util.Functions.IBiConsumer" Usage="iCollector.Accumulator " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -80,6 +191,7 @@
         <summary>A function that folds a value into a mutable result container.</summary>
         <returns>a function which folds a value into a mutable result container</returns>
         <remarks>
+          <para>A function that folds a value into a mutable result container.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/stream/Collector#accumulator()" title="Reference documentation">Java documentation for <code>java.util.stream.Collector.accumulator()</code>.</a>
@@ -94,11 +206,11 @@
       </Docs>
     </Member>
     <Member MemberName="Characteristics">
+      <MemberSignature Language="VB.NET" Value="Public Function Characteristics () As ICollection(Of CollectorCharacteristics)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::ICollection&lt;Java::Util::Streams::CollectorCharacteristics ^&gt; ^ Characteristics();" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.ICollection&lt;Java.Util.Streams.CollectorCharacteristics&gt;? Characteristics ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class System.Collections.Generic.ICollection`1&lt;class Java.Util.Streams.CollectorCharacteristics&gt; Characteristics() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Streams.ICollector.Characteristics" />
-      <MemberSignature Language="VB.NET" Value="Public Function Characteristics () As ICollection(Of CollectorCharacteristics)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::ICollection&lt;Java::Util::Streams::CollectorCharacteristics ^&gt; ^ Characteristics();" />
       <MemberSignature Language="F#" Value="abstract member Characteristics : unit -&gt; System.Collections.Generic.ICollection&lt;Java.Util.Streams.CollectorCharacteristics&gt;" Usage="iCollector.Characteristics " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -117,6 +229,12 @@
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.Generic.ICollection&lt;Java.Util.Streams.CollectorCharacteristics&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters />
       <Docs>
@@ -124,6 +242,8 @@
             the characteristics of this Collector.</summary>
         <returns>an immutable set of collector characteristics</returns>
         <remarks>
+          <para>Returns a <c>Set</c> of <c>Collector.Characteristics</c> indicating
+            the characteristics of this Collector.  This set should be immutable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/stream/Collector#characteristics()" title="Reference documentation">Java documentation for <code>java.util.stream.Collector.characteristics()</code>.</a>
@@ -138,11 +258,11 @@
       </Docs>
     </Member>
     <Member MemberName="Combiner">
+      <MemberSignature Language="VB.NET" Value="Public Function Combiner () As IBinaryOperator" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Util::Functions::IBinaryOperator ^ Combiner();" />
       <MemberSignature Language="C#" Value="public Java.Util.Functions.IBinaryOperator? Combiner ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Functions.IBinaryOperator Combiner() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Streams.ICollector.Combiner" />
-      <MemberSignature Language="VB.NET" Value="Public Function Combiner () As IBinaryOperator" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Util::Functions::IBinaryOperator ^ Combiner();" />
       <MemberSignature Language="F#" Value="abstract member Combiner : unit -&gt; Java.Util.Functions.IBinaryOperator" Usage="iCollector.Combiner " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -168,6 +288,9 @@
         <returns>a function which combines two partial results into a combined
             result</returns>
         <remarks>
+          <para>A function that accepts two partial results and merges them.  The
+            combiner function may fold state from one argument into the other and
+            return that, or may return a new result container.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/stream/Collector#combiner()" title="Reference documentation">Java documentation for <code>java.util.stream.Collector.combiner()</code>.</a>
@@ -182,11 +305,11 @@
       </Docs>
     </Member>
     <Member MemberName="Finisher">
+      <MemberSignature Language="VB.NET" Value="Public Function Finisher () As IFunction" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Util::Functions::IFunction ^ Finisher();" />
       <MemberSignature Language="C#" Value="public Java.Util.Functions.IFunction? Finisher ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Functions.IFunction Finisher() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Streams.ICollector.Finisher" />
-      <MemberSignature Language="VB.NET" Value="Public Function Finisher () As IFunction" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Util::Functions::IFunction ^ Finisher();" />
       <MemberSignature Language="F#" Value="abstract member Finisher : unit -&gt; Java.Util.Functions.IFunction" Usage="iCollector.Finisher " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -213,6 +336,11 @@
         <returns>a function which transforms the intermediate result to the final
             result</returns>
         <remarks>
+          <para>Perform the final transformation from the intermediate accumulation type
+            <c>A</c> to the final result type <c>R</c>.</para>
+          <para>If the characteristic <c>IDENTITY_TRANSFORM</c> is
+            set, this function may be presumed to be an identity transform with an
+            unchecked cast from <c>A</c> to <c>R</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/stream/Collector#finisher()" title="Reference documentation">Java documentation for <code>java.util.stream.Collector.finisher()</code>.</a>
@@ -227,11 +355,11 @@
       </Docs>
     </Member>
     <Member MemberName="Of">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Of (supplier As ISupplier, accumulator As IBiConsumer, combiner As IBinaryOperator, ParamArray characteristics As CollectorCharacteristics()) As ICollector" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::Streams::ICollector ^ Of(Java::Util::Functions::ISupplier ^ supplier, Java::Util::Functions::IBiConsumer ^ accumulator, Java::Util::Functions::IBinaryOperator ^ combiner, ... cli::array &lt;Java::Util::Streams::CollectorCharacteristics ^&gt; ^ characteristics);" />
       <MemberSignature Language="C#" Value="public static Java.Util.Streams.ICollector? Of (Java.Util.Functions.ISupplier? supplier, Java.Util.Functions.IBiConsumer? accumulator, Java.Util.Functions.IBinaryOperator? combiner, params Java.Util.Streams.CollectorCharacteristics[]? characteristics);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Util.Streams.ICollector Of(class Java.Util.Functions.ISupplier supplier, class Java.Util.Functions.IBiConsumer accumulator, class Java.Util.Functions.IBinaryOperator combiner, class Java.Util.Streams.CollectorCharacteristics[] characteristics) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Streams.ICollector.Of(Java.Util.Functions.ISupplier,Java.Util.Functions.IBiConsumer,Java.Util.Functions.IBinaryOperator,Java.Util.Streams.CollectorCharacteristics[])" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Of (supplier As ISupplier, accumulator As IBiConsumer, combiner As IBinaryOperator, ParamArray characteristics As CollectorCharacteristics()) As ICollector" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::Streams::ICollector ^ Of(Java::Util::Functions::ISupplier ^ supplier, Java::Util::Functions::IBiConsumer ^ accumulator, Java::Util::Functions::IBinaryOperator ^ combiner, ... cli::array &lt;Java::Util::Streams::CollectorCharacteristics ^&gt; ^ characteristics);" />
       <MemberSignature Language="F#" Value="static member Of : Java.Util.Functions.ISupplier * Java.Util.Functions.IBiConsumer * Java.Util.Functions.IBinaryOperator * Java.Util.Streams.CollectorCharacteristics[] -&gt; Java.Util.Streams.ICollector" Usage="Java.Util.Streams.ICollector.Of (supplier, accumulator, combiner, characteristics)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -265,6 +393,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -292,11 +424,11 @@
       </Docs>
     </Member>
     <Member MemberName="Of">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Of (supplier As ISupplier, accumulator As IBiConsumer, combiner As IBinaryOperator, finisher As IFunction, ParamArray characteristics As CollectorCharacteristics()) As ICollector" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::Streams::ICollector ^ Of(Java::Util::Functions::ISupplier ^ supplier, Java::Util::Functions::IBiConsumer ^ accumulator, Java::Util::Functions::IBinaryOperator ^ combiner, Java::Util::Functions::IFunction ^ finisher, ... cli::array &lt;Java::Util::Streams::CollectorCharacteristics ^&gt; ^ characteristics);" />
       <MemberSignature Language="C#" Value="public static Java.Util.Streams.ICollector? Of (Java.Util.Functions.ISupplier? supplier, Java.Util.Functions.IBiConsumer? accumulator, Java.Util.Functions.IBinaryOperator? combiner, Java.Util.Functions.IFunction? finisher, params Java.Util.Streams.CollectorCharacteristics[]? characteristics);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Util.Streams.ICollector Of(class Java.Util.Functions.ISupplier supplier, class Java.Util.Functions.IBiConsumer accumulator, class Java.Util.Functions.IBinaryOperator combiner, class Java.Util.Functions.IFunction finisher, class Java.Util.Streams.CollectorCharacteristics[] characteristics) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Streams.ICollector.Of(Java.Util.Functions.ISupplier,Java.Util.Functions.IBiConsumer,Java.Util.Functions.IBinaryOperator,Java.Util.Functions.IFunction,Java.Util.Streams.CollectorCharacteristics[])" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Of (supplier As ISupplier, accumulator As IBiConsumer, combiner As IBinaryOperator, finisher As IFunction, ParamArray characteristics As CollectorCharacteristics()) As ICollector" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::Streams::ICollector ^ Of(Java::Util::Functions::ISupplier ^ supplier, Java::Util::Functions::IBiConsumer ^ accumulator, Java::Util::Functions::IBinaryOperator ^ combiner, Java::Util::Functions::IFunction ^ finisher, ... cli::array &lt;Java::Util::Streams::CollectorCharacteristics ^&gt; ^ characteristics);" />
       <MemberSignature Language="F#" Value="static member Of : Java.Util.Functions.ISupplier * Java.Util.Functions.IBiConsumer * Java.Util.Functions.IBinaryOperator * Java.Util.Functions.IFunction * Java.Util.Streams.CollectorCharacteristics[] -&gt; Java.Util.Streams.ICollector" Usage="Java.Util.Streams.ICollector.Of (supplier, accumulator, combiner, finisher, characteristics)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -331,6 +463,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -359,11 +495,11 @@
       </Docs>
     </Member>
     <Member MemberName="Supplier">
+      <MemberSignature Language="VB.NET" Value="Public Function Supplier () As ISupplier" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Util::Functions::ISupplier ^ Supplier();" />
       <MemberSignature Language="C#" Value="public Java.Util.Functions.ISupplier? Supplier ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Functions.ISupplier Supplier() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Streams.ICollector.Supplier" />
-      <MemberSignature Language="VB.NET" Value="Public Function Supplier () As ISupplier" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Util::Functions::ISupplier ^ Supplier();" />
       <MemberSignature Language="F#" Value="abstract member Supplier : unit -&gt; Java.Util.Functions.ISupplier" Usage="iCollector.Supplier " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -388,6 +524,7 @@
         <summary>A function that creates and returns a new mutable result container.</summary>
         <returns>a function which returns a new, mutable result container</returns>
         <remarks>
+          <para>A function that creates and returns a new mutable result container.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/stream/Collector#supplier()" title="Reference documentation">Java documentation for <code>java.util.stream.Collector.supplier()</code>.</a>

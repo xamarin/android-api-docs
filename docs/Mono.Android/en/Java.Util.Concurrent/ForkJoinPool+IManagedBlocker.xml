@@ -1,9 +1,9 @@
 <Type Name="ForkJoinPool+IManagedBlocker" FullName="Java.Util.Concurrent.ForkJoinPool+IManagedBlocker">
+  <TypeSignature Language="VB.NET" Value="Public Interface ForkJoinPool.IManagedBlocker&#xA;Implements IDisposable, IJavaObject, IJavaPeerable" />
+  <TypeSignature Language="C++ CLI" Value="public: interface class ForkJoinPool::IManagedBlocker : Android::Runtime::IJavaObject, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="C#" Value="public interface ForkJoinPool.IManagedBlocker : Android.Runtime.IJavaObject, IDisposable, Java.Interop.IJavaPeerable" />
   <TypeSignature Language="ILAsm" Value=".class nested public interface auto ansi abstract beforefieldinit ForkJoinPool/IManagedBlocker implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Concurrent.ForkJoinPool.IManagedBlocker" />
-  <TypeSignature Language="VB.NET" Value="Public Interface ForkJoinPool.IManagedBlocker&#xA;Implements IDisposable, IJavaObject, IJavaPeerable" />
-  <TypeSignature Language="C++ CLI" Value="public: interface class ForkJoinPool::IManagedBlocker : Android::Runtime::IJavaObject, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="F#" Value="type ForkJoinPool.IManagedBlocker = interface&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -25,11 +25,66 @@
       <AttributeName Language="C#">[Android.Runtime.Register("java/util/concurrent/ForkJoinPool$ManagedBlocker", "", "Java.Util.Concurrent.ForkJoinPool/IManagedBlockerInvoker")]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/util/concurrent/ForkJoinPool$ManagedBlocker", "", "Java.Util.Concurrent.ForkJoinPool/IManagedBlockerInvoker")&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(0)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>Interface for extending managed parallelism for tasks running
             in <c>ForkJoinPool</c>s.</summary>
     <remarks>
+      <para>Interface for extending managed parallelism for tasks running
+            in <c>ForkJoinPool</c>s.</para>
+      <para>A <c>ManagedBlocker</c> provides two methods.  Method
+            <c>#isReleasable</c> must return <c>true</c> if blocking is
+            not necessary. Method <c>#block</c> blocks the current thread
+            if necessary (perhaps internally invoking <c>isReleasable</c>
+            before actually blocking). These actions are performed by any
+            thread invoking <c>ForkJoinPool#managedBlock(ManagedBlocker)</c>.  The unusual
+            methods in this API accommodate synchronizers that may, but
+            don't usually, block for long periods. Similarly, they allow
+            more efficient internal handling of cases in which additional
+            workers may be, but usually are not, needed to ensure
+            sufficient parallelism.  Toward this end, implementations of
+            method <c>isReleasable</c> must be amenable to repeated
+            invocation. Neither method is invoked after a prior invocation
+            of <c>isReleasable</c> or <c>block</c> returns <c>true</c>.</para>
+      <para>For example, here is a ManagedBlocker based on a
+            ReentrantLock:</para>
+      <code lang="text/java">{@code
+            class ManagedLocker implements ManagedBlocker {
+              final ReentrantLock lock;
+              boolean hasLock = false;
+              ManagedLocker(ReentrantLock lock) { this.lock = lock; }
+              public boolean block() {
+                if (!hasLock)
+                  lock.lock();
+                return true;
+              }
+              public boolean isReleasable() {
+                return hasLock || (hasLock = lock.tryLock());
+              }
+            }}</code>
+      <para>Here is a class that possibly blocks waiting for an
+            item on a given queue:</para>
+      <code lang="text/java">{@code
+            class QueueTaker&lt;E&gt; implements ManagedBlocker {
+              final BlockingQueue&lt;E&gt; queue;
+              volatile E item = null;
+              QueueTaker(BlockingQueue&lt;E&gt; q) { this.queue = q; }
+              public boolean block() throws InterruptedException {
+                if (item == null)
+                  item = queue.take();
+                return true;
+              }
+              public boolean isReleasable() {
+                return item != null || (item = queue.poll()) != null;
+              }
+              public E getItem() { // call after pool.managedBlock completes
+                return item;
+              }
+            }}</code>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinPool.ManagedBlocker" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinPool.ManagedBlocker</code>.</a>
@@ -44,11 +99,11 @@
   </Docs>
   <Members>
     <Member MemberName="Block">
+      <MemberSignature Language="VB.NET" Value="Public Function Block () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool Block();" />
       <MemberSignature Language="C#" Value="public bool Block ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool Block() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinPool.IManagedBlocker.Block" />
-      <MemberSignature Language="VB.NET" Value="Public Function Block () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool Block();" />
       <MemberSignature Language="F#" Value="abstract member Block : unit -&gt; bool" Usage="iManagedBlocker.Block " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -72,6 +127,8 @@
           <c>true</c> if no additional blocking is necessary
             (i.e., if isReleasable would return true)</returns>
         <remarks>
+          <para>Possibly blocks the current thread, for example waiting for
+            a lock or condition.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinPool.ManagedBlocker#block()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinPool.ManagedBlocker.block()</code>.</a>
@@ -86,11 +143,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsReleasable">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsReleasable As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsReleasable { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsReleasable { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsReleasable" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinPool.IManagedBlocker.IsReleasable" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsReleasable As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsReleasable { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsReleasable : bool" Usage="Java.Util.Concurrent.ForkJoinPool.IManagedBlocker.IsReleasable" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>

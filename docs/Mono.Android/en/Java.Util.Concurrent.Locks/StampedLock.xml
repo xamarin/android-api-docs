@@ -1,9 +1,9 @@
 <Type Name="StampedLock" FullName="Java.Util.Concurrent.Locks.StampedLock">
+  <TypeSignature Language="VB.NET" Value="Public Class StampedLock&#xA;Inherits Object&#xA;Implements IDisposable, IJavaPeerable, ISerializable" />
+  <TypeSignature Language="C++ CLI" Value="public ref class StampedLock : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ISerializable" />
   <TypeSignature Language="C#" Value="public class StampedLock : Java.Lang.Object, IDisposable, Java.Interop.IJavaPeerable, Java.IO.ISerializable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi beforefieldinit StampedLock extends Java.Lang.Object implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.IO.ISerializable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Concurrent.Locks.StampedLock" />
-  <TypeSignature Language="VB.NET" Value="Public Class StampedLock&#xA;Inherits Object&#xA;Implements IDisposable, IJavaPeerable, ISerializable" />
-  <TypeSignature Language="C++ CLI" Value="public ref class StampedLock : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ISerializable" />
   <TypeSignature Language="F#" Value="type StampedLock = class&#xA;    inherit Object&#xA;    interface ISerializable&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -32,6 +32,14 @@
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/util/concurrent/locks/StampedLock", ApiSince=24, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
     <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
       <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
     </Attribute>
@@ -40,6 +48,191 @@
     <summary>A capability-based lock with three modes for controlling read/write
             access.</summary>
     <remarks>
+      <para>A capability-based lock with three modes for controlling read/write
+            access.  The state of a StampedLock consists of a version and mode.
+            Lock acquisition methods return a stamp that represents and
+            controls access with respect to a lock state; "try" versions of
+            these methods may instead return the special value zero to
+            represent failure to acquire access. Lock release and conversion
+            methods require stamps as arguments, and fail if they do not match
+            the state of the lock. The three modes are:
+            
+            &lt;ul&gt;
+            
+             &lt;li&gt;&lt;b&gt;Writing.&lt;/b&gt; Method <c>#writeLock</c> possibly blocks
+              waiting for exclusive access, returning a stamp that can be used
+              in method <c>#unlockWrite</c> to release the lock. Untimed and
+              timed versions of <c>tryWriteLock</c> are also provided. When
+              the lock is held in write mode, no read locks may be obtained,
+              and all optimistic read validations will fail.
+            
+             &lt;li&gt;&lt;b&gt;Reading.&lt;/b&gt; Method <c>#readLock</c> possibly blocks
+              waiting for non-exclusive access, returning a stamp that can be
+              used in method <c>#unlockRead</c> to release the lock. Untimed
+              and timed versions of <c>tryReadLock</c> are also provided.
+            
+             &lt;li&gt;&lt;b&gt;Optimistic Reading.&lt;/b&gt; Method <c>#tryOptimisticRead</c>
+              returns a non-zero stamp only if the lock is not currently held in
+              write mode.  Method <c>#validate</c> returns true if the lock has not
+              been acquired in write mode since obtaining a given stamp, in which
+              case all actions prior to the most recent write lock release
+              happen-before actions following the call to <c>tryOptimisticRead</c>.
+              This mode can be thought of as an extremely weak version of a
+              read-lock, that can be broken by a writer at any time.  The use of
+              optimistic read mode for short read-only code segments often reduces
+              contention and improves throughput.  However, its use is inherently
+              fragile.  Optimistic read sections should only read fields and hold
+              them in local variables for later use after validation. Fields read
+              while in optimistic read mode may be wildly inconsistent, so usage
+              applies only when you are familiar enough with data representations to
+              check consistency and/or repeatedly invoke method <c>validate()</c>.
+              For example, such steps are typically required when first reading an
+              object or array reference, and then accessing one of its fields,
+              elements or methods.
+            
+            &lt;/ul&gt;</para>
+      <para>This class also supports methods that conditionally provide
+            conversions across the three modes. For example, method <c>#tryConvertToWriteLock</c> attempts to "upgrade" a mode, returning
+            a valid write stamp if (1) already in writing mode (2) in reading
+            mode and there are no other readers or (3) in optimistic read mode
+            and the lock is available. The forms of these methods are designed to
+            help reduce some of the code bloat that otherwise occurs in
+            retry-based designs.</para>
+      <para>StampedLocks are designed for use as internal utilities in the
+            development of thread-safe components. Their use relies on
+            knowledge of the internal properties of the data, objects, and
+            methods they are protecting.  They are not reentrant, so locked
+            bodies should not call other unknown methods that may try to
+            re-acquire locks (although you may pass a stamp to other methods
+            that can use or convert it).  The use of read lock modes relies on
+            the associated code sections being side-effect-free.  Unvalidated
+            optimistic read sections cannot call methods that are not known to
+            tolerate potential inconsistencies.  Stamps use finite
+            representations, and are not cryptographically secure (i.e., a
+            valid stamp may be guessable). Stamp values may recycle after (no
+            sooner than) one year of continuous operation. A stamp held without
+            use or validation for longer than this period may fail to validate
+            correctly.  StampedLocks are serializable, but always deserialize
+            into initial unlocked state, so they are not useful for remote
+            locking.</para>
+      <para>Like <c>java.util.concurrent.Semaphore Semaphore</c>, but unlike most
+            <c>Lock</c> implementations, StampedLocks have no notion of ownership.
+            Locks acquired in one thread can be released or converted in another.</para>
+      <para>The scheduling policy of StampedLock does not consistently
+            prefer readers over writers or vice versa.  All "try" methods are
+            best-effort and do not necessarily conform to any scheduling or
+            fairness policy. A zero return from any "try" method for acquiring
+            or converting locks does not carry any information about the state
+            of the lock; a subsequent invocation may succeed.</para>
+      <para>Because it supports coordinated usage across multiple lock
+            modes, this class does not directly implement the <c>Lock</c> or
+            <c>ReadWriteLock</c> interfaces. However, a StampedLock may be
+            viewed <c>#asReadLock()</c>, <c>#asWriteLock()</c>, or <c>#asReadWriteLock()</c> in applications requiring only the associated
+            set of functionality.</para>
+      <para>&lt;b&gt;Memory Synchronization.&lt;/b&gt; Methods with the effect of
+            successfully locking in any mode have the same memory
+            synchronization effects as a &lt;em&gt;Lock&lt;/em&gt; action, as described in
+            Chapter 17 of &lt;cite&gt;The Java Language Specification&lt;/cite&gt;.
+            Methods successfully unlocking in write mode have the same memory
+            synchronization effects as an &lt;em&gt;Unlock&lt;/em&gt; action.  In optimistic
+            read usages, actions prior to the most recent write mode unlock action
+            are guaranteed to happen-before those following a tryOptimisticRead
+            only if a later validate returns true; otherwise there is no guarantee
+            that the reads between tryOptimisticRead and validate obtain a
+            consistent snapshot.</para>
+      <para>&lt;b&gt;Sample Usage.&lt;/b&gt; The following illustrates some usage idioms
+            in a class that maintains simple two-dimensional points. The sample
+            code illustrates some try/catch conventions even though they are
+            not strictly needed here because no exceptions can occur in their
+            bodies.</para>
+      <code lang="text/java">{@code
+            class Point {
+              private double x, y;
+              private final StampedLock sl = new StampedLock();
+            
+              // an exclusively locked method
+              void move(double deltaX, double deltaY) {
+                long stamp = sl.writeLock();
+                try {
+                  x += deltaX;
+                  y += deltaY;
+                } finally {
+                  sl.unlockWrite(stamp);
+                }
+              }
+            
+              // a read-only method
+              // upgrade from optimistic read to read lock
+              double distanceFromOrigin() {
+                long stamp = sl.tryOptimisticRead();
+                try {
+                  retryHoldingLock: for (;; stamp = sl.readLock()) {
+                    if (stamp == 0L)
+                      continue retryHoldingLock;
+                    // possibly racy reads
+                    double currentX = x;
+                    double currentY = y;
+                    if (!sl.validate(stamp))
+                      continue retryHoldingLock;
+                    return Math.hypot(currentX, currentY);
+                  }
+                } finally {
+                  if (StampedLock.isReadLockStamp(stamp))
+                    sl.unlockRead(stamp);
+                }
+              }
+            
+              // upgrade from optimistic read to write lock
+              void moveIfAtOrigin(double newX, double newY) {
+                long stamp = sl.tryOptimisticRead();
+                try {
+                  retryHoldingLock: for (;; stamp = sl.writeLock()) {
+                    if (stamp == 0L)
+                      continue retryHoldingLock;
+                    // possibly racy reads
+                    double currentX = x;
+                    double currentY = y;
+                    if (!sl.validate(stamp))
+                      continue retryHoldingLock;
+                    if (currentX != 0.0 || currentY != 0.0)
+                      break;
+                    stamp = sl.tryConvertToWriteLock(stamp);
+                    if (stamp == 0L)
+                      continue retryHoldingLock;
+                    // exclusive access
+                    x = newX;
+                    y = newY;
+                    return;
+                  }
+                } finally {
+                  if (StampedLock.isWriteLockStamp(stamp))
+                    sl.unlockWrite(stamp);
+                }
+              }
+            
+              // upgrade read lock to write lock
+              void moveIfAtOrigin2(double newX, double newY) {
+                long stamp = sl.readLock();
+                try {
+                  while (x == 0.0 &amp;&amp; y == 0.0) {
+                    long ws = sl.tryConvertToWriteLock(stamp);
+                    if (ws != 0L) {
+                      stamp = ws;
+                      x = newX;
+                      y = newY;
+                      break;
+                    }
+                    else {
+                      sl.unlockRead(stamp);
+                      stamp = sl.writeLock();
+                    }
+                  }
+                } finally {
+                  sl.unlock(stamp);
+                }
+              }
+            }}</code>
+      <para>Added in 1.8.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock</code>.</a>
@@ -54,11 +247,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; StampedLock();" />
       <MemberSignature Language="C#" Value="public StampedLock ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.#ctor" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; StampedLock();" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -78,6 +271,7 @@
       <Docs>
         <summary>Creates a new lock, initially in unlocked state.</summary>
         <remarks>
+          <para>Creates a new lock, initially in unlocked state.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#StampedLock()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.StampedLock()</code>.</a>
@@ -92,11 +286,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; StampedLock(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected StampedLock (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; StampedLock(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Locks.StampedLock : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Concurrent.Locks.StampedLock" Usage="new Java.Util.Concurrent.Locks.StampedLock (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -117,11 +311,11 @@
       </Docs>
     </Member>
     <Member MemberName="AsReadLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function AsReadLock () As ILock" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::Locks::ILock ^ AsReadLock();" />
       <MemberSignature Language="C#" Value="public virtual Java.Util.Concurrent.Locks.ILock? AsReadLock ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Concurrent.Locks.ILock AsReadLock() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.AsReadLock" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function AsReadLock () As ILock" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::Locks::ILock ^ AsReadLock();" />
       <MemberSignature Language="F#" Value="abstract member AsReadLock : unit -&gt; Java.Util.Concurrent.Locks.ILock&#xA;override this.AsReadLock : unit -&gt; Java.Util.Concurrent.Locks.ILock" Usage="stampedLock.AsReadLock " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -132,6 +326,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("asReadLock", "()Ljava/util/concurrent/locks/Lock;", "GetAsReadLockHandler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("asReadLock", "()Ljava/util/concurrent/locks/Lock;", "GetAsReadLockHandler", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
@@ -148,6 +346,11 @@
             and similarly for other methods.</summary>
         <returns>the lock</returns>
         <remarks>
+          <para>Returns a plain <c>Lock</c> view of this StampedLock in which
+            the <c>Lock#lock</c> method is mapped to <c>#readLock</c>,
+            and similarly for other methods. The returned Lock does not
+            support a <c>Condition</c>; method <c>Lock#newCondition()</c>
+            throws <c>UnsupportedOperationException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#asReadLock()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.asReadLock()</code>.</a>
@@ -162,11 +365,11 @@
       </Docs>
     </Member>
     <Member MemberName="AsReadWriteLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function AsReadWriteLock () As IReadWriteLock" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::Locks::IReadWriteLock ^ AsReadWriteLock();" />
       <MemberSignature Language="C#" Value="public virtual Java.Util.Concurrent.Locks.IReadWriteLock? AsReadWriteLock ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Concurrent.Locks.IReadWriteLock AsReadWriteLock() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.AsReadWriteLock" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function AsReadWriteLock () As IReadWriteLock" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::Locks::IReadWriteLock ^ AsReadWriteLock();" />
       <MemberSignature Language="F#" Value="abstract member AsReadWriteLock : unit -&gt; Java.Util.Concurrent.Locks.IReadWriteLock&#xA;override this.AsReadWriteLock : unit -&gt; Java.Util.Concurrent.Locks.IReadWriteLock" Usage="stampedLock.AsReadWriteLock " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -177,6 +380,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("asReadWriteLock", "()Ljava/util/concurrent/locks/ReadWriteLock;", "GetAsReadWriteLockHandler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("asReadWriteLock", "()Ljava/util/concurrent/locks/ReadWriteLock;", "GetAsReadWriteLockHandler", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
@@ -194,6 +401,10 @@
             <c>#asWriteLock()</c>.</summary>
         <returns>the lock</returns>
         <remarks>
+          <para>Returns a <c>ReadWriteLock</c> view of this StampedLock in
+            which the <c>ReadWriteLock#readLock()</c> method is mapped to
+            <c>#asReadLock()</c>, and <c>ReadWriteLock#writeLock()</c> to
+            <c>#asWriteLock()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#asReadWriteLock()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.asReadWriteLock()</code>.</a>
@@ -208,11 +419,11 @@
       </Docs>
     </Member>
     <Member MemberName="AsWriteLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function AsWriteLock () As ILock" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::Locks::ILock ^ AsWriteLock();" />
       <MemberSignature Language="C#" Value="public virtual Java.Util.Concurrent.Locks.ILock? AsWriteLock ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Concurrent.Locks.ILock AsWriteLock() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.AsWriteLock" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function AsWriteLock () As ILock" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::Locks::ILock ^ AsWriteLock();" />
       <MemberSignature Language="F#" Value="abstract member AsWriteLock : unit -&gt; Java.Util.Concurrent.Locks.ILock&#xA;override this.AsWriteLock : unit -&gt; Java.Util.Concurrent.Locks.ILock" Usage="stampedLock.AsWriteLock " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -223,6 +434,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("asWriteLock", "()Ljava/util/concurrent/locks/Lock;", "GetAsWriteLockHandler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("asWriteLock", "()Ljava/util/concurrent/locks/Lock;", "GetAsWriteLockHandler", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
@@ -239,6 +454,11 @@
             and similarly for other methods.</summary>
         <returns>the lock</returns>
         <remarks>
+          <para>Returns a plain <c>Lock</c> view of this StampedLock in which
+            the <c>Lock#lock</c> method is mapped to <c>#writeLock</c>,
+            and similarly for other methods. The returned Lock does not
+            support a <c>Condition</c>; method <c>Lock#newCondition()</c>
+            throws <c>UnsupportedOperationException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#asWriteLock()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.asWriteLock()</code>.</a>
@@ -253,11 +473,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsLockStamp">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function IsLockStamp (stamp As Long) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsLockStamp(long stamp);" />
       <MemberSignature Language="C#" Value="public static bool IsLockStamp (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig bool IsLockStamp(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.IsLockStamp(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function IsLockStamp (stamp As Long) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsLockStamp(long stamp);" />
       <MemberSignature Language="F#" Value="static member IsLockStamp : int64 -&gt; bool" Usage="Java.Util.Concurrent.Locks.StampedLock.IsLockStamp stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -287,6 +507,23 @@
           <c>true</c> if the stamp was returned by a successful
               read-lock or write-lock operation</returns>
         <remarks>
+          <para>Tells whether a stamp represents holding a lock.
+            This method may be useful in conjunction with
+            <c>#tryConvertToReadLock</c> and <c>#tryConvertToWriteLock</c>,
+            for example:</para>
+          <code lang="text/java">{@code
+            long stamp = sl.tryOptimisticRead();
+            try {
+              ...
+              stamp = sl.tryConvertToReadLock(stamp);
+              ...
+              stamp = sl.tryConvertToWriteLock(stamp);
+              ...
+            } finally {
+              if (StampedLock.isLockStamp(stamp))
+                sl.unlock(stamp);
+            }}</code>
+          <para>Added in 10.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#isLockStamp(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.isLockStamp(long)</code>.</a>
@@ -301,11 +538,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsOptimisticReadStamp">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function IsOptimisticReadStamp (stamp As Long) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsOptimisticReadStamp(long stamp);" />
       <MemberSignature Language="C#" Value="public static bool IsOptimisticReadStamp (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig bool IsOptimisticReadStamp(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.IsOptimisticReadStamp(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function IsOptimisticReadStamp (stamp As Long) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsOptimisticReadStamp(long stamp);" />
       <MemberSignature Language="F#" Value="static member IsOptimisticReadStamp : int64 -&gt; bool" Usage="Java.Util.Concurrent.Locks.StampedLock.IsOptimisticReadStamp stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -337,6 +574,8 @@
               <c>#tryOptimisticRead()</c> or
               <c>#tryConvertToOptimisticRead(long)</c></returns>
         <remarks>
+          <para>Tells whether a stamp represents a successful optimistic read.</para>
+          <para>Added in 10.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#isOptimisticReadStamp(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.isOptimisticReadStamp(long)</code>.</a>
@@ -351,11 +590,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsReadLocked">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property IsReadLocked As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool IsReadLocked { bool get(); };" />
       <MemberSignature Language="C#" Value="public virtual bool IsReadLocked { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsReadLocked" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Locks.StampedLock.IsReadLocked" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property IsReadLocked As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool IsReadLocked { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsReadLocked : bool" Usage="Java.Util.Concurrent.Locks.StampedLock.IsReadLocked" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -380,6 +619,7 @@
         <value>
           <c>true</c> if the lock is currently held non-exclusively</value>
         <remarks>
+          <para>Returns <c>true</c> if the lock is currently held non-exclusively.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#isReadLocked()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.isReadLocked()</code>.</a>
@@ -394,11 +634,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsReadLockStamp">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function IsReadLockStamp (stamp As Long) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsReadLockStamp(long stamp);" />
       <MemberSignature Language="C#" Value="public static bool IsReadLockStamp (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig bool IsReadLockStamp(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.IsReadLockStamp(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function IsReadLockStamp (stamp As Long) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsReadLockStamp(long stamp);" />
       <MemberSignature Language="F#" Value="static member IsReadLockStamp : int64 -&gt; bool" Usage="Java.Util.Concurrent.Locks.StampedLock.IsReadLockStamp stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -428,6 +668,20 @@
           <c>true</c> if the stamp was returned by a successful
               read-lock operation</returns>
         <remarks>
+          <para>Tells whether a stamp represents holding a lock non-exclusively.
+            This method may be useful in conjunction with
+            <c>#tryConvertToReadLock</c>, for example:</para>
+          <code lang="text/java">{@code
+            long stamp = sl.tryOptimisticRead();
+            try {
+              ...
+              stamp = sl.tryConvertToReadLock(stamp);
+              ...
+            } finally {
+              if (StampedLock.isReadLockStamp(stamp))
+                sl.unlockRead(stamp);
+            }}</code>
+          <para>Added in 10.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#isReadLockStamp(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.isReadLockStamp(long)</code>.</a>
@@ -442,11 +696,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsWriteLocked">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property IsWriteLocked As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool IsWriteLocked { bool get(); };" />
       <MemberSignature Language="C#" Value="public virtual bool IsWriteLocked { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsWriteLocked" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Locks.StampedLock.IsWriteLocked" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property IsWriteLocked As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool IsWriteLocked { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsWriteLocked : bool" Usage="Java.Util.Concurrent.Locks.StampedLock.IsWriteLocked" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -471,6 +725,7 @@
         <value>
           <c>true</c> if the lock is currently held exclusively</value>
         <remarks>
+          <para>Returns <c>true</c> if the lock is currently held exclusively.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#isWriteLocked()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.isWriteLocked()</code>.</a>
@@ -485,11 +740,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsWriteLockStamp">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function IsWriteLockStamp (stamp As Long) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsWriteLockStamp(long stamp);" />
       <MemberSignature Language="C#" Value="public static bool IsWriteLockStamp (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig bool IsWriteLockStamp(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.IsWriteLockStamp(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function IsWriteLockStamp (stamp As Long) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsWriteLockStamp(long stamp);" />
       <MemberSignature Language="F#" Value="static member IsWriteLockStamp : int64 -&gt; bool" Usage="Java.Util.Concurrent.Locks.StampedLock.IsWriteLockStamp stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -519,6 +774,20 @@
           <c>true</c> if the stamp was returned by a successful
               write-lock operation</returns>
         <remarks>
+          <para>Tells whether a stamp represents holding a lock exclusively.
+            This method may be useful in conjunction with
+            <c>#tryConvertToWriteLock</c>, for example:</para>
+          <code lang="text/java">{@code
+            long stamp = sl.tryOptimisticRead();
+            try {
+              ...
+              stamp = sl.tryConvertToWriteLock(stamp);
+              ...
+            } finally {
+              if (StampedLock.isWriteLockStamp(stamp))
+                sl.unlockWrite(stamp);
+            }}</code>
+          <para>Added in 10.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#isWriteLockStamp(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.isWriteLockStamp(long)</code>.</a>
@@ -533,11 +802,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Locks.StampedLock.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Java.Util.Concurrent.Locks.StampedLock.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -569,11 +838,11 @@
       </Docs>
     </Member>
     <Member MemberName="ReadLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function ReadLock () As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long ReadLock();" />
       <MemberSignature Language="C#" Value="public virtual long ReadLock ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 ReadLock() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.ReadLock" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function ReadLock () As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long ReadLock();" />
       <MemberSignature Language="F#" Value="abstract member ReadLock : unit -&gt; int64&#xA;override this.ReadLock : unit -&gt; int64" Usage="stampedLock.ReadLock " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -599,6 +868,8 @@
             until available.</summary>
         <returns>a read stamp that can be used to unlock or convert mode</returns>
         <remarks>
+          <para>Non-exclusively acquires the lock, blocking if necessary
+            until available.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#readLock()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.readLock()</code>.</a>
@@ -613,11 +884,11 @@
       </Docs>
     </Member>
     <Member MemberName="ReadLockCount">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property ReadLockCount As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property int ReadLockCount { int get(); };" />
       <MemberSignature Language="C#" Value="public virtual int ReadLockCount { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 ReadLockCount" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Locks.StampedLock.ReadLockCount" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property ReadLockCount As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property int ReadLockCount { int get(); };" />
       <MemberSignature Language="F#" Value="member this.ReadLockCount : int" Usage="Java.Util.Concurrent.Locks.StampedLock.ReadLockCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -641,6 +912,9 @@
         <summary>Queries the number of read locks held for this lock.</summary>
         <value>the number of read locks held</value>
         <remarks>
+          <para>Queries the number of read locks held for this lock. This
+            method is designed for use in monitoring system state, not for
+            synchronization control.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#getReadLockCount()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.getReadLockCount()</code>.</a>
@@ -655,11 +929,11 @@
       </Docs>
     </Member>
     <Member MemberName="ReadLockInterruptibly">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function ReadLockInterruptibly () As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long ReadLockInterruptibly();" />
       <MemberSignature Language="C#" Value="public virtual long ReadLockInterruptibly ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 ReadLockInterruptibly() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.ReadLockInterruptibly" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function ReadLockInterruptibly () As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long ReadLockInterruptibly();" />
       <MemberSignature Language="F#" Value="abstract member ReadLockInterruptibly : unit -&gt; int64&#xA;override this.ReadLockInterruptibly : unit -&gt; int64" Usage="stampedLock.ReadLockInterruptibly " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -685,6 +959,10 @@
             until available or the current thread is interrupted.</summary>
         <returns>a read stamp that can be used to unlock or convert mode</returns>
         <remarks>
+          <para>Non-exclusively acquires the lock, blocking if necessary
+            until available or the current thread is interrupted.
+            Behavior under interruption matches that specified
+            for method <c>Lock#lockInterruptibly()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#readLockInterruptibly()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.readLockInterruptibly()</code>.</a>
@@ -699,11 +977,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Locks.StampedLock.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.Locks.StampedLock.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -732,11 +1010,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Locks.StampedLock.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.Locks.StampedLock.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -765,11 +1043,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryConvertToOptimisticRead">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryConvertToOptimisticRead (stamp As Long) As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryConvertToOptimisticRead(long stamp);" />
       <MemberSignature Language="C#" Value="public virtual long TryConvertToOptimisticRead (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 TryConvertToOptimisticRead(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.TryConvertToOptimisticRead(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryConvertToOptimisticRead (stamp As Long) As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryConvertToOptimisticRead(long stamp);" />
       <MemberSignature Language="F#" Value="abstract member TryConvertToOptimisticRead : int64 -&gt; int64&#xA;override this.TryConvertToOptimisticRead : int64 -&gt; int64" Usage="stampedLock.TryConvertToOptimisticRead stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -799,6 +1077,11 @@
             observation stamp.</summary>
         <returns>a valid optimistic read stamp, or zero on failure</returns>
         <remarks>
+          <para>If the lock state matches the given stamp then, atomically, if the stamp
+            represents holding a lock, releases it and returns an
+            observation stamp.  Or, if an optimistic read, returns it if
+            validated. This method returns zero in all other cases, and so
+            may be useful as a form of "tryUnlock".</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#tryConvertToOptimisticRead(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.tryConvertToOptimisticRead(long)</code>.</a>
@@ -813,11 +1096,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryConvertToReadLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryConvertToReadLock (stamp As Long) As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryConvertToReadLock(long stamp);" />
       <MemberSignature Language="C#" Value="public virtual long TryConvertToReadLock (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 TryConvertToReadLock(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.TryConvertToReadLock(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryConvertToReadLock (stamp As Long) As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryConvertToReadLock(long stamp);" />
       <MemberSignature Language="F#" Value="abstract member TryConvertToReadLock : int64 -&gt; int64&#xA;override this.TryConvertToReadLock : int64 -&gt; int64" Usage="stampedLock.TryConvertToReadLock stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -846,6 +1129,12 @@
             the following actions.</summary>
         <returns>a valid read stamp, or zero on failure</returns>
         <remarks>
+          <para>If the lock state matches the given stamp, atomically performs one of
+            the following actions. If the stamp represents holding a write
+            lock, releases it and obtains a read lock.  Or, if a read lock,
+            returns it. Or, if an optimistic read, acquires a read lock and
+            returns a read stamp only if immediately available. This method
+            returns zero in all other cases.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#tryConvertToReadLock(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.tryConvertToReadLock(long)</code>.</a>
@@ -860,11 +1149,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryConvertToWriteLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryConvertToWriteLock (stamp As Long) As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryConvertToWriteLock(long stamp);" />
       <MemberSignature Language="C#" Value="public virtual long TryConvertToWriteLock (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 TryConvertToWriteLock(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.TryConvertToWriteLock(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryConvertToWriteLock (stamp As Long) As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryConvertToWriteLock(long stamp);" />
       <MemberSignature Language="F#" Value="abstract member TryConvertToWriteLock : int64 -&gt; int64&#xA;override this.TryConvertToWriteLock : int64 -&gt; int64" Usage="stampedLock.TryConvertToWriteLock stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -893,6 +1182,13 @@
             the following actions.</summary>
         <returns>a valid write stamp, or zero on failure</returns>
         <remarks>
+          <para>If the lock state matches the given stamp, atomically performs one of
+            the following actions. If the stamp represents holding a write
+            lock, returns it.  Or, if a read lock, if the write lock is
+            available, releases the read lock and returns a write stamp.
+            Or, if an optimistic read, returns a write stamp only if
+            immediately available. This method returns zero in all other
+            cases.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#tryConvertToWriteLock(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.tryConvertToWriteLock(long)</code>.</a>
@@ -907,11 +1203,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryOptimisticRead">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryOptimisticRead () As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryOptimisticRead();" />
       <MemberSignature Language="C#" Value="public virtual long TryOptimisticRead ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 TryOptimisticRead() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.TryOptimisticRead" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryOptimisticRead () As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryOptimisticRead();" />
       <MemberSignature Language="F#" Value="abstract member TryOptimisticRead : unit -&gt; int64&#xA;override this.TryOptimisticRead : unit -&gt; int64" Usage="stampedLock.TryOptimisticRead " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -937,6 +1233,8 @@
             if exclusively locked.</summary>
         <returns>a valid optimistic read stamp, or zero if exclusively locked</returns>
         <remarks>
+          <para>Returns a stamp that can later be validated, or zero
+            if exclusively locked.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#tryOptimisticRead()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.tryOptimisticRead()</code>.</a>
@@ -951,11 +1249,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryReadLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryReadLock () As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryReadLock();" />
       <MemberSignature Language="C#" Value="public virtual long TryReadLock ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 TryReadLock() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.TryReadLock" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryReadLock () As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryReadLock();" />
       <MemberSignature Language="F#" Value="abstract member TryReadLock : unit -&gt; int64&#xA;override this.TryReadLock : unit -&gt; int64" Usage="stampedLock.TryReadLock " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -981,6 +1279,7 @@
         <returns>a read stamp that can be used to unlock or convert mode,
             or zero if the lock is not available</returns>
         <remarks>
+          <para>Non-exclusively acquires the lock if it is immediately available.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#tryReadLock()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.tryReadLock()</code>.</a>
@@ -995,11 +1294,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryReadLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryReadLock (time As Long, unit As TimeUnit) As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryReadLock(long time, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public virtual long TryReadLock (long time, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 TryReadLock(int64 time, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.TryReadLock(System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryReadLock (time As Long, unit As TimeUnit) As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryReadLock(long time, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member TryReadLock : int64 * Java.Util.Concurrent.TimeUnit -&gt; int64&#xA;override this.TryReadLock : int64 * Java.Util.Concurrent.TimeUnit -&gt; int64" Usage="stampedLock.TryReadLock (time, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1010,6 +1309,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("tryReadLock", "(JLjava/util/concurrent/TimeUnit;)J", "GetTryReadLock_JLjava_util_concurrent_TimeUnit_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("tryReadLock", "(JLjava/util/concurrent/TimeUnit;)J", "GetTryReadLock_JLjava_util_concurrent_TimeUnit_Handler", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
@@ -1031,6 +1334,10 @@
         <returns>a read stamp that can be used to unlock or convert mode,
             or zero if the lock is not available</returns>
         <remarks>
+          <para>Non-exclusively acquires the lock if it is available within the
+            given time and the current thread has not been interrupted.
+            Behavior under timeout and interruption matches that specified
+            for method <c>Lock#tryLock(long,TimeUnit)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#tryReadLock(long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.tryReadLock(long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -1045,11 +1352,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryUnlockRead">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryUnlockRead () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryUnlockRead();" />
       <MemberSignature Language="C#" Value="public virtual bool TryUnlockRead ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool TryUnlockRead() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.TryUnlockRead" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryUnlockRead () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryUnlockRead();" />
       <MemberSignature Language="F#" Value="abstract member TryUnlockRead : unit -&gt; bool&#xA;override this.TryUnlockRead : unit -&gt; bool" Usage="stampedLock.TryUnlockRead " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1076,6 +1383,9 @@
         <returns>
           <c>true</c> if the read lock was held, else false</returns>
         <remarks>
+          <para>Releases one hold of the read lock if it is held, without
+            requiring a stamp value. This method may be useful for recovery
+            after errors.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#tryUnlockRead()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.tryUnlockRead()</code>.</a>
@@ -1090,11 +1400,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryUnlockWrite">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryUnlockWrite () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryUnlockWrite();" />
       <MemberSignature Language="C#" Value="public virtual bool TryUnlockWrite ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool TryUnlockWrite() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.TryUnlockWrite" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryUnlockWrite () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryUnlockWrite();" />
       <MemberSignature Language="F#" Value="abstract member TryUnlockWrite : unit -&gt; bool&#xA;override this.TryUnlockWrite : unit -&gt; bool" Usage="stampedLock.TryUnlockWrite " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1121,6 +1431,9 @@
         <returns>
           <c>true</c> if the lock was held, else false</returns>
         <remarks>
+          <para>Releases the write lock if it is held, without requiring a
+            stamp value. This method may be useful for recovery after
+            errors.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#tryUnlockWrite()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.tryUnlockWrite()</code>.</a>
@@ -1135,11 +1448,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryWriteLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryWriteLock () As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryWriteLock();" />
       <MemberSignature Language="C#" Value="public virtual long TryWriteLock ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 TryWriteLock() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.TryWriteLock" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryWriteLock () As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryWriteLock();" />
       <MemberSignature Language="F#" Value="abstract member TryWriteLock : unit -&gt; int64&#xA;override this.TryWriteLock : unit -&gt; int64" Usage="stampedLock.TryWriteLock " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1165,6 +1478,7 @@
         <returns>a write stamp that can be used to unlock or convert mode,
             or zero if the lock is not available</returns>
         <remarks>
+          <para>Exclusively acquires the lock if it is immediately available.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#tryWriteLock()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.tryWriteLock()</code>.</a>
@@ -1179,11 +1493,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryWriteLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryWriteLock (time As Long, unit As TimeUnit) As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryWriteLock(long time, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public virtual long TryWriteLock (long time, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 TryWriteLock(int64 time, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.TryWriteLock(System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryWriteLock (time As Long, unit As TimeUnit) As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long TryWriteLock(long time, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member TryWriteLock : int64 * Java.Util.Concurrent.TimeUnit -&gt; int64&#xA;override this.TryWriteLock : int64 * Java.Util.Concurrent.TimeUnit -&gt; int64" Usage="stampedLock.TryWriteLock (time, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1194,6 +1508,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("tryWriteLock", "(JLjava/util/concurrent/TimeUnit;)J", "GetTryWriteLock_JLjava_util_concurrent_TimeUnit_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("tryWriteLock", "(JLjava/util/concurrent/TimeUnit;)J", "GetTryWriteLock_JLjava_util_concurrent_TimeUnit_Handler", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
@@ -1215,6 +1533,10 @@
         <returns>a write stamp that can be used to unlock or convert mode,
             or zero if the lock is not available</returns>
         <remarks>
+          <para>Exclusively acquires the lock if it is available within the
+            given time and the current thread has not been interrupted.
+            Behavior under timeout and interruption matches that specified
+            for method <c>Lock#tryLock(long,TimeUnit)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#tryWriteLock(long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.tryWriteLock(long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -1229,11 +1551,11 @@
       </Docs>
     </Member>
     <Member MemberName="Unlock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Unlock (stamp As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Unlock(long stamp);" />
       <MemberSignature Language="C#" Value="public virtual void Unlock (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Unlock(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.Unlock(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Unlock (stamp As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Unlock(long stamp);" />
       <MemberSignature Language="F#" Value="abstract member Unlock : int64 -&gt; unit&#xA;override this.Unlock : int64 -&gt; unit" Usage="stampedLock.Unlock stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1261,6 +1583,8 @@
         <summary>If the lock state matches the given stamp, releases the
             corresponding mode of the lock.</summary>
         <remarks>
+          <para>If the lock state matches the given stamp, releases the
+            corresponding mode of the lock.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#unlock(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.unlock(long)</code>.</a>
@@ -1275,11 +1599,11 @@
       </Docs>
     </Member>
     <Member MemberName="UnlockRead">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub UnlockRead (stamp As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void UnlockRead(long stamp);" />
       <MemberSignature Language="C#" Value="public virtual void UnlockRead (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void UnlockRead(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.UnlockRead(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub UnlockRead (stamp As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void UnlockRead(long stamp);" />
       <MemberSignature Language="F#" Value="abstract member UnlockRead : int64 -&gt; unit&#xA;override this.UnlockRead : int64 -&gt; unit" Usage="stampedLock.UnlockRead stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1307,6 +1631,8 @@
         <summary>If the lock state matches the given stamp, releases the
             non-exclusive lock.</summary>
         <remarks>
+          <para>If the lock state matches the given stamp, releases the
+            non-exclusive lock.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#unlockRead(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.unlockRead(long)</code>.</a>
@@ -1321,11 +1647,11 @@
       </Docs>
     </Member>
     <Member MemberName="UnlockWrite">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub UnlockWrite (stamp As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void UnlockWrite(long stamp);" />
       <MemberSignature Language="C#" Value="public virtual void UnlockWrite (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void UnlockWrite(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.UnlockWrite(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub UnlockWrite (stamp As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void UnlockWrite(long stamp);" />
       <MemberSignature Language="F#" Value="abstract member UnlockWrite : int64 -&gt; unit&#xA;override this.UnlockWrite : int64 -&gt; unit" Usage="stampedLock.UnlockWrite stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1353,6 +1679,8 @@
         <summary>If the lock state matches the given stamp, releases the
             exclusive lock.</summary>
         <remarks>
+          <para>If the lock state matches the given stamp, releases the
+            exclusive lock.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#unlockWrite(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.unlockWrite(long)</code>.</a>
@@ -1367,11 +1695,11 @@
       </Docs>
     </Member>
     <Member MemberName="Validate">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function Validate (stamp As Long) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool Validate(long stamp);" />
       <MemberSignature Language="C#" Value="public virtual bool Validate (long stamp);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool Validate(int64 stamp) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.Validate(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function Validate (stamp As Long) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool Validate(long stamp);" />
       <MemberSignature Language="F#" Value="abstract member Validate : int64 -&gt; bool&#xA;override this.Validate : int64 -&gt; bool" Usage="stampedLock.Validate stamp" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1402,6 +1730,12 @@
           <c>true</c> if the lock has not been exclusively acquired
             since issuance of the given stamp; else false</returns>
         <remarks>
+          <para>Returns true if the lock has not been exclusively acquired
+            since issuance of the given stamp. Always returns false if the
+            stamp is zero. Always returns true if the stamp represents a
+            currently held lock. Invoking this method with a value not
+            obtained from <c>#tryOptimisticRead</c> or a locking method
+            for this lock has no defined effect or result.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#validate(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.validate(long)</code>.</a>
@@ -1416,11 +1750,11 @@
       </Docs>
     </Member>
     <Member MemberName="WriteLock">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function WriteLock () As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long WriteLock();" />
       <MemberSignature Language="C#" Value="public virtual long WriteLock ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 WriteLock() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.WriteLock" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function WriteLock () As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long WriteLock();" />
       <MemberSignature Language="F#" Value="abstract member WriteLock : unit -&gt; int64&#xA;override this.WriteLock : unit -&gt; int64" Usage="stampedLock.WriteLock " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1446,6 +1780,8 @@
             until available.</summary>
         <returns>a write stamp that can be used to unlock or convert mode</returns>
         <remarks>
+          <para>Exclusively acquires the lock, blocking if necessary
+            until available.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#writeLock()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.writeLock()</code>.</a>
@@ -1460,11 +1796,11 @@
       </Docs>
     </Member>
     <Member MemberName="WriteLockInterruptibly">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function WriteLockInterruptibly () As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long WriteLockInterruptibly();" />
       <MemberSignature Language="C#" Value="public virtual long WriteLockInterruptibly ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 WriteLockInterruptibly() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.StampedLock.WriteLockInterruptibly" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function WriteLockInterruptibly () As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long WriteLockInterruptibly();" />
       <MemberSignature Language="F#" Value="abstract member WriteLockInterruptibly : unit -&gt; int64&#xA;override this.WriteLockInterruptibly : unit -&gt; int64" Usage="stampedLock.WriteLockInterruptibly " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1490,6 +1826,10 @@
             until available or the current thread is interrupted.</summary>
         <returns>a write stamp that can be used to unlock or convert mode</returns>
         <remarks>
+          <para>Exclusively acquires the lock, blocking if necessary
+            until available or the current thread is interrupted.
+            Behavior under interruption matches that specified
+            for method <c>Lock#lockInterruptibly()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/StampedLock#writeLockInterruptibly()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.StampedLock.writeLockInterruptibly()</code>.</a>

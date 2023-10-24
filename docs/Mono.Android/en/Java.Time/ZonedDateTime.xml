@@ -1,9 +1,9 @@
 <Type Name="ZonedDateTime" FullName="Java.Time.ZonedDateTime">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class ZonedDateTime&#xA;Inherits Object&#xA;Implements IChronoZonedDateTime, IDisposable, IJavaPeerable, ISerializable" />
+  <TypeSignature Language="C++ CLI" Value="public ref class ZonedDateTime sealed : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ISerializable, Java::Time::Chrono::IChronoZonedDateTime" />
   <TypeSignature Language="C#" Value="public sealed class ZonedDateTime : Java.Lang.Object, IDisposable, Java.Interop.IJavaPeerable, Java.IO.ISerializable, Java.Time.Chrono.IChronoZonedDateTime" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit ZonedDateTime extends Java.Lang.Object implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.IO.ISerializable, class Java.Lang.IComparable, class Java.Time.Chrono.IChronoZonedDateTime, class Java.Time.Temporal.ITemporal, class Java.Time.Temporal.ITemporalAccessor, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Time.ZonedDateTime" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class ZonedDateTime&#xA;Inherits Object&#xA;Implements IChronoZonedDateTime, IDisposable, IJavaPeerable, ISerializable" />
-  <TypeSignature Language="C++ CLI" Value="public ref class ZonedDateTime sealed : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ISerializable, Java::Time::Chrono::IChronoZonedDateTime" />
   <TypeSignature Language="F#" Value="type ZonedDateTime = class&#xA;    inherit Object&#xA;    interface ISerializable&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable&#xA;    interface IChronoZonedDateTime&#xA;    interface IComparable&#xA;    interface ITemporal&#xA;    interface ITemporalAccessor" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -44,21 +44,86 @@
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/time/ZonedDateTime", ApiSince=26, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
     <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
       <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
     </Attribute>
   </Attributes>
   <Docs>
-    <summary>To be added.</summary>
-    <remarks>To be added.</remarks>
+    <summary>A date-time with a time-zone in the ISO-8601 calendar system,
+            such as <c>2007-12-03T10:15:30+01:00 Europe/Paris</c>.</summary>
+    <remarks>
+      <para>A date-time with a time-zone in the ISO-8601 calendar system,
+            such as <c>2007-12-03T10:15:30+01:00 Europe/Paris</c>.</para>
+      <para>
+        <c>ZonedDateTime</c> is an immutable representation of a date-time with a time-zone.
+            This class stores all date and time fields, to a precision of nanoseconds,
+            and a time-zone, with a zone offset used to handle ambiguous local date-times.
+            For example, the value
+            "2nd October 2007 at 13:45.30.123456789 +02:00 in the Europe/Paris time-zone"
+            can be stored in a <c>ZonedDateTime</c>.</para>
+      <para>This class handles conversion from the local time-line of <c>LocalDateTime</c>
+            to the instant time-line of <c>Instant</c>.
+            The difference between the two time-lines is the offset from UTC/Greenwich,
+            represented by a <c>ZoneOffset</c>.</para>
+      <para>Converting between the two time-lines involves calculating the offset using the
+            <c>ZoneRules rules</c> accessed from the <c>ZoneId</c>.
+            Obtaining the offset for an instant is simple, as there is exactly one valid
+            offset for each instant. By contrast, obtaining the offset for a local date-time
+            is not straightforward. There are three cases:
+            &lt;ul&gt;
+            &lt;li&gt;Normal, with one valid offset. For the vast majority of the year, the normal
+             case applies, where there is a single valid offset for the local date-time.&lt;/li&gt;
+            &lt;li&gt;Gap, with zero valid offsets. This is when clocks jump forward typically
+             due to the spring daylight savings change from "winter" to "summer".
+             In a gap there are local date-time values with no valid offset.&lt;/li&gt;
+            &lt;li&gt;Overlap, with two valid offsets. This is when clocks are set back typically
+             due to the autumn daylight savings change from "summer" to "winter".
+             In an overlap there are local date-time values with two valid offsets.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>Any method that converts directly or implicitly from a local date-time to an
+            instant by obtaining the offset has the potential to be complicated.</para>
+      <para>For Gaps, the general strategy is that if the local date-time falls in the
+            middle of a Gap, then the resulting zoned date-time will have a local date-time
+            shifted forwards by the length of the Gap, resulting in a date-time in the later
+            offset, typically "summer" time.</para>
+      <para>For Overlaps, the general strategy is that if the local date-time falls in the
+            middle of an Overlap, then the previous offset will be retained. If there is no
+            previous offset, or the previous offset is invalid, then the earlier offset is
+            used, typically "summer" time.. Two additional methods,
+            <c>#withEarlierOffsetAtOverlap()</c> and <c>#withLaterOffsetAtOverlap()</c>,
+            help manage the case of an overlap.</para>
+      <para>In terms of design, this class should be viewed primarily as the combination
+            of a <c>LocalDateTime</c> and a <c>ZoneId</c>. The <c>ZoneOffset</c> is
+            a vital, but secondary, piece of information, used to ensure that the class
+            represents an instant, especially during a daylight savings overlap.</para>
+      <para>Added in 1.8.</para>
+      <para>
+        <format type="text/html">
+          <a href="https://developer.android.com/reference/java/time/ZonedDateTime" title="Reference documentation">Java documentation for <code>java.time.ZonedDateTime</code>.</a>
+        </format>
+      </para>
+      <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+    </remarks>
   </Docs>
   <Members>
     <Member MemberName="CompareTo">
+      <MemberSignature Language="VB.NET" Value="Public Function CompareTo (obj As Object) As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int CompareTo(Java::Lang::Object ^ obj);" />
       <MemberSignature Language="C#" Value="public int CompareTo (Java.Lang.Object obj);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 CompareTo(class Java.Lang.Object obj) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.CompareTo(Java.Lang.Object)" />
-      <MemberSignature Language="VB.NET" Value="Public Function CompareTo (obj As Object) As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int CompareTo(Java::Lang::Object ^ obj);" />
       <MemberSignature Language="F#" Value="abstract member CompareTo : Java.Lang.Object -&gt; int&#xA;override this.CompareTo : Java.Lang.Object -&gt; int" Usage="zonedDateTime.CompareTo obj" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -68,6 +133,12 @@
         <AssemblyName>Mono.Android</AssemblyName>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
@@ -82,11 +153,11 @@
       </Docs>
     </Member>
     <Member MemberName="DayOfMonth">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property DayOfMonth As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int DayOfMonth { int get(); };" />
       <MemberSignature Language="C#" Value="public int DayOfMonth { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 DayOfMonth" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.DayOfMonth" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property DayOfMonth As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int DayOfMonth { int get(); };" />
       <MemberSignature Language="F#" Value="member this.DayOfMonth : int" Usage="Java.Time.ZonedDateTime.DayOfMonth" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -107,17 +178,30 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>Gets the day-of-month field.</summary>
+        <value>the day-of-month, from 1 to 31</value>
+        <remarks>
+          <para>Gets the day-of-month field.</para>
+          <para>This method returns the primitive <c>int</c> value for the day-of-month.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/ZonedDateTime#getDayOfMonth()" title="Reference documentation">Java documentation for <code>java.time.ZonedDateTime.getDayOfMonth()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="DayOfWeek">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property DayOfWeek As DayOfWeek" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Time::DayOfWeek ^ DayOfWeek { Java::Time::DayOfWeek ^ get(); };" />
       <MemberSignature Language="C#" Value="public Java.Time.DayOfWeek? DayOfWeek { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Time.DayOfWeek DayOfWeek" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.DayOfWeek" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property DayOfWeek As DayOfWeek" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Time::DayOfWeek ^ DayOfWeek { Java::Time::DayOfWeek ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.DayOfWeek : Java.Time.DayOfWeek" Usage="Java.Time.ZonedDateTime.DayOfWeek" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -144,11 +228,11 @@
       </Docs>
     </Member>
     <Member MemberName="DayOfYear">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property DayOfYear As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int DayOfYear { int get(); };" />
       <MemberSignature Language="C#" Value="public int DayOfYear { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 DayOfYear" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.DayOfYear" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property DayOfYear As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int DayOfYear { int get(); };" />
       <MemberSignature Language="F#" Value="member this.DayOfYear : int" Usage="Java.Time.ZonedDateTime.DayOfYear" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -169,17 +253,30 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>Gets the day-of-year field.</summary>
+        <value>the day-of-year, from 1 to 365, or 366 in a leap year</value>
+        <remarks>
+          <para>Gets the day-of-year field.</para>
+          <para>This method returns the primitive <c>int</c> value for the day-of-year.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/ZonedDateTime#getDayOfYear()" title="Reference documentation">Java documentation for <code>java.time.ZonedDateTime.getDayOfYear()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Format">
+      <MemberSignature Language="VB.NET" Value="Public Function Format (formatter As DateTimeFormatter) As String" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual System::String ^ Format(Java::Time::Format::DateTimeFormatter ^ formatter);" />
       <MemberSignature Language="C#" Value="public string? Format (Java.Time.Format.DateTimeFormatter? formatter);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance string Format(class Java.Time.Format.DateTimeFormatter formatter) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Format(Java.Time.Format.DateTimeFormatter)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Format (formatter As DateTimeFormatter) As String" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual System::String ^ Format(Java::Time::Format::DateTimeFormatter ^ formatter);" />
       <MemberSignature Language="F#" Value="abstract member Format : Java.Time.Format.DateTimeFormatter -&gt; string&#xA;override this.Format : Java.Time.Format.DateTimeFormatter -&gt; string" Usage="zonedDateTime.Format formatter" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -213,11 +310,11 @@
       </Docs>
     </Member>
     <Member MemberName="From">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function From (temporal As ITemporalAccessor) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ From(Java::Time::Temporal::ITemporalAccessor ^ temporal);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? From (Java.Time.Temporal.ITemporalAccessor? temporal);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime From(class Java.Time.Temporal.ITemporalAccessor temporal) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.From(Java.Time.Temporal.ITemporalAccessor)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function From (temporal As ITemporalAccessor) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ From(Java::Time::Temporal::ITemporalAccessor ^ temporal);" />
       <MemberSignature Language="F#" Value="static member From : Java.Time.Temporal.ITemporalAccessor -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.From temporal" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -248,11 +345,11 @@
       </Docs>
     </Member>
     <Member MemberName="Get">
+      <MemberSignature Language="VB.NET" Value="Public Function Get (field As ITemporalField) As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int Get(Java::Time::Temporal::ITemporalField ^ field);" />
       <MemberSignature Language="C#" Value="public int Get (Java.Time.Temporal.ITemporalField? field);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 Get(class Java.Time.Temporal.ITemporalField field) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Get(Java.Time.Temporal.ITemporalField)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Get (field As ITemporalField) As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int Get(Java::Time::Temporal::ITemporalField ^ field);" />
       <MemberSignature Language="F#" Value="abstract member Get : Java.Time.Temporal.ITemporalField -&gt; int&#xA;override this.Get : Java.Time.Temporal.ITemporalField -&gt; int" Usage="zonedDateTime.Get field" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -286,11 +383,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetLong">
+      <MemberSignature Language="VB.NET" Value="Public Function GetLong (field As ITemporalField) As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long GetLong(Java::Time::Temporal::ITemporalField ^ field);" />
       <MemberSignature Language="C#" Value="public long GetLong (Java.Time.Temporal.ITemporalField? field);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 GetLong(class Java.Time.Temporal.ITemporalField field) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.GetLong(Java.Time.Temporal.ITemporalField)" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetLong (field As ITemporalField) As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long GetLong(Java::Time::Temporal::ITemporalField ^ field);" />
       <MemberSignature Language="F#" Value="abstract member GetLong : Java.Time.Temporal.ITemporalField -&gt; int64&#xA;override this.GetLong : Java.Time.Temporal.ITemporalField -&gt; int64" Usage="zonedDateTime.GetLong field" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -324,11 +421,11 @@
       </Docs>
     </Member>
     <Member MemberName="Hour">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Hour As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int Hour { int get(); };" />
       <MemberSignature Language="C#" Value="public int Hour { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 Hour" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.Hour" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Hour As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int Hour { int get(); };" />
       <MemberSignature Language="F#" Value="member this.Hour : int" Usage="Java.Time.ZonedDateTime.Hour" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -349,17 +446,29 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>Gets the hour-of-day field.</summary>
+        <value>the hour-of-day, from 0 to 23</value>
+        <remarks>
+          <para>Gets the hour-of-day field.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/ZonedDateTime#getHour()" title="Reference documentation">Java documentation for <code>java.time.ZonedDateTime.getHour()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="IsSupported">
+      <MemberSignature Language="VB.NET" Value="Public Function IsSupported (field As ITemporalField) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool IsSupported(Java::Time::Temporal::ITemporalField ^ field);" />
       <MemberSignature Language="C#" Value="public bool IsSupported (Java.Time.Temporal.ITemporalField? field);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool IsSupported(class Java.Time.Temporal.ITemporalField field) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.IsSupported(Java.Time.Temporal.ITemporalField)" />
-      <MemberSignature Language="VB.NET" Value="Public Function IsSupported (field As ITemporalField) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool IsSupported(Java::Time::Temporal::ITemporalField ^ field);" />
       <MemberSignature Language="F#" Value="abstract member IsSupported : Java.Time.Temporal.ITemporalField -&gt; bool&#xA;override this.IsSupported : Java.Time.Temporal.ITemporalField -&gt; bool" Usage="zonedDateTime.IsSupported field" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -393,11 +502,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsSupported">
+      <MemberSignature Language="VB.NET" Value="Public Function IsSupported (unit As ITemporalUnit) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool IsSupported(Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public bool IsSupported (Java.Time.Temporal.ITemporalUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool IsSupported(class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.IsSupported(Java.Time.Temporal.ITemporalUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Function IsSupported (unit As ITemporalUnit) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool IsSupported(Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member IsSupported : Java.Time.Temporal.ITemporalUnit -&gt; bool&#xA;override this.IsSupported : Java.Time.Temporal.ITemporalUnit -&gt; bool" Usage="zonedDateTime.IsSupported unit" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -431,11 +540,11 @@
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Chrono.IChronoZonedDateTime.Plus">
+      <MemberSignature Language="VB.NET" Value="Function Plus (amountToAdd As Long, unit As ITemporalUnit) As ITemporal Implements IChronoZonedDateTime.Plus" />
+      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Temporal::ITemporal ^ Java.Time.Chrono.IChronoZonedDateTime.Plus(long amountToAdd, Java::Time::Temporal::ITemporalUnit ^ unit) = Java::Time::Chrono::IChronoZonedDateTime::Plus;" />
       <MemberSignature Language="C#" Value="Java.Time.Temporal.ITemporal? IChronoZonedDateTime.Plus (long amountToAdd, Java.Time.Temporal.ITemporalUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method hidebysig newslot virtual instance class Java.Time.Temporal.ITemporal Java.Time.Chrono.IChronoZonedDateTime.Plus(int64 amountToAdd, class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Java#Time#Chrono#IChronoZonedDateTime#Plus(System.Int64,Java.Time.Temporal.ITemporalUnit)" />
-      <MemberSignature Language="VB.NET" Value="Function Plus (amountToAdd As Long, unit As ITemporalUnit) As ITemporal Implements IChronoZonedDateTime.Plus" />
-      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Temporal::ITemporal ^ Java.Time.Chrono.IChronoZonedDateTime.Plus(long amountToAdd, Java::Time::Temporal::ITemporalUnit ^ unit) = Java::Time::Chrono::IChronoZonedDateTime::Plus;" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Chrono.IChronoZonedDateTime.Plus : int64 * Java.Time.Temporal.ITemporalUnit -&gt; Java.Time.Temporal.ITemporal&#xA;override this.Java.Time.Chrono.IChronoZonedDateTime.Plus : int64 * Java.Time.Temporal.ITemporalUnit -&gt; Java.Time.Temporal.ITemporal" Usage="zonedDateTime.Java.Time.Chrono.IChronoZonedDateTime.Plus (amountToAdd, unit)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -461,11 +570,11 @@
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Chrono.IChronoZonedDateTime.ToLocalDateTime">
+      <MemberSignature Language="VB.NET" Value="Function ToLocalDateTime () As IChronoLocalDateTime Implements IChronoZonedDateTime.ToLocalDateTime" />
+      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Chrono::IChronoLocalDateTime ^ Java.Time.Chrono.IChronoZonedDateTime.ToLocalDateTime() = Java::Time::Chrono::IChronoZonedDateTime::ToLocalDateTime;" />
       <MemberSignature Language="C#" Value="Java.Time.Chrono.IChronoLocalDateTime? IChronoZonedDateTime.ToLocalDateTime ();" />
       <MemberSignature Language="ILAsm" Value=".method hidebysig newslot virtual instance class Java.Time.Chrono.IChronoLocalDateTime Java.Time.Chrono.IChronoZonedDateTime.ToLocalDateTime() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Java#Time#Chrono#IChronoZonedDateTime#ToLocalDateTime" />
-      <MemberSignature Language="VB.NET" Value="Function ToLocalDateTime () As IChronoLocalDateTime Implements IChronoZonedDateTime.ToLocalDateTime" />
-      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Chrono::IChronoLocalDateTime ^ Java.Time.Chrono.IChronoZonedDateTime.ToLocalDateTime() = Java::Time::Chrono::IChronoZonedDateTime::ToLocalDateTime;" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Chrono.IChronoZonedDateTime.ToLocalDateTime : unit -&gt; Java.Time.Chrono.IChronoLocalDateTime&#xA;override this.Java.Time.Chrono.IChronoZonedDateTime.ToLocalDateTime : unit -&gt; Java.Time.Chrono.IChronoLocalDateTime" Usage="zonedDateTime.Java.Time.Chrono.IChronoZonedDateTime.ToLocalDateTime " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -486,11 +595,11 @@
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Chrono.IChronoZonedDateTime.With">
+      <MemberSignature Language="VB.NET" Value="Function With (field As ITemporalField, newValue As Long) As ITemporal Implements IChronoZonedDateTime.With" />
+      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Temporal::ITemporal ^ Java.Time.Chrono.IChronoZonedDateTime.With(Java::Time::Temporal::ITemporalField ^ field, long newValue) = Java::Time::Chrono::IChronoZonedDateTime::With;" />
       <MemberSignature Language="C#" Value="Java.Time.Temporal.ITemporal? IChronoZonedDateTime.With (Java.Time.Temporal.ITemporalField? field, long newValue);" />
       <MemberSignature Language="ILAsm" Value=".method hidebysig newslot virtual instance class Java.Time.Temporal.ITemporal Java.Time.Chrono.IChronoZonedDateTime.With(class Java.Time.Temporal.ITemporalField field, int64 newValue) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Java#Time#Chrono#IChronoZonedDateTime#With(Java.Time.Temporal.ITemporalField,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Function With (field As ITemporalField, newValue As Long) As ITemporal Implements IChronoZonedDateTime.With" />
-      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Temporal::ITemporal ^ Java.Time.Chrono.IChronoZonedDateTime.With(Java::Time::Temporal::ITemporalField ^ field, long newValue) = Java::Time::Chrono::IChronoZonedDateTime::With;" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Chrono.IChronoZonedDateTime.With : Java.Time.Temporal.ITemporalField * int64 -&gt; Java.Time.Temporal.ITemporal&#xA;override this.Java.Time.Chrono.IChronoZonedDateTime.With : Java.Time.Temporal.ITemporalField * int64 -&gt; Java.Time.Temporal.ITemporal" Usage="zonedDateTime.Java.Time.Chrono.IChronoZonedDateTime.With (field, newValue)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -516,11 +625,11 @@
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Chrono.IChronoZonedDateTime.WithEarlierOffsetAtOverlap">
+      <MemberSignature Language="VB.NET" Value="Function WithEarlierOffsetAtOverlap () As IChronoZonedDateTime Implements IChronoZonedDateTime.WithEarlierOffsetAtOverlap" />
+      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Chrono::IChronoZonedDateTime ^ Java.Time.Chrono.IChronoZonedDateTime.WithEarlierOffsetAtOverlap() = Java::Time::Chrono::IChronoZonedDateTime::WithEarlierOffsetAtOverlap;" />
       <MemberSignature Language="C#" Value="Java.Time.Chrono.IChronoZonedDateTime? IChronoZonedDateTime.WithEarlierOffsetAtOverlap ();" />
       <MemberSignature Language="ILAsm" Value=".method hidebysig newslot virtual instance class Java.Time.Chrono.IChronoZonedDateTime Java.Time.Chrono.IChronoZonedDateTime.WithEarlierOffsetAtOverlap() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Java#Time#Chrono#IChronoZonedDateTime#WithEarlierOffsetAtOverlap" />
-      <MemberSignature Language="VB.NET" Value="Function WithEarlierOffsetAtOverlap () As IChronoZonedDateTime Implements IChronoZonedDateTime.WithEarlierOffsetAtOverlap" />
-      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Chrono::IChronoZonedDateTime ^ Java.Time.Chrono.IChronoZonedDateTime.WithEarlierOffsetAtOverlap() = Java::Time::Chrono::IChronoZonedDateTime::WithEarlierOffsetAtOverlap;" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Chrono.IChronoZonedDateTime.WithEarlierOffsetAtOverlap : unit -&gt; Java.Time.Chrono.IChronoZonedDateTime&#xA;override this.Java.Time.Chrono.IChronoZonedDateTime.WithEarlierOffsetAtOverlap : unit -&gt; Java.Time.Chrono.IChronoZonedDateTime" Usage="zonedDateTime.Java.Time.Chrono.IChronoZonedDateTime.WithEarlierOffsetAtOverlap " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -541,11 +650,11 @@
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Chrono.IChronoZonedDateTime.WithLaterOffsetAtOverlap">
+      <MemberSignature Language="VB.NET" Value="Function WithLaterOffsetAtOverlap () As IChronoZonedDateTime Implements IChronoZonedDateTime.WithLaterOffsetAtOverlap" />
+      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Chrono::IChronoZonedDateTime ^ Java.Time.Chrono.IChronoZonedDateTime.WithLaterOffsetAtOverlap() = Java::Time::Chrono::IChronoZonedDateTime::WithLaterOffsetAtOverlap;" />
       <MemberSignature Language="C#" Value="Java.Time.Chrono.IChronoZonedDateTime? IChronoZonedDateTime.WithLaterOffsetAtOverlap ();" />
       <MemberSignature Language="ILAsm" Value=".method hidebysig newslot virtual instance class Java.Time.Chrono.IChronoZonedDateTime Java.Time.Chrono.IChronoZonedDateTime.WithLaterOffsetAtOverlap() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Java#Time#Chrono#IChronoZonedDateTime#WithLaterOffsetAtOverlap" />
-      <MemberSignature Language="VB.NET" Value="Function WithLaterOffsetAtOverlap () As IChronoZonedDateTime Implements IChronoZonedDateTime.WithLaterOffsetAtOverlap" />
-      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Chrono::IChronoZonedDateTime ^ Java.Time.Chrono.IChronoZonedDateTime.WithLaterOffsetAtOverlap() = Java::Time::Chrono::IChronoZonedDateTime::WithLaterOffsetAtOverlap;" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Chrono.IChronoZonedDateTime.WithLaterOffsetAtOverlap : unit -&gt; Java.Time.Chrono.IChronoZonedDateTime&#xA;override this.Java.Time.Chrono.IChronoZonedDateTime.WithLaterOffsetAtOverlap : unit -&gt; Java.Time.Chrono.IChronoZonedDateTime" Usage="zonedDateTime.Java.Time.Chrono.IChronoZonedDateTime.WithLaterOffsetAtOverlap " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -566,11 +675,11 @@
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameInstant">
+      <MemberSignature Language="VB.NET" Value="Function WithZoneSameInstant (zone As ZoneId) As IChronoZonedDateTime Implements IChronoZonedDateTime.WithZoneSameInstant" />
+      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Chrono::IChronoZonedDateTime ^ Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameInstant(Java::Time::ZoneId ^ zone) = Java::Time::Chrono::IChronoZonedDateTime::WithZoneSameInstant;" />
       <MemberSignature Language="C#" Value="Java.Time.Chrono.IChronoZonedDateTime? IChronoZonedDateTime.WithZoneSameInstant (Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method hidebysig newslot virtual instance class Java.Time.Chrono.IChronoZonedDateTime Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameInstant(class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Java#Time#Chrono#IChronoZonedDateTime#WithZoneSameInstant(Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Function WithZoneSameInstant (zone As ZoneId) As IChronoZonedDateTime Implements IChronoZonedDateTime.WithZoneSameInstant" />
-      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Chrono::IChronoZonedDateTime ^ Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameInstant(Java::Time::ZoneId ^ zone) = Java::Time::Chrono::IChronoZonedDateTime::WithZoneSameInstant;" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameInstant : Java.Time.ZoneId -&gt; Java.Time.Chrono.IChronoZonedDateTime&#xA;override this.Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameInstant : Java.Time.ZoneId -&gt; Java.Time.Chrono.IChronoZonedDateTime" Usage="zonedDateTime.Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameInstant zone" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -594,11 +703,11 @@
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameLocal">
+      <MemberSignature Language="VB.NET" Value="Function WithZoneSameLocal (zone As ZoneId) As IChronoZonedDateTime Implements IChronoZonedDateTime.WithZoneSameLocal" />
+      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Chrono::IChronoZonedDateTime ^ Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameLocal(Java::Time::ZoneId ^ zone) = Java::Time::Chrono::IChronoZonedDateTime::WithZoneSameLocal;" />
       <MemberSignature Language="C#" Value="Java.Time.Chrono.IChronoZonedDateTime? IChronoZonedDateTime.WithZoneSameLocal (Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method hidebysig newslot virtual instance class Java.Time.Chrono.IChronoZonedDateTime Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameLocal(class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Java#Time#Chrono#IChronoZonedDateTime#WithZoneSameLocal(Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Function WithZoneSameLocal (zone As ZoneId) As IChronoZonedDateTime Implements IChronoZonedDateTime.WithZoneSameLocal" />
-      <MemberSignature Language="C++ CLI" Value=" virtual Java::Time::Chrono::IChronoZonedDateTime ^ Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameLocal(Java::Time::ZoneId ^ zone) = Java::Time::Chrono::IChronoZonedDateTime::WithZoneSameLocal;" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameLocal : Java.Time.ZoneId -&gt; Java.Time.Chrono.IChronoZonedDateTime&#xA;override this.Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameLocal : Java.Time.ZoneId -&gt; Java.Time.Chrono.IChronoZonedDateTime" Usage="zonedDateTime.Java.Time.Chrono.IChronoZonedDateTime.WithZoneSameLocal zone" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -622,11 +731,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Java.Time.ZonedDateTime.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -645,6 +754,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -656,11 +773,11 @@
       </Docs>
     </Member>
     <Member MemberName="Minus">
+      <MemberSignature Language="VB.NET" Value="Public Function Minus (amountToSubtract As ITemporalAmount) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ Minus(Java::Time::Temporal::ITemporalAmount ^ amountToSubtract);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? Minus (Java.Time.Temporal.ITemporalAmount? amountToSubtract);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime Minus(class Java.Time.Temporal.ITemporalAmount amountToSubtract) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Minus(Java.Time.Temporal.ITemporalAmount)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Minus (amountToSubtract As ITemporalAmount) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ Minus(Java::Time::Temporal::ITemporalAmount ^ amountToSubtract);" />
       <MemberSignature Language="F#" Value="member this.Minus : Java.Time.Temporal.ITemporalAmount -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.Minus amountToSubtract" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -691,11 +808,11 @@
       </Docs>
     </Member>
     <Member MemberName="Minus">
+      <MemberSignature Language="VB.NET" Value="Public Function Minus (amountToSubtract As Long, unit As ITemporalUnit) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ Minus(long amountToSubtract, Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? Minus (long amountToSubtract, Java.Time.Temporal.ITemporalUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime Minus(int64 amountToSubtract, class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Minus(System.Int64,Java.Time.Temporal.ITemporalUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Minus (amountToSubtract As Long, unit As ITemporalUnit) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ Minus(long amountToSubtract, Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="F#" Value="member this.Minus : int64 * Java.Time.Temporal.ITemporalUnit -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.Minus (amountToSubtract, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -728,11 +845,11 @@
       </Docs>
     </Member>
     <Member MemberName="MinusDays">
+      <MemberSignature Language="VB.NET" Value="Public Function MinusDays (days As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusDays(long days);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? MinusDays (long days);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime MinusDays(int64 days) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.MinusDays(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function MinusDays (days As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusDays(long days);" />
       <MemberSignature Language="F#" Value="member this.MinusDays : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.MinusDays days" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -763,11 +880,11 @@
       </Docs>
     </Member>
     <Member MemberName="MinusHours">
+      <MemberSignature Language="VB.NET" Value="Public Function MinusHours (hours As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusHours(long hours);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? MinusHours (long hours);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime MinusHours(int64 hours) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.MinusHours(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function MinusHours (hours As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusHours(long hours);" />
       <MemberSignature Language="F#" Value="member this.MinusHours : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.MinusHours hours" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -798,11 +915,11 @@
       </Docs>
     </Member>
     <Member MemberName="MinusMinutes">
+      <MemberSignature Language="VB.NET" Value="Public Function MinusMinutes (minutes As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusMinutes(long minutes);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? MinusMinutes (long minutes);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime MinusMinutes(int64 minutes) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.MinusMinutes(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function MinusMinutes (minutes As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusMinutes(long minutes);" />
       <MemberSignature Language="F#" Value="member this.MinusMinutes : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.MinusMinutes minutes" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -833,11 +950,11 @@
       </Docs>
     </Member>
     <Member MemberName="MinusMonths">
+      <MemberSignature Language="VB.NET" Value="Public Function MinusMonths (months As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusMonths(long months);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? MinusMonths (long months);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime MinusMonths(int64 months) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.MinusMonths(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function MinusMonths (months As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusMonths(long months);" />
       <MemberSignature Language="F#" Value="member this.MinusMonths : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.MinusMonths months" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -868,11 +985,11 @@
       </Docs>
     </Member>
     <Member MemberName="MinusNanos">
+      <MemberSignature Language="VB.NET" Value="Public Function MinusNanos (nanos As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusNanos(long nanos);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? MinusNanos (long nanos);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime MinusNanos(int64 nanos) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.MinusNanos(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function MinusNanos (nanos As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusNanos(long nanos);" />
       <MemberSignature Language="F#" Value="member this.MinusNanos : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.MinusNanos nanos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -903,11 +1020,11 @@
       </Docs>
     </Member>
     <Member MemberName="MinusSeconds">
+      <MemberSignature Language="VB.NET" Value="Public Function MinusSeconds (seconds As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusSeconds(long seconds);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? MinusSeconds (long seconds);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime MinusSeconds(int64 seconds) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.MinusSeconds(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function MinusSeconds (seconds As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusSeconds(long seconds);" />
       <MemberSignature Language="F#" Value="member this.MinusSeconds : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.MinusSeconds seconds" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -938,11 +1055,11 @@
       </Docs>
     </Member>
     <Member MemberName="MinusWeeks">
+      <MemberSignature Language="VB.NET" Value="Public Function MinusWeeks (weeks As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusWeeks(long weeks);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? MinusWeeks (long weeks);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime MinusWeeks(int64 weeks) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.MinusWeeks(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function MinusWeeks (weeks As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusWeeks(long weeks);" />
       <MemberSignature Language="F#" Value="member this.MinusWeeks : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.MinusWeeks weeks" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -973,11 +1090,11 @@
       </Docs>
     </Member>
     <Member MemberName="MinusYears">
+      <MemberSignature Language="VB.NET" Value="Public Function MinusYears (years As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusYears(long years);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? MinusYears (long years);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime MinusYears(int64 years) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.MinusYears(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function MinusYears (years As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ MinusYears(long years);" />
       <MemberSignature Language="F#" Value="member this.MinusYears : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.MinusYears years" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1008,11 +1125,11 @@
       </Docs>
     </Member>
     <Member MemberName="Minute">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Minute As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int Minute { int get(); };" />
       <MemberSignature Language="C#" Value="public int Minute { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 Minute" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.Minute" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Minute As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int Minute { int get(); };" />
       <MemberSignature Language="F#" Value="member this.Minute : int" Usage="Java.Time.ZonedDateTime.Minute" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1033,17 +1150,29 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>Gets the minute-of-hour field.</summary>
+        <value>the minute-of-hour, from 0 to 59</value>
+        <remarks>
+          <para>Gets the minute-of-hour field.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/ZonedDateTime#getMinute()" title="Reference documentation">Java documentation for <code>java.time.ZonedDateTime.getMinute()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Month">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Month As Month" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Time::Month ^ Month { Java::Time::Month ^ get(); };" />
       <MemberSignature Language="C#" Value="public Java.Time.Month? Month { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Time.Month Month" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.Month" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Month As Month" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Time::Month ^ Month { Java::Time::Month ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.Month : Java.Time.Month" Usage="Java.Time.ZonedDateTime.Month" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1070,11 +1199,11 @@
       </Docs>
     </Member>
     <Member MemberName="MonthValue">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property MonthValue As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int MonthValue { int get(); };" />
       <MemberSignature Language="C#" Value="public int MonthValue { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 MonthValue" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.MonthValue" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property MonthValue As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int MonthValue { int get(); };" />
       <MemberSignature Language="F#" Value="member this.MonthValue : int" Usage="Java.Time.ZonedDateTime.MonthValue" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1095,17 +1224,32 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>Gets the month-of-year field from 1 to 12.</summary>
+        <value>the month-of-year, from 1 to 12</value>
+        <remarks>
+          <para>Gets the month-of-year field from 1 to 12.</para>
+          <para>This method returns the month as an <c>int</c> from 1 to 12.
+            Application code is frequently clearer if the enum <c>Month</c>
+            is used by calling <c>#getMonth()</c>.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/ZonedDateTime#getMonthValue()" title="Reference documentation">Java documentation for <code>java.time.ZonedDateTime.getMonthValue()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Nano">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Nano As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int Nano { int get(); };" />
       <MemberSignature Language="C#" Value="public int Nano { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 Nano" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.Nano" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Nano As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int Nano { int get(); };" />
       <MemberSignature Language="F#" Value="member this.Nano : int" Usage="Java.Time.ZonedDateTime.Nano" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1126,17 +1270,29 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>Gets the nano-of-second field.</summary>
+        <value>the nano-of-second, from 0 to 999,999,999</value>
+        <remarks>
+          <para>Gets the nano-of-second field.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/ZonedDateTime#getNano()" title="Reference documentation">Java documentation for <code>java.time.ZonedDateTime.getNano()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Now">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Now () As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Now();" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? Now ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime Now() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Now" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Now () As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Now();" />
       <MemberSignature Language="F#" Value="static member Now : unit -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.Now " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1164,11 +1320,11 @@
       </Docs>
     </Member>
     <Member MemberName="Now">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Now (clock As Clock) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Now(Java::Time::Clock ^ clock);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? Now (Java.Time.Clock? clock);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime Now(class Java.Time.Clock clock) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Now(Java.Time.Clock)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Now (clock As Clock) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Now(Java::Time::Clock ^ clock);" />
       <MemberSignature Language="F#" Value="static member Now : Java.Time.Clock -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.Now clock" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1199,11 +1355,11 @@
       </Docs>
     </Member>
     <Member MemberName="Now">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Now (zone As ZoneId) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Now(Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? Now (Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime Now(class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Now(Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Now (zone As ZoneId) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Now(Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="F#" Value="static member Now : Java.Time.ZoneId -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.Now zone" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1234,11 +1390,11 @@
       </Docs>
     </Member>
     <Member MemberName="Of">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Of (localDateTime As LocalDateTime, zone As ZoneId) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Of(Java::Time::LocalDateTime ^ localDateTime, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? Of (Java.Time.LocalDateTime? localDateTime, Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime Of(class Java.Time.LocalDateTime localDateTime, class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Of(Java.Time.LocalDateTime,Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Of (localDateTime As LocalDateTime, zone As ZoneId) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Of(Java::Time::LocalDateTime ^ localDateTime, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="F#" Value="static member Of : Java.Time.LocalDateTime * Java.Time.ZoneId -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.Of (localDateTime, zone)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1271,11 +1427,11 @@
       </Docs>
     </Member>
     <Member MemberName="Of">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Of (date As LocalDate, time As LocalTime, zone As ZoneId) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Of(Java::Time::LocalDate ^ date, Java::Time::LocalTime ^ time, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? Of (Java.Time.LocalDate? date, Java.Time.LocalTime? time, Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime Of(class Java.Time.LocalDate date, class Java.Time.LocalTime time, class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Of(Java.Time.LocalDate,Java.Time.LocalTime,Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Of (date As LocalDate, time As LocalTime, zone As ZoneId) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Of(Java::Time::LocalDate ^ date, Java::Time::LocalTime ^ time, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="F#" Value="static member Of : Java.Time.LocalDate * Java.Time.LocalTime * Java.Time.ZoneId -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.Of (date, time, zone)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1310,11 +1466,11 @@
       </Docs>
     </Member>
     <Member MemberName="Of">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Of (year As Integer, month As Integer, dayOfMonth As Integer, hour As Integer, minute As Integer, second As Integer, nanoOfSecond As Integer, zone As ZoneId) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Of(int year, int month, int dayOfMonth, int hour, int minute, int second, int nanoOfSecond, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? Of (int year, int month, int dayOfMonth, int hour, int minute, int second, int nanoOfSecond, Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime Of(int32 year, int32 month, int32 dayOfMonth, int32 hour, int32 minute, int32 second, int32 nanoOfSecond, class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Of(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Of (year As Integer, month As Integer, dayOfMonth As Integer, hour As Integer, minute As Integer, second As Integer, nanoOfSecond As Integer, zone As ZoneId) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Of(int year, int month, int dayOfMonth, int hour, int minute, int second, int nanoOfSecond, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="F#" Value="static member Of : int * int * int * int * int * int * int * Java.Time.ZoneId -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.Of (year, month, dayOfMonth, hour, minute, second, nanoOfSecond, zone)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1359,11 +1515,11 @@
       </Docs>
     </Member>
     <Member MemberName="Offset">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Offset As ZoneOffset" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Time::ZoneOffset ^ Offset { Java::Time::ZoneOffset ^ get(); };" />
       <MemberSignature Language="C#" Value="public Java.Time.ZoneOffset? Offset { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Time.ZoneOffset Offset" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.Offset" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Offset As ZoneOffset" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Time::ZoneOffset ^ Offset { Java::Time::ZoneOffset ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.Offset : Java.Time.ZoneOffset" Usage="Java.Time.ZonedDateTime.Offset" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -1393,11 +1549,11 @@
       </Docs>
     </Member>
     <Member MemberName="OfInstant">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function OfInstant (instant As Instant, zone As ZoneId) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ OfInstant(Java::Time::Instant ^ instant, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? OfInstant (Java.Time.Instant? instant, Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime OfInstant(class Java.Time.Instant instant, class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.OfInstant(Java.Time.Instant,Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function OfInstant (instant As Instant, zone As ZoneId) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ OfInstant(Java::Time::Instant ^ instant, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="F#" Value="static member OfInstant : Java.Time.Instant * Java.Time.ZoneId -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.OfInstant (instant, zone)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1430,11 +1586,11 @@
       </Docs>
     </Member>
     <Member MemberName="OfInstant">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function OfInstant (localDateTime As LocalDateTime, offset As ZoneOffset, zone As ZoneId) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ OfInstant(Java::Time::LocalDateTime ^ localDateTime, Java::Time::ZoneOffset ^ offset, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? OfInstant (Java.Time.LocalDateTime? localDateTime, Java.Time.ZoneOffset? offset, Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime OfInstant(class Java.Time.LocalDateTime localDateTime, class Java.Time.ZoneOffset offset, class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.OfInstant(Java.Time.LocalDateTime,Java.Time.ZoneOffset,Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function OfInstant (localDateTime As LocalDateTime, offset As ZoneOffset, zone As ZoneId) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ OfInstant(Java::Time::LocalDateTime ^ localDateTime, Java::Time::ZoneOffset ^ offset, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="F#" Value="static member OfInstant : Java.Time.LocalDateTime * Java.Time.ZoneOffset * Java.Time.ZoneId -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.OfInstant (localDateTime, offset, zone)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1469,11 +1625,11 @@
       </Docs>
     </Member>
     <Member MemberName="OfLocal">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function OfLocal (localDateTime As LocalDateTime, zone As ZoneId, preferredOffset As ZoneOffset) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ OfLocal(Java::Time::LocalDateTime ^ localDateTime, Java::Time::ZoneId ^ zone, Java::Time::ZoneOffset ^ preferredOffset);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? OfLocal (Java.Time.LocalDateTime? localDateTime, Java.Time.ZoneId? zone, Java.Time.ZoneOffset? preferredOffset);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime OfLocal(class Java.Time.LocalDateTime localDateTime, class Java.Time.ZoneId zone, class Java.Time.ZoneOffset preferredOffset) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.OfLocal(Java.Time.LocalDateTime,Java.Time.ZoneId,Java.Time.ZoneOffset)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function OfLocal (localDateTime As LocalDateTime, zone As ZoneId, preferredOffset As ZoneOffset) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ OfLocal(Java::Time::LocalDateTime ^ localDateTime, Java::Time::ZoneId ^ zone, Java::Time::ZoneOffset ^ preferredOffset);" />
       <MemberSignature Language="F#" Value="static member OfLocal : Java.Time.LocalDateTime * Java.Time.ZoneId * Java.Time.ZoneOffset -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.OfLocal (localDateTime, zone, preferredOffset)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1508,11 +1664,11 @@
       </Docs>
     </Member>
     <Member MemberName="OfStrict">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function OfStrict (localDateTime As LocalDateTime, offset As ZoneOffset, zone As ZoneId) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ OfStrict(Java::Time::LocalDateTime ^ localDateTime, Java::Time::ZoneOffset ^ offset, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? OfStrict (Java.Time.LocalDateTime? localDateTime, Java.Time.ZoneOffset? offset, Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime OfStrict(class Java.Time.LocalDateTime localDateTime, class Java.Time.ZoneOffset offset, class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.OfStrict(Java.Time.LocalDateTime,Java.Time.ZoneOffset,Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function OfStrict (localDateTime As LocalDateTime, offset As ZoneOffset, zone As ZoneId) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ OfStrict(Java::Time::LocalDateTime ^ localDateTime, Java::Time::ZoneOffset ^ offset, Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="F#" Value="static member OfStrict : Java.Time.LocalDateTime * Java.Time.ZoneOffset * Java.Time.ZoneId -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.OfStrict (localDateTime, offset, zone)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1547,11 +1703,11 @@
       </Docs>
     </Member>
     <Member MemberName="Parse">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Parse (text As ICharSequence) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Parse(Java::Lang::ICharSequence ^ text);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? Parse (Java.Lang.ICharSequence? text);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime Parse(class Java.Lang.ICharSequence text) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Parse(Java.Lang.ICharSequence)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Parse (text As ICharSequence) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Parse(Java::Lang::ICharSequence ^ text);" />
       <MemberSignature Language="F#" Value="static member Parse : Java.Lang.ICharSequence -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.Parse text" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1582,11 +1738,11 @@
       </Docs>
     </Member>
     <Member MemberName="Parse">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Parse (text As String) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Parse(System::String ^ text);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? Parse (string? text);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime Parse(string text) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Parse(System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Parse (text As String) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Parse(System::String ^ text);" />
       <MemberSignature Language="F#" Value="static member Parse : string -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.Parse text" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1613,11 +1769,11 @@
       </Docs>
     </Member>
     <Member MemberName="Parse">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Parse (text As ICharSequence, formatter As DateTimeFormatter) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Parse(Java::Lang::ICharSequence ^ text, Java::Time::Format::DateTimeFormatter ^ formatter);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? Parse (Java.Lang.ICharSequence? text, Java.Time.Format.DateTimeFormatter? formatter);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime Parse(class Java.Lang.ICharSequence text, class Java.Time.Format.DateTimeFormatter formatter) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Parse(Java.Lang.ICharSequence,Java.Time.Format.DateTimeFormatter)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Parse (text As ICharSequence, formatter As DateTimeFormatter) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Parse(Java::Lang::ICharSequence ^ text, Java::Time::Format::DateTimeFormatter ^ formatter);" />
       <MemberSignature Language="F#" Value="static member Parse : Java.Lang.ICharSequence * Java.Time.Format.DateTimeFormatter -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.Parse (text, formatter)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1650,11 +1806,11 @@
       </Docs>
     </Member>
     <Member MemberName="Parse">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Parse (text As String, formatter As DateTimeFormatter) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Parse(System::String ^ text, Java::Time::Format::DateTimeFormatter ^ formatter);" />
       <MemberSignature Language="C#" Value="public static Java.Time.ZonedDateTime? Parse (string? text, Java.Time.Format.DateTimeFormatter? formatter);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.ZonedDateTime Parse(string text, class Java.Time.Format.DateTimeFormatter formatter) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Parse(System.String,Java.Time.Format.DateTimeFormatter)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Parse (text As String, formatter As DateTimeFormatter) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::ZonedDateTime ^ Parse(System::String ^ text, Java::Time::Format::DateTimeFormatter ^ formatter);" />
       <MemberSignature Language="F#" Value="static member Parse : string * Java.Time.Format.DateTimeFormatter -&gt; Java.Time.ZonedDateTime" Usage="Java.Time.ZonedDateTime.Parse (text, formatter)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1683,11 +1839,11 @@
       </Docs>
     </Member>
     <Member MemberName="Plus">
+      <MemberSignature Language="VB.NET" Value="Public Function Plus (amountToAdd As ITemporalAmount) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ Plus(Java::Time::Temporal::ITemporalAmount ^ amountToAdd);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? Plus (Java.Time.Temporal.ITemporalAmount? amountToAdd);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime Plus(class Java.Time.Temporal.ITemporalAmount amountToAdd) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Plus(Java.Time.Temporal.ITemporalAmount)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Plus (amountToAdd As ITemporalAmount) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ Plus(Java::Time::Temporal::ITemporalAmount ^ amountToAdd);" />
       <MemberSignature Language="F#" Value="member this.Plus : Java.Time.Temporal.ITemporalAmount -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.Plus amountToAdd" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1718,11 +1874,11 @@
       </Docs>
     </Member>
     <Member MemberName="Plus">
+      <MemberSignature Language="VB.NET" Value="Public Function Plus (amountToAdd As Long, unit As ITemporalUnit) As ITemporal" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Time::Temporal::ITemporal ^ Plus(long amountToAdd, Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public Java.Time.Temporal.ITemporal? Plus (long amountToAdd, Java.Time.Temporal.ITemporalUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Time.Temporal.ITemporal Plus(int64 amountToAdd, class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Plus(System.Int64,Java.Time.Temporal.ITemporalUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Plus (amountToAdd As Long, unit As ITemporalUnit) As ITemporal" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Time::Temporal::ITemporal ^ Plus(long amountToAdd, Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member Plus : int64 * Java.Time.Temporal.ITemporalUnit -&gt; Java.Time.Temporal.ITemporal&#xA;override this.Plus : int64 * Java.Time.Temporal.ITemporalUnit -&gt; Java.Time.Temporal.ITemporal" Usage="zonedDateTime.Plus (amountToAdd, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1755,11 +1911,11 @@
       </Docs>
     </Member>
     <Member MemberName="PlusDays">
+      <MemberSignature Language="VB.NET" Value="Public Function PlusDays (days As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusDays(long days);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? PlusDays (long days);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime PlusDays(int64 days) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.PlusDays(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function PlusDays (days As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusDays(long days);" />
       <MemberSignature Language="F#" Value="member this.PlusDays : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.PlusDays days" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1790,11 +1946,11 @@
       </Docs>
     </Member>
     <Member MemberName="PlusHours">
+      <MemberSignature Language="VB.NET" Value="Public Function PlusHours (hours As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusHours(long hours);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? PlusHours (long hours);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime PlusHours(int64 hours) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.PlusHours(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function PlusHours (hours As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusHours(long hours);" />
       <MemberSignature Language="F#" Value="member this.PlusHours : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.PlusHours hours" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1825,11 +1981,11 @@
       </Docs>
     </Member>
     <Member MemberName="PlusMinutes">
+      <MemberSignature Language="VB.NET" Value="Public Function PlusMinutes (minutes As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusMinutes(long minutes);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? PlusMinutes (long minutes);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime PlusMinutes(int64 minutes) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.PlusMinutes(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function PlusMinutes (minutes As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusMinutes(long minutes);" />
       <MemberSignature Language="F#" Value="member this.PlusMinutes : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.PlusMinutes minutes" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1860,11 +2016,11 @@
       </Docs>
     </Member>
     <Member MemberName="PlusMonths">
+      <MemberSignature Language="VB.NET" Value="Public Function PlusMonths (months As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusMonths(long months);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? PlusMonths (long months);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime PlusMonths(int64 months) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.PlusMonths(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function PlusMonths (months As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusMonths(long months);" />
       <MemberSignature Language="F#" Value="member this.PlusMonths : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.PlusMonths months" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1895,11 +2051,11 @@
       </Docs>
     </Member>
     <Member MemberName="PlusNanos">
+      <MemberSignature Language="VB.NET" Value="Public Function PlusNanos (nanos As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusNanos(long nanos);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? PlusNanos (long nanos);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime PlusNanos(int64 nanos) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.PlusNanos(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function PlusNanos (nanos As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusNanos(long nanos);" />
       <MemberSignature Language="F#" Value="member this.PlusNanos : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.PlusNanos nanos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1930,11 +2086,11 @@
       </Docs>
     </Member>
     <Member MemberName="PlusSeconds">
+      <MemberSignature Language="VB.NET" Value="Public Function PlusSeconds (seconds As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusSeconds(long seconds);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? PlusSeconds (long seconds);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime PlusSeconds(int64 seconds) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.PlusSeconds(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function PlusSeconds (seconds As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusSeconds(long seconds);" />
       <MemberSignature Language="F#" Value="member this.PlusSeconds : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.PlusSeconds seconds" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1965,11 +2121,11 @@
       </Docs>
     </Member>
     <Member MemberName="PlusWeeks">
+      <MemberSignature Language="VB.NET" Value="Public Function PlusWeeks (weeks As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusWeeks(long weeks);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? PlusWeeks (long weeks);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime PlusWeeks(int64 weeks) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.PlusWeeks(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function PlusWeeks (weeks As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusWeeks(long weeks);" />
       <MemberSignature Language="F#" Value="member this.PlusWeeks : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.PlusWeeks weeks" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2000,11 +2156,11 @@
       </Docs>
     </Member>
     <Member MemberName="PlusYears">
+      <MemberSignature Language="VB.NET" Value="Public Function PlusYears (years As Long) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusYears(long years);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? PlusYears (long years);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime PlusYears(int64 years) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.PlusYears(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function PlusYears (years As Long) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ PlusYears(long years);" />
       <MemberSignature Language="F#" Value="member this.PlusYears : int64 -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.PlusYears years" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2035,11 +2191,11 @@
       </Docs>
     </Member>
     <Member MemberName="Query">
+      <MemberSignature Language="VB.NET" Value="Public Function Query (query As ITemporalQuery) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Lang::Object ^ Query(Java::Time::Temporal::ITemporalQuery ^ query);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? Query (Java.Time.Temporal.ITemporalQuery? query);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Lang.Object Query(class Java.Time.Temporal.ITemporalQuery query) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Query(Java.Time.Temporal.ITemporalQuery)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Query (query As ITemporalQuery) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Lang::Object ^ Query(Java::Time::Temporal::ITemporalQuery ^ query);" />
       <MemberSignature Language="F#" Value="abstract member Query : Java.Time.Temporal.ITemporalQuery -&gt; Java.Lang.Object&#xA;override this.Query : Java.Time.Temporal.ITemporalQuery -&gt; Java.Lang.Object" Usage="zonedDateTime.Query query" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -2077,11 +2233,11 @@
       </Docs>
     </Member>
     <Member MemberName="Range">
+      <MemberSignature Language="VB.NET" Value="Public Function Range (field As ITemporalField) As ValueRange" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Time::Temporal::ValueRange ^ Range(Java::Time::Temporal::ITemporalField ^ field);" />
       <MemberSignature Language="C#" Value="public Java.Time.Temporal.ValueRange? Range (Java.Time.Temporal.ITemporalField? field);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Time.Temporal.ValueRange Range(class Java.Time.Temporal.ITemporalField field) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Range(Java.Time.Temporal.ITemporalField)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Range (field As ITemporalField) As ValueRange" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Time::Temporal::ValueRange ^ Range(Java::Time::Temporal::ITemporalField ^ field);" />
       <MemberSignature Language="F#" Value="abstract member Range : Java.Time.Temporal.ITemporalField -&gt; Java.Time.Temporal.ValueRange&#xA;override this.Range : Java.Time.Temporal.ITemporalField -&gt; Java.Time.Temporal.ValueRange" Usage="zonedDateTime.Range field" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -2115,11 +2271,11 @@
       </Docs>
     </Member>
     <Member MemberName="Second">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Second As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int Second { int get(); };" />
       <MemberSignature Language="C#" Value="public int Second { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 Second" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.Second" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Second As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int Second { int get(); };" />
       <MemberSignature Language="F#" Value="member this.Second : int" Usage="Java.Time.ZonedDateTime.Second" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2140,17 +2296,29 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>Gets the second-of-minute field.</summary>
+        <value>the second-of-minute, from 0 to 59</value>
+        <remarks>
+          <para>Gets the second-of-minute field.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/ZonedDateTime#getSecond()" title="Reference documentation">Java documentation for <code>java.time.ZonedDateTime.getSecond()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Time.ZonedDateTime.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2177,11 +2345,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Time.ZonedDateTime.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2197,6 +2365,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Type</ReturnType>
@@ -2208,11 +2384,11 @@
       </Docs>
     </Member>
     <Member MemberName="ToLocalDate">
+      <MemberSignature Language="VB.NET" Value="Public Function ToLocalDate () As LocalDate" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::LocalDate ^ ToLocalDate();" />
       <MemberSignature Language="C#" Value="public Java.Time.LocalDate? ToLocalDate ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.LocalDate ToLocalDate() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.ToLocalDate" />
-      <MemberSignature Language="VB.NET" Value="Public Function ToLocalDate () As LocalDate" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::LocalDate ^ ToLocalDate();" />
       <MemberSignature Language="F#" Value="member this.ToLocalDate : unit -&gt; Java.Time.LocalDate" Usage="zonedDateTime.ToLocalDate " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2240,11 +2416,11 @@
       </Docs>
     </Member>
     <Member MemberName="ToLocalDateTime">
+      <MemberSignature Language="VB.NET" Value="Public Function ToLocalDateTime () As LocalDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::LocalDateTime ^ ToLocalDateTime();" />
       <MemberSignature Language="C#" Value="public Java.Time.LocalDateTime? ToLocalDateTime ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.LocalDateTime ToLocalDateTime() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.ToLocalDateTime" />
-      <MemberSignature Language="VB.NET" Value="Public Function ToLocalDateTime () As LocalDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::LocalDateTime ^ ToLocalDateTime();" />
       <MemberSignature Language="F#" Value="member this.ToLocalDateTime : unit -&gt; Java.Time.LocalDateTime" Usage="zonedDateTime.ToLocalDateTime " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2272,11 +2448,11 @@
       </Docs>
     </Member>
     <Member MemberName="ToLocalTime">
+      <MemberSignature Language="VB.NET" Value="Public Function ToLocalTime () As LocalTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Time::LocalTime ^ ToLocalTime();" />
       <MemberSignature Language="C#" Value="public Java.Time.LocalTime? ToLocalTime ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Time.LocalTime ToLocalTime() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.ToLocalTime" />
-      <MemberSignature Language="VB.NET" Value="Public Function ToLocalTime () As LocalTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Time::LocalTime ^ ToLocalTime();" />
       <MemberSignature Language="F#" Value="abstract member ToLocalTime : unit -&gt; Java.Time.LocalTime&#xA;override this.ToLocalTime : unit -&gt; Java.Time.LocalTime" Usage="zonedDateTime.ToLocalTime " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -2307,11 +2483,11 @@
       </Docs>
     </Member>
     <Member MemberName="ToOffsetDateTime">
+      <MemberSignature Language="VB.NET" Value="Public Function ToOffsetDateTime () As OffsetDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::OffsetDateTime ^ ToOffsetDateTime();" />
       <MemberSignature Language="C#" Value="public Java.Time.OffsetDateTime? ToOffsetDateTime ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.OffsetDateTime ToOffsetDateTime() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.ToOffsetDateTime" />
-      <MemberSignature Language="VB.NET" Value="Public Function ToOffsetDateTime () As OffsetDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::OffsetDateTime ^ ToOffsetDateTime();" />
       <MemberSignature Language="F#" Value="member this.ToOffsetDateTime : unit -&gt; Java.Time.OffsetDateTime" Usage="zonedDateTime.ToOffsetDateTime " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2339,11 +2515,11 @@
       </Docs>
     </Member>
     <Member MemberName="TruncatedTo">
+      <MemberSignature Language="VB.NET" Value="Public Function TruncatedTo (unit As ITemporalUnit) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ TruncatedTo(Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? TruncatedTo (Java.Time.Temporal.ITemporalUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime TruncatedTo(class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.TruncatedTo(Java.Time.Temporal.ITemporalUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Function TruncatedTo (unit As ITemporalUnit) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ TruncatedTo(Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="F#" Value="member this.TruncatedTo : Java.Time.Temporal.ITemporalUnit -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.TruncatedTo unit" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2374,11 +2550,11 @@
       </Docs>
     </Member>
     <Member MemberName="Until">
+      <MemberSignature Language="VB.NET" Value="Public Function Until (endExclusive As ITemporal, unit As ITemporalUnit) As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long Until(Java::Time::Temporal::ITemporal ^ endExclusive, Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public long Until (Java.Time.Temporal.ITemporal? endExclusive, Java.Time.Temporal.ITemporalUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 Until(class Java.Time.Temporal.ITemporal endExclusive, class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.Until(Java.Time.Temporal.ITemporal,Java.Time.Temporal.ITemporalUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Until (endExclusive As ITemporal, unit As ITemporalUnit) As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long Until(Java::Time::Temporal::ITemporal ^ endExclusive, Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member Until : Java.Time.Temporal.ITemporal * Java.Time.Temporal.ITemporalUnit -&gt; int64&#xA;override this.Until : Java.Time.Temporal.ITemporal * Java.Time.Temporal.ITemporalUnit -&gt; int64" Usage="zonedDateTime.Until (endExclusive, unit)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -2414,11 +2590,11 @@
       </Docs>
     </Member>
     <Member MemberName="With">
+      <MemberSignature Language="VB.NET" Value="Public Function With (adjuster As ITemporalAdjuster) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ With(Java::Time::Temporal::ITemporalAdjuster ^ adjuster);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? With (Java.Time.Temporal.ITemporalAdjuster? adjuster);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime With(class Java.Time.Temporal.ITemporalAdjuster adjuster) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.With(Java.Time.Temporal.ITemporalAdjuster)" />
-      <MemberSignature Language="VB.NET" Value="Public Function With (adjuster As ITemporalAdjuster) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ With(Java::Time::Temporal::ITemporalAdjuster ^ adjuster);" />
       <MemberSignature Language="F#" Value="member this.With : Java.Time.Temporal.ITemporalAdjuster -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.With adjuster" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2449,11 +2625,11 @@
       </Docs>
     </Member>
     <Member MemberName="With">
+      <MemberSignature Language="VB.NET" Value="Public Function With (field As ITemporalField, newValue As Long) As ITemporal" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Time::Temporal::ITemporal ^ With(Java::Time::Temporal::ITemporalField ^ field, long newValue);" />
       <MemberSignature Language="C#" Value="public Java.Time.Temporal.ITemporal? With (Java.Time.Temporal.ITemporalField? field, long newValue);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Time.Temporal.ITemporal With(class Java.Time.Temporal.ITemporalField field, int64 newValue) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.With(Java.Time.Temporal.ITemporalField,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function With (field As ITemporalField, newValue As Long) As ITemporal" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Time::Temporal::ITemporal ^ With(Java::Time::Temporal::ITemporalField ^ field, long newValue);" />
       <MemberSignature Language="F#" Value="abstract member With : Java.Time.Temporal.ITemporalField * int64 -&gt; Java.Time.Temporal.ITemporal&#xA;override this.With : Java.Time.Temporal.ITemporalField * int64 -&gt; Java.Time.Temporal.ITemporal" Usage="zonedDateTime.With (field, newValue)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2486,11 +2662,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithDayOfMonth">
+      <MemberSignature Language="VB.NET" Value="Public Function WithDayOfMonth (dayOfMonth As Integer) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithDayOfMonth(int dayOfMonth);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithDayOfMonth (int dayOfMonth);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithDayOfMonth(int32 dayOfMonth) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithDayOfMonth(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithDayOfMonth (dayOfMonth As Integer) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithDayOfMonth(int dayOfMonth);" />
       <MemberSignature Language="F#" Value="member this.WithDayOfMonth : int -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithDayOfMonth dayOfMonth" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2521,11 +2697,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithDayOfYear">
+      <MemberSignature Language="VB.NET" Value="Public Function WithDayOfYear (dayOfYear As Integer) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithDayOfYear(int dayOfYear);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithDayOfYear (int dayOfYear);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithDayOfYear(int32 dayOfYear) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithDayOfYear(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithDayOfYear (dayOfYear As Integer) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithDayOfYear(int dayOfYear);" />
       <MemberSignature Language="F#" Value="member this.WithDayOfYear : int -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithDayOfYear dayOfYear" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2556,11 +2732,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithEarlierOffsetAtOverlap">
+      <MemberSignature Language="VB.NET" Value="Public Function WithEarlierOffsetAtOverlap () As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithEarlierOffsetAtOverlap();" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithEarlierOffsetAtOverlap ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithEarlierOffsetAtOverlap() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithEarlierOffsetAtOverlap" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithEarlierOffsetAtOverlap () As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithEarlierOffsetAtOverlap();" />
       <MemberSignature Language="F#" Value="member this.WithEarlierOffsetAtOverlap : unit -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithEarlierOffsetAtOverlap " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2588,11 +2764,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithFixedOffsetZone">
+      <MemberSignature Language="VB.NET" Value="Public Function WithFixedOffsetZone () As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithFixedOffsetZone();" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithFixedOffsetZone ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithFixedOffsetZone() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithFixedOffsetZone" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithFixedOffsetZone () As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithFixedOffsetZone();" />
       <MemberSignature Language="F#" Value="member this.WithFixedOffsetZone : unit -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithFixedOffsetZone " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2620,11 +2796,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithHour">
+      <MemberSignature Language="VB.NET" Value="Public Function WithHour (hour As Integer) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithHour(int hour);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithHour (int hour);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithHour(int32 hour) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithHour(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithHour (hour As Integer) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithHour(int hour);" />
       <MemberSignature Language="F#" Value="member this.WithHour : int -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithHour hour" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2655,11 +2831,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithLaterOffsetAtOverlap">
+      <MemberSignature Language="VB.NET" Value="Public Function WithLaterOffsetAtOverlap () As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithLaterOffsetAtOverlap();" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithLaterOffsetAtOverlap ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithLaterOffsetAtOverlap() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithLaterOffsetAtOverlap" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithLaterOffsetAtOverlap () As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithLaterOffsetAtOverlap();" />
       <MemberSignature Language="F#" Value="member this.WithLaterOffsetAtOverlap : unit -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithLaterOffsetAtOverlap " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2687,11 +2863,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithMinute">
+      <MemberSignature Language="VB.NET" Value="Public Function WithMinute (minute As Integer) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithMinute(int minute);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithMinute (int minute);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithMinute(int32 minute) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithMinute(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithMinute (minute As Integer) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithMinute(int minute);" />
       <MemberSignature Language="F#" Value="member this.WithMinute : int -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithMinute minute" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2722,11 +2898,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithMonth">
+      <MemberSignature Language="VB.NET" Value="Public Function WithMonth (month As Integer) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithMonth(int month);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithMonth (int month);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithMonth(int32 month) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithMonth(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithMonth (month As Integer) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithMonth(int month);" />
       <MemberSignature Language="F#" Value="member this.WithMonth : int -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithMonth month" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2757,11 +2933,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithNano">
+      <MemberSignature Language="VB.NET" Value="Public Function WithNano (nanoOfSecond As Integer) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithNano(int nanoOfSecond);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithNano (int nanoOfSecond);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithNano(int32 nanoOfSecond) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithNano(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithNano (nanoOfSecond As Integer) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithNano(int nanoOfSecond);" />
       <MemberSignature Language="F#" Value="member this.WithNano : int -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithNano nanoOfSecond" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2792,11 +2968,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithSecond">
+      <MemberSignature Language="VB.NET" Value="Public Function WithSecond (second As Integer) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithSecond(int second);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithSecond (int second);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithSecond(int32 second) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithSecond(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithSecond (second As Integer) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithSecond(int second);" />
       <MemberSignature Language="F#" Value="member this.WithSecond : int -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithSecond second" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2827,11 +3003,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithYear">
+      <MemberSignature Language="VB.NET" Value="Public Function WithYear (year As Integer) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithYear(int year);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithYear (int year);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithYear(int32 year) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithYear(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithYear (year As Integer) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithYear(int year);" />
       <MemberSignature Language="F#" Value="member this.WithYear : int -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithYear year" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2862,11 +3038,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithZoneSameInstant">
+      <MemberSignature Language="VB.NET" Value="Public Function WithZoneSameInstant (zone As ZoneId) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithZoneSameInstant(Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithZoneSameInstant (Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithZoneSameInstant(class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithZoneSameInstant(Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithZoneSameInstant (zone As ZoneId) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithZoneSameInstant(Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="F#" Value="member this.WithZoneSameInstant : Java.Time.ZoneId -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithZoneSameInstant zone" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2897,11 +3073,11 @@
       </Docs>
     </Member>
     <Member MemberName="WithZoneSameLocal">
+      <MemberSignature Language="VB.NET" Value="Public Function WithZoneSameLocal (zone As ZoneId) As ZonedDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithZoneSameLocal(Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="C#" Value="public Java.Time.ZonedDateTime? WithZoneSameLocal (Java.Time.ZoneId? zone);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Time.ZonedDateTime WithZoneSameLocal(class Java.Time.ZoneId zone) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.ZonedDateTime.WithZoneSameLocal(Java.Time.ZoneId)" />
-      <MemberSignature Language="VB.NET" Value="Public Function WithZoneSameLocal (zone As ZoneId) As ZonedDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::ZonedDateTime ^ WithZoneSameLocal(Java::Time::ZoneId ^ zone);" />
       <MemberSignature Language="F#" Value="member this.WithZoneSameLocal : Java.Time.ZoneId -&gt; Java.Time.ZonedDateTime" Usage="zonedDateTime.WithZoneSameLocal zone" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2932,11 +3108,11 @@
       </Docs>
     </Member>
     <Member MemberName="Year">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Year As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int Year { int get(); };" />
       <MemberSignature Language="C#" Value="public int Year { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 Year" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.Year" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Year As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int Year { int get(); };" />
       <MemberSignature Language="F#" Value="member this.Year : int" Usage="Java.Time.ZonedDateTime.Year" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2957,17 +3133,32 @@
         <ReturnType>System.Int32</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>Gets the year field.</summary>
+        <value>the year, from MIN_YEAR to MAX_YEAR</value>
+        <remarks>
+          <para>Gets the year field.</para>
+          <para>This method returns the primitive <c>int</c> value for the year.</para>
+          <para>The year returned by this method is proleptic as per <c>get(YEAR)</c>.
+            To obtain the year-of-era, use <c>get(YEAR_OF_ERA)</c>.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/ZonedDateTime#getYear()" title="Reference documentation">Java documentation for <code>java.time.ZonedDateTime.getYear()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Zone">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Zone As ZoneId" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Time::ZoneId ^ Zone { Java::Time::ZoneId ^ get(); };" />
       <MemberSignature Language="C#" Value="public Java.Time.ZoneId? Zone { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Time.ZoneId Zone" />
       <MemberSignature Language="DocId" Value="P:Java.Time.ZonedDateTime.Zone" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Zone As ZoneId" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Time::ZoneId ^ Zone { Java::Time::ZoneId ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.Zone : Java.Time.ZoneId" Usage="Java.Time.ZonedDateTime.Zone" />
       <MemberType>Property</MemberType>
       <Implements>

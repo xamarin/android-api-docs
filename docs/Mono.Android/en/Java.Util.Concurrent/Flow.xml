@@ -1,9 +1,9 @@
 <Type Name="Flow" FullName="Java.Util.Concurrent.Flow">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class Flow&#xA;Inherits Object" />
+  <TypeSignature Language="C++ CLI" Value="public ref class Flow sealed : Java::Lang::Object" />
   <TypeSignature Language="C#" Value="public sealed class Flow : Java.Lang.Object" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit Flow extends Java.Lang.Object" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Concurrent.Flow" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class Flow&#xA;Inherits Object" />
-  <TypeSignature Language="C++ CLI" Value="public ref class Flow sealed : Java::Lang::Object" />
   <TypeSignature Language="F#" Value="type Flow = class&#xA;    inherit Object" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -19,6 +19,14 @@
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/util/concurrent/Flow", ApiSince=30, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
     <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
       <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
     </Attribute>
@@ -30,6 +38,117 @@
             Subscribers</c>, each managed by a <c>Subscription
             Subscription</c>.</summary>
     <remarks>
+      <para>Interrelated interfaces and static methods for establishing
+            flow-controlled components in which <c>Publisher Publishers</c>
+            produce items consumed by one or more <c>Subscriber
+            Subscribers</c>, each managed by a <c>Subscription
+            Subscription</c>.</para>
+      <para>These interfaces correspond to the <see href="http://www.reactive-streams.org/"> reactive-streams</see>
+            specification.  They apply in both concurrent and distributed
+            asynchronous settings: All (seven) methods are defined in <c>void</c> "one-way" message style. Communication relies on a simple form
+            of flow control (method <c>Subscription#request</c>) that can be
+            used to avoid resource management problems that may otherwise occur
+            in "push" based systems.</para>
+      <para>&lt;b&gt;Examples.&lt;/b&gt; A <c>Publisher</c> usually defines its own
+            <c>Subscription</c> implementation; constructing one in method
+            <c>subscribe</c> and issuing it to the calling <c>Subscriber</c>. It publishes items to the subscriber asynchronously,
+            normally using an <c>Executor</c>.  For example, here is a very
+            simple publisher that only issues (when requested) a single <c>TRUE</c> item to a single subscriber.  Because the subscriber receives
+            only a single item, this class does not use buffering and ordering
+            control required in most implementations.</para>
+      <code lang="text/java">{@code
+            class OneShotPublisher implements Publisher&lt;Boolean&gt; {
+              private final ExecutorService executor = ForkJoinPool.commonPool(); // daemon-based
+              private boolean subscribed; // true after first subscribe
+              public synchronized void subscribe(Subscriber&lt;? super Boolean&gt; subscriber) {
+                if (subscribed)
+                  subscriber.onError(new IllegalStateException()); // only one allowed
+                else {
+                  subscribed = true;
+                  subscriber.onSubscribe(new OneShotSubscription(subscriber, executor));
+                }
+              }
+              static class OneShotSubscription implements Subscription {
+                private final Subscriber&lt;? super Boolean&gt; subscriber;
+                private final ExecutorService executor;
+                private Future&lt;?&gt; future; // to allow cancellation
+                private boolean completed;
+                OneShotSubscription(Subscriber&lt;? super Boolean&gt; subscriber,
+                                    ExecutorService executor) {
+                  this.subscriber = subscriber;
+                  this.executor = executor;
+                }
+                public synchronized void request(long n) {
+                  if (!completed) {
+                    completed = true;
+                    if (n &lt;= 0) {
+                      IllegalArgumentException ex = new IllegalArgumentException();
+                      executor.execute(() -&gt; subscriber.onError(ex));
+                    } else {
+                      future = executor.submit(() -&gt; {
+                        subscriber.onNext(Boolean.TRUE);
+                        subscriber.onComplete();
+                      });
+                    }
+                  }
+                }
+                public synchronized void cancel() {
+                  completed = true;
+                  if (future != null) future.cancel(false);
+                }
+              }
+            }}</code>
+      <para>A <c>Subscriber</c> arranges that items be requested and
+            processed.  Items (invocations of <c>Subscriber#onNext</c>) are
+            not issued unless requested, but multiple items may be requested.
+            Many Subscriber implementations can arrange this in the style of
+            the following example, where a buffer size of 1 single-steps, and
+            larger sizes usually allow for more efficient overlapped processing
+            with less communication; for example with a value of 64, this keeps
+            total outstanding requests between 32 and 64.
+            Because Subscriber method invocations for a given <c>Subscription</c> are strictly ordered, there is no need for these
+            methods to use locks or volatiles unless a Subscriber maintains
+            multiple Subscriptions (in which case it is better to instead
+            define multiple Subscribers, each with its own Subscription).</para>
+      <code lang="text/java">{@code
+            class SampleSubscriber&lt;T&gt; implements Subscriber&lt;T&gt; {
+              final Consumer&lt;? super T&gt; consumer;
+              Subscription subscription;
+              final long bufferSize;
+              long count;
+              SampleSubscriber(long bufferSize, Consumer&lt;? super T&gt; consumer) {
+                this.bufferSize = bufferSize;
+                this.consumer = consumer;
+              }
+              public void onSubscribe(Subscription subscription) {
+                long initialRequestSize = bufferSize;
+                count = bufferSize - bufferSize / 2; // re-request when half consumed
+                (this.subscription = subscription).request(initialRequestSize);
+              }
+              public void onNext(T item) {
+                if (--count &lt;= 0)
+                  subscription.request(count = bufferSize - bufferSize / 2);
+                consumer.accept(item);
+              }
+              public void onError(Throwable ex) { ex.printStackTrace(); }
+              public void onComplete() {}
+            }}</code>
+      <para>The default value of <c>#defaultBufferSize</c> may provide a
+            useful starting point for choosing request sizes and capacities in
+            Flow components based on expected rates, resources, and usages.
+            Or, when flow control is never needed, a subscriber may initially
+            request an effectively unbounded number of items, as in:</para>
+      <code lang="text/java">{@code
+            class UnboundedSubscriber&lt;T&gt; implements Subscriber&lt;T&gt; {
+              public void onSubscribe(Subscription subscription) {
+                subscription.request(Long.MAX_VALUE); // effectively unbounded
+              }
+              public void onNext(T item) { use(item); }
+              public void onError(Throwable ex) { ex.printStackTrace(); }
+              public void onComplete() {}
+              void use(T item) { ... }
+            }}</code>
+      <para>Added in 9.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/Flow" title="Reference documentation">Java documentation for <code>java.util.concurrent.Flow</code>.</a>
@@ -44,11 +163,11 @@
   </Docs>
   <Members>
     <Member MemberName="DefaultBufferSize">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function DefaultBufferSize () As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static int DefaultBufferSize();" />
       <MemberSignature Language="C#" Value="public static int DefaultBufferSize ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig int32 DefaultBufferSize() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Flow.DefaultBufferSize" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function DefaultBufferSize () As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static int DefaultBufferSize();" />
       <MemberSignature Language="F#" Value="static member DefaultBufferSize : unit -&gt; int" Usage="Java.Util.Concurrent.Flow.DefaultBufferSize " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -74,6 +193,8 @@
             that may be used in the absence of other constraints.</summary>
         <returns>the buffer size value</returns>
         <remarks>
+          <para>Returns a default value for Publisher or Subscriber buffering,
+            that may be used in the absence of other constraints.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Flow#defaultBufferSize()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Flow.defaultBufferSize()</code>.</a>
@@ -88,11 +209,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Flow.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Java.Util.Concurrent.Flow.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -119,11 +240,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Flow.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.Flow.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -150,11 +271,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Flow.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.Flow.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>

@@ -1,9 +1,9 @@
 <Type Name="LockSupport" FullName="Java.Util.Concurrent.Locks.LockSupport">
+  <TypeSignature Language="VB.NET" Value="Public Class LockSupport&#xA;Inherits Object" />
+  <TypeSignature Language="C++ CLI" Value="public ref class LockSupport : Java::Lang::Object" />
   <TypeSignature Language="C#" Value="public class LockSupport : Java.Lang.Object" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi beforefieldinit LockSupport extends Java.Lang.Object" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Concurrent.Locks.LockSupport" />
-  <TypeSignature Language="VB.NET" Value="Public Class LockSupport&#xA;Inherits Object" />
-  <TypeSignature Language="C++ CLI" Value="public ref class LockSupport : Java::Lang::Object" />
   <TypeSignature Language="F#" Value="type LockSupport = class&#xA;    inherit Object" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -18,11 +18,108 @@
       <AttributeName Language="C#">[Android.Runtime.Register("java/util/concurrent/locks/LockSupport", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/util/concurrent/locks/LockSupport", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="1">
     <summary>Basic thread blocking primitives for creating locks and other
             synchronization classes.</summary>
     <remarks>
+      <para>Basic thread blocking primitives for creating locks and other
+            synchronization classes.</para>
+      <para>This class associates, with each thread that uses it, a permit
+            (in the sense of the <c>java.util.concurrent.Semaphore
+            Semaphore</c> class). A call to <c>park</c> will return immediately
+            if the permit is available, consuming it in the process; otherwise
+            it &lt;em&gt;may&lt;/em&gt; block.  A call to <c>unpark</c> makes the permit
+            available, if it was not already available. (Unlike with Semaphores
+            though, permits do not accumulate. There is at most one.)
+            Reliable usage requires the use of volatile (or atomic) variables
+            to control when to park or unpark.  Orderings of calls to these
+            methods are maintained with respect to volatile variable accesses,
+            but not necessarily non-volatile variable accesses.</para>
+      <para>Methods <c>park</c> and <c>unpark</c> provide efficient
+            means of blocking and unblocking threads that do not encounter the
+            problems that cause the deprecated methods <c>Thread.suspend</c>
+            and <c>Thread.resume</c> to be unusable for such purposes: Races
+            between one thread invoking <c>park</c> and another thread trying
+            to <c>unpark</c> it will preserve liveness, due to the
+            permit. Additionally, <c>park</c> will return if the caller's
+            thread was interrupted, and timeout versions are supported. The
+            <c>park</c> method may also return at any other time, for "no
+            reason", so in general must be invoked within a loop that rechecks
+            conditions upon return. In this sense <c>park</c> serves as an
+            optimization of a "busy wait" that does not waste as much time
+            spinning, but must be paired with an <c>unpark</c> to be
+            effective.</para>
+      <para>The three forms of <c>park</c> each also support a
+            <c>blocker</c> object parameter. This object is recorded while
+            the thread is blocked to permit monitoring and diagnostic tools to
+            identify the reasons that threads are blocked. (Such tools may
+            access blockers using method <c>#getBlocker(Thread)</c>.)
+            The use of these forms rather than the original forms without this
+            parameter is strongly encouraged. The normal argument to supply as
+            a <c>blocker</c> within a lock implementation is <c>this</c>.</para>
+      <para>These methods are designed to be used as tools for creating
+            higher-level synchronization utilities, and are not in themselves
+            useful for most concurrency control applications.  The <c>park</c>
+            method is designed for use only in constructions of the form:</para>
+      <code lang="text/java">{@code
+            while (!canProceed()) {
+              // ensure request to unpark is visible to other threads
+              ...
+              LockSupport.park(this);
+            }}</code>
+      <para>where no actions by the thread publishing a request to unpark,
+            prior to the call to <c>park</c>, entail locking or blocking.
+            Because only one permit is associated with each thread, any
+            intermediary uses of <c>park</c>, including implicitly via class
+            loading, could lead to an unresponsive thread (a "lost unpark").</para>
+      <para>&lt;b&gt;Sample Usage.&lt;/b&gt; Here is a sketch of a first-in-first-out
+            non-reentrant lock class:</para>
+      <code lang="text/java">{@code
+            class FIFOMutex {
+              private final AtomicBoolean locked = new AtomicBoolean(false);
+              private final Queue&lt;Thread&gt; waiters
+                = new ConcurrentLinkedQueue&lt;&gt;();
+            
+              public void lock() {
+                boolean wasInterrupted = false;
+                // publish current thread for unparkers
+                waiters.add(Thread.currentThread());
+            
+                // Block while not first in queue or cannot acquire lock
+                while (waiters.peek() != Thread.currentThread() ||
+                       !locked.compareAndSet(false, true)) {
+                  LockSupport.park(this);
+                  // ignore interrupts while waiting
+                  if (Thread.interrupted())
+                    wasInterrupted = true;
+                }
+            
+                waiters.remove();
+                // ensure correct interrupt status on return
+                if (wasInterrupted)
+                  Thread.currentThread().interrupt();
+              }
+            
+              public void unlock() {
+                locked.set(false);
+                LockSupport.unpark(waiters.peek());
+              }
+            
+              static {
+                // Reduce the risk of "lost unpark" due to classloading
+                Class&lt;?&gt; ensureLoaded = LockSupport.class;
+              }
+            }}</code>
+      <para>Added in 1.5.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/locks/LockSupport" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.LockSupport</code>.</a>
@@ -38,11 +135,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; LockSupport(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected LockSupport (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.LockSupport.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; LockSupport(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Locks.LockSupport : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Concurrent.Locks.LockSupport" Usage="new Java.Util.Concurrent.Locks.LockSupport (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -63,11 +160,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetBlocker">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function GetBlocker (t As Thread) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Lang::Object ^ GetBlocker(Java::Lang::Thread ^ t);" />
       <MemberSignature Language="C#" Value="public static Java.Lang.Object? GetBlocker (Java.Lang.Thread? t);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Lang.Object GetBlocker(class Java.Lang.Thread t) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.LockSupport.GetBlocker(Java.Lang.Thread)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function GetBlocker (t As Thread) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Lang::Object ^ GetBlocker(Java::Lang::Thread ^ t);" />
       <MemberSignature Language="F#" Value="static member GetBlocker : Java.Lang.Thread -&gt; Java.Lang.Object" Usage="Java.Util.Concurrent.Locks.LockSupport.GetBlocker t" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -93,6 +190,12 @@
             if not blocked.</summary>
         <returns>the blocker</returns>
         <remarks>
+          <para>Returns the blocker object supplied to the most recent
+            invocation of a park method that has not yet unblocked, or null
+            if not blocked.  The value returned is just a momentary
+            snapshot -- the thread may have since unblocked or blocked on a
+            different blocker object.</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/LockSupport#getBlocker(java.lang.Thread)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.LockSupport.getBlocker(java.lang.Thread)</code>.</a>
@@ -109,11 +212,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Locks.LockSupport.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Java.Util.Concurrent.Locks.LockSupport.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -129,6 +232,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -142,11 +253,11 @@
       </Docs>
     </Member>
     <Member MemberName="Park">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub Park ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void Park();" />
       <MemberSignature Language="C#" Value="public static void Park ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void Park() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.LockSupport.Park" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub Park ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void Park();" />
       <MemberSignature Language="F#" Value="static member Park : unit -&gt; unit" Usage="Java.Util.Concurrent.Locks.LockSupport.Park " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -167,6 +278,27 @@
         <summary>Disables the current thread for thread scheduling purposes unless the
             permit is available.</summary>
         <remarks>
+          <para>Disables the current thread for thread scheduling purposes unless the
+            permit is available.</para>
+          <para>If the permit is available then it is consumed and the call
+            returns immediately; otherwise the current thread becomes disabled
+            for thread scheduling purposes and lies dormant until one of three
+            things happens:
+            
+            &lt;ul&gt;
+            
+            &lt;li&gt;Some other thread invokes <c>#unpark unpark</c> with the
+            current thread as the target; or
+            
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread; or
+            
+            &lt;li&gt;The call spuriously (that is, for no reason) returns.
+            &lt;/ul&gt;</para>
+          <para>This method does &lt;em&gt;not&lt;/em&gt; report which of these caused the
+            method to return. Callers should re-check the conditions which caused
+            the thread to park in the first place. Callers may also determine,
+            for example, the interrupt status of the thread upon return.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/LockSupport#park()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.LockSupport.park()</code>.</a>
@@ -182,11 +314,11 @@
       </Docs>
     </Member>
     <Member MemberName="Park">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub Park (blocker As Object)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void Park(Java::Lang::Object ^ blocker);" />
       <MemberSignature Language="C#" Value="public static void Park (Java.Lang.Object? blocker);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void Park(class Java.Lang.Object blocker) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.LockSupport.Park(Java.Lang.Object)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub Park (blocker As Object)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void Park(Java::Lang::Object ^ blocker);" />
       <MemberSignature Language="F#" Value="static member Park : Java.Lang.Object -&gt; unit" Usage="Java.Util.Concurrent.Locks.LockSupport.Park blocker" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -211,6 +343,27 @@
         <summary>Disables the current thread for thread scheduling purposes unless the
             permit is available.</summary>
         <remarks>
+          <para>Disables the current thread for thread scheduling purposes unless the
+            permit is available.</para>
+          <para>If the permit is available then it is consumed and the call returns
+            immediately; otherwise
+            the current thread becomes disabled for thread scheduling
+            purposes and lies dormant until one of three things happens:
+            
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes <c>#unpark unpark</c> with the
+            current thread as the target; or
+            
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread; or
+            
+            &lt;li&gt;The call spuriously (that is, for no reason) returns.
+            &lt;/ul&gt;</para>
+          <para>This method does &lt;em&gt;not&lt;/em&gt; report which of these caused the
+            method to return. Callers should re-check the conditions which caused
+            the thread to park in the first place. Callers may also determine,
+            for example, the interrupt status of the thread upon return.</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/LockSupport#park(java.lang.Object)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.LockSupport.park(java.lang.Object)</code>.</a>
@@ -226,11 +379,11 @@
       </Docs>
     </Member>
     <Member MemberName="ParkNanos">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub ParkNanos (nanos As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void ParkNanos(long nanos);" />
       <MemberSignature Language="C#" Value="public static void ParkNanos (long nanos);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void ParkNanos(int64 nanos) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.LockSupport.ParkNanos(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub ParkNanos (nanos As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void ParkNanos(long nanos);" />
       <MemberSignature Language="F#" Value="static member ParkNanos : int64 -&gt; unit" Usage="Java.Util.Concurrent.Locks.LockSupport.ParkNanos nanos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -254,6 +407,30 @@
         <summary>Disables the current thread for thread scheduling purposes, for up to
             the specified waiting time, unless the permit is available.</summary>
         <remarks>
+          <para>Disables the current thread for thread scheduling purposes, for up to
+            the specified waiting time, unless the permit is available.</para>
+          <para>If the specified waiting time is zero or negative, the
+            method does nothing. Otherwise, if the permit is available then
+            it is consumed and the call returns immediately; otherwise the
+            current thread becomes disabled for thread scheduling purposes
+            and lies dormant until one of four things happens:
+            
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes <c>#unpark unpark</c> with the
+            current thread as the target; or
+            
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread; or
+            
+            &lt;li&gt;The specified waiting time elapses; or
+            
+            &lt;li&gt;The call spuriously (that is, for no reason) returns.
+            &lt;/ul&gt;</para>
+          <para>This method does &lt;em&gt;not&lt;/em&gt; report which of these caused the
+            method to return. Callers should re-check the conditions which caused
+            the thread to park in the first place. Callers may also determine,
+            for example, the interrupt status of the thread, or the elapsed time
+            upon return.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/LockSupport#parkNanos(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.LockSupport.parkNanos(long)</code>.</a>
@@ -269,11 +446,11 @@
       </Docs>
     </Member>
     <Member MemberName="ParkNanos">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub ParkNanos (blocker As Object, nanos As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void ParkNanos(Java::Lang::Object ^ blocker, long nanos);" />
       <MemberSignature Language="C#" Value="public static void ParkNanos (Java.Lang.Object? blocker, long nanos);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void ParkNanos(class Java.Lang.Object blocker, int64 nanos) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.LockSupport.ParkNanos(Java.Lang.Object,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub ParkNanos (blocker As Object, nanos As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void ParkNanos(Java::Lang::Object ^ blocker, long nanos);" />
       <MemberSignature Language="F#" Value="static member ParkNanos : Java.Lang.Object * int64 -&gt; unit" Usage="Java.Util.Concurrent.Locks.LockSupport.ParkNanos (blocker, nanos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -300,6 +477,31 @@
         <summary>Disables the current thread for thread scheduling purposes, for up to
             the specified waiting time, unless the permit is available.</summary>
         <remarks>
+          <para>Disables the current thread for thread scheduling purposes, for up to
+            the specified waiting time, unless the permit is available.</para>
+          <para>If the specified waiting time is zero or negative, the
+            method does nothing. Otherwise, if the permit is available then
+            it is consumed and the call returns immediately; otherwise the
+            current thread becomes disabled for thread scheduling purposes
+            and lies dormant until one of four things happens:
+            
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes <c>#unpark unpark</c> with the
+            current thread as the target; or
+            
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread; or
+            
+            &lt;li&gt;The specified waiting time elapses; or
+            
+            &lt;li&gt;The call spuriously (that is, for no reason) returns.
+            &lt;/ul&gt;</para>
+          <para>This method does &lt;em&gt;not&lt;/em&gt; report which of these caused the
+            method to return. Callers should re-check the conditions which caused
+            the thread to park in the first place. Callers may also determine,
+            for example, the interrupt status of the thread, or the elapsed time
+            upon return.</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/LockSupport#parkNanos(java.lang.Object,%20long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.LockSupport.parkNanos(java.lang.Object, long)</code>.</a>
@@ -315,11 +517,11 @@
       </Docs>
     </Member>
     <Member MemberName="ParkUntil">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub ParkUntil (deadline As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void ParkUntil(long deadline);" />
       <MemberSignature Language="C#" Value="public static void ParkUntil (long deadline);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void ParkUntil(int64 deadline) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.LockSupport.ParkUntil(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub ParkUntil (deadline As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void ParkUntil(long deadline);" />
       <MemberSignature Language="F#" Value="static member ParkUntil : int64 -&gt; unit" Usage="Java.Util.Concurrent.Locks.LockSupport.ParkUntil deadline" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -344,6 +546,29 @@
         <summary>Disables the current thread for thread scheduling purposes, until
             the specified deadline, unless the permit is available.</summary>
         <remarks>
+          <para>Disables the current thread for thread scheduling purposes, until
+            the specified deadline, unless the permit is available.</para>
+          <para>If the permit is available then it is consumed and the call
+            returns immediately; otherwise the current thread becomes disabled
+            for thread scheduling purposes and lies dormant until one of four
+            things happens:
+            
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes <c>#unpark unpark</c> with the
+            current thread as the target; or
+            
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread; or
+            
+            &lt;li&gt;The specified deadline passes; or
+            
+            &lt;li&gt;The call spuriously (that is, for no reason) returns.
+            &lt;/ul&gt;</para>
+          <para>This method does &lt;em&gt;not&lt;/em&gt; report which of these caused the
+            method to return. Callers should re-check the conditions which caused
+            the thread to park in the first place. Callers may also determine,
+            for example, the interrupt status of the thread, or the current time
+            upon return.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/LockSupport#parkUntil(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.LockSupport.parkUntil(long)</code>.</a>
@@ -359,11 +584,11 @@
       </Docs>
     </Member>
     <Member MemberName="ParkUntil">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub ParkUntil (blocker As Object, deadline As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void ParkUntil(Java::Lang::Object ^ blocker, long deadline);" />
       <MemberSignature Language="C#" Value="public static void ParkUntil (Java.Lang.Object? blocker, long deadline);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void ParkUntil(class Java.Lang.Object blocker, int64 deadline) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.LockSupport.ParkUntil(Java.Lang.Object,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub ParkUntil (blocker As Object, deadline As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void ParkUntil(Java::Lang::Object ^ blocker, long deadline);" />
       <MemberSignature Language="F#" Value="static member ParkUntil : Java.Lang.Object * int64 -&gt; unit" Usage="Java.Util.Concurrent.Locks.LockSupport.ParkUntil (blocker, deadline)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -391,6 +616,30 @@
         <summary>Disables the current thread for thread scheduling purposes, until
             the specified deadline, unless the permit is available.</summary>
         <remarks>
+          <para>Disables the current thread for thread scheduling purposes, until
+            the specified deadline, unless the permit is available.</para>
+          <para>If the permit is available then it is consumed and the call
+            returns immediately; otherwise the current thread becomes disabled
+            for thread scheduling purposes and lies dormant until one of four
+            things happens:
+            
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes <c>#unpark unpark</c> with the
+            current thread as the target; or
+            
+            &lt;li&gt;Some other thread Thread#interrupt interrupts the
+            current thread; or
+            
+            &lt;li&gt;The specified deadline passes; or
+            
+            &lt;li&gt;The call spuriously (that is, for no reason) returns.
+            &lt;/ul&gt;</para>
+          <para>This method does &lt;em&gt;not&lt;/em&gt; report which of these caused the
+            method to return. Callers should re-check the conditions which caused
+            the thread to park in the first place. Callers may also determine,
+            for example, the interrupt status of the thread, or the current time
+            upon return.</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/LockSupport#parkUntil(java.lang.Object,%20long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.LockSupport.parkUntil(java.lang.Object, long)</code>.</a>
@@ -406,11 +655,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetCurrentBlocker">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub SetCurrentBlocker (blocker As Object)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void SetCurrentBlocker(Java::Lang::Object ^ blocker);" />
       <MemberSignature Language="C#" Value="public static void SetCurrentBlocker (Java.Lang.Object? blocker);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void SetCurrentBlocker(class Java.Lang.Object blocker) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.LockSupport.SetCurrentBlocker(Java.Lang.Object)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub SetCurrentBlocker (blocker As Object)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void SetCurrentBlocker(Java::Lang::Object ^ blocker);" />
       <MemberSignature Language="F#" Value="static member SetCurrentBlocker : Java.Lang.Object -&gt; unit" Usage="Java.Util.Concurrent.Locks.LockSupport.SetCurrentBlocker blocker" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -434,17 +683,35 @@
         <Parameter Name="blocker" Type="Java.Lang.Object" />
       </Parameters>
       <Docs>
-        <param name="blocker">To be added.</param>
-        <summary>To be added.</summary>
-        <remarks>To be added.</remarks>
+        <param name="blocker">the blocker object</param>
+        <summary>Sets the object to be returned by invocations of <c>#getBlocker getBlocker</c> for the current thread.</summary>
+        <remarks>
+          <para>Sets the object to be returned by invocations of <c>#getBlocker getBlocker</c> for the current thread. This method may
+            be used before invoking the no-argument version of <c>LockSupport#park() park()</c> from non-public objects, allowing
+            more helpful diagnostics, or retaining compatibility with
+            previous implementations of blocking methods.  Previous values
+            of the blocker are not automatically restored after blocking.
+            To obtain the effects of <c>park(b</c>}, use <c>setCurrentBlocker(b); park(); setCurrentBlocker(null);</c></para>
+          <para>Added in 14.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/util/concurrent/locks/LockSupport#setCurrentBlocker(java.lang.Object)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.LockSupport.setCurrentBlocker(java.lang.Object)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Locks.LockSupport.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.Locks.LockSupport.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -473,11 +740,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Locks.LockSupport.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.Locks.LockSupport.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -493,6 +760,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Type</ReturnType>
@@ -506,11 +781,11 @@
       </Docs>
     </Member>
     <Member MemberName="Unpark">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub Unpark (thread As Thread)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void Unpark(Java::Lang::Thread ^ thread);" />
       <MemberSignature Language="C#" Value="public static void Unpark (Java.Lang.Thread? thread);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void Unpark(class Java.Lang.Thread thread) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.LockSupport.Unpark(Java.Lang.Thread)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub Unpark (thread As Thread)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void Unpark(Java::Lang::Thread ^ thread);" />
       <MemberSignature Language="F#" Value="static member Unpark : Java.Lang.Thread -&gt; unit" Usage="Java.Util.Concurrent.Locks.LockSupport.Unpark thread" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -535,6 +810,12 @@
         <summary>Makes available the permit for the given thread, if it
             was not already available.</summary>
         <remarks>
+          <para>Makes available the permit for the given thread, if it
+            was not already available.  If the thread was blocked on
+            <c>park</c> then it will unblock.  Otherwise, its next call
+            to <c>park</c> is guaranteed not to block. This operation
+            is not guaranteed to have any effect at all if the given
+            thread has not been started.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/LockSupport#unpark(java.lang.Thread)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.LockSupport.unpark(java.lang.Thread)</code>.</a>

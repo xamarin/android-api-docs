@@ -1,9 +1,9 @@
 <Type Name="AbstractThreadedSyncAdapter" FullName="Android.Content.AbstractThreadedSyncAdapter">
+  <TypeSignature Language="VB.NET" Value="Public MustInherit Class AbstractThreadedSyncAdapter&#xA;Inherits Object" />
+  <TypeSignature Language="C++ CLI" Value="public ref class AbstractThreadedSyncAdapter abstract : Java::Lang::Object" />
   <TypeSignature Language="C#" Value="public abstract class AbstractThreadedSyncAdapter : Java.Lang.Object" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi abstract beforefieldinit AbstractThreadedSyncAdapter extends Java.Lang.Object" />
   <TypeSignature Language="DocId" Value="T:Android.Content.AbstractThreadedSyncAdapter" />
-  <TypeSignature Language="VB.NET" Value="Public MustInherit Class AbstractThreadedSyncAdapter&#xA;Inherits Object" />
-  <TypeSignature Language="C++ CLI" Value="public ref class AbstractThreadedSyncAdapter abstract : Java::Lang::Object" />
   <TypeSignature Language="F#" Value="type AbstractThreadedSyncAdapter = class&#xA;    inherit Object" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -18,10 +18,79 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/content/AbstractThreadedSyncAdapter", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/content/AbstractThreadedSyncAdapter", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="5">
     <summary>An abstract implementation of a SyncAdapter that spawns a thread to invoke a sync operation.</summary>
     <remarks>
+      <para>An abstract implementation of a SyncAdapter that spawns a thread to invoke a sync operation.
+            If a sync operation is already in progress when a sync request is received, an error will be
+            returned to the new request and the existing request will be allowed to continue.
+            However if there is no sync in progress then a thread will be spawned and <c>#onPerformSync</c>
+            will be invoked on that thread.</para>
+      <para>Syncs can be cancelled at any time by the framework. For example a sync that was not
+            user-initiated and lasts longer than 30 minutes will be considered timed-out and cancelled.
+            Similarly the framework will attempt to determine whether or not an adapter is making progress
+            by monitoring its network activity over the course of a minute. If the network traffic over this
+            window is close enough to zero the sync will be cancelled. You can also request the sync be
+            cancelled via <c>ContentResolver#cancelSync(Account, String)</c> or
+            <c>ContentResolver#cancelSync(SyncRequest)</c>.</para>
+      <para>A sync is cancelled by issuing a <c>Thread#interrupt()</c> on the syncing thread. &lt;strong&gt;Either
+            your code in <c>#onPerformSync(Account, Bundle, String, ContentProviderClient, SyncResult)</c>
+            must check <c>Thread#interrupted()</c>, or you you must override one of
+            <c>#onSyncCanceled(Thread)</c>/<c>#onSyncCanceled()</c>&lt;/strong&gt; (depending on whether or not
+            your adapter supports syncing of multiple accounts in parallel). If your adapter does not
+            respect the cancel issued by the framework you run the risk of your app's entire process being
+            killed.</para>
+      <para>In order to be a sync adapter one must extend this class, provide implementations for the
+            abstract methods and write a service that returns the result of <c>#getSyncAdapterBinder()</c>
+            in the service's <c>android.app.Service#onBind(android.content.Intent)</c> when invoked
+            with an intent with action <c>android.content.SyncAdapter</c>. This service
+            must specify the following intent filter and metadata tags in its AndroidManifest.xml file</para>
+      <code lang="text/java">&amp;lt;intent-filter&amp;gt;
+                &amp;lt;action android:name="android.content.SyncAdapter" /&amp;gt;
+              &amp;lt;/intent-filter&amp;gt;
+              &amp;lt;meta-data android:name="android.content.SyncAdapter"
+                        android:resource="@xml/syncadapter" /&amp;gt;
+            </code>
+      <para>The <c>android:resource</c> attribute must point to a resource that looks like:</para>
+      <code lang="text/java">&amp;lt;sync-adapter xmlns:android="http://schemas.android.com/apk/res/android"
+               android:contentAuthority="authority"
+               android:accountType="accountType"
+               android:userVisible="true|false"
+               android:supportsUploading="true|false"
+               android:allowParallelSyncs="true|false"
+               android:isAlwaysSyncable="true|false"
+               android:syncAdapterSettingsAction="ACTION_OF_SETTINGS_ACTIVITY"
+            /&amp;gt;
+            </code>
+      <para>&lt;ul&gt;
+            &lt;li&gt;The <c>android:contentAuthority</c> and <c>android:accountType</c> attributes
+            indicate which content authority and for which account types this sync adapter serves.
+            &lt;li&gt;<c>android:userVisible</c> defaults to true and controls whether or not this sync
+            adapter shows up in the Sync Settings screen.
+            &lt;li&gt;<c>android:supportsUploading</c> defaults
+            to true and if true an upload-only sync will be requested for all syncadapters associated
+            with an authority whenever that authority's content provider does a
+            <c>ContentResolver#notifyChange(android.net.Uri, android.database.ContentObserver, boolean)</c>
+            with syncToNetwork set to true.
+            &lt;li&gt;<c>android:allowParallelSyncs</c> defaults to false and if true indicates that
+            the sync adapter can handle syncs for multiple accounts at the same time. Otherwise
+            the SyncManager will wait until the sync adapter is not in use before requesting that
+            it sync an account's data.
+            &lt;li&gt;<c>android:isAlwaysSyncable</c> defaults to false and if true tells the SyncManager
+            to initialize the isSyncable state to 1 for that sync adapter for each account that is added.
+            &lt;li&gt;<c>android:syncAdapterSettingsAction</c> defaults to null and if supplied it
+            specifies an Intent action of an activity that can be used to adjust the sync adapter's
+            sync settings. The activity must live in the same package as the sync adapter.
+            &lt;/ul&gt;</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter</code>.</a>
@@ -37,11 +106,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (context As Context, autoInitialize As Boolean)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; AbstractThreadedSyncAdapter(Android::Content::Context ^ context, bool autoInitialize);" />
       <MemberSignature Language="C#" Value="public AbstractThreadedSyncAdapter (Android.Content.Context? context, bool autoInitialize);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(class Android.Content.Context context, bool autoInitialize) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Content.AbstractThreadedSyncAdapter.#ctor(Android.Content.Context,System.Boolean)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (context As Context, autoInitialize As Boolean)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; AbstractThreadedSyncAdapter(Android::Content::Context ^ context, bool autoInitialize);" />
       <MemberSignature Language="F#" Value="new Android.Content.AbstractThreadedSyncAdapter : Android.Content.Context * bool -&gt; Android.Content.AbstractThreadedSyncAdapter" Usage="new Android.Content.AbstractThreadedSyncAdapter (context, autoInitialize)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -67,6 +136,7 @@
             is currently set to &lt;0.</param>
         <summary>Creates an <c>AbstractThreadedSyncAdapter</c>.</summary>
         <remarks>
+          <para>Creates an <c>AbstractThreadedSyncAdapter</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#AbstractThreadedSyncAdapter(android.content.Context,%20boolean)" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.AbstractThreadedSyncAdapter(android.content.Context, boolean)</code>.</a>
@@ -82,11 +152,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; AbstractThreadedSyncAdapter(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected AbstractThreadedSyncAdapter (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Content.AbstractThreadedSyncAdapter.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; AbstractThreadedSyncAdapter(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Android.Content.AbstractThreadedSyncAdapter : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Content.AbstractThreadedSyncAdapter" Usage="new Android.Content.AbstractThreadedSyncAdapter (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -107,11 +177,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (context As Context, autoInitialize As Boolean, allowParallelSyncs As Boolean)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; AbstractThreadedSyncAdapter(Android::Content::Context ^ context, bool autoInitialize, bool allowParallelSyncs);" />
       <MemberSignature Language="C#" Value="public AbstractThreadedSyncAdapter (Android.Content.Context? context, bool autoInitialize, bool allowParallelSyncs);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(class Android.Content.Context context, bool autoInitialize, bool allowParallelSyncs) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Content.AbstractThreadedSyncAdapter.#ctor(Android.Content.Context,System.Boolean,System.Boolean)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (context As Context, autoInitialize As Boolean, allowParallelSyncs As Boolean)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; AbstractThreadedSyncAdapter(Android::Content::Context ^ context, bool autoInitialize, bool allowParallelSyncs);" />
       <MemberSignature Language="F#" Value="new Android.Content.AbstractThreadedSyncAdapter : Android.Content.Context * bool * bool -&gt; Android.Content.AbstractThreadedSyncAdapter" Usage="new Android.Content.AbstractThreadedSyncAdapter (context, autoInitialize, allowParallelSyncs)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -141,6 +211,7 @@
             in the SyncAdapter's configuration file.</param>
         <summary>Creates an <c>AbstractThreadedSyncAdapter</c>.</summary>
         <remarks>
+          <para>Creates an <c>AbstractThreadedSyncAdapter</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#AbstractThreadedSyncAdapter(android.content.Context,%20boolean,%20boolean)" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.AbstractThreadedSyncAdapter(android.content.Context, boolean, boolean)</code>.</a>
@@ -156,11 +227,11 @@
       </Docs>
     </Member>
     <Member MemberName="Context">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property Context As Context" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Android::Content::Context ^ Context { Android::Content::Context ^ get(); };" />
       <MemberSignature Language="C#" Value="public virtual Android.Content.Context? Context { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Android.Content.Context Context" />
       <MemberSignature Language="DocId" Value="P:Android.Content.AbstractThreadedSyncAdapter.Context" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property Context As Context" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Android::Content::Context ^ Context { Android::Content::Context ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.Context : Android.Content.Context" Usage="Android.Content.AbstractThreadedSyncAdapter.Context" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -187,11 +258,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Content.AbstractThreadedSyncAdapter.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Content.AbstractThreadedSyncAdapter.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -207,6 +278,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -220,11 +299,11 @@
       </Docs>
     </Member>
     <Member MemberName="LogSyncDetails">
+      <MemberSignature Language="VB.NET" Value="Public Const LogSyncDetails As Integer  = 2743" />
+      <MemberSignature Language="C++ CLI" Value="public: int LogSyncDetails = 2743;" />
       <MemberSignature Language="C#" Value="public const int LogSyncDetails = 2743;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal int32 LogSyncDetails = (2743)" />
       <MemberSignature Language="DocId" Value="F:Android.Content.AbstractThreadedSyncAdapter.LogSyncDetails" />
-      <MemberSignature Language="VB.NET" Value="Public Const LogSyncDetails As Integer  = 2743" />
-      <MemberSignature Language="C++ CLI" Value="public: int LogSyncDetails = 2743;" />
       <MemberSignature Language="F#" Value="val mutable LogSyncDetails : int" Usage="Android.Content.AbstractThreadedSyncAdapter.LogSyncDetails" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -248,6 +327,8 @@
       <Docs>
         <summary>Kernel event log tag.</summary>
         <remarks>
+          <para>Kernel event log tag.  Also listed in data/etc/event-log-tags.</para>
+          <para>This member is deprecated. Private constant.  May go away in the next release.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#LOG_SYNC_DETAILS" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.LOG_SYNC_DETAILS</code>.</a>
@@ -263,11 +344,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnPerformSync">
+      <MemberSignature Language="VB.NET" Value="Public MustOverride Sub OnPerformSync (account As Account, extras As Bundle, authority As String, provider As ContentProviderClient, syncResult As SyncResult)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract void OnPerformSync(Android::Accounts::Account ^ account, Android::OS::Bundle ^ extras, System::String ^ authority, Android::Content::ContentProviderClient ^ provider, Android::Content::SyncResult ^ syncResult);" />
       <MemberSignature Language="C#" Value="public abstract void OnPerformSync (Android.Accounts.Account? account, Android.OS.Bundle? extras, string? authority, Android.Content.ContentProviderClient? provider, Android.Content.SyncResult? syncResult);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnPerformSync(class Android.Accounts.Account account, class Android.OS.Bundle extras, string authority, class Android.Content.ContentProviderClient provider, class Android.Content.SyncResult syncResult) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Content.AbstractThreadedSyncAdapter.OnPerformSync(Android.Accounts.Account,Android.OS.Bundle,System.String,Android.Content.ContentProviderClient,Android.Content.SyncResult)" />
-      <MemberSignature Language="VB.NET" Value="Public MustOverride Sub OnPerformSync (account As Account, extras As Bundle, authority As String, provider As ContentProviderClient, syncResult As SyncResult)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract void OnPerformSync(Android::Accounts::Account ^ account, Android::OS::Bundle ^ extras, System::String ^ authority, Android::Content::ContentProviderClient ^ provider, Android::Content::SyncResult ^ syncResult);" />
       <MemberSignature Language="F#" Value="abstract member OnPerformSync : Android.Accounts.Account * Android.OS.Bundle * string * Android.Content.ContentProviderClient * Android.Content.SyncResult -&gt; unit" Usage="abstractThreadedSyncAdapter.OnPerformSync (account, extras, authority, provider, syncResult)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -299,6 +380,9 @@
         <param name="syncResult">SyncAdapter-specific parameters</param>
         <summary>Perform a sync for this account.</summary>
         <remarks>
+          <para>Perform a sync for this account. SyncAdapter-specific parameters may
+            be specified in extras, which is guaranteed to not be null. Invocations
+            of this method are guaranteed to be serialized.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#onPerformSync(android.accounts.Account,%20android.os.Bundle,%20java.lang.String,%20android.content.ContentProviderClient,%20android.content.SyncResult)" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.onPerformSync(android.accounts.Account, android.os.Bundle, java.lang.String, android.content.ContentProviderClient, android.content.SyncResult)</code>.</a>
@@ -314,11 +398,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnSecurityException">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnSecurityException (account As Account, extras As Bundle, authority As String, syncResult As SyncResult)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnSecurityException(Android::Accounts::Account ^ account, Android::OS::Bundle ^ extras, System::String ^ authority, Android::Content::SyncResult ^ syncResult);" />
       <MemberSignature Language="C#" Value="public virtual void OnSecurityException (Android.Accounts.Account? account, Android.OS.Bundle? extras, string? authority, Android.Content.SyncResult? syncResult);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnSecurityException(class Android.Accounts.Account account, class Android.OS.Bundle extras, string authority, class Android.Content.SyncResult syncResult) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Content.AbstractThreadedSyncAdapter.OnSecurityException(Android.Accounts.Account,Android.OS.Bundle,System.String,Android.Content.SyncResult)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnSecurityException (account As Account, extras As Bundle, authority As String, syncResult As SyncResult)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnSecurityException(Android::Accounts::Account ^ account, Android::OS::Bundle ^ extras, System::String ^ authority, Android::Content::SyncResult ^ syncResult);" />
       <MemberSignature Language="F#" Value="abstract member OnSecurityException : Android.Accounts.Account * Android.OS.Bundle * string * Android.Content.SyncResult -&gt; unit&#xA;override this.OnSecurityException : Android.Accounts.Account * Android.OS.Bundle * string * Android.Content.SyncResult -&gt; unit" Usage="abstractThreadedSyncAdapter.OnSecurityException (account, extras, authority, syncResult)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -352,6 +436,9 @@
         <summary>Report that there was a security exception when opening the content provider
             prior to calling <c>#onPerformSync</c>.</summary>
         <remarks>
+          <para>Report that there was a security exception when opening the content provider
+            prior to calling <c>#onPerformSync</c>.  This will be treated as a sync
+            database failure.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#onSecurityException(android.accounts.Account,%20android.os.Bundle,%20java.lang.String,%20android.content.SyncResult)" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.onSecurityException(android.accounts.Account, android.os.Bundle, java.lang.String, android.content.SyncResult)</code>.</a>
@@ -366,11 +453,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnSyncCanceled">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnSyncCanceled ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnSyncCanceled();" />
       <MemberSignature Language="C#" Value="public virtual void OnSyncCanceled ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnSyncCanceled() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Content.AbstractThreadedSyncAdapter.OnSyncCanceled" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnSyncCanceled ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnSyncCanceled();" />
       <MemberSignature Language="F#" Value="abstract member OnSyncCanceled : unit -&gt; unit&#xA;override this.OnSyncCanceled : unit -&gt; unit" Usage="abstractThreadedSyncAdapter.OnSyncCanceled " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -390,6 +477,11 @@
       <Docs>
         <summary>Indicates that a sync operation has been canceled.</summary>
         <remarks>
+          <para>Indicates that a sync operation has been canceled. This will be invoked on a separate
+            thread than the sync thread and so you must consider the multi-threaded implications
+            of the work that you do in this method.</para>
+          <para>This will only be invoked when the SyncAdapter indicates that it doesn't support
+            parallel syncs.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#onSyncCanceled()" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.onSyncCanceled()</code>.</a>
@@ -405,11 +497,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnSyncCanceled">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnSyncCanceled (thread As Thread)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnSyncCanceled(Java::Lang::Thread ^ thread);" />
       <MemberSignature Language="C#" Value="public virtual void OnSyncCanceled (Java.Lang.Thread? thread);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnSyncCanceled(class Java.Lang.Thread thread) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Content.AbstractThreadedSyncAdapter.OnSyncCanceled(Java.Lang.Thread)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnSyncCanceled (thread As Thread)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnSyncCanceled(Java::Lang::Thread ^ thread);" />
       <MemberSignature Language="F#" Value="abstract member OnSyncCanceled : Java.Lang.Thread -&gt; unit&#xA;override this.OnSyncCanceled : Java.Lang.Thread -&gt; unit" Usage="abstractThreadedSyncAdapter.OnSyncCanceled thread" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -432,6 +524,11 @@
         <param name="thread">the Thread of the sync that is to be canceled.</param>
         <summary>Indicates that a sync operation has been canceled.</summary>
         <remarks>
+          <para>Indicates that a sync operation has been canceled. This will be invoked on a separate
+            thread than the sync thread and so you must consider the multi-threaded implications
+            of the work that you do in this method.</para>
+          <para>This will only be invoked when the SyncAdapter indicates that it does support
+            parallel syncs.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#onSyncCanceled(java.lang.Thread)" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.onSyncCanceled(java.lang.Thread)</code>.</a>
@@ -447,11 +544,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnUnsyncableAccount">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnUnsyncableAccount () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnUnsyncableAccount();" />
       <MemberSignature Language="C#" Value="public virtual bool OnUnsyncableAccount ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnUnsyncableAccount() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Content.AbstractThreadedSyncAdapter.OnUnsyncableAccount" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnUnsyncableAccount () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnUnsyncableAccount();" />
       <MemberSignature Language="F#" Value="abstract member OnUnsyncableAccount : unit -&gt; bool&#xA;override this.OnUnsyncableAccount : unit -&gt; bool" Usage="abstractThreadedSyncAdapter.OnUnsyncableAccount " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -477,6 +574,20 @@
         <returns>If <c>false</c> syncing is deferred. Returns <c>true</c> by default, i.e. by
                     default syncing starts immediately.</returns>
         <remarks>
+          <para>Allows to defer syncing until all accounts are properly set up.</para>
+          <para>Called when a account / authority pair
+            &lt;ul&gt;
+            &lt;li&gt;that can be handled by this adapter&lt;/li&gt;
+            &lt;li&gt;<c>ContentResolver#requestSync(SyncRequest) is synced</c>&lt;/li&gt;
+            &lt;li&gt;and the account/provider <c>ContentResolver#getIsSyncable(Account, String) has
+            unknown state (&lt;0)</c>.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+          <para>This might be called on a different service connection as <c>#onPerformSync</c>.</para>
+          <para>The system expects this method to immediately return. If the call stalls the system
+            behaves as if this method returned <c>true</c>. If it is required to perform a longer task
+            (such as interacting with the user), return <c>false</c> and proceed in a difference
+            context, such as an <c>android.app.Activity</c>, or foreground service. The sync can then be
+            rescheduled once the account becomes syncable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#onUnsyncableAccount()" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.onUnsyncableAccount()</code>.</a>
@@ -491,11 +602,11 @@
       </Docs>
     </Member>
     <Member MemberName="SyncAdapterBinder">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property SyncAdapterBinder As IBinder" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::OS::IBinder ^ SyncAdapterBinder { Android::OS::IBinder ^ get(); };" />
       <MemberSignature Language="C#" Value="public Android.OS.IBinder? SyncAdapterBinder { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Android.OS.IBinder SyncAdapterBinder" />
       <MemberSignature Language="DocId" Value="P:Android.Content.AbstractThreadedSyncAdapter.SyncAdapterBinder" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property SyncAdapterBinder As IBinder" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::OS::IBinder ^ SyncAdapterBinder { Android::OS::IBinder ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.SyncAdapterBinder : Android.OS.IBinder" Usage="Android.Content.AbstractThreadedSyncAdapter.SyncAdapterBinder" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -531,11 +642,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Content.AbstractThreadedSyncAdapter.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Content.AbstractThreadedSyncAdapter.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -564,11 +675,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Content.AbstractThreadedSyncAdapter.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Content.AbstractThreadedSyncAdapter.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -583,6 +694,14 @@
         <Attribute>
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>

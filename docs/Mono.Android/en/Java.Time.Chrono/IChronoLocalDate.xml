@@ -1,9 +1,9 @@
 <Type Name="IChronoLocalDate" FullName="Java.Time.Chrono.IChronoLocalDate">
+  <TypeSignature Language="VB.NET" Value="Public Interface IChronoLocalDate&#xA;Implements IComparable, IDisposable, IJavaPeerable, ITemporal, ITemporalAdjuster" />
+  <TypeSignature Language="C++ CLI" Value="public interface class IChronoLocalDate : IDisposable, Java::Interop::IJavaPeerable, Java::Lang::IComparable, Java::Time::Temporal::ITemporal, Java::Time::Temporal::ITemporalAdjuster" />
   <TypeSignature Language="C#" Value="public interface IChronoLocalDate : IDisposable, Java.Interop.IJavaPeerable, Java.Lang.IComparable, Java.Time.Temporal.ITemporal, Java.Time.Temporal.ITemporalAdjuster" />
   <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract beforefieldinit IChronoLocalDate implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.Lang.IComparable, class Java.Time.Temporal.ITemporal, class Java.Time.Temporal.ITemporalAccessor, class Java.Time.Temporal.ITemporalAdjuster, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Time.Chrono.IChronoLocalDate" />
-  <TypeSignature Language="VB.NET" Value="Public Interface IChronoLocalDate&#xA;Implements IComparable, IDisposable, IJavaPeerable, ITemporal, ITemporalAdjuster" />
-  <TypeSignature Language="C++ CLI" Value="public interface class IChronoLocalDate : IDisposable, Java::Interop::IJavaPeerable, Java::Lang::IComparable, Java::Time::Temporal::ITemporal, Java::Time::Temporal::ITemporalAdjuster" />
   <TypeSignature Language="F#" Value="type IChronoLocalDate = interface&#xA;    interface IComparable&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable&#xA;    interface ITemporal&#xA;    interface ITemporalAccessor&#xA;    interface ITemporalAdjuster" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -37,18 +37,155 @@
       <AttributeName Language="C#">[Android.Runtime.Register("java/time/chrono/ChronoLocalDate", "", "Java.Time.Chrono.IChronoLocalDateInvoker", ApiSince=26)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/time/chrono/ChronoLocalDate", "", "Java.Time.Chrono.IChronoLocalDateInvoker", ApiSince=26)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
-    <summary>To be added.</summary>
-    <remarks>To be added.</remarks>
+    <summary>A date without time-of-day or time-zone in an arbitrary chronology, intended
+            for advanced globalization use cases.</summary>
+    <remarks>
+      <para>A date without time-of-day or time-zone in an arbitrary chronology, intended
+            for advanced globalization use cases.</para>
+      <para>&lt;b&gt;Most applications should declare method signatures, fields and variables
+            as <c>LocalDate</c>, not this interface.&lt;/b&gt;</para>
+      <para>A <c>ChronoLocalDate</c> is the abstract representation of a date where the
+            <c>Chronology chronology</c>, or calendar system, is pluggable.
+            The date is defined in terms of fields expressed by <c>TemporalField</c>,
+            where most common implementations are defined in <c>ChronoField</c>.
+            The chronology defines how the calendar system operates and the meaning of
+            the standard fields.
+            
+            &lt;h2&gt;When to use this interface&lt;/h2&gt;
+            The design of the API encourages the use of <c>LocalDate</c> rather than this
+            interface, even in the case where the application needs to deal with multiple
+            calendar systems.</para>
+      <para>This concept can seem surprising at first, as the natural way to globalize an
+            application might initially appear to be to abstract the calendar system.
+            However, as explored below, abstracting the calendar system is usually the wrong
+            approach, resulting in logic errors and hard to find bugs.
+            As such, it should be considered an application-wide architectural decision to choose
+            to use this interface as opposed to <c>LocalDate</c>.
+            
+            &lt;h3&gt;Architectural issues to consider&lt;/h3&gt;
+            These are some of the points that must be considered before using this interface
+            throughout an application.</para>
+      <para>1) Applications using this interface, as opposed to using just <c>LocalDate</c>,
+            face a significantly higher probability of bugs. This is because the calendar system
+            in use is not known at development time. A key cause of bugs is where the developer
+            applies assumptions from their day-to-day knowledge of the ISO calendar system
+            to code that is intended to deal with any arbitrary calendar system.
+            The section below outlines how those assumptions can cause problems
+            The primary mechanism for reducing this increased risk of bugs is a strong code review process.
+            This should also be considered a extra cost in maintenance for the lifetime of the code.</para>
+      <para>2) This interface does not enforce immutability of implementations.
+            While the implementation notes indicate that all implementations must be immutable
+            there is nothing in the code or type system to enforce this. Any method declared
+            to accept a <c>ChronoLocalDate</c> could therefore be passed a poorly or
+            maliciously written mutable implementation.</para>
+      <para>3) Applications using this interface  must consider the impact of eras.
+            <c>LocalDate</c> shields users from the concept of eras, by ensuring that <c>getYear()</c>
+            returns the proleptic year. That decision ensures that developers can think of
+            <c>LocalDate</c> instances as consisting of three fields - year, month-of-year and day-of-month.
+            By contrast, users of this interface must think of dates as consisting of four fields -
+            era, year-of-era, month-of-year and day-of-month. The extra era field is frequently
+            forgotten, yet it is of vital importance to dates in an arbitrary calendar system.
+            For example, in the Japanese calendar system, the era represents the reign of an Emperor.
+            Whenever one reign ends and another starts, the year-of-era is reset to one.</para>
+      <para>4) The only agreed international standard for passing a date between two systems
+            is the ISO-8601 standard which requires the ISO calendar system. Using this interface
+            throughout the application will inevitably lead to the requirement to pass the date
+            across a network or component boundary, requiring an application specific protocol or format.</para>
+      <para>5) Long term persistence, such as a database, will almost always only accept dates in the
+            ISO-8601 calendar system (or the related Julian-Gregorian). Passing around dates in other
+            calendar systems increases the complications of interacting with persistence.</para>
+      <para>6) Most of the time, passing a <c>ChronoLocalDate</c> throughout an application
+            is unnecessary, as discussed in the last section below.
+            
+            &lt;h3&gt;False assumptions causing bugs in multi-calendar system code&lt;/h3&gt;
+            As indicated above, there are many issues to consider when try to use and manipulate a
+            date in an arbitrary calendar system. These are some of the key issues.</para>
+      <para>Code that queries the day-of-month and assumes that the value will never be more than
+            31 is invalid. Some calendar systems have more than 31 days in some months.</para>
+      <para>Code that adds 12 months to a date and assumes that a year has been added is invalid.
+            Some calendar systems have a different number of months, such as 13 in the Coptic or Ethiopic.</para>
+      <para>Code that adds one month to a date and assumes that the month-of-year value will increase
+            by one or wrap to the next year is invalid. Some calendar systems have a variable number
+            of months in a year, such as the Hebrew.</para>
+      <para>Code that adds one month, then adds a second one month and assumes that the day-of-month
+            will remain close to its original value is invalid. Some calendar systems have a large difference
+            between the length of the longest month and the length of the shortest month.
+            For example, the Coptic or Ethiopic have 12 months of 30 days and 1 month of 5 days.</para>
+      <para>Code that adds seven days and assumes that a week has been added is invalid.
+            Some calendar systems have weeks of other than seven days, such as the French Revolutionary.</para>
+      <para>Code that assumes that because the year of <c>date1</c> is greater than the year of <c>date2</c>
+            then <c>date1</c> is after <c>date2</c> is invalid. This is invalid for all calendar systems
+            when referring to the year-of-era, and especially untrue of the Japanese calendar system
+            where the year-of-era restarts with the reign of every new Emperor.</para>
+      <para>Code that treats month-of-year one and day-of-month one as the start of the year is invalid.
+            Not all calendar systems start the year when the month value is one.</para>
+      <para>In general, manipulating a date, and even querying a date, is wide open to bugs when the
+            calendar system is unknown at development time. This is why it is essential that code using
+            this interface is subjected to additional code reviews. It is also why an architectural
+            decision to avoid this interface type is usually the correct one.
+            
+            &lt;h3&gt;Using LocalDate instead&lt;/h3&gt;
+            The primary alternative to using this interface throughout your application is as follows.
+            &lt;ul&gt;
+            &lt;li&gt;Declare all method signatures referring to dates in terms of <c>LocalDate</c>.
+            &lt;li&gt;Either store the chronology (calendar system) in the user profile or lookup
+             the chronology from the user locale
+            &lt;li&gt;Convert the ISO <c>LocalDate</c> to and from the user's preferred calendar system during
+             printing and parsing
+            &lt;/ul&gt;
+            This approach treats the problem of globalized calendar systems as a localization issue
+            and confines it to the UI layer. This approach is in keeping with other localization
+            issues in the java platform.</para>
+      <para>As discussed above, performing calculations on a date where the rules of the calendar system
+            are pluggable requires skill and is not recommended.
+            Fortunately, the need to perform calculations on a date in an arbitrary calendar system
+            is extremely rare. For example, it is highly unlikely that the business rules of a library
+            book rental scheme will allow rentals to be for one month, where meaning of the month
+            is dependent on the user's preferred calendar system.</para>
+      <para>A key use case for calculations on a date in an arbitrary calendar system is producing
+            a month-by-month calendar for display and user interaction. Again, this is a UI issue,
+            and use of this interface solely within a few methods of the UI layer may be justified.</para>
+      <para>In any other part of the system, where a date must be manipulated in a calendar system
+            other than ISO, the use case will generally specify the calendar system to use.
+            For example, an application may need to calculate the next Islamic or Hebrew holiday
+            which may require manipulating the date.
+            This kind of use case can be handled as follows:
+            &lt;ul&gt;
+            &lt;li&gt;start from the ISO <c>LocalDate</c> being passed to the method
+            &lt;li&gt;convert the date to the alternate calendar system, which for this use case is known
+             rather than arbitrary
+            &lt;li&gt;perform the calculation
+            &lt;li&gt;convert back to <c>LocalDate</c>&lt;/ul&gt;
+            Developers writing low-level frameworks or libraries should also avoid this interface.
+            Instead, one of the two general purpose access interfaces should be used.
+            Use <c>TemporalAccessor</c> if read-only access is required, or use <c>Temporal</c>
+            if read-write access is required.</para>
+      <para>Added in 1.8.</para>
+      <para>
+        <format type="text/html">
+          <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate</code>.</a>
+        </format>
+      </para>
+      <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+    </remarks>
   </Docs>
   <Members>
     <Member MemberName="AtTime">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function AtTime (localTime As LocalTime) As IChronoLocalDateTime" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Time::Chrono::IChronoLocalDateTime ^ AtTime(Java::Time::LocalTime ^ localTime);" />
       <MemberSignature Language="C#" Value="public virtual Java.Time.Chrono.IChronoLocalDateTime? AtTime (Java.Time.LocalTime? localTime);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Time.Chrono.IChronoLocalDateTime AtTime(class Java.Time.LocalTime localTime) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.AtTime(Java.Time.LocalTime)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function AtTime (localTime As LocalTime) As IChronoLocalDateTime" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Time::Chrono::IChronoLocalDateTime ^ AtTime(Java::Time::LocalTime ^ localTime);" />
       <MemberSignature Language="F#" Value="abstract member AtTime : Java.Time.LocalTime -&gt; Java.Time.Chrono.IChronoLocalDateTime&#xA;override this.AtTime : Java.Time.LocalTime -&gt; Java.Time.Chrono.IChronoLocalDateTime" Usage="iChronoLocalDate.AtTime localTime" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -72,18 +209,32 @@
         <Parameter Name="localTime" Type="Java.Time.LocalTime" />
       </Parameters>
       <Docs>
-        <param name="localTime">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="localTime">the local time to use, not null</param>
+        <summary>Combines this date with a time to create a <c>ChronoLocalDateTime</c>.</summary>
+        <returns>the local date-time formed from this date and the specified time, not null</returns>
+        <remarks>
+          <para>Combines this date with a time to create a <c>ChronoLocalDateTime</c>.</para>
+          <para>This returns a <c>ChronoLocalDateTime</c> formed from this date at the specified time.
+            All possible combinations of date and time are valid.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#atTime(java.time.LocalTime)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.atTime(java.time.LocalTime)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Chronology">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Chronology As IChronology" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Time::Chrono::IChronology ^ Chronology { Java::Time::Chrono::IChronology ^ get(); };" />
       <MemberSignature Language="C#" Value="public Java.Time.Chrono.IChronology? Chronology { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Time.Chrono.IChronology Chronology" />
       <MemberSignature Language="DocId" Value="P:Java.Time.Chrono.IChronoLocalDate.Chronology" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Chronology As IChronology" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Time::Chrono::IChronology ^ Chronology { Java::Time::Chrono::IChronology ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.Chronology : Java.Time.Chrono.IChronology" Usage="Java.Time.Chrono.IChronoLocalDate.Chronology" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -110,11 +261,11 @@
       </Docs>
     </Member>
     <Member MemberName="CompareTo">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function CompareTo (other As IChronoLocalDate) As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int CompareTo(Java::Time::Chrono::IChronoLocalDate ^ other);" />
       <MemberSignature Language="C#" Value="public virtual int CompareTo (Java.Time.Chrono.IChronoLocalDate? other);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 CompareTo(class Java.Time.Chrono.IChronoLocalDate other) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.CompareTo(Java.Time.Chrono.IChronoLocalDate)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function CompareTo (other As IChronoLocalDate) As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int CompareTo(Java::Time::Chrono::IChronoLocalDate ^ other);" />
       <MemberSignature Language="F#" Value="abstract member CompareTo : Java.Time.Chrono.IChronoLocalDate -&gt; int&#xA;override this.CompareTo : Java.Time.Chrono.IChronoLocalDate -&gt; int" Usage="iChronoLocalDate.CompareTo other" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -138,18 +289,48 @@
         <Parameter Name="other" Type="Java.Time.Chrono.IChronoLocalDate" />
       </Parameters>
       <Docs>
-        <param name="other">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="other">the other date to compare to, not null</param>
+        <summary>Compares this date to another date, including the chronology.</summary>
+        <returns>the comparator value, negative if less, positive if greater</returns>
+        <remarks>
+          <para>Compares this date to another date, including the chronology.</para>
+          <para>The comparison is based first on the underlying time-line date, then
+            on the chronology.
+            It is "consistent with equals", as defined by <c>Comparable</c>.</para>
+          <para>For example, the following is the comparator order:
+            &lt;ol&gt;
+            &lt;li&gt;<c>2012-12-03 (ISO)</c>&lt;/li&gt;
+            &lt;li&gt;<c>2012-12-04 (ISO)</c>&lt;/li&gt;
+            &lt;li&gt;<c>2555-12-04 (ThaiBuddhist)</c>&lt;/li&gt;
+            &lt;li&gt;<c>2012-12-05 (ISO)</c>&lt;/li&gt;
+            &lt;/ol&gt;
+            Values #2 and #3 represent the same date on the time-line.
+            When two values represent the same date, the chronology ID is compared to distinguish them.
+            This step is needed to make the ordering "consistent with equals".</para>
+          <para>If all the date objects being compared are in the same chronology, then the
+            additional chronology stage is not required and only the local date is used.
+            To compare the dates of two <c>TemporalAccessor</c> instances, including dates
+            in two different chronologies, use <c>ChronoField#EPOCH_DAY</c> as a comparator.</para>
+          <para>This default implementation performs the comparison defined above.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#compareTo(java.time.chrono.ChronoLocalDate)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.compareTo(java.time.chrono.ChronoLocalDate)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Equals">
+      <MemberSignature Language="VB.NET" Value="Public Function Equals (obj As Object) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool Equals(Java::Lang::Object ^ obj);" />
       <MemberSignature Language="C#" Value="public bool Equals (Java.Lang.Object? obj);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool Equals(class Java.Lang.Object obj) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Equals(Java.Lang.Object)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Equals (obj As Object) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool Equals(Java::Lang::Object ^ obj);" />
       <MemberSignature Language="F#" Value="abstract member Equals : Java.Lang.Object -&gt; bool" Usage="iChronoLocalDate.Equals obj" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -173,18 +354,33 @@
         <Parameter Name="obj" Type="Java.Lang.Object" />
       </Parameters>
       <Docs>
-        <param name="obj">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="obj">the object to check, null returns false</param>
+        <summary>Checks if this date is equal to another date, including the chronology.</summary>
+        <returns>true if this is equal to the other date</returns>
+        <remarks>
+          <para>Checks if this date is equal to another date, including the chronology.</para>
+          <para>Compares this date with another ensuring that the date and chronology are the same.</para>
+          <para>To compare the dates of two <c>TemporalAccessor</c> instances, including dates
+            in two different chronologies, use <c>ChronoField#EPOCH_DAY</c> as a comparator.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#equals(java.lang.Object)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.equals(java.lang.Object)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Era">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property Era As IEra" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Time::Chrono::IEra ^ Era { Java::Time::Chrono::IEra ^ get(); };" />
       <MemberSignature Language="C#" Value="public virtual Java.Time.Chrono.IEra? Era { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Time.Chrono.IEra Era" />
       <MemberSignature Language="DocId" Value="P:Java.Time.Chrono.IChronoLocalDate.Era" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property Era As IEra" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Time::Chrono::IEra ^ Era { Java::Time::Chrono::IEra ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.Era : Java.Time.Chrono.IEra" Usage="Java.Time.Chrono.IChronoLocalDate.Era" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -205,17 +401,36 @@
         <ReturnType>Java.Time.Chrono.IEra</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>Gets the era, as defined by the chronology.</summary>
+        <value>the chronology specific era constant applicable at this date, not null</value>
+        <remarks>
+          <para>Gets the era, as defined by the chronology.</para>
+          <para>The era is, conceptually, the largest division of the time-line.
+            Most calendar systems have a single epoch dividing the time-line into two eras.
+            However, some have multiple eras, such as one for the reign of each leader.
+            The exact meaning is determined by the <c>Chronology</c>.</para>
+          <para>All correctly implemented <c>Era</c> classes are singletons, thus it
+            is valid code to write <c>date.getEra() == SomeChrono.ERA_NAME)</c>.</para>
+          <para>This default implementation uses <c>Chronology#eraOf(int)</c>.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#getEra()" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.getEra()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Format">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function Format (formatter As DateTimeFormatter) As String" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual System::String ^ Format(Java::Time::Format::DateTimeFormatter ^ formatter);" />
       <MemberSignature Language="C#" Value="public virtual string? Format (Java.Time.Format.DateTimeFormatter? formatter);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance string Format(class Java.Time.Format.DateTimeFormatter formatter) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Format(Java.Time.Format.DateTimeFormatter)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function Format (formatter As DateTimeFormatter) As String" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual System::String ^ Format(Java::Time::Format::DateTimeFormatter ^ formatter);" />
       <MemberSignature Language="F#" Value="abstract member Format : Java.Time.Format.DateTimeFormatter -&gt; string&#xA;override this.Format : Java.Time.Format.DateTimeFormatter -&gt; string" Usage="iChronoLocalDate.Format formatter" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -239,18 +454,34 @@
         <Parameter Name="formatter" Type="Java.Time.Format.DateTimeFormatter" />
       </Parameters>
       <Docs>
-        <param name="formatter">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="formatter">the formatter to use, not null</param>
+        <summary>Formats this date using the specified formatter.</summary>
+        <returns>the formatted date string, not null</returns>
+        <remarks>
+          <para>Formats this date using the specified formatter.</para>
+          <para>This date will be passed to the formatter to produce a string.</para>
+          <para>The default implementation must behave as follows:</para>
+          <code lang="text/java">return formatter.format(this);
+            </code>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#format(java.time.format.DateTimeFormatter)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.format(java.time.format.DateTimeFormatter)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="From">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function From (temporal As ITemporalAccessor) As IChronoLocalDate" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::Chrono::IChronoLocalDate ^ From(Java::Time::Temporal::ITemporalAccessor ^ temporal);" />
       <MemberSignature Language="C#" Value="public static Java.Time.Chrono.IChronoLocalDate? From (Java.Time.Temporal.ITemporalAccessor? temporal);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Time.Chrono.IChronoLocalDate From(class Java.Time.Temporal.ITemporalAccessor temporal) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.From(Java.Time.Temporal.ITemporalAccessor)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function From (temporal As ITemporalAccessor) As IChronoLocalDate" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Time::Chrono::IChronoLocalDate ^ From(Java::Time::Temporal::ITemporalAccessor ^ temporal);" />
       <MemberSignature Language="F#" Value="static member From : Java.Time.Temporal.ITemporalAccessor -&gt; Java.Time.Chrono.IChronoLocalDate" Usage="Java.Time.Chrono.IChronoLocalDate.From temporal" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -274,18 +505,40 @@
         <Parameter Name="temporal" Type="Java.Time.Temporal.ITemporalAccessor" />
       </Parameters>
       <Docs>
-        <param name="temporal">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="temporal">the temporal object to convert, not null</param>
+        <summary>Obtains an instance of <c>ChronoLocalDate</c> from a temporal object.</summary>
+        <returns>the date, not null</returns>
+        <remarks>
+          <para>Obtains an instance of <c>ChronoLocalDate</c> from a temporal object.</para>
+          <para>This obtains a local date based on the specified temporal.
+            A <c>TemporalAccessor</c> represents an arbitrary set of date and time information,
+            which this factory converts to an instance of <c>ChronoLocalDate</c>.</para>
+          <para>The conversion extracts and combines the chronology and the date
+            from the temporal object. The behavior is equivalent to using
+            <c>Chronology#date(TemporalAccessor)</c> with the extracted chronology.
+            Implementations are permitted to perform optimizations such as accessing
+            those fields that are equivalent to the relevant objects.</para>
+          <para>This method matches the signature of the functional interface <c>TemporalQuery</c>
+            allowing it to be used as a query via method reference, <c>ChronoLocalDate::from</c>.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#from(java.time.temporal.TemporalAccessor)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.from(java.time.temporal.TemporalAccessor)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="GetHashCode">
+      <MemberSignature Language="VB.NET" Value="Public Function GetHashCode () As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; int GetHashCode();" />
       <MemberSignature Language="C#" Value="public int GetHashCode ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 GetHashCode() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.GetHashCode" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetHashCode () As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; int GetHashCode();" />
       <MemberSignature Language="F#" Value="abstract member GetHashCode : unit -&gt; int" Usage="iChronoLocalDate.GetHashCode " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -307,17 +560,29 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <summary>A hash code for this date.</summary>
+        <returns>a suitable hash code</returns>
+        <remarks>
+          <para>A hash code for this date.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#hashCode()" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.hashCode()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="IsAfter">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function IsAfter (other As IChronoLocalDate) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool IsAfter(Java::Time::Chrono::IChronoLocalDate ^ other);" />
       <MemberSignature Language="C#" Value="public virtual bool IsAfter (Java.Time.Chrono.IChronoLocalDate? other);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool IsAfter(class Java.Time.Chrono.IChronoLocalDate other) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.IsAfter(Java.Time.Chrono.IChronoLocalDate)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function IsAfter (other As IChronoLocalDate) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool IsAfter(Java::Time::Chrono::IChronoLocalDate ^ other);" />
       <MemberSignature Language="F#" Value="abstract member IsAfter : Java.Time.Chrono.IChronoLocalDate -&gt; bool&#xA;override this.IsAfter : Java.Time.Chrono.IChronoLocalDate -&gt; bool" Usage="iChronoLocalDate.IsAfter other" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -341,18 +606,36 @@
         <Parameter Name="other" Type="Java.Time.Chrono.IChronoLocalDate" />
       </Parameters>
       <Docs>
-        <param name="other">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="other">the other date to compare to, not null</param>
+        <summary>Checks if this date is after the specified date ignoring the chronology.</summary>
+        <returns>true if this is after the specified date</returns>
+        <remarks>
+          <para>Checks if this date is after the specified date ignoring the chronology.</para>
+          <para>This method differs from the comparison in <c>#compareTo</c> in that it
+            only compares the underlying date and not the chronology.
+            This allows dates in different calendar systems to be compared based
+            on the time-line position.
+            This is equivalent to using <c>date1.toEpochDay() &gt; date2.toEpochDay()</c>.</para>
+          <para>This default implementation performs the comparison based on the epoch-day.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#isAfter(java.time.chrono.ChronoLocalDate)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.isAfter(java.time.chrono.ChronoLocalDate)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="IsBefore">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function IsBefore (other As IChronoLocalDate) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool IsBefore(Java::Time::Chrono::IChronoLocalDate ^ other);" />
       <MemberSignature Language="C#" Value="public virtual bool IsBefore (Java.Time.Chrono.IChronoLocalDate? other);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool IsBefore(class Java.Time.Chrono.IChronoLocalDate other) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.IsBefore(Java.Time.Chrono.IChronoLocalDate)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function IsBefore (other As IChronoLocalDate) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool IsBefore(Java::Time::Chrono::IChronoLocalDate ^ other);" />
       <MemberSignature Language="F#" Value="abstract member IsBefore : Java.Time.Chrono.IChronoLocalDate -&gt; bool&#xA;override this.IsBefore : Java.Time.Chrono.IChronoLocalDate -&gt; bool" Usage="iChronoLocalDate.IsBefore other" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -376,18 +659,36 @@
         <Parameter Name="other" Type="Java.Time.Chrono.IChronoLocalDate" />
       </Parameters>
       <Docs>
-        <param name="other">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="other">the other date to compare to, not null</param>
+        <summary>Checks if this date is before the specified date ignoring the chronology.</summary>
+        <returns>true if this is before the specified date</returns>
+        <remarks>
+          <para>Checks if this date is before the specified date ignoring the chronology.</para>
+          <para>This method differs from the comparison in <c>#compareTo</c> in that it
+            only compares the underlying date and not the chronology.
+            This allows dates in different calendar systems to be compared based
+            on the time-line position.
+            This is equivalent to using <c>date1.toEpochDay() &lt; date2.toEpochDay()</c>.</para>
+          <para>This default implementation performs the comparison based on the epoch-day.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#isBefore(java.time.chrono.ChronoLocalDate)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.isBefore(java.time.chrono.ChronoLocalDate)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="IsEqual">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function IsEqual (other As IChronoLocalDate) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool IsEqual(Java::Time::Chrono::IChronoLocalDate ^ other);" />
       <MemberSignature Language="C#" Value="public virtual bool IsEqual (Java.Time.Chrono.IChronoLocalDate? other);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool IsEqual(class Java.Time.Chrono.IChronoLocalDate other) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.IsEqual(Java.Time.Chrono.IChronoLocalDate)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function IsEqual (other As IChronoLocalDate) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool IsEqual(Java::Time::Chrono::IChronoLocalDate ^ other);" />
       <MemberSignature Language="F#" Value="abstract member IsEqual : Java.Time.Chrono.IChronoLocalDate -&gt; bool&#xA;override this.IsEqual : Java.Time.Chrono.IChronoLocalDate -&gt; bool" Usage="iChronoLocalDate.IsEqual other" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -411,18 +712,36 @@
         <Parameter Name="other" Type="Java.Time.Chrono.IChronoLocalDate" />
       </Parameters>
       <Docs>
-        <param name="other">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="other">the other date to compare to, not null</param>
+        <summary>Checks if this date is equal to the specified date ignoring the chronology.</summary>
+        <returns>true if the underlying date is equal to the specified date</returns>
+        <remarks>
+          <para>Checks if this date is equal to the specified date ignoring the chronology.</para>
+          <para>This method differs from the comparison in <c>#compareTo</c> in that it
+            only compares the underlying date and not the chronology.
+            This allows dates in different calendar systems to be compared based
+            on the time-line position.
+            This is equivalent to using <c>date1.toEpochDay() == date2.toEpochDay()</c>.</para>
+          <para>This default implementation performs the comparison based on the epoch-day.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#isEqual(java.time.chrono.ChronoLocalDate)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.isEqual(java.time.chrono.ChronoLocalDate)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="IsLeapYear">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property IsLeapYear As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool IsLeapYear { bool get(); };" />
       <MemberSignature Language="C#" Value="public virtual bool IsLeapYear { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsLeapYear" />
       <MemberSignature Language="DocId" Value="P:Java.Time.Chrono.IChronoLocalDate.IsLeapYear" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property IsLeapYear As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool IsLeapYear { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsLeapYear : bool" Usage="Java.Time.Chrono.IChronoLocalDate.IsLeapYear" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -443,17 +762,33 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>To be added.</summary>
-        <value>To be added.</value>
-        <remarks>To be added.</remarks>
+        <summary>Checks if the year is a leap year, as defined by the calendar system.</summary>
+        <value>true if this date is in a leap year, false otherwise</value>
+        <remarks>
+          <para>Checks if the year is a leap year, as defined by the calendar system.</para>
+          <para>A leap-year is a year of a longer length than normal.
+            The exact meaning is determined by the chronology with the constraint that
+            a leap-year must imply a year-length longer than a non leap-year.</para>
+          <para>This default implementation uses <c>Chronology#isLeapYear(long)</c>.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#isLeapYear()" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.isLeapYear()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Temporal.ITemporal.IsSupported">
-      <MemberSignature Language="C#" Value="override sealed bool ITemporal.IsSupported (Java.Time.Temporal.ITemporalUnit? unit);" />
-      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance bool Java.Time.Temporal.ITemporal.IsSupported(class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
-      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#IsSupported(Java.Time.Temporal.ITemporalUnit)" />
       <MemberSignature Language="VB.NET" Value=" Overrides NotOverridable Function IsSupported (unit As ITemporalUnit) As Boolean Implements ITemporal.IsSupported" />
       <MemberSignature Language="C++ CLI" Value=" override bool Java.Time.Temporal.ITemporal.IsSupported(Java::Time::Temporal::ITemporalUnit ^ unit) = Java::Time::Temporal::ITemporal::IsSupported;" />
+      <MemberSignature Language="C#" Value=" override sealed bool ITemporal.IsSupported (Java.Time.Temporal.ITemporalUnit? unit);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance bool Java.Time.Temporal.ITemporal.IsSupported(class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#IsSupported(Java.Time.Temporal.ITemporalUnit)" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Temporal.ITemporal.IsSupported : Java.Time.Temporal.ITemporalUnit -&gt; bool&#xA;override this.Java.Time.Temporal.ITemporal.IsSupported : Java.Time.Temporal.ITemporalUnit -&gt; bool" Usage="iChronoLocalDate.Java.Time.Temporal.ITemporal.IsSupported unit" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -480,18 +815,39 @@
         <Parameter Name="unit" Type="Java.Time.Temporal.ITemporalUnit" />
       </Parameters>
       <Docs>
-        <param name="unit">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="unit">the unit to check, null returns false</param>
+        <summary>Checks if the specified unit is supported.</summary>
+        <returns>true if the unit can be added/subtracted, false if not</returns>
+        <remarks>
+          <para>Checks if the specified unit is supported.</para>
+          <para>This checks if the specified unit can be added to or subtracted from this date.
+            If false, then calling the <c>#plus(long, TemporalUnit)</c> and
+            <c>#minus(long, TemporalUnit) minus</c> methods will throw an exception.</para>
+          <para>The set of supported units is defined by the chronology and normally includes
+            all <c>ChronoUnit</c> date units except <c>FOREVER</c>.</para>
+          <para>If the unit is not a <c>ChronoUnit</c>, then the result of this method
+            is obtained by invoking <c>TemporalUnit.isSupportedBy(Temporal)</c>
+            passing <c>this</c> as the argument.
+            Whether the unit is supported is determined by the unit.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#isSupported(java.time.temporal.TemporalUnit)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.isSupported(java.time.temporal.TemporalUnit)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Temporal.ITemporal.Minus">
-      <MemberSignature Language="C#" Value="override sealed Java.Time.Temporal.ITemporal? ITemporal.Minus (Java.Time.Temporal.ITemporalAmount? amount);" />
-      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.Minus(class Java.Time.Temporal.ITemporalAmount amount) cil managed" />
-      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#Minus(Java.Time.Temporal.ITemporalAmount)" />
       <MemberSignature Language="VB.NET" Value=" Overrides NotOverridable Function Minus (amount As ITemporalAmount) As ITemporal Implements ITemporal.Minus" />
       <MemberSignature Language="C++ CLI" Value=" override Java::Time::Temporal::ITemporal ^ Java.Time.Temporal.ITemporal.Minus(Java::Time::Temporal::ITemporalAmount ^ amount) = Java::Time::Temporal::ITemporal::Minus;" />
+      <MemberSignature Language="C#" Value=" override sealed Java.Time.Temporal.ITemporal? ITemporal.Minus (Java.Time.Temporal.ITemporalAmount? amount);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.Minus(class Java.Time.Temporal.ITemporalAmount amount) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#Minus(Java.Time.Temporal.ITemporalAmount)" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Temporal.ITemporal.Minus : Java.Time.Temporal.ITemporalAmount -&gt; Java.Time.Temporal.ITemporal&#xA;override this.Java.Time.Temporal.ITemporal.Minus : Java.Time.Temporal.ITemporalAmount -&gt; Java.Time.Temporal.ITemporal" Usage="iChronoLocalDate.Java.Time.Temporal.ITemporal.Minus amount" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -519,17 +875,29 @@
       </Parameters>
       <Docs>
         <param name="amount">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>To be added</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks>
+          <para>To be added</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#minus(java.time.temporal.TemporalAmount)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.minus(java.time.temporal.TemporalAmount)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Temporal.ITemporal.Minus">
-      <MemberSignature Language="C#" Value="override sealed Java.Time.Temporal.ITemporal? ITemporal.Minus (long amountToSubtract, Java.Time.Temporal.ITemporalUnit? unit);" />
-      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.Minus(int64 amountToSubtract, class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
-      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#Minus(System.Int64,Java.Time.Temporal.ITemporalUnit)" />
       <MemberSignature Language="VB.NET" Value=" Overrides NotOverridable Function Minus (amountToSubtract As Long, unit As ITemporalUnit) As ITemporal Implements ITemporal.Minus" />
       <MemberSignature Language="C++ CLI" Value=" override Java::Time::Temporal::ITemporal ^ Java.Time.Temporal.ITemporal.Minus(long amountToSubtract, Java::Time::Temporal::ITemporalUnit ^ unit) = Java::Time::Temporal::ITemporal::Minus;" />
+      <MemberSignature Language="C#" Value=" override sealed Java.Time.Temporal.ITemporal? ITemporal.Minus (long amountToSubtract, Java.Time.Temporal.ITemporalUnit? unit);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.Minus(int64 amountToSubtract, class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#Minus(System.Int64,Java.Time.Temporal.ITemporalUnit)" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Temporal.ITemporal.Minus : int64 * Java.Time.Temporal.ITemporalUnit -&gt; Java.Time.Temporal.ITemporal&#xA;override this.Java.Time.Temporal.ITemporal.Minus : int64 * Java.Time.Temporal.ITemporalUnit -&gt; Java.Time.Temporal.ITemporal" Usage="iChronoLocalDate.Java.Time.Temporal.ITemporal.Minus (amountToSubtract, unit)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -559,17 +927,29 @@
       <Docs>
         <param name="amountToSubtract">To be added.</param>
         <param name="unit">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>To be added</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks>
+          <para>To be added</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#minus(long,%20java.time.temporal.TemporalUnit)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.minus(long, java.time.temporal.TemporalUnit)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Temporal.ITemporal.Plus">
-      <MemberSignature Language="C#" Value="override sealed Java.Time.Temporal.ITemporal? ITemporal.Plus (Java.Time.Temporal.ITemporalAmount? amount);" />
-      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.Plus(class Java.Time.Temporal.ITemporalAmount amount) cil managed" />
-      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#Plus(Java.Time.Temporal.ITemporalAmount)" />
       <MemberSignature Language="VB.NET" Value=" Overrides NotOverridable Function Plus (amount As ITemporalAmount) As ITemporal Implements ITemporal.Plus" />
       <MemberSignature Language="C++ CLI" Value=" override Java::Time::Temporal::ITemporal ^ Java.Time.Temporal.ITemporal.Plus(Java::Time::Temporal::ITemporalAmount ^ amount) = Java::Time::Temporal::ITemporal::Plus;" />
+      <MemberSignature Language="C#" Value=" override sealed Java.Time.Temporal.ITemporal? ITemporal.Plus (Java.Time.Temporal.ITemporalAmount? amount);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.Plus(class Java.Time.Temporal.ITemporalAmount amount) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#Plus(Java.Time.Temporal.ITemporalAmount)" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Temporal.ITemporal.Plus : Java.Time.Temporal.ITemporalAmount -&gt; Java.Time.Temporal.ITemporal&#xA;override this.Java.Time.Temporal.ITemporal.Plus : Java.Time.Temporal.ITemporalAmount -&gt; Java.Time.Temporal.ITemporal" Usage="iChronoLocalDate.Java.Time.Temporal.ITemporal.Plus amount" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -597,17 +977,29 @@
       </Parameters>
       <Docs>
         <param name="amount">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>To be added</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks>
+          <para>To be added</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#plus(java.time.temporal.TemporalAmount)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.plus(java.time.temporal.TemporalAmount)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Temporal.ITemporal.Plus">
-      <MemberSignature Language="C#" Value="override sealed Java.Time.Temporal.ITemporal? ITemporal.Plus (long amountToAdd, Java.Time.Temporal.ITemporalUnit? unit);" />
-      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.Plus(int64 amountToAdd, class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
-      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#Plus(System.Int64,Java.Time.Temporal.ITemporalUnit)" />
       <MemberSignature Language="VB.NET" Value=" Overrides NotOverridable Function Plus (amountToAdd As Long, unit As ITemporalUnit) As ITemporal Implements ITemporal.Plus" />
       <MemberSignature Language="C++ CLI" Value=" override Java::Time::Temporal::ITemporal ^ Java.Time.Temporal.ITemporal.Plus(long amountToAdd, Java::Time::Temporal::ITemporalUnit ^ unit) = Java::Time::Temporal::ITemporal::Plus;" />
+      <MemberSignature Language="C#" Value=" override sealed Java.Time.Temporal.ITemporal? ITemporal.Plus (long amountToAdd, Java.Time.Temporal.ITemporalUnit? unit);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.Plus(int64 amountToAdd, class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#Plus(System.Int64,Java.Time.Temporal.ITemporalUnit)" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Temporal.ITemporal.Plus : int64 * Java.Time.Temporal.ITemporalUnit -&gt; Java.Time.Temporal.ITemporal&#xA;override this.Java.Time.Temporal.ITemporal.Plus : int64 * Java.Time.Temporal.ITemporalUnit -&gt; Java.Time.Temporal.ITemporal" Usage="iChronoLocalDate.Java.Time.Temporal.ITemporal.Plus (amountToAdd, unit)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -637,17 +1029,29 @@
       <Docs>
         <param name="amountToAdd">To be added.</param>
         <param name="unit">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>To be added</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks>
+          <para>To be added</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#plus(long,%20java.time.temporal.TemporalUnit)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.plus(long, java.time.temporal.TemporalUnit)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Temporal.ITemporal.With">
-      <MemberSignature Language="C#" Value="override sealed Java.Time.Temporal.ITemporal? ITemporal.With (Java.Time.Temporal.ITemporalAdjuster? adjuster);" />
-      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.With(class Java.Time.Temporal.ITemporalAdjuster adjuster) cil managed" />
-      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#With(Java.Time.Temporal.ITemporalAdjuster)" />
       <MemberSignature Language="VB.NET" Value=" Overrides NotOverridable Function With (adjuster As ITemporalAdjuster) As ITemporal Implements ITemporal.With" />
       <MemberSignature Language="C++ CLI" Value=" override Java::Time::Temporal::ITemporal ^ Java.Time.Temporal.ITemporal.With(Java::Time::Temporal::ITemporalAdjuster ^ adjuster) = Java::Time::Temporal::ITemporal::With;" />
+      <MemberSignature Language="C#" Value=" override sealed Java.Time.Temporal.ITemporal? ITemporal.With (Java.Time.Temporal.ITemporalAdjuster? adjuster);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.With(class Java.Time.Temporal.ITemporalAdjuster adjuster) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#With(Java.Time.Temporal.ITemporalAdjuster)" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Temporal.ITemporal.With : Java.Time.Temporal.ITemporalAdjuster -&gt; Java.Time.Temporal.ITemporal&#xA;override this.Java.Time.Temporal.ITemporal.With : Java.Time.Temporal.ITemporalAdjuster -&gt; Java.Time.Temporal.ITemporal" Usage="iChronoLocalDate.Java.Time.Temporal.ITemporal.With adjuster" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -675,17 +1079,29 @@
       </Parameters>
       <Docs>
         <param name="adjuster">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>To be added</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks>
+          <para>To be added</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#with(java.time.temporal.TemporalAdjuster)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.with(java.time.temporal.TemporalAdjuster)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Temporal.ITemporal.With">
-      <MemberSignature Language="C#" Value="override sealed Java.Time.Temporal.ITemporal? ITemporal.With (Java.Time.Temporal.ITemporalField? field, long newValue);" />
-      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.With(class Java.Time.Temporal.ITemporalField field, int64 newValue) cil managed" />
-      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#With(Java.Time.Temporal.ITemporalField,System.Int64)" />
       <MemberSignature Language="VB.NET" Value=" Overrides NotOverridable Function With (field As ITemporalField, newValue As Long) As ITemporal Implements ITemporal.With" />
       <MemberSignature Language="C++ CLI" Value=" override Java::Time::Temporal::ITemporal ^ Java.Time.Temporal.ITemporal.With(Java::Time::Temporal::ITemporalField ^ field, long newValue) = Java::Time::Temporal::ITemporal::With;" />
+      <MemberSignature Language="C#" Value=" override sealed Java.Time.Temporal.ITemporal? ITemporal.With (Java.Time.Temporal.ITemporalField? field, long newValue);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporal.With(class Java.Time.Temporal.ITemporalField field, int64 newValue) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporal#With(Java.Time.Temporal.ITemporalField,System.Int64)" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Temporal.ITemporal.With : Java.Time.Temporal.ITemporalField * int64 -&gt; Java.Time.Temporal.ITemporal&#xA;override this.Java.Time.Temporal.ITemporal.With : Java.Time.Temporal.ITemporalField * int64 -&gt; Java.Time.Temporal.ITemporal" Usage="iChronoLocalDate.Java.Time.Temporal.ITemporal.With (field, newValue)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -715,17 +1131,29 @@
       <Docs>
         <param name="field">To be added.</param>
         <param name="newValue">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>To be added</summary>
         <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <remarks>
+          <para>To be added</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#with(java.time.temporal.TemporalField,%20long)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.with(java.time.temporal.TemporalField, long)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Temporal.ITemporalAccessor.IsSupported">
-      <MemberSignature Language="C#" Value="override sealed bool ITemporalAccessor.IsSupported (Java.Time.Temporal.ITemporalField? field);" />
-      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance bool Java.Time.Temporal.ITemporalAccessor.IsSupported(class Java.Time.Temporal.ITemporalField field) cil managed" />
-      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporalAccessor#IsSupported(Java.Time.Temporal.ITemporalField)" />
       <MemberSignature Language="VB.NET" Value=" Overrides NotOverridable Function IsSupported (field As ITemporalField) As Boolean Implements ITemporalAccessor.IsSupported" />
       <MemberSignature Language="C++ CLI" Value=" override bool Java.Time.Temporal.ITemporalAccessor.IsSupported(Java::Time::Temporal::ITemporalField ^ field) = Java::Time::Temporal::ITemporalAccessor::IsSupported;" />
+      <MemberSignature Language="C#" Value=" override sealed bool ITemporalAccessor.IsSupported (Java.Time.Temporal.ITemporalField? field);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance bool Java.Time.Temporal.ITemporalAccessor.IsSupported(class Java.Time.Temporal.ITemporalField field) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporalAccessor#IsSupported(Java.Time.Temporal.ITemporalField)" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Temporal.ITemporalAccessor.IsSupported : Java.Time.Temporal.ITemporalField -&gt; bool&#xA;override this.Java.Time.Temporal.ITemporalAccessor.IsSupported : Java.Time.Temporal.ITemporalField -&gt; bool" Usage="iChronoLocalDate.Java.Time.Temporal.ITemporalAccessor.IsSupported field" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -752,18 +1180,40 @@
         <Parameter Name="field" Type="Java.Time.Temporal.ITemporalField" />
       </Parameters>
       <Docs>
-        <param name="field">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="field">the field to check, null returns false</param>
+        <summary>Checks if the specified field is supported.</summary>
+        <returns>true if the field can be queried, false if not</returns>
+        <remarks>
+          <para>Checks if the specified field is supported.</para>
+          <para>This checks if the specified field can be queried on this date.
+            If false, then calling the <c>#range(TemporalField) range</c>,
+            <c>#get(TemporalField) get</c> and <c>#with(TemporalField, long)</c>
+            methods will throw an exception.</para>
+          <para>The set of supported fields is defined by the chronology and normally includes
+            all <c>ChronoField</c> date fields.</para>
+          <para>If the field is not a <c>ChronoField</c>, then the result of this method
+            is obtained by invoking <c>TemporalField.isSupportedBy(TemporalAccessor)</c>
+            passing <c>this</c> as the argument.
+            Whether the field is supported is determined by the field.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#isSupported(java.time.temporal.TemporalField)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.isSupported(java.time.temporal.TemporalField)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Temporal.ITemporalAccessor.Query">
-      <MemberSignature Language="C#" Value="override sealed Java.Lang.Object? ITemporalAccessor.Query (Java.Time.Temporal.ITemporalQuery? query);" />
-      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Lang.Object Java.Time.Temporal.ITemporalAccessor.Query(class Java.Time.Temporal.ITemporalQuery query) cil managed" />
-      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporalAccessor#Query(Java.Time.Temporal.ITemporalQuery)" />
       <MemberSignature Language="VB.NET" Value=" Overrides NotOverridable Function Query (query As ITemporalQuery) As Object Implements ITemporalAccessor.Query" />
       <MemberSignature Language="C++ CLI" Value=" override Java::Lang::Object ^ Java.Time.Temporal.ITemporalAccessor.Query(Java::Time::Temporal::ITemporalQuery ^ query) = Java::Time::Temporal::ITemporalAccessor::Query;" />
+      <MemberSignature Language="C#" Value=" override sealed Java.Lang.Object? ITemporalAccessor.Query (Java.Time.Temporal.ITemporalQuery? query);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Lang.Object Java.Time.Temporal.ITemporalAccessor.Query(class Java.Time.Temporal.ITemporalQuery query) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporalAccessor#Query(Java.Time.Temporal.ITemporalQuery)" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Temporal.ITemporalAccessor.Query : Java.Time.Temporal.ITemporalQuery -&gt; Java.Lang.Object&#xA;override this.Java.Time.Temporal.ITemporalAccessor.Query : Java.Time.Temporal.ITemporalQuery -&gt; Java.Lang.Object" Usage="iChronoLocalDate.Java.Time.Temporal.ITemporalAccessor.Query query" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -794,18 +1244,38 @@
         <Parameter Name="query" Type="Java.Time.Temporal.ITemporalQuery" />
       </Parameters>
       <Docs>
-        <param name="query">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="&lt;R&gt;&lt;R&gt;">the type of the result</param>
+        <param name="query">the query to invoke, not null</param>
+        <summary>Queries this date using the specified query.</summary>
+        <returns>the query result, null may be returned (defined by the query)</returns>
+        <remarks>
+          <para>Queries this date using the specified query.</para>
+          <para>This queries this date using the specified query strategy object.
+            The <c>TemporalQuery</c> object defines the logic to be used to
+            obtain the result. Read the documentation of the query to understand
+            what the result of this method will be.</para>
+          <para>The result of this method is obtained by invoking the
+            <c>TemporalQuery#queryFrom(TemporalAccessor)</c> method on the
+            specified query passing <c>this</c> as the argument.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#query(java.time.temporal.TemporalQuery%3CR%3E)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.query(java.time.temporal.TemporalQuery&lt;R&gt;)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Java.Time.Temporal.ITemporalAdjuster.AdjustInto">
-      <MemberSignature Language="C#" Value="override sealed Java.Time.Temporal.ITemporal? ITemporalAdjuster.AdjustInto (Java.Time.Temporal.ITemporal? temporal);" />
-      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporalAdjuster.AdjustInto(class Java.Time.Temporal.ITemporal temporal) cil managed" />
-      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporalAdjuster#AdjustInto(Java.Time.Temporal.ITemporal)" />
       <MemberSignature Language="VB.NET" Value=" Overrides NotOverridable Function AdjustInto (temporal As ITemporal) As ITemporal Implements ITemporalAdjuster.AdjustInto" />
       <MemberSignature Language="C++ CLI" Value=" override Java::Time::Temporal::ITemporal ^ Java.Time.Temporal.ITemporalAdjuster.AdjustInto(Java::Time::Temporal::ITemporal ^ temporal) = Java::Time::Temporal::ITemporalAdjuster::AdjustInto;" />
+      <MemberSignature Language="C#" Value=" override sealed Java.Time.Temporal.ITemporal? ITemporalAdjuster.AdjustInto (Java.Time.Temporal.ITemporal? temporal);" />
+      <MemberSignature Language="ILAsm" Value=".method hidebysig virtual instance class Java.Time.Temporal.ITemporal Java.Time.Temporal.ITemporalAdjuster.AdjustInto(class Java.Time.Temporal.ITemporal temporal) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Java#Time#Temporal#ITemporalAdjuster#AdjustInto(Java.Time.Temporal.ITemporal)" />
       <MemberSignature Language="F#" Value="abstract member Java.Time.Temporal.ITemporalAdjuster.AdjustInto : Java.Time.Temporal.ITemporal -&gt; Java.Time.Temporal.ITemporal&#xA;override this.Java.Time.Temporal.ITemporalAdjuster.AdjustInto : Java.Time.Temporal.ITemporal -&gt; Java.Time.Temporal.ITemporal" Usage="iChronoLocalDate.Java.Time.Temporal.ITemporalAdjuster.AdjustInto temporal" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -832,18 +1302,41 @@
         <Parameter Name="temporal" Type="Java.Time.Temporal.ITemporal" />
       </Parameters>
       <Docs>
-        <param name="temporal">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="temporal">the target object to be adjusted, not null</param>
+        <summary>Adjusts the specified temporal object to have the same date as this object.</summary>
+        <returns>the adjusted object, not null</returns>
+        <remarks>
+          <para>Adjusts the specified temporal object to have the same date as this object.</para>
+          <para>This returns a temporal object of the same observable type as the input
+            with the date changed to be the same as this.</para>
+          <para>The adjustment is equivalent to using <c>Temporal#with(TemporalField, long)</c>
+            passing <c>ChronoField#EPOCH_DAY</c> as the field.</para>
+          <para>In most cases, it is clearer to reverse the calling pattern by using
+            <c>Temporal#with(TemporalAdjuster)</c>:</para>
+          <code lang="text/java">// these two lines are equivalent, but the second approach is recommended
+              temporal = thisLocalDate.adjustInto(temporal);
+              temporal = temporal.with(thisLocalDate);
+            </code>
+          <para>This instance is immutable and unaffected by this method call.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#adjustInto(java.time.temporal.Temporal)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.adjustInto(java.time.temporal.Temporal)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="LengthOfMonth">
+      <MemberSignature Language="VB.NET" Value="Public Function LengthOfMonth () As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; int LengthOfMonth();" />
       <MemberSignature Language="C#" Value="public int LengthOfMonth ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 LengthOfMonth() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.LengthOfMonth" />
-      <MemberSignature Language="VB.NET" Value="Public Function LengthOfMonth () As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; int LengthOfMonth();" />
       <MemberSignature Language="F#" Value="abstract member LengthOfMonth : unit -&gt; int" Usage="iChronoLocalDate.LengthOfMonth " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -865,17 +1358,30 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <summary>Returns the length of the month represented by this date, as defined by the calendar system.</summary>
+        <returns>the length of the month in days</returns>
+        <remarks>
+          <para>Returns the length of the month represented by this date, as defined by the calendar system.</para>
+          <para>This returns the length of the month in days.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#lengthOfMonth()" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.lengthOfMonth()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="LengthOfYear">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function LengthOfYear () As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int LengthOfYear();" />
       <MemberSignature Language="C#" Value="public virtual int LengthOfYear ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 LengthOfYear() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.LengthOfYear" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function LengthOfYear () As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int LengthOfYear();" />
       <MemberSignature Language="F#" Value="abstract member LengthOfYear : unit -&gt; int&#xA;override this.LengthOfYear : unit -&gt; int" Usage="iChronoLocalDate.LengthOfYear " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -897,17 +1403,31 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <summary>Returns the length of the year represented by this date, as defined by the calendar system.</summary>
+        <returns>the length of the year in days</returns>
+        <remarks>
+          <para>Returns the length of the year represented by this date, as defined by the calendar system.</para>
+          <para>This returns the length of the year in days.</para>
+          <para>The default implementation uses <c>#isLeapYear()</c> and returns 365 or 366.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#lengthOfYear()" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.lengthOfYear()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="TimeLineOrder">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function TimeLineOrder () As IComparator" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::IComparator ^ TimeLineOrder();" />
       <MemberSignature Language="C#" Value="public static Java.Util.IComparator? TimeLineOrder ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Util.IComparator TimeLineOrder() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.TimeLineOrder" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function TimeLineOrder () As IComparator" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::IComparator ^ TimeLineOrder();" />
       <MemberSignature Language="F#" Value="static member TimeLineOrder : unit -&gt; Java.Util.IComparator" Usage="Java.Time.Chrono.IChronoLocalDate.TimeLineOrder " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -929,17 +1449,36 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <summary>Gets a comparator that compares <c>ChronoLocalDate</c> in
+            time-line order ignoring the chronology.</summary>
+        <returns>a comparator that compares in time-line order ignoring the chronology</returns>
+        <remarks>
+          <para>Gets a comparator that compares <c>ChronoLocalDate</c> in
+            time-line order ignoring the chronology.</para>
+          <para>This comparator differs from the comparison in <c>#compareTo</c> in that it
+            only compares the underlying date and not the chronology.
+            This allows dates in different calendar systems to be compared based
+            on the position of the date on the local time-line.
+            The underlying comparison is equivalent to comparing the epoch-day.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#timeLineOrder()" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.timeLineOrder()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="ToEpochDay">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function ToEpochDay () As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long ToEpochDay();" />
       <MemberSignature Language="C#" Value="public virtual long ToEpochDay ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 ToEpochDay() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.ToEpochDay" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function ToEpochDay () As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long ToEpochDay();" />
       <MemberSignature Language="F#" Value="abstract member ToEpochDay : unit -&gt; int64&#xA;override this.ToEpochDay : unit -&gt; int64" Usage="iChronoLocalDate.ToEpochDay " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -961,17 +1500,33 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <summary>Converts this date to the Epoch Day.</summary>
+        <returns>the Epoch Day equivalent to this date</returns>
+        <remarks>
+          <para>Converts this date to the Epoch Day.</para>
+          <para>The <c>ChronoField#EPOCH_DAY Epoch Day count</c> is a simple
+            incrementing count of days where day 0 is 1970-01-01 (ISO).
+            This definition is the same for all chronologies, enabling conversion.</para>
+          <para>This default implementation queries the <c>EPOCH_DAY</c> field.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#toEpochDay()" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.toEpochDay()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="ToString">
+      <MemberSignature Language="VB.NET" Value="Public Function ToString () As String" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::String ^ ToString();" />
       <MemberSignature Language="C#" Value="public string? ToString ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance string ToString() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.ToString" />
-      <MemberSignature Language="VB.NET" Value="Public Function ToString () As String" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::String ^ ToString();" />
       <MemberSignature Language="F#" Value="abstract member ToString : unit -&gt; string" Usage="iChronoLocalDate.ToString " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -993,17 +1548,30 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <summary>Outputs this date as a <c>String</c>.</summary>
+        <returns>the formatted date, not null</returns>
+        <remarks>
+          <para>Outputs this date as a <c>String</c>.</para>
+          <para>The output will include the full local date.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#toString()" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.toString()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Until">
+      <MemberSignature Language="VB.NET" Value="Public Function Until (endDateExclusive As IChronoLocalDate) As IChronoPeriod" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::Chrono::IChronoPeriod ^ Until(Java::Time::Chrono::IChronoLocalDate ^ endDateExclusive);" />
       <MemberSignature Language="C#" Value="public Java.Time.Chrono.IChronoPeriod? Until (Java.Time.Chrono.IChronoLocalDate? endDateExclusive);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Time.Chrono.IChronoPeriod Until(class Java.Time.Chrono.IChronoLocalDate endDateExclusive) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Until(Java.Time.Chrono.IChronoLocalDate)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Until (endDateExclusive As IChronoLocalDate) As IChronoPeriod" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Time::Chrono::IChronoPeriod ^ Until(Java::Time::Chrono::IChronoLocalDate ^ endDateExclusive);" />
       <MemberSignature Language="F#" Value="abstract member Until : Java.Time.Chrono.IChronoLocalDate -&gt; Java.Time.Chrono.IChronoPeriod" Usage="iChronoLocalDate.Until endDateExclusive" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1027,18 +1595,39 @@
         <Parameter Name="endDateExclusive" Type="Java.Time.Chrono.IChronoLocalDate" />
       </Parameters>
       <Docs>
-        <param name="endDateExclusive">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="endDateExclusive">the end date, exclusive, which may be in any chronology, not null</param>
+        <summary>Calculates the period between this date and another date as a <c>ChronoPeriod</c>.</summary>
+        <returns>the period between this date and the end date, not null</returns>
+        <remarks>
+          <para>Calculates the period between this date and another date as a <c>ChronoPeriod</c>.</para>
+          <para>This calculates the period between two dates. All supplied chronologies
+            calculate the period using years, months and days, however the
+            <c>ChronoPeriod</c> API allows the period to be represented using other units.</para>
+          <para>The start and end points are <c>this</c> and the specified date.
+            The result will be negative if the end is before the start.
+            The negative sign will be the same in each of year, month and day.</para>
+          <para>The calculation is performed using the chronology of this date.
+            If necessary, the input date will be converted to match.</para>
+          <para>This instance is immutable and unaffected by this method call.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#until(java.time.chrono.ChronoLocalDate)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.until(java.time.chrono.ChronoLocalDate)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="Until">
+      <MemberSignature Language="VB.NET" Value="Public Function Until (endExclusive As ITemporal, unit As ITemporalUnit) As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; long Until(Java::Time::Temporal::ITemporal ^ endExclusive, Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public long Until (Java.Time.Temporal.ITemporal? endExclusive, Java.Time.Temporal.ITemporalUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 Until(class Java.Time.Temporal.ITemporal endExclusive, class Java.Time.Temporal.ITemporalUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Time.Chrono.IChronoLocalDate.Until(Java.Time.Temporal.ITemporal,Java.Time.Temporal.ITemporalUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Until (endExclusive As ITemporal, unit As ITemporalUnit) As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; long Until(Java::Time::Temporal::ITemporal ^ endExclusive, Java::Time::Temporal::ITemporalUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member Until : Java.Time.Temporal.ITemporal * Java.Time.Temporal.ITemporalUnit -&gt; int64" Usage="iChronoLocalDate.Until (endExclusive, unit)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1066,11 +1655,52 @@
         <Parameter Name="unit" Type="Java.Time.Temporal.ITemporalUnit" />
       </Parameters>
       <Docs>
-        <param name="endExclusive">To be added.</param>
-        <param name="unit">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="endExclusive">the end date, exclusive, which is converted to a
+             <c>ChronoLocalDate</c> in the same chronology, not null</param>
+        <param name="unit">the unit to measure the amount in, not null</param>
+        <summary>Calculates the amount of time until another date in terms of the specified unit.</summary>
+        <returns>the amount of time between this date and the end date</returns>
+        <remarks>
+          <para>Calculates the amount of time until another date in terms of the specified unit.</para>
+          <para>This calculates the amount of time between two <c>ChronoLocalDate</c>
+            objects in terms of a single <c>TemporalUnit</c>.
+            The start and end points are <c>this</c> and the specified date.
+            The result will be negative if the end is before the start.
+            The <c>Temporal</c> passed to this method is converted to a
+            <c>ChronoLocalDate</c> using <c>Chronology#date(TemporalAccessor)</c>.
+            The calculation returns a whole number, representing the number of
+            complete units between the two dates.
+            For example, the amount in days between two dates can be calculated
+            using <c>startDate.until(endDate, DAYS)</c>.</para>
+          <para>There are two equivalent ways of using this method.
+            The first is to invoke this method.
+            The second is to use <c>TemporalUnit#between(Temporal, Temporal)</c>:</para>
+          <code lang="text/java">// these two lines are equivalent
+              amount = start.until(end, MONTHS);
+              amount = MONTHS.between(start, end);
+            </code>
+          <para>The choice should be made based on which makes the code more readable.</para>
+          <para>The calculation is implemented in this method for <c>ChronoUnit</c>.
+            The units <c>DAYS</c>, <c>WEEKS</c>, <c>MONTHS</c>, <c>YEARS</c>,
+            <c>DECADES</c>, <c>CENTURIES</c>, <c>MILLENNIA</c> and <c>ERAS</c>
+            should be supported by all implementations.
+            Other <c>ChronoUnit</c> values will throw an exception.</para>
+          <para>If the unit is not a <c>ChronoUnit</c>, then the result of this method
+            is obtained by invoking <c>TemporalUnit.between(Temporal, Temporal)</c>
+            passing <c>this</c> as the first argument and the converted input temporal as
+            the second argument.</para>
+          <para>This instance is immutable and unaffected by this method call.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/time/chrono/ChronoLocalDate#until(java.time.temporal.Temporal,%20java.time.temporal.TemporalUnit)" title="Reference documentation">Java documentation for <code>java.time.chrono.ChronoLocalDate.until(java.time.temporal.Temporal, java.time.temporal.TemporalUnit)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
   </Members>

@@ -1,9 +1,9 @@
 <Type Name="KeyProtection" FullName="Android.Security.Keystore.KeyProtection">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class KeyProtection&#xA;Inherits Object&#xA;Implements IDisposable, IJavaPeerable, KeyStore.IProtectionParameter" />
+  <TypeSignature Language="C++ CLI" Value="public ref class KeyProtection sealed : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::Security::KeyStore::IProtectionParameter" />
   <TypeSignature Language="C#" Value="public sealed class KeyProtection : Java.Lang.Object, IDisposable, Java.Interop.IJavaPeerable, Java.Security.KeyStore.IProtectionParameter" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit KeyProtection extends Java.Lang.Object implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.Security.KeyStore/IProtectionParameter, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Android.Security.Keystore.KeyProtection" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class KeyProtection&#xA;Inherits Object&#xA;Implements IDisposable, IJavaPeerable, KeyStore.IProtectionParameter" />
-  <TypeSignature Language="C++ CLI" Value="public ref class KeyProtection sealed : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::Security::KeyStore::IProtectionParameter" />
   <TypeSignature Language="F#" Value="type KeyProtection = class&#xA;    inherit Object&#xA;    interface KeyStore.IProtectionParameter&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -32,6 +32,14 @@
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/security/keystore/KeyProtection", ApiSince=23, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
     <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
       <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
     </Attribute>
@@ -40,6 +48,173 @@
     <summary>Specification of how a key or key pair is secured when imported into the
             <see href="https://developer.android.com/training/articles/keystore.html">Android Keystore system</see>.</summary>
     <remarks>
+      <para>Specification of how a key or key pair is secured when imported into the
+            <see href="https://developer.android.com/training/articles/keystore.html">Android Keystore system</see>. This class
+            specifies authorized uses of the imported key, such as whether user authentication is required
+            for using the key, what operations the key is authorized for (e.g., decryption, but not signing)
+            with what parameters (e.g., only with a particular padding scheme or digest), and the key's
+            validity start and end dates. Key use authorizations expressed in this class apply only to secret
+            keys and private keys -- public keys can be used for any supported operations.</para>
+      <para>To import a key or key pair into the Android Keystore, create an instance of this class using
+            the <c>Builder</c> and pass the instance into <c>java.security.KeyStore#setEntry(String, java.security.KeyStore.Entry, ProtectionParameter) KeyStore.setEntry</c>
+            with the key or key pair being imported.</para>
+      <para>To obtain the secret/symmetric or private key from the Android Keystore use
+            <c>java.security.KeyStore#getKey(String, char[]) KeyStore.getKey(String, null)</c> or
+            <c>java.security.KeyStore#getEntry(String, java.security.KeyStore.ProtectionParameter) KeyStore.getEntry(String, null)</c>.
+            To obtain the public key from the Android Keystore use
+            <c>java.security.KeyStore#getCertificate(String)</c> and then
+            <c>Certificate#getPublicKey()</c>.</para>
+      <para>To help obtain algorithm-specific public parameters of key pairs stored in the Android
+            Keystore, its private keys implement <c>java.security.interfaces.ECKey</c> or
+            <c>java.security.interfaces.RSAKey</c> interfaces whereas its public keys implement
+            <c>java.security.interfaces.ECPublicKey</c> or <c>java.security.interfaces.RSAPublicKey</c>
+            interfaces.</para>
+      <para>NOTE: The key material of keys stored in the Android Keystore is not accessible.</para>
+      <para>Instances of this class are immutable.</para>
+      <para>&lt;h3&gt;Known issues&lt;/h3&gt;
+            A known bug in Android 6.0 (API Level 23) causes user authentication-related authorizations to be
+            enforced even for public keys. To work around this issue extract the public key material to use
+            outside of Android Keystore. For example:</para>
+      <code lang="text/java">{@code
+            PublicKey unrestrictedPublicKey =
+                    KeyFactory.getInstance(publicKey.getAlgorithm()).generatePublic(
+                            new X509EncodedKeySpec(publicKey.getEncoded()));
+            }</code>
+      <para>&lt;h3&gt;Example: AES key for encryption/decryption in GCM mode&lt;/h3&gt;
+            This example illustrates how to import an AES key into the Android KeyStore under alias
+            <c>key1</c> authorized to be used only for encryption/decryption in GCM mode with no padding.
+            The key must export its key material via <c>Key#getEncoded()</c> in <c>RAW</c> format.</para>
+      <code lang="text/java">{@code
+            SecretKey key = ...; // AES key
+            
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+            keyStore.setEntry(
+                    "key1",
+                    new KeyStore.SecretKeyEntry(key),
+                    new KeyProtection.Builder(KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                            .setBlockMode(KeyProperties.BLOCK_MODE_GCM)
+                            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                            .build());
+            // Key imported, obtain a reference to it.
+            SecretKey keyStoreKey = (SecretKey) keyStore.getKey("key1", null);
+            // The original key can now be discarded.
+            
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, keyStoreKey);
+            ...
+            }</code>
+      <para>&lt;h3&gt;Example: HMAC key for generating MACs using SHA-512&lt;/h3&gt;
+            This example illustrates how to import an HMAC key into the Android KeyStore under alias
+            <c>key1</c> authorized to be used only for generating MACs using SHA-512 digest. The key must
+            export its key material via <c>Key#getEncoded()</c> in <c>RAW</c> format.</para>
+      <code lang="text/java">{@code
+            SecretKey key = ...; // HMAC key of algorithm "HmacSHA512".
+            
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+            keyStore.setEntry(
+                    "key1",
+                    new KeyStore.SecretKeyEntry(key),
+                    new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN).build());
+            // Key imported, obtain a reference to it.
+            SecretKey keyStoreKey = (SecretKey) keyStore.getKey("key1", null);
+            // The original key can now be discarded.
+            
+            Mac mac = Mac.getInstance("HmacSHA512");
+            mac.init(keyStoreKey);
+            ...
+            }</code>
+      <para>&lt;h3&gt;Example: EC key pair for signing/verification using ECDSA&lt;/h3&gt;
+            This example illustrates how to import an EC key pair into the Android KeyStore under alias
+            <c>key2</c> with the private key authorized to be used only for signing with SHA-256 or SHA-512
+            digests. The use of the public key is unrestricted. Both the private and the public key must
+            export their key material via <c>Key#getEncoded()</c> in <c>PKCS#8</c> and <c>X.509</c> format
+            respectively.</para>
+      <code lang="text/java">{@code
+            PrivateKey privateKey = ...;   // EC private key
+            Certificate[] certChain = ...; // Certificate chain with the first certificate
+                                           // containing the corresponding EC public key.
+            
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+            keyStore.setEntry(
+                    "key2",
+                    new KeyStore.PrivateKeyEntry(privateKey, certChain),
+                    new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+                            .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                            .build());
+            // Key pair imported, obtain a reference to it.
+            PrivateKey keyStorePrivateKey = (PrivateKey) keyStore.getKey("key2", null);
+            PublicKey publicKey = keyStore.getCertificate("key2").getPublicKey();
+            // The original private key can now be discarded.
+            
+            Signature signature = Signature.getInstance("SHA256withECDSA");
+            signature.initSign(keyStorePrivateKey);
+            ...
+            }</code>
+      <para>&lt;h3&gt;Example: RSA key pair for signing/verification using PKCS#1 padding&lt;/h3&gt;
+            This example illustrates how to import an RSA key pair into the Android KeyStore under alias
+            <c>key2</c> with the private key authorized to be used only for signing using the PKCS#1
+            signature padding scheme with SHA-256 digest and only if the user has been authenticated within
+            the last ten minutes. The use of the public key is unrestricted (see Known Issues). Both the
+            private and the public key must export their key material via <c>Key#getEncoded()</c> in
+            <c>PKCS#8</c> and <c>X.509</c> format respectively.</para>
+      <code lang="text/java">{@code
+            PrivateKey privateKey = ...;   // RSA private key
+            Certificate[] certChain = ...; // Certificate chain with the first certificate
+                                           // containing the corresponding RSA public key.
+            
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+            keyStore.setEntry(
+                    "key2",
+                    new KeyStore.PrivateKeyEntry(privateKey, certChain),
+                    new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+                            .setDigests(KeyProperties.DIGEST_SHA256)
+                            .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                            // Only permit this key to be used if the user
+                            // authenticated within the last ten minutes.
+                            .setUserAuthenticationRequired(true)
+                            .setUserAuthenticationValidityDurationSeconds(10 * 60)
+                            .build());
+            // Key pair imported, obtain a reference to it.
+            PrivateKey keyStorePrivateKey = (PrivateKey) keyStore.getKey("key2", null);
+            PublicKey publicKey = keyStore.getCertificate("key2").getPublicKey();
+            // The original private key can now be discarded.
+            
+            Signature signature = Signature.getInstance("SHA256withRSA");
+            signature.initSign(keyStorePrivateKey);
+            ...
+            }</code>
+      <para>&lt;h3&gt;Example: RSA key pair for encryption/decryption using PKCS#1 padding&lt;/h3&gt;
+            This example illustrates how to import an RSA key pair into the Android KeyStore under alias
+            <c>key2</c> with the private key authorized to be used only for decryption using the PKCS#1
+            encryption padding scheme. The use of public key is unrestricted, thus permitting encryption
+            using any padding schemes and digests. Both the private and the public key must export their key
+            material via <c>Key#getEncoded()</c> in <c>PKCS#8</c> and <c>X.509</c> format respectively.</para>
+      <code lang="text/java">{@code
+            PrivateKey privateKey = ...;   // RSA private key
+            Certificate[] certChain = ...; // Certificate chain with the first certificate
+                                           // containing the corresponding RSA public key.
+            
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+            keyStore.setEntry(
+                    "key2",
+                    new KeyStore.PrivateKeyEntry(privateKey, certChain),
+                    new KeyProtection.Builder(KeyProperties.PURPOSE_DECRYPT)
+                            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
+                            .build());
+            // Key pair imported, obtain a reference to it.
+            PrivateKey keyStorePrivateKey = (PrivateKey) keyStore.getKey("key2", null);
+            PublicKey publicKey = keyStore.getCertificate("key2").getPublicKey();
+            // The original private key can now be discarded.
+            
+            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            cipher.init(Cipher.DECRYPT_MODE, keyStorePrivateKey);
+            ...
+            }</code>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection</code>.</a>
@@ -54,11 +229,11 @@
   </Docs>
   <Members>
     <Member MemberName="GetBlockModes">
+      <MemberSignature Language="VB.NET" Value="Public Function GetBlockModes () As String()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::String ^&gt; ^ GetBlockModes();" />
       <MemberSignature Language="C#" Value="public string[] GetBlockModes ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance string[] GetBlockModes() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Security.Keystore.KeyProtection.GetBlockModes" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetBlockModes () As String()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::String ^&gt; ^ GetBlockModes();" />
       <MemberSignature Language="F#" Value="member this.GetBlockModes : unit -&gt; string[]" Usage="keyProtection.GetBlockModes " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -87,6 +262,10 @@
         <summary>Gets the set of block modes (e.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Gets the set of block modes (e.g., <c>GCM</c>, <c>CBC</c>) with which the key can be used
+            when encrypting/decrypting. Attempts to use the key with any other block modes will be
+            rejected.</para>
+          <para>See <c>KeyProperties</c>.<c>BLOCK_MODE</c> constants.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#getBlockModes()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.getBlockModes()</code>.</a>
@@ -101,11 +280,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetDigests">
+      <MemberSignature Language="VB.NET" Value="Public Function GetDigests () As String()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::String ^&gt; ^ GetDigests();" />
       <MemberSignature Language="C#" Value="public string[] GetDigests ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance string[] GetDigests() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Security.Keystore.KeyProtection.GetDigests" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetDigests () As String()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::String ^&gt; ^ GetDigests();" />
       <MemberSignature Language="F#" Value="member this.GetDigests : unit -&gt; string[]" Usage="keyProtection.GetDigests " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -134,6 +313,9 @@
         <summary>Gets the set of digest algorithms (e.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Gets the set of digest algorithms (e.g., <c>SHA-256</c>, <c>SHA-384</c>) with which the key
+            can be used.</para>
+          <para>See <c>KeyProperties</c>.<c>DIGEST</c> constants.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#getDigests()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.getDigests()</code>.</a>
@@ -148,11 +330,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetEncryptionPaddings">
+      <MemberSignature Language="VB.NET" Value="Public Function GetEncryptionPaddings () As String()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::String ^&gt; ^ GetEncryptionPaddings();" />
       <MemberSignature Language="C#" Value="public string[] GetEncryptionPaddings ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance string[] GetEncryptionPaddings() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Security.Keystore.KeyProtection.GetEncryptionPaddings" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetEncryptionPaddings () As String()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::String ^&gt; ^ GetEncryptionPaddings();" />
       <MemberSignature Language="F#" Value="member this.GetEncryptionPaddings : unit -&gt; string[]" Usage="keyProtection.GetEncryptionPaddings " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -181,6 +363,10 @@
         <summary>Gets the set of padding schemes (e.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Gets the set of padding schemes (e.g., <c>PKCS7Padding</c>, <c>PKCS1Padding</c>,
+            <c>NoPadding</c>) with which the key can be used when encrypting/decrypting. Attempts to use
+            the key with any other padding scheme will be rejected.</para>
+          <para>See <c>KeyProperties</c>.<c>ENCRYPTION_PADDING</c> constants.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#getEncryptionPaddings()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.getEncryptionPaddings()</code>.</a>
@@ -195,11 +381,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetSignaturePaddings">
+      <MemberSignature Language="VB.NET" Value="Public Function GetSignaturePaddings () As String()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::String ^&gt; ^ GetSignaturePaddings();" />
       <MemberSignature Language="C#" Value="public string[] GetSignaturePaddings ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance string[] GetSignaturePaddings() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Security.Keystore.KeyProtection.GetSignaturePaddings" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetSignaturePaddings () As String()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::String ^&gt; ^ GetSignaturePaddings();" />
       <MemberSignature Language="F#" Value="member this.GetSignaturePaddings : unit -&gt; string[]" Usage="keyProtection.GetSignaturePaddings " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -228,6 +414,10 @@
         <summary>Gets the set of padding schemes (e.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Gets the set of padding schemes (e.g., <c>PSS</c>, <c>PKCS#1</c>) with which the key
+            can be used when signing/verifying. Attempts to use the key with any other padding scheme
+            will be rejected.</para>
+          <para>See <c>KeyProperties</c>.<c>SIGNATURE_PADDING</c> constants.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#getSignaturePaddings()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.getSignaturePaddings()</code>.</a>
@@ -242,11 +432,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsDigestsSpecified">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsDigestsSpecified As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsDigestsSpecified { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsDigestsSpecified { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsDigestsSpecified" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.IsDigestsSpecified" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsDigestsSpecified As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsDigestsSpecified { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsDigestsSpecified : bool" Usage="Android.Security.Keystore.KeyProtection.IsDigestsSpecified" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -271,6 +461,8 @@
             specified.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns <c>true</c> if the set of digest algorithms with which the key can be used has been
+            specified.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#isDigestsSpecified()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.isDigestsSpecified()</code>.</a>
@@ -285,11 +477,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsInvalidatedByBiometricEnrollment">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsInvalidatedByBiometricEnrollment As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsInvalidatedByBiometricEnrollment { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsInvalidatedByBiometricEnrollment { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsInvalidatedByBiometricEnrollment" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.IsInvalidatedByBiometricEnrollment" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsInvalidatedByBiometricEnrollment As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsInvalidatedByBiometricEnrollment { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsInvalidatedByBiometricEnrollment : bool" Usage="Android.Security.Keystore.KeyProtection.IsInvalidatedByBiometricEnrollment" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -314,6 +506,9 @@
             enrolled or all enrolled biometrics are removed.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns <c>true</c> if the key is irreversibly invalidated when a new biometric is
+            enrolled or all enrolled biometrics are removed. This has effect only for keys that
+            require biometric user authentication for every use.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#isInvalidatedByBiometricEnrollment()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.isInvalidatedByBiometricEnrollment()</code>.</a>
@@ -328,11 +523,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsRandomizedEncryptionRequired">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsRandomizedEncryptionRequired As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsRandomizedEncryptionRequired { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsRandomizedEncryptionRequired { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsRandomizedEncryptionRequired" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.IsRandomizedEncryptionRequired" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsRandomizedEncryptionRequired As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsRandomizedEncryptionRequired { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsRandomizedEncryptionRequired : bool" Usage="Android.Security.Keystore.KeyProtection.IsRandomizedEncryptionRequired" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -357,6 +552,12 @@
             different ciphertexts for the same plaintext every time.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns <c>true</c> if encryption using this key must be sufficiently randomized to produce
+            different ciphertexts for the same plaintext every time. The formal cryptographic property
+            being required is &lt;em&gt;indistinguishability under chosen-plaintext attack (<c>IND-CPA</c>)&lt;/em&gt;. This property is important because it mitigates several classes of
+            weaknesses due to which ciphertext may leak information about plaintext. For example, if a
+            given plaintext always produces the same ciphertext, an attacker may see the repeated
+            ciphertexts and be able to deduce something about the plaintext.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#isRandomizedEncryptionRequired()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.isRandomizedEncryptionRequired()</code>.</a>
@@ -371,11 +572,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsUnlockedDeviceRequired">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsUnlockedDeviceRequired As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsUnlockedDeviceRequired { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsUnlockedDeviceRequired { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsUnlockedDeviceRequired" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.IsUnlockedDeviceRequired" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsUnlockedDeviceRequired As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsUnlockedDeviceRequired { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsUnlockedDeviceRequired : bool" Usage="Android.Security.Keystore.KeyProtection.IsUnlockedDeviceRequired" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -400,6 +601,9 @@
             signing.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns <c>true</c> if the screen must be unlocked for this key to be used for decryption or
+            signing. Encryption and signature verification will still be available when the screen is
+            locked.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#isUnlockedDeviceRequired()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.isUnlockedDeviceRequired()</code>.</a>
@@ -414,11 +618,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsUserAuthenticationRequired">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsUserAuthenticationRequired As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsUserAuthenticationRequired { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsUserAuthenticationRequired { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsUserAuthenticationRequired" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.IsUserAuthenticationRequired" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsUserAuthenticationRequired As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsUserAuthenticationRequired { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsUserAuthenticationRequired : bool" Usage="Android.Security.Keystore.KeyProtection.IsUserAuthenticationRequired" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -443,6 +647,10 @@
             authenticated.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns <c>true</c> if the key is authorized to be used only if the user has been
+            authenticated.</para>
+          <para>This authorization applies only to secret key and private key operations. Public key
+            operations are not restricted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#isUserAuthenticationRequired()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.isUserAuthenticationRequired()</code>.</a>
@@ -457,11 +665,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsUserAuthenticationValidWhileOnBody">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsUserAuthenticationValidWhileOnBody As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsUserAuthenticationValidWhileOnBody { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsUserAuthenticationValidWhileOnBody { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsUserAuthenticationValidWhileOnBody" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.IsUserAuthenticationValidWhileOnBody" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsUserAuthenticationValidWhileOnBody As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsUserAuthenticationValidWhileOnBody { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsUserAuthenticationValidWhileOnBody : bool" Usage="Android.Security.Keystore.KeyProtection.IsUserAuthenticationValidWhileOnBody" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -486,6 +694,11 @@
             user's body.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns <c>true</c> if the key will be de-authorized when the device is removed from the
+            user's body.  This option has no effect on keys that don't have an authentication validity
+            duration, and has no effect if the device lacks an on-body sensor.</para>
+          <para>Authorization applies only to secret key and private key operations. Public key operations
+            are not restricted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#isUserAuthenticationValidWhileOnBody()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.isUserAuthenticationValidWhileOnBody()</code>.</a>
@@ -500,11 +713,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsUserConfirmationRequired">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsUserConfirmationRequired As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsUserConfirmationRequired { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsUserConfirmationRequired { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsUserConfirmationRequired" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.IsUserConfirmationRequired" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsUserConfirmationRequired As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsUserConfirmationRequired { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsUserConfirmationRequired : bool" Usage="Android.Security.Keystore.KeyProtection.IsUserConfirmationRequired" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -529,6 +742,17 @@
             user.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns <c>true</c> if the key is authorized to be used only for messages confirmed by the
+            user.
+            
+            Confirmation is separate from user authentication (see
+            <c>#isUserAuthenticationRequired()</c>). Keys can be created that require confirmation but
+            not user authentication, or user authentication but not confirmation, or both. Confirmation
+            verifies that some user with physical possession of the device has approved a displayed
+            message. User authentication verifies that the correct user is present and has
+            authenticated.</para>
+          <para>This authorization applies only to secret key and private key operations. Public key
+            operations are not restricted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#isUserConfirmationRequired()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.isUserConfirmationRequired()</code>.</a>
@@ -543,11 +767,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsUserPresenceRequired">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsUserPresenceRequired As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsUserPresenceRequired { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsUserPresenceRequired { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsUserPresenceRequired" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.IsUserPresenceRequired" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsUserPresenceRequired As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsUserPresenceRequired { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsUserPresenceRequired : bool" Usage="Android.Security.Keystore.KeyProtection.IsUserPresenceRequired" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -572,6 +796,16 @@
             been performed between the <c>Signature.initSign()</c> and <c>Signature.sign()</c> calls.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns <c>true</c> if the key is authorized to be used only if a test of user presence has
+            been performed between the <c>Signature.initSign()</c> and <c>Signature.sign()</c> calls.
+            It requires that the KeyStore implementation have a direct way to validate the user presence
+            for example a KeyStore hardware backed strongbox can use a button press that is observable
+            in hardware. A test for user presence is tangential to authentication. The test can be part
+            of an authentication step as long as this step can be validated by the hardware protecting
+            the key and cannot be spoofed. For example, a physical button press can be used as a test of
+            user presence if the other pins connected to the button are not able to simulate a button
+            press. There must be no way for the primary processor to fake a button press, or that
+            button must not be used as a test of user presence.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#isUserPresenceRequired()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.isUserPresenceRequired()</code>.</a>
@@ -586,11 +820,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Security.Keystore.KeyProtection.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -622,11 +856,11 @@
       </Docs>
     </Member>
     <Member MemberName="KeyValidityForConsumptionEnd">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property KeyValidityForConsumptionEnd As Date" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Util::Date ^ KeyValidityForConsumptionEnd { Java::Util::Date ^ get(); };" />
       <MemberSignature Language="C#" Value="public Java.Util.Date? KeyValidityForConsumptionEnd { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Util.Date KeyValidityForConsumptionEnd" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.KeyValidityForConsumptionEnd" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property KeyValidityForConsumptionEnd As Date" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Util::Date ^ KeyValidityForConsumptionEnd { Java::Util::Date ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.KeyValidityForConsumptionEnd : Java.Util.Date" Usage="Android.Security.Keystore.KeyProtection.KeyValidityForConsumptionEnd" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -635,12 +869,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getKeyValidityForConsumptionEnd", "()Ljava/util/Date;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getKeyValidityForConsumptionEnd", "()Ljava/util/Date;", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -650,6 +892,7 @@
         <summary>Gets the time instant after which the key is no long valid for decryption and verification.</summary>
         <value>instant or <c>null</c> if not restricted.</value>
         <remarks>
+          <para>Gets the time instant after which the key is no long valid for decryption and verification.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#getKeyValidityForConsumptionEnd()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.getKeyValidityForConsumptionEnd()</code>.</a>
@@ -664,11 +907,11 @@
       </Docs>
     </Member>
     <Member MemberName="KeyValidityForOriginationEnd">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property KeyValidityForOriginationEnd As Date" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Util::Date ^ KeyValidityForOriginationEnd { Java::Util::Date ^ get(); };" />
       <MemberSignature Language="C#" Value="public Java.Util.Date? KeyValidityForOriginationEnd { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Util.Date KeyValidityForOriginationEnd" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.KeyValidityForOriginationEnd" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property KeyValidityForOriginationEnd As Date" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Util::Date ^ KeyValidityForOriginationEnd { Java::Util::Date ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.KeyValidityForOriginationEnd : Java.Util.Date" Usage="Android.Security.Keystore.KeyProtection.KeyValidityForOriginationEnd" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -677,12 +920,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getKeyValidityForOriginationEnd", "()Ljava/util/Date;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getKeyValidityForOriginationEnd", "()Ljava/util/Date;", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -692,6 +943,7 @@
         <summary>Gets the time instant after which the key is no long valid for encryption and signing.</summary>
         <value>instant or <c>null</c> if not restricted.</value>
         <remarks>
+          <para>Gets the time instant after which the key is no long valid for encryption and signing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#getKeyValidityForOriginationEnd()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.getKeyValidityForOriginationEnd()</code>.</a>
@@ -706,11 +958,11 @@
       </Docs>
     </Member>
     <Member MemberName="KeyValidityStart">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property KeyValidityStart As Date" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Util::Date ^ KeyValidityStart { Java::Util::Date ^ get(); };" />
       <MemberSignature Language="C#" Value="public Java.Util.Date? KeyValidityStart { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Util.Date KeyValidityStart" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.KeyValidityStart" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property KeyValidityStart As Date" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Util::Date ^ KeyValidityStart { Java::Util::Date ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.KeyValidityStart : Java.Util.Date" Usage="Android.Security.Keystore.KeyProtection.KeyValidityStart" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -719,12 +971,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getKeyValidityStart", "()Ljava/util/Date;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getKeyValidityStart", "()Ljava/util/Date;", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -734,6 +994,7 @@
         <summary>Gets the time instant before which the key is not yet valid.</summary>
         <value>instant or <c>null</c> if not restricted.</value>
         <remarks>
+          <para>Gets the time instant before which the key is not yet valid.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#getKeyValidityStart()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.getKeyValidityStart()</code>.</a>
@@ -748,11 +1009,11 @@
       </Docs>
     </Member>
     <Member MemberName="MaxUsageCount">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property MaxUsageCount As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int MaxUsageCount { int get(); };" />
       <MemberSignature Language="C#" Value="public int MaxUsageCount { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 MaxUsageCount" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.MaxUsageCount" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property MaxUsageCount As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int MaxUsageCount { int get(); };" />
       <MemberSignature Language="F#" Value="member this.MaxUsageCount : int" Usage="Android.Security.Keystore.KeyProtection.MaxUsageCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -778,6 +1039,9 @@
             times the key can be used.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the maximum number of times the limited use key is allowed to be used or
+            <c>KeyProperties#UNRESTRICTED_USAGE_COUNT</c> if there’s no restriction on the number of
+            times the key can be used.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#getMaxUsageCount()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.getMaxUsageCount()</code>.</a>
@@ -792,11 +1056,11 @@
       </Docs>
     </Member>
     <Member MemberName="Purposes">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Purposes As KeyStorePurpose" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Security::Keystore::KeyStorePurpose Purposes { Android::Security::Keystore::KeyStorePurpose get(); };" />
       <MemberSignature Language="C#" Value="public Android.Security.Keystore.KeyStorePurpose Purposes { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance valuetype Android.Security.Keystore.KeyStorePurpose Purposes" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.Purposes" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Purposes As KeyStorePurpose" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Security::Keystore::KeyStorePurpose Purposes { Android::Security::Keystore::KeyStorePurpose get(); };" />
       <MemberSignature Language="F#" Value="member this.Purposes : Android.Security.Keystore.KeyStorePurpose" Usage="Android.Security.Keystore.KeyProtection.Purposes" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -820,6 +1084,9 @@
         <summary>Gets the set of purposes (e.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Gets the set of purposes (e.g., encrypt, decrypt, sign) for which the key can be used.
+            Attempts to use the key for any other purpose will be rejected.</para>
+          <para>See <c>KeyProperties</c>.<c>PURPOSE</c> flags.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#getPurposes()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.getPurposes()</code>.</a>
@@ -834,11 +1101,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Security.Keystore.KeyProtection.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -867,11 +1134,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Security.Keystore.KeyProtection.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -900,11 +1167,11 @@
       </Docs>
     </Member>
     <Member MemberName="UserAuthenticationType">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property UserAuthenticationType As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int UserAuthenticationType { int get(); };" />
       <MemberSignature Language="C#" Value="public int UserAuthenticationType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 UserAuthenticationType" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.UserAuthenticationType" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property UserAuthenticationType As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int UserAuthenticationType { int get(); };" />
       <MemberSignature Language="F#" Value="member this.UserAuthenticationType : int" Usage="Android.Security.Keystore.KeyProtection.UserAuthenticationType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -931,11 +1198,11 @@
       </Docs>
     </Member>
     <Member MemberName="UserAuthenticationValidityDurationSeconds">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property UserAuthenticationValidityDurationSeconds As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int UserAuthenticationValidityDurationSeconds { int get(); };" />
       <MemberSignature Language="C#" Value="public int UserAuthenticationValidityDurationSeconds { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 UserAuthenticationValidityDurationSeconds" />
       <MemberSignature Language="DocId" Value="P:Android.Security.Keystore.KeyProtection.UserAuthenticationValidityDurationSeconds" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property UserAuthenticationValidityDurationSeconds As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int UserAuthenticationValidityDurationSeconds { int get(); };" />
       <MemberSignature Language="F#" Value="member this.UserAuthenticationValidityDurationSeconds : int" Usage="Android.Security.Keystore.KeyProtection.UserAuthenticationValidityDurationSeconds" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -961,6 +1228,11 @@
         <value>duration in seconds or <c>-1</c> if authentication is required for every use of the
                     key.</value>
         <remarks>
+          <para>Gets the duration of time (seconds) for which this key is authorized to be used after the
+            user is successfully authenticated. This has effect only if user authentication is required
+            (see <c>#isUserAuthenticationRequired()</c>).</para>
+          <para>This authorization applies only to secret key and private key operations. Public key
+            operations are not restricted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/keystore/KeyProtection#getUserAuthenticationValidityDurationSeconds()" title="Reference documentation">Java documentation for <code>android.security.keystore.KeyProtection.getUserAuthenticationValidityDurationSeconds()</code>.</a>

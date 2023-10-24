@@ -1,9 +1,9 @@
 <Type Name="VarHandle" FullName="Java.Lang.Invoke.VarHandle">
+  <TypeSignature Language="VB.NET" Value="Public MustInherit Class VarHandle&#xA;Inherits Object" />
+  <TypeSignature Language="C++ CLI" Value="public ref class VarHandle abstract : Java::Lang::Object" />
   <TypeSignature Language="C#" Value="public abstract class VarHandle : Java.Lang.Object" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi abstract beforefieldinit VarHandle extends Java.Lang.Object" />
   <TypeSignature Language="DocId" Value="T:Java.Lang.Invoke.VarHandle" />
-  <TypeSignature Language="VB.NET" Value="Public MustInherit Class VarHandle&#xA;Inherits Object" />
-  <TypeSignature Language="C++ CLI" Value="public ref class VarHandle abstract : Java::Lang::Object" />
   <TypeSignature Language="F#" Value="type VarHandle = class&#xA;    inherit Object" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -19,6 +19,14 @@
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/lang/invoke/VarHandle", ApiSince=33, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
     <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
       <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
     </Attribute>
@@ -29,6 +37,372 @@
             non-static fields, array elements, or components of an off-heap data
             structure.</summary>
     <remarks>
+      <para>A VarHandle is a dynamically strongly typed reference to a variable, or to a
+            parametrically-defined family of variables, including static fields,
+            non-static fields, array elements, or components of an off-heap data
+            structure.  Access to such variables is supported under various
+            &lt;em&gt;access modes&lt;/em&gt;, including plain read/write access, volatile
+            read/write access, and compare-and-set.</para>
+      <para>VarHandles are immutable and have no visible state.  VarHandles cannot be
+            subclassed by the user.</para>
+      <para>A VarHandle has:
+            &lt;ul&gt;
+            &lt;li&gt;a <c>#varType variable type</c> T, the type of every variable referenced
+            by this VarHandle; and
+            &lt;li&gt;a list of <c>#coordinateTypes coordinate types</c><c>CT1, CT2, ..., CTn</c>, the types of &lt;em&gt;coordinate expressions&lt;/em&gt; that
+            jointly locate a variable referenced by this VarHandle.
+            &lt;/ul&gt;
+            Variable and coordinate types may be primitive or reference, and are
+            represented by <c>Class</c> objects.  The list of coordinate types may be
+            empty.</para>
+      <para>Factory methods that produce or <c>java.lang.invoke.MethodHandles.Lookup
+            lookup</c> VarHandle instances document the supported variable type and the list
+            of coordinate types.</para>
+      <para>Each access mode is associated with one &lt;em&gt;access mode method&lt;/em&gt;, a
+            signature polymorphic method named
+            for the access mode.  When an access mode method is invoked on a VarHandle
+            instance, the initial arguments to the invocation are coordinate expressions
+            that indicate in precisely which object the variable is to be accessed.
+            Trailing arguments to the invocation represent values of importance to the
+            access mode.  For example, the various compare-and-set or compare-and-exchange
+            access modes require two trailing arguments for the variable's expected value
+            and new value.</para>
+      <para>The arity and types of arguments to the invocation of an access mode
+            method are not checked statically.  Instead, each access mode method
+            specifies an <c>#accessModeType(AccessMode) access mode type</c>,
+            represented as an instance of <c>MethodType</c>, that serves as a kind of
+            method signature against which the arguments are checked dynamically.  An
+            access mode type gives formal parameter types in terms of the coordinate
+            types of a VarHandle instance and the types for values of importance to the
+            access mode.  An access mode type also gives a return type, often in terms of
+            the variable type of a VarHandle instance.  When an access mode method is
+            invoked on a VarHandle instance, the symbolic type descriptor at the
+            call site, the run time types of arguments to the invocation, and the run
+            time type of the return value, must match the types
+            given in the access mode type.  A runtime exception will be thrown if the
+            match fails.
+            
+            For example, the access mode method <c>#compareAndSet</c> specifies that if
+            its receiver is a VarHandle instance with coordinate types
+            <c>CT1, ..., CTn</c> and variable type <c>T</c>, then its access mode type
+            is <c>(CT1 c1, ..., CTn cn, T expectedValue, T newValue)boolean</c>.
+            Suppose that a VarHandle instance can access array elements, and that its
+            coordinate types are <c>String[]</c> and <c>int</c> while its variable type
+            is <c>String</c>.  The access mode type for <c>compareAndSet</c> on this
+            VarHandle instance would be
+            <c>(String[] c1, int c2, String expectedValue, String newValue)boolean</c>.
+            Such a VarHandle instance may be produced by the
+            <c>MethodHandles#arrayElementVarHandle(Class) array factory method</c> and
+            access array elements as follows:</para>
+      <code lang="text/java">{@code
+            String[] sa = ...
+            VarHandle avh = MethodHandles.arrayElementVarHandle(String[].class);
+            boolean r = avh.compareAndSet(sa, 10, "expected", "new");
+            }</code>
+      <para>Access modes control atomicity and consistency properties.
+            &lt;em&gt;Plain&lt;/em&gt; read (<c>get</c>) and write (<c>set</c>)
+            accesses are guaranteed to be bitwise atomic only for references
+            and for primitive values of at most 32 bits, and impose no observable
+            ordering constraints with respect to threads other than the
+            executing thread. &lt;em&gt;Opaque&lt;/em&gt; operations are bitwise atomic and
+            coherently ordered with respect to accesses to the same variable.
+            In addition to obeying Opaque properties, &lt;em&gt;Acquire&lt;/em&gt; mode
+            reads and their subsequent accesses are ordered after matching
+            &lt;em&gt;Release&lt;/em&gt; mode writes and their previous accesses.  In
+            addition to obeying Acquire and Release properties, all
+            &lt;em&gt;Volatile&lt;/em&gt; operations are totally ordered with respect to
+            each other.</para>
+      <para>Access modes are grouped into the following categories:
+            &lt;ul&gt;
+            &lt;li&gt;read access modes that get the value of a variable under specified
+            memory ordering effects.
+            The set of corresponding access mode methods belonging to this group
+            consists of the methods
+            <c>#get get</c>,
+            <c>#getVolatile getVolatile</c>,
+            <c>#getAcquire getAcquire</c>,
+            <c>#getOpaque getOpaque</c>.
+            &lt;li&gt;write access modes that set the value of a variable under specified
+            memory ordering effects.
+            The set of corresponding access mode methods belonging to this group
+            consists of the methods
+            <c>#set set</c>,
+            <c>#setVolatile setVolatile</c>,
+            <c>#setRelease setRelease</c>,
+            <c>#setOpaque setOpaque</c>.
+            &lt;li&gt;atomic update access modes that, for example, atomically compare and set
+            the value of a variable under specified memory ordering effects.
+            The set of corresponding access mode methods belonging to this group
+            consists of the methods
+            <c>#compareAndSet compareAndSet</c>,
+            <c>#weakCompareAndSetPlain weakCompareAndSetPlain</c>,
+            <c>#weakCompareAndSet weakCompareAndSet</c>,
+            <c>#weakCompareAndSetAcquire weakCompareAndSetAcquire</c>,
+            <c>#weakCompareAndSetRelease weakCompareAndSetRelease</c>,
+            <c>#compareAndExchangeAcquire compareAndExchangeAcquire</c>,
+            <c>#compareAndExchange compareAndExchange</c>,
+            <c>#compareAndExchangeRelease compareAndExchangeRelease</c>,
+            <c>#getAndSet getAndSet</c>,
+            <c>#getAndSetAcquire getAndSetAcquire</c>,
+            <c>#getAndSetRelease getAndSetRelease</c>.
+            &lt;li&gt;numeric atomic update access modes that, for example, atomically get and
+            set with addition the value of a variable under specified memory ordering
+            effects.
+            The set of corresponding access mode methods belonging to this group
+            consists of the methods
+            <c>#getAndAdd getAndAdd</c>,
+            <c>#getAndAddAcquire getAndAddAcquire</c>,
+            <c>#getAndAddRelease getAndAddRelease</c>,
+            &lt;li&gt;bitwise atomic update access modes that, for example, atomically get and
+            bitwise OR the value of a variable under specified memory ordering
+            effects.
+            The set of corresponding access mode methods belonging to this group
+            consists of the methods
+            <c>#getAndBitwiseOr getAndBitwiseOr</c>,
+            <c>#getAndBitwiseOrAcquire getAndBitwiseOrAcquire</c>,
+            <c>#getAndBitwiseOrRelease getAndBitwiseOrRelease</c>,
+            <c>#getAndBitwiseAnd getAndBitwiseAnd</c>,
+            <c>#getAndBitwiseAndAcquire getAndBitwiseAndAcquire</c>,
+            <c>#getAndBitwiseAndRelease getAndBitwiseAndRelease</c>,
+            <c>#getAndBitwiseXor getAndBitwiseXor</c>,
+            <c>#getAndBitwiseXorAcquire getAndBitwiseXorAcquire</c>,
+            <c>#getAndBitwiseXorRelease getAndBitwiseXorRelease</c>.
+            &lt;/ul&gt;</para>
+      <para>Factory methods that produce or <c>java.lang.invoke.MethodHandles.Lookup
+            lookup</c> VarHandle instances document the set of access modes that are
+            supported, which may also include documenting restrictions based on the
+            variable type and whether a variable is read-only.  If an access mode is not
+            supported then the corresponding access mode method will on invocation throw
+            an <c>UnsupportedOperationException</c>.  Factory methods should document
+            any additional undeclared exceptions that may be thrown by access mode
+            methods.
+            The <c>#get get</c> access mode is supported for all
+            VarHandle instances and the corresponding method never throws
+            <c>UnsupportedOperationException</c>.
+            If a VarHandle references a read-only variable (for example a <c>final</c>
+            field) then write, atomic update, numeric atomic update, and bitwise atomic
+            update access modes are not supported and corresponding methods throw
+            <c>UnsupportedOperationException</c>.
+            Read/write access modes (if supported), with the exception of
+            <c>get</c> and <c>set</c>, provide atomic access for
+            reference types and all primitive types.
+            Unless stated otherwise in the documentation of a factory method, the access
+            modes <c>get</c> and <c>set</c> (if supported) provide atomic access for
+            reference types and all primitives types, with the exception of <c>long</c>
+            and <c>double</c> on 32-bit platforms.</para>
+      <para>Access modes will override any memory ordering effects specified at
+            the declaration site of a variable.  For example, a VarHandle accessing
+            a field using the <c>get</c> access mode will access the field as
+            specified &lt;em&gt;by its access mode&lt;/em&gt; even if that field is declared
+            <c>volatile</c>.  When mixed access is performed extreme care should be
+            taken since the Java Memory Model may permit surprising results.</para>
+      <para>In addition to supporting access to variables under various access modes,
+            a set of static methods, referred to as memory fence methods, is also
+            provided for fine-grained control of memory ordering.
+            
+            The Java Language Specification permits other threads to observe operations
+            as if they were executed in orders different than are apparent in program
+            source code, subject to constraints arising, for example, from the use of
+            locks, <c>volatile</c> fields or VarHandles.  The static methods,
+            <c>#fullFence fullFence</c>, <c>#acquireFence acquireFence</c>,
+            <c>#releaseFence releaseFence</c>, <c>#loadLoadFence loadLoadFence</c> and
+            <c>#storeStoreFence storeStoreFence</c>, can also be used to impose
+            constraints.  Their specifications, as is the case for certain access modes,
+            are phrased in terms of the lack of "reorderings" -- observable ordering
+            effects that might otherwise occur if the fence was not present.  More
+            precise phrasing of the specification of access mode methods and memory fence
+            methods may accompany future updates of the Java Language Specification.
+            
+            &lt;h1&gt;Compiling invocation of access mode methods&lt;/h1&gt;
+            A Java method call expression naming an access mode method can invoke a
+            VarHandle from Java source code.  From the viewpoint of source code, these
+            methods can take any arguments and their polymorphic result (if expressed)
+            can be cast to any return type.  Formally this is accomplished by giving the
+            access mode methods variable arity <c>Object</c> arguments and
+            <c>Object</c> return types (if the return type is polymorphic), but they
+            have an additional quality called &lt;em&gt;signature polymorphism&lt;/em&gt; which
+            connects this freedom of invocation directly to the JVM execution stack.</para>
+      <para>As is usual with virtual methods, source-level calls to access mode methods
+            compile to an <c>invokevirtual</c> instruction.  More unusually, the
+            compiler must record the actual argument types, and may not perform method
+            invocation conversions on the arguments.  Instead, it must generate
+            instructions to push them on the stack according to their own unconverted
+            types.  The VarHandle object itself will be pushed on the stack before the
+            arguments.  The compiler then generates an <c>invokevirtual</c> instruction
+            that invokes the access mode method with a symbolic type descriptor which
+            describes the argument and return types.</para>
+      <para>To issue a complete symbolic type descriptor, the compiler must also
+            determine the return type (if polymorphic).  This is based on a cast on the
+            method invocation expression, if there is one, or else <c>Object</c> if the
+            invocation is an expression, or else <c>void</c> if the invocation is a
+            statement.  The cast may be to a primitive type (but not <c>void</c>).</para>
+      <para>As a corner case, an uncasted <c>null</c> argument is given a symbolic type
+            descriptor of <c>java.lang.Void</c>.  The ambiguity with the type
+            <c>Void</c> is harmless, since there are no references of type <c>Void</c>
+            except the null reference.
+            
+            
+            &lt;h1&gt;"invoke"&gt;Performing invocation of access mode methods&lt;/h1&gt;
+            The first time an <c>invokevirtual</c> instruction is executed it is linked
+            by symbolically resolving the names in the instruction and verifying that
+            the method call is statically legal.  This also holds for calls to access mode
+            methods.  In this case, the symbolic type descriptor emitted by the compiler
+            is checked for correct syntax, and names it contains are resolved.  Thus, an
+            <c>invokevirtual</c> instruction which invokes an access mode method will
+            always link, as long as the symbolic type descriptor is syntactically
+            well-formed and the types exist.</para>
+      <para>When the <c>invokevirtual</c> is executed after linking, the receiving
+            VarHandle's access mode type is first checked by the JVM to ensure that it
+            matches the symbolic type descriptor.  If the type
+            match fails, it means that the access mode method which the caller is
+            invoking is not present on the individual VarHandle being invoked.</para>
+      <para>Invocation of an access mode method behaves as if an invocation of
+            <c>MethodHandle#invoke</c>, where the receiving method handle accepts the
+            VarHandle instance as the leading argument.  More specifically, the
+            following, where <c>{access-mode</c>} corresponds to the access mode method
+            name:</para>
+      <code lang="text/java">{@code
+            VarHandle vh = ..
+            R r = (R) vh.{access-mode}(p1, p2, ..., pN);
+            }</code>
+      <para>behaves as if:</para>
+      <code lang="text/java">{@code
+            VarHandle vh = ..
+            VarHandle.AccessMode am = VarHandle.AccessMode.valueFromMethodName("{access-mode}");
+            MethodHandle mh = MethodHandles.varHandleExactInvoker(
+                                  am,
+                                  vh.accessModeType(am));
+            
+            R r = (R) mh.invoke(vh, p1, p2, ..., pN)
+            }</code>
+      <para>(modulo access mode methods do not declare throwing of <c>Throwable</c>).
+            This is equivalent to:</para>
+      <code lang="text/java">{@code
+            MethodHandle mh = MethodHandles.lookup().findVirtual(
+                                  VarHandle.class,
+                                  "{access-mode}",
+                                  MethodType.methodType(R, p1, p2, ..., pN));
+            
+            R r = (R) mh.invokeExact(vh, p1, p2, ..., pN)
+            }</code>
+      <para>where the desired method type is the symbolic type descriptor and a
+            <c>MethodHandle#invokeExact</c> is performed, since before invocation of the
+            target, the handle will apply reference casts as necessary and box, unbox, or
+            widen primitive values, as if by <c>MethodHandle#asType asType</c> (see also
+            <c>MethodHandles#varHandleInvoker</c>).
+            
+            More concisely, such behaviour is equivalent to:</para>
+      <code lang="text/java">{@code
+            VarHandle vh = ..
+            VarHandle.AccessMode am = VarHandle.AccessMode.valueFromMethodName("{access-mode}");
+            MethodHandle mh = vh.toMethodHandle(am);
+            
+            R r = (R) mh.invoke(p1, p2, ..., pN)
+            }</code>
+      <para>Where, in this case, the method handle is bound to the VarHandle instance.
+            
+            
+            &lt;h1&gt;Invocation checking&lt;/h1&gt;
+            In typical programs, VarHandle access mode type matching will usually
+            succeed.  But if a match fails, the JVM will throw a
+            <c>WrongMethodTypeException</c>.</para>
+      <para>Thus, an access mode type mismatch which might show up as a linkage error
+            in a statically typed program can show up as a dynamic
+            <c>WrongMethodTypeException</c> in a program which uses VarHandles.</para>
+      <para>Because access mode types contain "live" <c>Class</c> objects, method type
+            matching takes into account both type names and class loaders.
+            Thus, even if a VarHandle <c>VH</c> is created in one class loader
+            <c>L1</c> and used in another <c>L2</c>, VarHandle access mode method
+            calls are type-safe, because the caller's symbolic type descriptor, as
+            resolved in <c>L2</c>, is matched against the original callee method's
+            symbolic type descriptor, as resolved in <c>L1</c>.  The resolution in
+            <c>L1</c> happens when <c>VH</c> is created and its access mode types are
+            assigned, while the resolution in <c>L2</c> happens when the
+            <c>invokevirtual</c> instruction is linked.</para>
+      <para>Apart from type descriptor checks, a VarHandles's capability to
+            access it's variables is unrestricted.
+            If a VarHandle is formed on a non-public variable by a class that has access
+            to that variable, the resulting VarHandle can be used in any place by any
+            caller who receives a reference to it.</para>
+      <para>Unlike with the Core Reflection API, where access is checked every time a
+            reflective method is invoked, VarHandle access checking is performed
+            when the VarHandle is
+            created.
+            Thus, VarHandles to non-public variables, or to variables in non-public
+            classes, should generally be kept secret.  They should not be passed to
+            untrusted code unless their use from the untrusted code would be harmless.
+            
+            
+            &lt;h1&gt;VarHandle creation&lt;/h1&gt;
+            Java code can create a VarHandle that directly accesses any field that is
+            accessible to that code.  This is done via a reflective, capability-based
+            API called <c>java.lang.invoke.MethodHandles.Lookup
+            MethodHandles.Lookup</c>.
+            For example, a VarHandle for a non-static field can be obtained
+            from <c>java.lang.invoke.MethodHandles.Lookup#findVarHandle
+            Lookup.findVarHandle</c>.
+            There is also a conversion method from Core Reflection API objects,
+            <c>java.lang.invoke.MethodHandles.Lookup#unreflectVarHandle
+            Lookup.unreflectVarHandle</c>.</para>
+      <para>Access to protected field members is restricted to receivers only of the
+            accessing class, or one of its subclasses, and the accessing class must in
+            turn be a subclass (or package sibling) of the protected member's defining
+            class.  If a VarHandle refers to a protected non-static field of a declaring
+            class outside the current package, the receiver argument will be narrowed to
+            the type of the accessing class.
+            
+            &lt;h1&gt;Interoperation between VarHandles and the Core Reflection API&lt;/h1&gt;
+            Using factory methods in the <c>java.lang.invoke.MethodHandles.Lookup
+            Lookup</c> API, any field represented by a Core Reflection API object
+            can be converted to a behaviorally equivalent VarHandle.
+            For example, a reflective <c>java.lang.reflect.Field Field</c> can
+            be converted to a VarHandle using
+            <c>java.lang.invoke.MethodHandles.Lookup#unreflectVarHandle
+            Lookup.unreflectVarHandle</c>.
+            The resulting VarHandles generally provide more direct and efficient
+            access to the underlying fields.</para>
+      <para>As a special case, when the Core Reflection API is used to view the
+            signature polymorphic access mode methods in this class, they appear as
+            ordinary non-polymorphic methods.  Their reflective appearance, as viewed by
+            <c>java.lang.Class#getDeclaredMethod Class.getDeclaredMethod</c>,
+            is unaffected by their special status in this API.
+            For example, <c>java.lang.reflect.Method#getModifiers
+            Method.getModifiers</c>
+            will report exactly those modifier bits required for any similarly
+            declared method, including in this case <c>native</c> and <c>varargs</c>
+            bits.</para>
+      <para>As with any reflected method, these methods (when reflected) may be invoked
+            directly via <c>java.lang.reflect.Method#invoke java.lang.reflect.Method.invoke</c>,
+            via JNI, or indirectly via
+            <c>java.lang.invoke.MethodHandles.Lookup#unreflect Lookup.unreflect</c>.
+            However, such reflective calls do not result in access mode method
+            invocations.  Such a call, if passed the required argument (a single one, of
+            type <c>Object[]</c>), will ignore the argument and will throw an
+            <c>UnsupportedOperationException</c>.</para>
+      <para>Since <c>invokevirtual</c> instructions can natively invoke VarHandle
+            access mode methods under any symbolic type descriptor, this reflective view
+            conflicts with the normal presentation of these methods via bytecodes.
+            Thus, these native methods, when reflectively viewed by
+            <c>Class.getDeclaredMethod</c>, may be regarded as placeholders only.</para>
+      <para>In order to obtain an invoker method for a particular access mode type,
+            use <c>java.lang.invoke.MethodHandles#varHandleExactInvoker</c> or
+            <c>java.lang.invoke.MethodHandles#varHandleInvoker</c>.  The
+            <c>java.lang.invoke.MethodHandles.Lookup#findVirtual Lookup.findVirtual</c>
+            API is also able to return a method handle to call an access mode method for
+            any specified access mode type and is equivalent in behaviour to
+            <c>java.lang.invoke.MethodHandles#varHandleInvoker</c>.
+            
+            &lt;h1&gt;Interoperation between VarHandles and Java generics&lt;/h1&gt;
+            A VarHandle can be obtained for a variable, such as a field, which is
+            declared with Java generic types.  As with the Core Reflection API, the
+            VarHandle's variable type will be constructed from the erasure of the
+            source-level type.  When a VarHandle access mode method is invoked, the
+            types
+            of its arguments or the return value cast type may be generic types or type
+            instances.  If this occurs, the compiler will replace those types by their
+            erasures when it constructs the symbolic type descriptor for the
+            <c>invokevirtual</c> instruction.</para>
+      <para>Added in 9.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/lang/invoke/VarHandle" title="Reference documentation">Java documentation for <code>java.lang.invoke.VarHandle</code>.</a>
@@ -43,11 +417,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; VarHandle(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected VarHandle (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; VarHandle(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Java.Lang.Invoke.VarHandle : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Lang.Invoke.VarHandle" Usage="new Java.Lang.Invoke.VarHandle (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -66,11 +440,11 @@
       </Docs>
     </Member>
     <Member MemberName="AccessModeType">
+      <MemberSignature Language="VB.NET" Value="Public Function AccessModeType (accessMode As VarHandle.AccessMode) As MethodType" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Invoke::MethodType ^ AccessModeType(Java::Lang::Invoke::VarHandle::AccessMode ^ accessMode);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Invoke.MethodType? AccessModeType (Java.Lang.Invoke.VarHandle.AccessMode? accessMode);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Invoke.MethodType AccessModeType(class Java.Lang.Invoke.VarHandle/AccessMode accessMode) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.AccessModeType(Java.Lang.Invoke.VarHandle.AccessMode)" />
-      <MemberSignature Language="VB.NET" Value="Public Function AccessModeType (accessMode As VarHandle.AccessMode) As MethodType" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Invoke::MethodType ^ AccessModeType(Java::Lang::Invoke::VarHandle::AccessMode ^ accessMode);" />
       <MemberSignature Language="F#" Value="member this.AccessModeType : Java.Lang.Invoke.VarHandle.AccessMode -&gt; Java.Lang.Invoke.MethodType" Usage="varHandle.AccessModeType accessMode" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -101,11 +475,11 @@
       </Docs>
     </Member>
     <Member MemberName="AcquireFence">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub AcquireFence ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void AcquireFence();" />
       <MemberSignature Language="C#" Value="public static void AcquireFence ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void AcquireFence() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.AcquireFence" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub AcquireFence ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void AcquireFence();" />
       <MemberSignature Language="F#" Value="static member AcquireFence : unit -&gt; unit" Usage="Java.Lang.Invoke.VarHandle.AcquireFence " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -144,11 +518,11 @@
       </Docs>
     </Member>
     <Member MemberName="CompareAndExchange">
+      <MemberSignature Language="VB.NET" Value="Public Function CompareAndExchange (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ CompareAndExchange(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? CompareAndExchange (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object CompareAndExchange(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.CompareAndExchange(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function CompareAndExchange (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ CompareAndExchange(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.CompareAndExchange : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.CompareAndExchange args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -175,6 +549,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -186,11 +564,11 @@
       </Docs>
     </Member>
     <Member MemberName="CompareAndExchangeAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Function CompareAndExchangeAcquire (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ CompareAndExchangeAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? CompareAndExchangeAcquire (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object CompareAndExchangeAcquire(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.CompareAndExchangeAcquire(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function CompareAndExchangeAcquire (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ CompareAndExchangeAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.CompareAndExchangeAcquire : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.CompareAndExchangeAcquire args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -217,6 +595,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -228,11 +610,11 @@
       </Docs>
     </Member>
     <Member MemberName="CompareAndExchangeRelease">
+      <MemberSignature Language="VB.NET" Value="Public Function CompareAndExchangeRelease (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ CompareAndExchangeRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? CompareAndExchangeRelease (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object CompareAndExchangeRelease(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.CompareAndExchangeRelease(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function CompareAndExchangeRelease (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ CompareAndExchangeRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.CompareAndExchangeRelease : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.CompareAndExchangeRelease args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -259,6 +641,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -270,11 +656,11 @@
       </Docs>
     </Member>
     <Member MemberName="CompareAndSet">
+      <MemberSignature Language="VB.NET" Value="Public Function CompareAndSet (ParamArray args As Object()) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool CompareAndSet(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public bool CompareAndSet (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool CompareAndSet(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.CompareAndSet(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function CompareAndSet (ParamArray args As Object()) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool CompareAndSet(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.CompareAndSet : Java.Lang.Object[] -&gt; bool" Usage="varHandle.CompareAndSet args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -301,6 +687,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -312,11 +702,11 @@
       </Docs>
     </Member>
     <Member MemberName="CoordinateTypes">
+      <MemberSignature Language="VB.NET" Value="Public Function CoordinateTypes () As IList(Of Class)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IList&lt;Java::Lang::Class ^&gt; ^ CoordinateTypes();" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IList&lt;Java.Lang.Class&gt;? CoordinateTypes ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Collections.Generic.IList`1&lt;class Java.Lang.Class&gt; CoordinateTypes() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.CoordinateTypes" />
-      <MemberSignature Language="VB.NET" Value="Public Function CoordinateTypes () As IList(Of Class)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IList&lt;Java::Lang::Class ^&gt; ^ CoordinateTypes();" />
       <MemberSignature Language="F#" Value="member this.CoordinateTypes : unit -&gt; System.Collections.Generic.IList&lt;Java.Lang.Class&gt;" Usage="varHandle.CoordinateTypes " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -335,6 +725,12 @@
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.Generic.IList&lt;Java.Lang.Class&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters />
       <Docs>
@@ -356,11 +752,11 @@
       </Docs>
     </Member>
     <Member MemberName="FullFence">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub FullFence ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void FullFence();" />
       <MemberSignature Language="C#" Value="public static void FullFence ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void FullFence() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.FullFence" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub FullFence ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void FullFence();" />
       <MemberSignature Language="F#" Value="static member FullFence : unit -&gt; unit" Usage="Java.Lang.Invoke.VarHandle.FullFence " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -400,11 +796,11 @@
       </Docs>
     </Member>
     <Member MemberName="Get">
+      <MemberSignature Language="VB.NET" Value="Public Function Get (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ Get(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? Get (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object Get(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.Get(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function Get (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ Get(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.Get : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.Get args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -431,6 +827,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -442,11 +842,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAcquire (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAcquire (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAcquire(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAcquire(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAcquire (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAcquire : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAcquire args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -473,6 +873,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -484,11 +888,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndAdd">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndAdd (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndAdd(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndAdd (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndAdd(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndAdd(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndAdd (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndAdd(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndAdd : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndAdd args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -515,6 +919,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -526,11 +934,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndAddAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndAddAcquire (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndAddAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndAddAcquire (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndAddAcquire(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndAddAcquire(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndAddAcquire (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndAddAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndAddAcquire : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndAddAcquire args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -557,6 +965,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -568,11 +980,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndAddRelease">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndAddRelease (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndAddRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndAddRelease (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndAddRelease(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndAddRelease(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndAddRelease (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndAddRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndAddRelease : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndAddRelease args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -599,6 +1011,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -610,11 +1026,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndBitwiseAnd">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseAnd (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseAnd(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndBitwiseAnd (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndBitwiseAnd(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndBitwiseAnd(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseAnd (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseAnd(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndBitwiseAnd : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndBitwiseAnd args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -641,6 +1057,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -652,11 +1072,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndBitwiseAndAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseAndAcquire (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseAndAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndBitwiseAndAcquire (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndBitwiseAndAcquire(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndBitwiseAndAcquire(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseAndAcquire (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseAndAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndBitwiseAndAcquire : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndBitwiseAndAcquire args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -683,6 +1103,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -694,11 +1118,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndBitwiseAndRelease">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseAndRelease (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseAndRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndBitwiseAndRelease (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndBitwiseAndRelease(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndBitwiseAndRelease(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseAndRelease (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseAndRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndBitwiseAndRelease : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndBitwiseAndRelease args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -725,6 +1149,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -736,11 +1164,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndBitwiseOr">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseOr (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseOr(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndBitwiseOr (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndBitwiseOr(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndBitwiseOr(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseOr (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseOr(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndBitwiseOr : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndBitwiseOr args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -767,6 +1195,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -778,11 +1210,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndBitwiseOrAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseOrAcquire (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseOrAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndBitwiseOrAcquire (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndBitwiseOrAcquire(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndBitwiseOrAcquire(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseOrAcquire (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseOrAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndBitwiseOrAcquire : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndBitwiseOrAcquire args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -809,6 +1241,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -820,11 +1256,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndBitwiseOrRelease">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseOrRelease (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseOrRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndBitwiseOrRelease (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndBitwiseOrRelease(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndBitwiseOrRelease(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseOrRelease (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseOrRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndBitwiseOrRelease : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndBitwiseOrRelease args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -851,6 +1287,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -862,11 +1302,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndBitwiseXor">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseXor (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseXor(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndBitwiseXor (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndBitwiseXor(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndBitwiseXor(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseXor (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseXor(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndBitwiseXor : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndBitwiseXor args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -893,6 +1333,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -904,11 +1348,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndBitwiseXorAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseXorAcquire (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseXorAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndBitwiseXorAcquire (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndBitwiseXorAcquire(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndBitwiseXorAcquire(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseXorAcquire (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseXorAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndBitwiseXorAcquire : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndBitwiseXorAcquire args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -935,6 +1379,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -946,11 +1394,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndBitwiseXorRelease">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseXorRelease (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseXorRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndBitwiseXorRelease (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndBitwiseXorRelease(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndBitwiseXorRelease(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndBitwiseXorRelease (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndBitwiseXorRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndBitwiseXorRelease : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndBitwiseXorRelease args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -977,6 +1425,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -988,11 +1440,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndSet">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndSet (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndSet(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndSet (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndSet(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndSet(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndSet (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndSet(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndSet : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndSet args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1019,6 +1471,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1030,11 +1486,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndSetAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndSetAcquire (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndSetAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndSetAcquire (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndSetAcquire(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndSetAcquire(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndSetAcquire (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndSetAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndSetAcquire : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndSetAcquire args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1061,6 +1517,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1072,11 +1532,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetAndSetRelease">
+      <MemberSignature Language="VB.NET" Value="Public Function GetAndSetRelease (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndSetRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetAndSetRelease (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetAndSetRelease(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetAndSetRelease(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetAndSetRelease (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetAndSetRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetAndSetRelease : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetAndSetRelease args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1103,6 +1563,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1114,11 +1578,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetOpaque">
+      <MemberSignature Language="VB.NET" Value="Public Function GetOpaque (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetOpaque(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetOpaque (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetOpaque(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetOpaque(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetOpaque (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetOpaque(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetOpaque : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetOpaque args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1145,6 +1609,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1156,11 +1624,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetVolatile">
+      <MemberSignature Language="VB.NET" Value="Public Function GetVolatile (ParamArray args As Object()) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetVolatile(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? GetVolatile (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object GetVolatile(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.GetVolatile(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetVolatile (ParamArray args As Object()) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ GetVolatile(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.GetVolatile : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="varHandle.GetVolatile args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1187,6 +1655,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1198,11 +1670,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsAccessModeSupported">
+      <MemberSignature Language="VB.NET" Value="Public Function IsAccessModeSupported (accessMode As VarHandle.AccessMode) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool IsAccessModeSupported(Java::Lang::Invoke::VarHandle::AccessMode ^ accessMode);" />
       <MemberSignature Language="C#" Value="public bool IsAccessModeSupported (Java.Lang.Invoke.VarHandle.AccessMode? accessMode);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool IsAccessModeSupported(class Java.Lang.Invoke.VarHandle/AccessMode accessMode) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.IsAccessModeSupported(Java.Lang.Invoke.VarHandle.AccessMode)" />
-      <MemberSignature Language="VB.NET" Value="Public Function IsAccessModeSupported (accessMode As VarHandle.AccessMode) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool IsAccessModeSupported(Java::Lang::Invoke::VarHandle::AccessMode ^ accessMode);" />
       <MemberSignature Language="F#" Value="member this.IsAccessModeSupported : Java.Lang.Invoke.VarHandle.AccessMode -&gt; bool" Usage="varHandle.IsAccessModeSupported accessMode" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1233,11 +1705,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Java.Lang.Invoke.VarHandle.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Java.Lang.Invoke.VarHandle.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1253,6 +1725,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -1264,11 +1744,11 @@
       </Docs>
     </Member>
     <Member MemberName="LoadLoadFence">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub LoadLoadFence ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void LoadLoadFence();" />
       <MemberSignature Language="C#" Value="public static void LoadLoadFence ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void LoadLoadFence() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.LoadLoadFence" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub LoadLoadFence ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void LoadLoadFence();" />
       <MemberSignature Language="F#" Value="static member LoadLoadFence : unit -&gt; unit" Usage="Java.Lang.Invoke.VarHandle.LoadLoadFence " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1307,11 +1787,11 @@
       </Docs>
     </Member>
     <Member MemberName="ReleaseFence">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub ReleaseFence ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void ReleaseFence();" />
       <MemberSignature Language="C#" Value="public static void ReleaseFence ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void ReleaseFence() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.ReleaseFence" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub ReleaseFence ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void ReleaseFence();" />
       <MemberSignature Language="F#" Value="static member ReleaseFence : unit -&gt; unit" Usage="Java.Lang.Invoke.VarHandle.ReleaseFence " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1350,11 +1830,11 @@
       </Docs>
     </Member>
     <Member MemberName="Set">
+      <MemberSignature Language="VB.NET" Value="Public Sub Set (ParamArray args As Object())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Set(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public void Set (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void Set(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.Set(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub Set (ParamArray args As Object())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Set(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.Set : Java.Lang.Object[] -&gt; unit" Usage="varHandle.Set args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1381,6 +1861,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1391,11 +1875,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetOpaque">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetOpaque (ParamArray args As Object())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOpaque(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public void SetOpaque (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetOpaque(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.SetOpaque(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetOpaque (ParamArray args As Object())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOpaque(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.SetOpaque : Java.Lang.Object[] -&gt; unit" Usage="varHandle.SetOpaque args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1422,6 +1906,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1432,11 +1920,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetRelease">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetRelease (ParamArray args As Object())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public void SetRelease (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetRelease(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.SetRelease(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetRelease (ParamArray args As Object())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.SetRelease : Java.Lang.Object[] -&gt; unit" Usage="varHandle.SetRelease args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1463,6 +1951,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1473,11 +1965,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetVolatile">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetVolatile (ParamArray args As Object())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetVolatile(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public void SetVolatile (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetVolatile(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.SetVolatile(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetVolatile (ParamArray args As Object())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetVolatile(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.SetVolatile : Java.Lang.Object[] -&gt; unit" Usage="varHandle.SetVolatile args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1504,6 +1996,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1514,11 +2010,11 @@
       </Docs>
     </Member>
     <Member MemberName="StoreStoreFence">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub StoreStoreFence ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void StoreStoreFence();" />
       <MemberSignature Language="C#" Value="public static void StoreStoreFence ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void StoreStoreFence() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.StoreStoreFence" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub StoreStoreFence ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void StoreStoreFence();" />
       <MemberSignature Language="F#" Value="static member StoreStoreFence : unit -&gt; unit" Usage="Java.Lang.Invoke.VarHandle.StoreStoreFence " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1557,11 +2053,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Java.Lang.Invoke.VarHandle.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Lang.Invoke.VarHandle.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1588,11 +2084,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Java.Lang.Invoke.VarHandle.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Lang.Invoke.VarHandle.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1608,6 +2104,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Type</ReturnType>
@@ -1619,11 +2123,11 @@
       </Docs>
     </Member>
     <Member MemberName="ToMethodHandle">
+      <MemberSignature Language="VB.NET" Value="Public Function ToMethodHandle (accessMode As VarHandle.AccessMode) As MethodHandle" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Invoke::MethodHandle ^ ToMethodHandle(Java::Lang::Invoke::VarHandle::AccessMode ^ accessMode);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Invoke.MethodHandle? ToMethodHandle (Java.Lang.Invoke.VarHandle.AccessMode? accessMode);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Invoke.MethodHandle ToMethodHandle(class Java.Lang.Invoke.VarHandle/AccessMode accessMode) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.ToMethodHandle(Java.Lang.Invoke.VarHandle.AccessMode)" />
-      <MemberSignature Language="VB.NET" Value="Public Function ToMethodHandle (accessMode As VarHandle.AccessMode) As MethodHandle" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Invoke::MethodHandle ^ ToMethodHandle(Java::Lang::Invoke::VarHandle::AccessMode ^ accessMode);" />
       <MemberSignature Language="F#" Value="member this.ToMethodHandle : Java.Lang.Invoke.VarHandle.AccessMode -&gt; Java.Lang.Invoke.MethodHandle" Usage="varHandle.ToMethodHandle accessMode" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1654,11 +2158,11 @@
       </Docs>
     </Member>
     <Member MemberName="VarType">
+      <MemberSignature Language="VB.NET" Value="Public Function VarType () As Class" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Class ^ VarType();" />
       <MemberSignature Language="C#" Value="public Java.Lang.Class? VarType ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Class VarType() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.VarType" />
-      <MemberSignature Language="VB.NET" Value="Public Function VarType () As Class" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Class ^ VarType();" />
       <MemberSignature Language="F#" Value="member this.VarType : unit -&gt; Java.Lang.Class" Usage="varHandle.VarType " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1697,11 +2201,11 @@
       </Docs>
     </Member>
     <Member MemberName="WeakCompareAndSet">
+      <MemberSignature Language="VB.NET" Value="Public Function WeakCompareAndSet (ParamArray args As Object()) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool WeakCompareAndSet(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public bool WeakCompareAndSet (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool WeakCompareAndSet(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.WeakCompareAndSet(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function WeakCompareAndSet (ParamArray args As Object()) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool WeakCompareAndSet(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.WeakCompareAndSet : Java.Lang.Object[] -&gt; bool" Usage="varHandle.WeakCompareAndSet args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1728,6 +2232,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1739,11 +2247,11 @@
       </Docs>
     </Member>
     <Member MemberName="WeakCompareAndSetAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Function WeakCompareAndSetAcquire (ParamArray args As Object()) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool WeakCompareAndSetAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public bool WeakCompareAndSetAcquire (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool WeakCompareAndSetAcquire(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.WeakCompareAndSetAcquire(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function WeakCompareAndSetAcquire (ParamArray args As Object()) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool WeakCompareAndSetAcquire(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.WeakCompareAndSetAcquire : Java.Lang.Object[] -&gt; bool" Usage="varHandle.WeakCompareAndSetAcquire args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1770,6 +2278,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1781,11 +2293,11 @@
       </Docs>
     </Member>
     <Member MemberName="WeakCompareAndSetPlain">
+      <MemberSignature Language="VB.NET" Value="Public Function WeakCompareAndSetPlain (ParamArray args As Object()) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool WeakCompareAndSetPlain(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public bool WeakCompareAndSetPlain (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool WeakCompareAndSetPlain(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.WeakCompareAndSetPlain(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function WeakCompareAndSetPlain (ParamArray args As Object()) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool WeakCompareAndSetPlain(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.WeakCompareAndSetPlain : Java.Lang.Object[] -&gt; bool" Usage="varHandle.WeakCompareAndSetPlain args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1812,6 +2324,10 @@
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
             </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
           </Attributes>
         </Parameter>
       </Parameters>
@@ -1823,11 +2339,11 @@
       </Docs>
     </Member>
     <Member MemberName="WeakCompareAndSetRelease">
+      <MemberSignature Language="VB.NET" Value="Public Function WeakCompareAndSetRelease (ParamArray args As Object()) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool WeakCompareAndSetRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="public bool WeakCompareAndSetRelease (params Java.Lang.Object[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool WeakCompareAndSetRelease(class Java.Lang.Object[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Lang.Invoke.VarHandle.WeakCompareAndSetRelease(Java.Lang.Object[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function WeakCompareAndSetRelease (ParamArray args As Object()) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool WeakCompareAndSetRelease(... cli::array &lt;Java::Lang::Object ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="member this.WeakCompareAndSetRelease : Java.Lang.Object[] -&gt; bool" Usage="varHandle.WeakCompareAndSetRelease args" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1853,6 +2369,10 @@
             <Attribute>
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
+            </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
             </Attribute>
           </Attributes>
         </Parameter>

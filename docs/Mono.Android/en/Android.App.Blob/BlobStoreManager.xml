@@ -1,9 +1,9 @@
 <Type Name="BlobStoreManager" FullName="Android.App.Blob.BlobStoreManager">
+  <TypeSignature Language="VB.NET" Value="Public Class BlobStoreManager&#xA;Inherits Object" />
+  <TypeSignature Language="C++ CLI" Value="public ref class BlobStoreManager : Java::Lang::Object" />
   <TypeSignature Language="C#" Value="public class BlobStoreManager : Java.Lang.Object" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi beforefieldinit BlobStoreManager extends Java.Lang.Object" />
   <TypeSignature Language="DocId" Value="T:Android.App.Blob.BlobStoreManager" />
-  <TypeSignature Language="VB.NET" Value="Public Class BlobStoreManager&#xA;Inherits Object" />
-  <TypeSignature Language="C++ CLI" Value="public ref class BlobStoreManager : Java::Lang::Object" />
   <TypeSignature Language="F#" Value="type BlobStoreManager = class&#xA;    inherit Object" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -19,6 +19,14 @@
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/app/blob/BlobStoreManager", ApiSince=30, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
     <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
       <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
     </Attribute>
@@ -26,6 +34,83 @@
   <Docs>
     <summary>This class provides access to the blob store managed by the system.</summary>
     <remarks>
+      <para>This class provides access to the blob store managed by the system.</para>
+      <para>Apps can publish and access a data blob using a <c>BlobHandle</c> object which can
+            be created with <c>BlobHandle#createWithSha256(byte[], CharSequence, long, String)</c>.
+            This <c>BlobHandle</c> object encapsulates the following pieces of information used for
+            identifying the blobs:
+            &lt;ul&gt;
+                &lt;li&gt; <c>BlobHandle#getSha256Digest()</c>&lt;li&gt; <c>BlobHandle#getLabel()</c>&lt;li&gt; <c>BlobHandle#getExpiryTimeMillis()</c>&lt;li&gt; <c>BlobHandle#getTag()</c>&lt;/ul&gt;
+            For two <c>BlobHandle</c> objects to be considered identical, all these pieces of information
+            must be equal.</para>
+      <para>For contributing a new data blob, an app needs to create a session using
+            <c>BlobStoreManager#createSession(BlobHandle)</c> and then open this session for writing using
+            <c>BlobStoreManager#openSession(long)</c>.</para>
+      <para>The following code snippet shows how to create and open a session for writing:</para>
+      <code lang="text/java">final long sessionId = blobStoreManager.createSession(blobHandle);
+                try (BlobStoreManager.Session session = blobStoreManager.openSession(sessionId)) {
+                    try (OutputStream out = new ParcelFileDescriptor.AutoCloseOutputStream(
+                            session.openWrite(offsetBytes, lengthBytes))) {
+                        writeData(out);
+                    }
+                }
+            </code>
+      <para>If all the data could not be written in a single attempt, apps can close this session
+            and re-open it again using the session id obtained via
+            <c>BlobStoreManager#createSession(BlobHandle)</c>. Note that the session data is persisted
+            and can be re-opened for completing the data contribution, even across device reboots.</para>
+      <para>After the data is written to the session, it can be committed using
+            <c>Session#commit(Executor, Consumer)</c>. Until the session is committed, data written
+            to the session will not be shared with any app.
+            
+            &lt;p class="note"&gt; Once a session is committed using <c>Session#commit(Executor, Consumer)</c>,
+            any data written as part of this session is sealed and cannot be modified anymore.</para>
+      <para>Before committing the session, apps can indicate which apps are allowed to access the
+            contributed data using one or more of the following access modes:
+            &lt;ul&gt;
+                &lt;li&gt; <c>Session#allowPackageAccess(String, byte[])</c> which will allow specific packages
+                     to access the blobs.
+                &lt;li&gt; <c>Session#allowSameSignatureAccess()</c> which will allow only apps which are signed
+                     with the same certificate as the app which contributed the blob to access it.
+                &lt;li&gt; <c>Session#allowPublicAccess()</c> which will allow any app on the device to access
+                     the blob.
+            &lt;/ul&gt;</para>
+      <para>The following code snippet shows how to specify the access mode and commit the session:</para>
+      <code lang="text/java">try (BlobStoreManager.Session session = blobStoreManager.openSession(sessionId)) {
+                    try (OutputStream out = new ParcelFileDescriptor.AutoCloseOutputStream(
+                            session.openWrite(offsetBytes, lengthBytes))) {
+                        writeData(out);
+                    }
+                    session.allowSameSignatureAccess();
+                    session.allowPackageAccess(packageName, certificate);
+                    session.commit(executor, callback);
+                }
+            </code>
+      <para>Apps that satisfy at least one of the access mode constraints specified by the publisher
+            of the data blob will be able to access it.</para>
+      <para>A data blob published without specifying any of
+            these access modes will be considered private and only the app that contributed the data
+            blob will be allowed to access it. This is still useful for overall device system health as
+            the System can try to keep one copy of data blob on disk when multiple apps contribute the
+            same data.
+            
+            &lt;p class="note"&gt; It is strongly recommended that apps use one of
+            <c>Session#allowPackageAccess(String, byte[])</c> or <c>Session#allowSameSignatureAccess()</c>
+            when they know, ahead of time, the set of apps they would like to share the blobs with.
+            <c>Session#allowPublicAccess()</c> is meant for publicly available data committed from
+            libraries and SDKs.</para>
+      <para>Once a data blob is committed with <c>Session#commit(Executor, Consumer)</c>, it
+            can be accessed using <c>BlobStoreManager#openBlob(BlobHandle)</c>, assuming the caller
+            satisfies constraints of any of the access modes associated with that data blob. An app may
+            acquire a lease on a blob with <c>BlobStoreManager#acquireLease(BlobHandle, int)</c> and
+            release the lease with <c>BlobStoreManager#releaseLease(BlobHandle)</c>. A blob will not be
+            deleted from the system while there is at least one app leasing it.</para>
+      <para>The following code snippet shows how to access the data blob:</para>
+      <code lang="text/java">try (InputStream in = new ParcelFileDescriptor.AutoCloseInputStream(
+                        blobStoreManager.openBlob(blobHandle)) {
+                    useData(in);
+                }
+            </code>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager</code>.</a>
@@ -40,11 +125,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; BlobStoreManager(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected BlobStoreManager (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; BlobStoreManager(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Android.App.Blob.BlobStoreManager : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.App.Blob.BlobStoreManager" Usage="new Android.App.Blob.BlobStoreManager (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -63,11 +148,11 @@
       </Docs>
     </Member>
     <Member MemberName="AbandonSession">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AbandonSession (sessionId As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AbandonSession(long sessionId);" />
       <MemberSignature Language="C#" Value="public virtual void AbandonSession (long sessionId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void AbandonSession(int64 sessionId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.AbandonSession(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AbandonSession (sessionId As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AbandonSession(long sessionId);" />
       <MemberSignature Language="F#" Value="abstract member AbandonSession : int64 -&gt; unit&#xA;override this.AbandonSession : int64 -&gt; unit" Usage="blobStoreManager.AbandonSession sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -95,6 +180,7 @@
                              represents a particular session.</param>
         <summary>Abandons an existing session and deletes any data that was written to that session so far.</summary>
         <remarks>
+          <para>Abandons an existing session and deletes any data that was written to that session so far.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#abandonSession(long)" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.abandonSession(long)</code>.</a>
@@ -109,11 +195,11 @@
       </Docs>
     </Member>
     <Member MemberName="AcquireLease">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireLease (blobHandle As BlobHandle, description As ICharSequence)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, Java::Lang::ICharSequence ^ description);" />
       <MemberSignature Language="C#" Value="public virtual void AcquireLease (Android.App.Blob.BlobHandle blobHandle, Java.Lang.ICharSequence description);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void AcquireLease(class Android.App.Blob.BlobHandle blobHandle, class Java.Lang.ICharSequence description) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.AcquireLease(Android.App.Blob.BlobHandle,Java.Lang.ICharSequence)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireLease (blobHandle As BlobHandle, description As ICharSequence)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, Java::Lang::ICharSequence ^ description);" />
       <MemberSignature Language="F#" Value="abstract member AcquireLease : Android.App.Blob.BlobHandle * Java.Lang.ICharSequence -&gt; unit&#xA;override this.AcquireLease : Android.App.Blob.BlobHandle * Java.Lang.ICharSequence -&gt; unit" Usage="blobStoreManager.AcquireLease (blobHandle, description)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -146,6 +232,23 @@
                                ellipsized if it is too long to be displayed to the user.</param>
         <summary>Acquire a lease to the blob represented by <c>blobHandle</c>.</summary>
         <remarks>
+          <para>Acquire a lease to the blob represented by <c>blobHandle</c>. This lease indicates to the
+            system that the caller wants the blob to be kept around.</para>
+          <para>This is a variant of <c>#acquireLease(BlobHandle, int)</c> taking a <c>CharSequence</c>
+            for <c>description</c>. It is highly recommended that callers only use this when a valid
+            resource ID for <c>description</c> could not be provided. Otherwise, apps should prefer
+            using <c>#acquireLease(BlobHandle, int)</c> which will allow <c>description</c> to be
+            localized.</para>
+          <para>This is similar to <c>#acquireLease(BlobHandle, CharSequence, long)</c> except clients
+            don't have to specify the lease expiry time upfront using this API and need to explicitly
+            release the lease using <c>#releaseLease(BlobHandle)</c> when they no longer like to keep
+            a blob around.</para>
+          <para>Any active leases will be automatically released when the blob's expiry time
+            (<c>BlobHandle#getExpiryTimeMillis()</c>) is elapsed.</para>
+          <para>This lease information is persisted and calling this more than once will result in
+            latest lease overriding any previous lease.</para>
+          <para>When an app acquires a lease on a blob, the System will try to keep this
+            blob around but note that it can still be deleted if it was requested by the user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#acquireLease(android.app.blob.BlobHandle,%20java.lang.CharSequence)" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.acquireLease(android.app.blob.BlobHandle, java.lang.CharSequence)</code>.</a>
@@ -160,11 +263,11 @@
       </Docs>
     </Member>
     <Member MemberName="AcquireLease">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireLease (blobHandle As BlobHandle, descriptionResId As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, int descriptionResId);" />
       <MemberSignature Language="C#" Value="public virtual void AcquireLease (Android.App.Blob.BlobHandle blobHandle, int descriptionResId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void AcquireLease(class Android.App.Blob.BlobHandle blobHandle, int32 descriptionResId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.AcquireLease(Android.App.Blob.BlobHandle,System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireLease (blobHandle As BlobHandle, descriptionResId As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, int descriptionResId);" />
       <MemberSignature Language="F#" Value="abstract member AcquireLease : Android.App.Blob.BlobHandle * int -&gt; unit&#xA;override this.AcquireLease : Android.App.Blob.BlobHandle * int -&gt; unit" Usage="blobStoreManager.AcquireLease (blobHandle, descriptionResId)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -195,6 +298,20 @@
                                     to the user explaining what the blob is used for.</param>
         <summary>Acquire a lease to the blob represented by <c>blobHandle</c>.</summary>
         <remarks>
+          <para>Acquire a lease to the blob represented by <c>blobHandle</c>. This lease indicates to the
+            system that the caller wants the blob to be kept around.</para>
+          <para>This is similar to <c>#acquireLease(BlobHandle, int, long)</c> except clients don't
+            have to specify the lease expiry time upfront using this API and need to explicitly
+            release the lease using <c>#releaseLease(BlobHandle)</c> when they no longer like to keep
+            a blob around.</para>
+          <para>Any active leases will be automatically released when the blob's expiry time
+            (<c>BlobHandle#getExpiryTimeMillis()</c>) is elapsed.</para>
+          <para>This lease information is persisted and calling this more than once will result in
+            latest lease overriding any previous lease.</para>
+          <para>When an app acquires a lease on a blob, the System will try to keep this
+            blob around but note that it can still be deleted if it was requested by the user.</para>
+          <para>In case the resource name for the <c>descriptionResId</c> is modified as part of
+            an app update, apps should re-acquire the lease with the new resource id.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#acquireLease(android.app.blob.BlobHandle,%20int)" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.acquireLease(android.app.blob.BlobHandle, int)</code>.</a>
@@ -209,11 +326,11 @@
       </Docs>
     </Member>
     <Member MemberName="AcquireLease">
+      <MemberSignature Language="VB.NET" Value="Public Sub AcquireLease (blobHandle As BlobHandle, description As String)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, System::String ^ description);" />
       <MemberSignature Language="C#" Value="public void AcquireLease (Android.App.Blob.BlobHandle blobHandle, string description);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void AcquireLease(class Android.App.Blob.BlobHandle blobHandle, string description) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.AcquireLease(Android.App.Blob.BlobHandle,System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub AcquireLease (blobHandle As BlobHandle, description As String)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, System::String ^ description);" />
       <MemberSignature Language="F#" Value="member this.AcquireLease : Android.App.Blob.BlobHandle * string -&gt; unit" Usage="blobStoreManager.AcquireLease (blobHandle, description)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -242,6 +359,23 @@
                                ellipsized if it is too long to be displayed to the user.</param>
         <summary>Acquire a lease to the blob represented by <c>blobHandle</c>.</summary>
         <remarks>
+          <para>Acquire a lease to the blob represented by <c>blobHandle</c>. This lease indicates to the
+            system that the caller wants the blob to be kept around.</para>
+          <para>This is a variant of <c>#acquireLease(BlobHandle, int)</c> taking a <c>CharSequence</c>
+            for <c>description</c>. It is highly recommended that callers only use this when a valid
+            resource ID for <c>description</c> could not be provided. Otherwise, apps should prefer
+            using <c>#acquireLease(BlobHandle, int)</c> which will allow <c>description</c> to be
+            localized.</para>
+          <para>This is similar to <c>#acquireLease(BlobHandle, CharSequence, long)</c> except clients
+            don't have to specify the lease expiry time upfront using this API and need to explicitly
+            release the lease using <c>#releaseLease(BlobHandle)</c> when they no longer like to keep
+            a blob around.</para>
+          <para>Any active leases will be automatically released when the blob's expiry time
+            (<c>BlobHandle#getExpiryTimeMillis()</c>) is elapsed.</para>
+          <para>This lease information is persisted and calling this more than once will result in
+            latest lease overriding any previous lease.</para>
+          <para>When an app acquires a lease on a blob, the System will try to keep this
+            blob around but note that it can still be deleted if it was requested by the user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#acquireLease(android.app.blob.BlobHandle,%20java.lang.CharSequence)" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.acquireLease(android.app.blob.BlobHandle, java.lang.CharSequence)</code>.</a>
@@ -256,11 +390,11 @@
       </Docs>
     </Member>
     <Member MemberName="AcquireLease">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireLease (blobHandle As BlobHandle, description As ICharSequence, leaseExpiryTimeMillis As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, Java::Lang::ICharSequence ^ description, long leaseExpiryTimeMillis);" />
       <MemberSignature Language="C#" Value="public virtual void AcquireLease (Android.App.Blob.BlobHandle blobHandle, Java.Lang.ICharSequence description, long leaseExpiryTimeMillis);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void AcquireLease(class Android.App.Blob.BlobHandle blobHandle, class Java.Lang.ICharSequence description, int64 leaseExpiryTimeMillis) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.AcquireLease(Android.App.Blob.BlobHandle,Java.Lang.ICharSequence,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireLease (blobHandle As BlobHandle, description As ICharSequence, leaseExpiryTimeMillis As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, Java::Lang::ICharSequence ^ description, long leaseExpiryTimeMillis);" />
       <MemberSignature Language="F#" Value="abstract member AcquireLease : Android.App.Blob.BlobHandle * Java.Lang.ICharSequence * int64 -&gt; unit&#xA;override this.AcquireLease : Android.App.Blob.BlobHandle * Java.Lang.ICharSequence * int64 -&gt; unit" Usage="blobStoreManager.AcquireLease (blobHandle, description, leaseExpiryTimeMillis)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -301,6 +435,19 @@
                                          need the blob anymore.</param>
         <summary>Acquire a lease to the blob represented by <c>blobHandle</c>.</summary>
         <remarks>
+          <para>Acquire a lease to the blob represented by <c>blobHandle</c>. This lease indicates to the
+            system that the caller wants the blob to be kept around.</para>
+          <para>This is a variant of <c>#acquireLease(BlobHandle, int, long)</c> taking a
+            <c>CharSequence</c> for <c>description</c>. It is highly recommended that callers only
+            use this when a valid resource ID for <c>description</c> could not be provided. Otherwise,
+            apps should prefer using <c>#acquireLease(BlobHandle, int)</c> which will allow
+            <c>description</c> to be localized.</para>
+          <para>Any active leases will be automatically released when the blob's expiry time
+            (<c>BlobHandle#getExpiryTimeMillis()</c>) is elapsed.</para>
+          <para>This lease information is persisted and calling this more than once will result in
+            latest lease overriding any previous lease.</para>
+          <para>When an app acquires a lease on a blob, the System will try to keep this
+            blob around but note that it can still be deleted if it was requested by the user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#acquireLease(android.app.blob.BlobHandle,%20java.lang.CharSequence,%20long)" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.acquireLease(android.app.blob.BlobHandle, java.lang.CharSequence, long)</code>.</a>
@@ -315,11 +462,11 @@
       </Docs>
     </Member>
     <Member MemberName="AcquireLease">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireLease (blobHandle As BlobHandle, descriptionResId As Integer, leaseExpiryTimeMillis As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, int descriptionResId, long leaseExpiryTimeMillis);" />
       <MemberSignature Language="C#" Value="public virtual void AcquireLease (Android.App.Blob.BlobHandle blobHandle, int descriptionResId, long leaseExpiryTimeMillis);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void AcquireLease(class Android.App.Blob.BlobHandle blobHandle, int32 descriptionResId, int64 leaseExpiryTimeMillis) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.AcquireLease(Android.App.Blob.BlobHandle,System.Int32,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireLease (blobHandle As BlobHandle, descriptionResId As Integer, leaseExpiryTimeMillis As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, int descriptionResId, long leaseExpiryTimeMillis);" />
       <MemberSignature Language="F#" Value="abstract member AcquireLease : Android.App.Blob.BlobHandle * int * int64 -&gt; unit&#xA;override this.AcquireLease : Android.App.Blob.BlobHandle * int * int64 -&gt; unit" Usage="blobStoreManager.AcquireLease (blobHandle, descriptionResId, leaseExpiryTimeMillis)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -358,6 +505,16 @@
                                          need the blob anymore.</param>
         <summary>Acquire a lease to the blob represented by <c>blobHandle</c>.</summary>
         <remarks>
+          <para>Acquire a lease to the blob represented by <c>blobHandle</c>. This lease indicates to the
+            system that the caller wants the blob to be kept around.</para>
+          <para>Any active leases will be automatically released when the blob's expiry time
+            (<c>BlobHandle#getExpiryTimeMillis()</c>) is elapsed.</para>
+          <para>This lease information is persisted and calling this more than once will result in
+            latest lease overriding any previous lease.</para>
+          <para>When an app acquires a lease on a blob, the System will try to keep this
+            blob around but note that it can still be deleted if it was requested by the user.</para>
+          <para>In case the resource name for the <c>descriptionResId</c> is modified as part of
+            an app update, apps should re-acquire the lease with the new resource id.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#acquireLease(android.app.blob.BlobHandle,%20int,%20long)" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.acquireLease(android.app.blob.BlobHandle, int, long)</code>.</a>
@@ -372,11 +529,11 @@
       </Docs>
     </Member>
     <Member MemberName="AcquireLease">
+      <MemberSignature Language="VB.NET" Value="Public Sub AcquireLease (blobHandle As BlobHandle, description As String, leaseExpiryTimeMillis As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, System::String ^ description, long leaseExpiryTimeMillis);" />
       <MemberSignature Language="C#" Value="public void AcquireLease (Android.App.Blob.BlobHandle blobHandle, string description, long leaseExpiryTimeMillis);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void AcquireLease(class Android.App.Blob.BlobHandle blobHandle, string description, int64 leaseExpiryTimeMillis) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.AcquireLease(Android.App.Blob.BlobHandle,System.String,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub AcquireLease (blobHandle As BlobHandle, description As String, leaseExpiryTimeMillis As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void AcquireLease(Android::App::Blob::BlobHandle ^ blobHandle, System::String ^ description, long leaseExpiryTimeMillis);" />
       <MemberSignature Language="F#" Value="member this.AcquireLease : Android.App.Blob.BlobHandle * string * int64 -&gt; unit" Usage="blobStoreManager.AcquireLease (blobHandle, description, leaseExpiryTimeMillis)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -413,6 +570,19 @@
                                          need the blob anymore.</param>
         <summary>Acquire a lease to the blob represented by <c>blobHandle</c>.</summary>
         <remarks>
+          <para>Acquire a lease to the blob represented by <c>blobHandle</c>. This lease indicates to the
+            system that the caller wants the blob to be kept around.</para>
+          <para>This is a variant of <c>#acquireLease(BlobHandle, int, long)</c> taking a
+            <c>CharSequence</c> for <c>description</c>. It is highly recommended that callers only
+            use this when a valid resource ID for <c>description</c> could not be provided. Otherwise,
+            apps should prefer using <c>#acquireLease(BlobHandle, int)</c> which will allow
+            <c>description</c> to be localized.</para>
+          <para>Any active leases will be automatically released when the blob's expiry time
+            (<c>BlobHandle#getExpiryTimeMillis()</c>) is elapsed.</para>
+          <para>This lease information is persisted and calling this more than once will result in
+            latest lease overriding any previous lease.</para>
+          <para>When an app acquires a lease on a blob, the System will try to keep this
+            blob around but note that it can still be deleted if it was requested by the user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#acquireLease(android.app.blob.BlobHandle,%20java.lang.CharSequence,%20long)" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.acquireLease(android.app.blob.BlobHandle, java.lang.CharSequence, long)</code>.</a>
@@ -427,11 +597,11 @@
       </Docs>
     </Member>
     <Member MemberName="CreateSession">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function CreateSession (blobHandle As BlobHandle) As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long CreateSession(Android::App::Blob::BlobHandle ^ blobHandle);" />
       <MemberSignature Language="C#" Value="public virtual long CreateSession (Android.App.Blob.BlobHandle blobHandle);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 CreateSession(class Android.App.Blob.BlobHandle blobHandle) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.CreateSession(Android.App.Blob.BlobHandle)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function CreateSession (blobHandle As BlobHandle) As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual long CreateSession(Android::App::Blob::BlobHandle ^ blobHandle);" />
       <MemberSignature Language="F#" Value="abstract member CreateSession : Android.App.Blob.BlobHandle -&gt; int64&#xA;override this.CreateSession : Android.App.Blob.BlobHandle -&gt; int64" Usage="blobStoreManager.CreateSession blobHandle" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -463,6 +633,17 @@
                     This id remains consistent across device reboots until the
                     session is finalized. IDs are not reused during a given boot.</returns>
         <remarks>
+          <para>Create a new session using the given <c>BlobHandle</c>, returning a unique id
+            that represents the session. Once created, the session can be opened
+            multiple times across multiple device boots.</para>
+          <para>The system may automatically destroy sessions that have not been
+            finalized (either committed or abandoned) within a reasonable period of
+            time, typically about a week.</para>
+          <para>If an app is planning to acquire a lease on this data (using
+            <c>#acquireLease(BlobHandle, int)</c> or one of it's other variants) after committing
+            this data (using <c>Session#commit(Executor, Consumer)</c>), it is recommended that
+            the app checks the remaining quota for acquiring a lease first using
+            <c>#getRemainingLeaseQuotaBytes()</c> and can skip contributing this data if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#createSession(android.app.blob.BlobHandle)" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.createSession(android.app.blob.BlobHandle)</code>.</a>
@@ -477,11 +658,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.App.Blob.BlobStoreManager.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.App.Blob.BlobStoreManager.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -508,11 +689,11 @@
       </Docs>
     </Member>
     <Member MemberName="LeasedBlobs">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property LeasedBlobs As IList(Of BlobHandle)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property System::Collections::Generic::IList&lt;Android::App::Blob::BlobHandle ^&gt; ^ LeasedBlobs { System::Collections::Generic::IList&lt;Android::App::Blob::BlobHandle ^&gt; ^ get(); };" />
       <MemberSignature Language="C#" Value="public virtual System.Collections.Generic.IList&lt;Android.App.Blob.BlobHandle&gt; LeasedBlobs { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Collections.Generic.IList`1&lt;class Android.App.Blob.BlobHandle&gt; LeasedBlobs" />
       <MemberSignature Language="DocId" Value="P:Android.App.Blob.BlobStoreManager.LeasedBlobs" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property LeasedBlobs As IList(Of BlobHandle)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property System::Collections::Generic::IList&lt;Android::App::Blob::BlobHandle ^&gt; ^ LeasedBlobs { System::Collections::Generic::IList&lt;Android::App::Blob::BlobHandle ^&gt; ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.LeasedBlobs : System.Collections.Generic.IList&lt;Android.App.Blob.BlobHandle&gt;" Usage="Android.App.Blob.BlobStoreManager.LeasedBlobs" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -537,6 +718,8 @@
             the calling app currently has a lease on.</summary>
         <value>a list of <c>BlobHandle BlobHandles</c> that the caller has a lease on.</value>
         <remarks>
+          <para>Return the <c>BlobHandle BlobHandles</c> corresponding to the data blobs that
+            the calling app currently has a lease on.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#getLeasedBlobs()" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.getLeasedBlobs()</code>.</a>
@@ -551,11 +734,11 @@
       </Docs>
     </Member>
     <Member MemberName="OpenBlob">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OpenBlob (blobHandle As BlobHandle) As ParcelFileDescriptor" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::OS::ParcelFileDescriptor ^ OpenBlob(Android::App::Blob::BlobHandle ^ blobHandle);" />
       <MemberSignature Language="C#" Value="public virtual Android.OS.ParcelFileDescriptor OpenBlob (Android.App.Blob.BlobHandle blobHandle);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Android.OS.ParcelFileDescriptor OpenBlob(class Android.App.Blob.BlobHandle blobHandle) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.OpenBlob(Android.App.Blob.BlobHandle)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OpenBlob (blobHandle As BlobHandle) As ParcelFileDescriptor" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::OS::ParcelFileDescriptor ^ OpenBlob(Android::App::Blob::BlobHandle ^ blobHandle);" />
       <MemberSignature Language="F#" Value="abstract member OpenBlob : Android.App.Blob.BlobHandle -&gt; Android.OS.ParcelFileDescriptor&#xA;override this.OpenBlob : Android.App.Blob.BlobHandle -&gt; Android.OS.ParcelFileDescriptor" Usage="blobStoreManager.OpenBlob blobHandle" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -584,6 +767,7 @@
         <summary>Opens an existing blob for reading from the blob store managed by the system.</summary>
         <returns>a <c>ParcelFileDescriptor</c> that can be used to read the blob content.</returns>
         <remarks>
+          <para>Opens an existing blob for reading from the blob store managed by the system.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#openBlob(android.app.blob.BlobHandle)" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.openBlob(android.app.blob.BlobHandle)</code>.</a>
@@ -598,11 +782,11 @@
       </Docs>
     </Member>
     <Member MemberName="OpenSession">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OpenSession (sessionId As Long) As BlobStoreManager.Session" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::App::Blob::BlobStoreManager::Session ^ OpenSession(long sessionId);" />
       <MemberSignature Language="C#" Value="public virtual Android.App.Blob.BlobStoreManager.Session OpenSession (long sessionId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Android.App.Blob.BlobStoreManager/Session OpenSession(int64 sessionId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.OpenSession(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OpenSession (sessionId As Long) As BlobStoreManager.Session" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::App::Blob::BlobStoreManager::Session ^ OpenSession(long sessionId);" />
       <MemberSignature Language="F#" Value="abstract member OpenSession : int64 -&gt; Android.App.Blob.BlobStoreManager.Session&#xA;override this.OpenSession : int64 -&gt; Android.App.Blob.BlobStoreManager.Session" Usage="blobStoreManager.OpenSession sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -645,11 +829,11 @@
       </Docs>
     </Member>
     <Member MemberName="ReleaseLease">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub ReleaseLease (blobHandle As BlobHandle)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void ReleaseLease(Android::App::Blob::BlobHandle ^ blobHandle);" />
       <MemberSignature Language="C#" Value="public virtual void ReleaseLease (Android.App.Blob.BlobHandle blobHandle);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void ReleaseLease(class Android.App.Blob.BlobHandle blobHandle) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Blob.BlobStoreManager.ReleaseLease(Android.App.Blob.BlobHandle)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub ReleaseLease (blobHandle As BlobHandle)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void ReleaseLease(Android::App::Blob::BlobHandle ^ blobHandle);" />
       <MemberSignature Language="F#" Value="abstract member ReleaseLease : Android.App.Blob.BlobHandle -&gt; unit&#xA;override this.ReleaseLease : Android.App.Blob.BlobHandle -&gt; unit" Usage="blobStoreManager.ReleaseLease blobHandle" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -678,6 +862,8 @@
         <summary>Release any active lease to the blob represented by <c>blobHandle</c> which is
             currently held by the caller.</summary>
         <remarks>
+          <para>Release any active lease to the blob represented by <c>blobHandle</c> which is
+            currently held by the caller.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#releaseLease(android.app.blob.BlobHandle)" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.releaseLease(android.app.blob.BlobHandle)</code>.</a>
@@ -692,11 +878,11 @@
       </Docs>
     </Member>
     <Member MemberName="RemainingLeaseQuotaBytes">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property RemainingLeaseQuotaBytes As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property long RemainingLeaseQuotaBytes { long get(); };" />
       <MemberSignature Language="C#" Value="public virtual long RemainingLeaseQuotaBytes { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int64 RemainingLeaseQuotaBytes" />
       <MemberSignature Language="DocId" Value="P:Android.App.Blob.BlobStoreManager.RemainingLeaseQuotaBytes" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property RemainingLeaseQuotaBytes As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property long RemainingLeaseQuotaBytes { long get(); };" />
       <MemberSignature Language="F#" Value="member this.RemainingLeaseQuotaBytes : int64" Usage="Android.App.Blob.BlobStoreManager.RemainingLeaseQuotaBytes" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -722,6 +908,11 @@
             rejecting lease requests.</summary>
         <value>the remaining quota size for acquiring a lease.</value>
         <remarks>
+          <para>Return the remaining quota size for acquiring a lease (in bytes) which indicates the
+            remaining amount of data that an app can acquire a lease on before the System starts
+            rejecting lease requests.</para>
+          <para>If an app wants to acquire a lease on a blob but the remaining quota size is not sufficient,
+            then it can try releasing leases on any older blobs which are not needed anymore.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/blob/BlobStoreManager#getRemainingLeaseQuotaBytes()" title="Reference documentation">Java documentation for <code>android.app.blob.BlobStoreManager.getRemainingLeaseQuotaBytes()</code>.</a>
@@ -736,11 +927,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.App.Blob.BlobStoreManager.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.App.Blob.BlobStoreManager.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -767,11 +958,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.App.Blob.BlobStoreManager.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.App.Blob.BlobStoreManager.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>

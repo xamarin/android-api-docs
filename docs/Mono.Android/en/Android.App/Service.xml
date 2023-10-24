@@ -1,9 +1,9 @@
 <Type Name="Service" FullName="Android.App.Service">
+  <TypeSignature Language="VB.NET" Value="Public MustInherit Class Service&#xA;Inherits ContextWrapper&#xA;Implements IComponentCallbacks2, IDisposable, IJavaPeerable" />
+  <TypeSignature Language="C++ CLI" Value="public ref class Service abstract : Android::Content::ContextWrapper, Android::Content::IComponentCallbacks2, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="C#" Value="public abstract class Service : Android.Content.ContextWrapper, Android.Content.IComponentCallbacks2, IDisposable, Java.Interop.IJavaPeerable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi abstract beforefieldinit Service extends Android.Content.ContextWrapper implements class Android.Content.IComponentCallbacks, class Android.Content.IComponentCallbacks2, class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Android.App.Service" />
-  <TypeSignature Language="VB.NET" Value="Public MustInherit Class Service&#xA;Inherits ContextWrapper&#xA;Implements IComponentCallbacks2, IDisposable, IJavaPeerable" />
-  <TypeSignature Language="C++ CLI" Value="public ref class Service abstract : Android::Content::ContextWrapper, Android::Content::IComponentCallbacks2, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="F#" Value="type Service = class&#xA;    inherit ContextWrapper&#xA;    interface IComponentCallbacks&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable&#xA;    interface IComponentCallbacks2" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -34,12 +34,214 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/app/Service", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/app/Service", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="1">
     <summary>A Service is an application component representing either an application's desire
             to perform a longer-running operation while not interacting with the user
             or to supply functionality for other applications to use.</summary>
     <remarks>
+      <para>A Service is an application component representing either an application's desire
+            to perform a longer-running operation while not interacting with the user
+            or to supply functionality for other applications to use.  Each service
+            class must have a corresponding
+            <c>android.R.styleable#AndroidManifestService &amp;lt;service&amp;gt;</c>
+            declaration in its package's <c>AndroidManifest.xml</c>.  Services
+            can be started with
+            <c>android.content.Context#startService Context.startService()</c> and
+            <c>android.content.Context#bindService Context.bindService()</c>.</para>
+      <para>Note that services, like other application objects, run in the main
+            thread of their hosting process.  This means that, if your service is going
+            to do any CPU intensive (such as MP3 playback) or blocking (such as
+            networking) operations, it should spawn its own thread in which to do that
+            work.  More information on this can be found in
+            <see href="https://developer.android.com/guide/topics/fundamentals/processes-and-threads.html">Processes and
+            Threads</see>.  The <c>androidx.core.app.JobIntentService</c> class is available
+            as a standard implementation of Service that has its own thread where it
+            schedules its work to be done.</para>
+      <para>Topics covered here:
+            &lt;ol&gt;
+            &lt;li&gt;What is a Service?&lt;li&gt;Service Lifecycle&lt;li&gt;Permissions&lt;li&gt;Process Lifecycle&lt;li&gt;Local Service Sample&lt;li&gt;Remote Messenger Service Sample&lt;/ol&gt;
+            
+            &lt;div class="special reference"&gt;
+            &lt;h3&gt;Developer Guides&lt;/h3&gt;</para>
+      <para>For a detailed discussion about how to create services, read the
+            <see href="https://developer.android.com/guide/topics/fundamentals/services.html">Services</see> developer guide.</para>
+      <para>&lt;/div&gt;
+            
+            "WhatIsAService"&gt;&lt;h3&gt;What is a Service?&lt;/h3&gt;</para>
+      <para>Most confusion about the Service class actually revolves around what
+            it is &lt;em&gt;not&lt;/em&gt;:</para>
+      <para>&lt;ul&gt;
+            &lt;li&gt; A Service is &lt;b&gt;not&lt;/b&gt; a separate process.  The Service object itself
+            does not imply it is running in its own process; unless otherwise specified,
+            it runs in the same process as the application it is part of.
+            &lt;li&gt; A Service is &lt;b&gt;not&lt;/b&gt; a thread.  It is not a means itself to do work off
+            of the main thread (to avoid Application Not Responding errors).
+            &lt;/ul&gt;</para>
+      <para>Thus a Service itself is actually very simple, providing two main features:</para>
+      <para>&lt;ul&gt;
+            &lt;li&gt;A facility for the application to tell the system &lt;em&gt;about&lt;/em&gt;
+            something it wants to be doing in the background (even when the user is not
+            directly interacting with the application).  This corresponds to calls to
+            <c>android.content.Context#startService Context.startService()</c>, which
+            ask the system to schedule work for the service, to be run until the service
+            or someone else explicitly stop it.
+            &lt;li&gt;A facility for an application to expose some of its functionality to
+            other applications.  This corresponds to calls to
+            <c>android.content.Context#bindService Context.bindService()</c>, which
+            allows a long-standing connection to be made to the service in order to
+            interact with it.
+            &lt;/ul&gt;</para>
+      <para>When a Service component is actually created, for either of these reasons,
+            all that the system actually does is instantiate the component
+            and call its <c>#onCreate</c> and any other appropriate callbacks on the
+            main thread.  It is up to the Service to implement these with the appropriate
+            behavior, such as creating a secondary thread in which it does its work.</para>
+      <para>Note that because Service itself is so simple, you can make your
+            interaction with it as simple or complicated as you want: from treating it
+            as a local Java object that you make direct method calls on (as illustrated
+            by Local Service Sample), to providing
+            a full remoteable interface using AIDL.</para>
+      <para>"ServiceLifecycle"&gt;&lt;h3&gt;Service Lifecycle&lt;/h3&gt;</para>
+      <para>There are two reasons that a service can be run by the system.  If someone
+            calls <c>android.content.Context#startService Context.startService()</c> then the system will
+            retrieve the service (creating it and calling its <c>#onCreate</c> method
+            if needed) and then call its <c>#onStartCommand</c> method with the
+            arguments supplied by the client.  The service will at this point continue
+            running until <c>android.content.Context#stopService Context.stopService()</c> or
+            <c>#stopSelf()</c> is called.  Note that multiple calls to
+            Context.startService() do not nest (though they do result in multiple corresponding
+            calls to onStartCommand()), so no matter how many times it is started a service
+            will be stopped once Context.stopService() or stopSelf() is called; however,
+            services can use their <c>#stopSelf(int)</c> method to ensure the service is
+            not stopped until started intents have been processed.</para>
+      <para>For started services, there are two additional major modes of operation
+            they can decide to run in, depending on the value they return from
+            onStartCommand(): <c>#START_STICKY</c> is used for services that are
+            explicitly started and stopped as needed, while <c>#START_NOT_STICKY</c>
+            or <c>#START_REDELIVER_INTENT</c> are used for services that should only
+            remain running while processing any commands sent to them.  See the linked
+            documentation for more detail on the semantics.</para>
+      <para>Clients can also use <c>android.content.Context#bindService Context.bindService()</c> to
+            obtain a persistent connection to a service.  This likewise creates the
+            service if it is not already running (calling <c>#onCreate</c> while
+            doing so), but does not call onStartCommand().  The client will receive the
+            <c>android.os.IBinder</c> object that the service returns from its
+            <c>#onBind</c> method, allowing the client to then make calls back
+            to the service.  The service will remain running as long as the connection
+            is established (whether or not the client retains a reference on the
+            service's IBinder).  Usually the IBinder returned is for a complex
+            interface that has been <see href="https://developer.android.com/guide/components/aidl.html">written
+            in aidl</see>.</para>
+      <para>A service can be both started and have connections bound to it.  In such
+            a case, the system will keep the service running as long as either it is
+            started &lt;em&gt;or&lt;/em&gt; there are one or more connections to it with the
+            <c>android.content.Context#BIND_AUTO_CREATE Context.BIND_AUTO_CREATE</c>
+            flag.  Once neither
+            of these situations hold, the service's <c>#onDestroy</c> method is called
+            and the service is effectively terminated.  All cleanup (stopping threads,
+            unregistering receivers) should be complete upon returning from onDestroy().
+            
+            "Permissions"&gt;&lt;h3&gt;Permissions&lt;/h3&gt;</para>
+      <para>Global access to a service can be enforced when it is declared in its
+            manifest's <c>android.R.styleable#AndroidManifestService &amp;lt;service&amp;gt;</c>
+            tag.  By doing so, other applications will need to declare a corresponding
+            <c>android.R.styleable#AndroidManifestUsesPermission &amp;lt;uses-permission&amp;gt;</c>
+            element in their own manifest to be able to start, stop, or bind to
+            the service.</para>
+      <para>As of <c>android.os.Build.VERSION_CODES#GINGERBREAD</c>, when using
+            <c>Context#startService(Intent) Context.startService(Intent)</c>, you can
+            also set <c>Intent#FLAG_GRANT_READ_URI_PERMISSION
+            Intent.FLAG_GRANT_READ_URI_PERMISSION</c> and/or <c>Intent#FLAG_GRANT_WRITE_URI_PERMISSION
+            Intent.FLAG_GRANT_WRITE_URI_PERMISSION</c> on the Intent.  This will grant the
+            Service temporary access to the specific URIs in the Intent.  Access will
+            remain until the Service has called <c>#stopSelf(int)</c> for that start
+            command or a later one, or until the Service has been completely stopped.
+            This works for granting access to the other apps that have not requested
+            the permission protecting the Service, or even when the Service is not
+            exported at all.</para>
+      <para>In addition, a service can protect individual IPC calls into it with
+            permissions, by calling the
+            <c>#checkCallingPermission</c>
+            method before executing the implementation of that call.</para>
+      <para>See the <see href="https://developer.android.com/guide/topics/security/security.html">Security and Permissions</see>
+            document for more information on permissions and security in general.
+            
+            "ProcessLifecycle"&gt;&lt;h3&gt;Process Lifecycle&lt;/h3&gt;</para>
+      <para>The Android system will attempt to keep the process hosting a service
+            around as long as the service has been started or has clients bound to it.
+            When running low on memory and needing to kill existing processes, the
+            priority of a process hosting the service will be the higher of the
+            following possibilities:
+            
+            &lt;ul&gt;
+            &lt;li&gt;</para>
+      <para>If the service is currently executing code in its
+            <c>#onCreate onCreate()</c>, <c>#onStartCommand onStartCommand()</c>,
+            or <c>#onDestroy onDestroy()</c> methods, then the hosting process will
+            be a foreground process to ensure this code can execute without
+            being killed.
+            &lt;li&gt;</para>
+      <para>If the service has been started, then its hosting process is considered
+            to be less important than any processes that are currently visible to the
+            user on-screen, but more important than any process not visible.  Because
+            only a few processes are generally visible to the user, this means that
+            the service should not be killed except in low memory conditions.  However, since
+            the user is not directly aware of a background service, in that state it &lt;em&gt;is&lt;/em&gt;
+            considered a valid candidate to kill, and you should be prepared for this to
+            happen.  In particular, long-running services will be increasingly likely to
+            kill and are guaranteed to be killed (and restarted if appropriate) if they
+            remain started long enough.
+            &lt;li&gt;</para>
+      <para>If there are clients bound to the service, then the service's hosting
+            process is never less important than the most important client.  That is,
+            if one of its clients is visible to the user, then the service itself is
+            considered to be visible.  The way a client's importance impacts the service's
+            importance can be adjusted through <c>Context#BIND_ABOVE_CLIENT</c>,
+            <c>Context#BIND_ALLOW_OOM_MANAGEMENT</c>, <c>Context#BIND_WAIVE_PRIORITY</c>,
+            <c>Context#BIND_IMPORTANT</c>, and <c>Context#BIND_ADJUST_WITH_ACTIVITY</c>.
+            &lt;li&gt;</para>
+      <para>A started service can use the <c>#startForeground(int, Notification)</c>
+            API to put the service in a foreground state, where the system considers
+            it to be something the user is actively aware of and thus not a candidate
+            for killing when low on memory.  (It is still theoretically possible for
+            the service to be killed under extreme memory pressure from the current
+            foreground application, but in practice this should not be a concern.)
+            &lt;/ul&gt;</para>
+      <para>Note this means that most of the time your service is running, it may
+            be killed by the system if it is under heavy memory pressure.  If this
+            happens, the system will later try to restart the service.  An important
+            consequence of this is that if you implement <c>#onStartCommand onStartCommand()</c>
+            to schedule work to be done asynchronously or in another thread, then you
+            may want to use <c>#START_FLAG_REDELIVERY</c> to have the system
+            re-deliver an Intent for you so that it does not get lost if your service
+            is killed while processing it.</para>
+      <para>Other application components running in the same process as the service
+            (such as an <c>android.app.Activity</c>) can, of course, increase the
+            importance of the overall
+            process beyond just the importance of the service itself.
+            
+            "LocalServiceSample"&gt;&lt;h3&gt;Local Service Sample&lt;/h3&gt;</para>
+      <para>One of the most common uses of a Service is as a secondary component
+            running alongside other parts of an application, in the same process as
+            the rest of the components.  All components of an .apk run in the same
+            process unless explicitly stated otherwise, so this is a typical situation.</para>
+      <para>When used in this way, by assuming the
+            components are in the same process, you can greatly simplify the interaction
+            between them: clients of the service can simply cast the IBinder they
+            receive from it to a concrete class published by the service.</para>
+      <para>An example of this use of a Service is shown here.  First is the Service
+            itself, publishing a custom class when bound:
+            
+            {</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/app/Service" title="Reference documentation">Java documentation for <code>android.app.Service</code>.</a>
@@ -55,11 +257,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Service();" />
       <MemberSignature Language="C#" Value="public Service ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.#ctor" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Service();" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -82,11 +284,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; Service(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected Service (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; Service(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Android.App.Service : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.App.Service" Usage="new Android.App.Service (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -107,11 +309,11 @@
       </Docs>
     </Member>
     <Member MemberName="Application">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Application As Application" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::App::Application ^ Application { Android::App::Application ^ get(); };" />
       <MemberSignature Language="C#" Value="public Android.App.Application? Application { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Android.App.Application Application" />
       <MemberSignature Language="DocId" Value="P:Android.App.Service.Application" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Application As Application" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::App::Application ^ Application { Android::App::Application ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.Application : Android.App.Application" Usage="Android.App.Service.Application" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -131,6 +333,7 @@
         <summary>Return the application that owns this service.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Return the application that owns this service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#getApplication()" title="Reference documentation">Java documentation for <code>android.app.Service.getApplication()</code>.</a>
@@ -146,11 +349,11 @@
       </Docs>
     </Member>
     <Member MemberName="Dump">
+      <MemberSignature Language="VB.NET" Value="Protected Overridable Sub Dump (fd As FileDescriptor, writer As PrintWriter, args As String())" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual void Dump(Java::IO::FileDescriptor ^ fd, Java::IO::PrintWriter ^ writer, cli::array &lt;System::String ^&gt; ^ args);" />
       <MemberSignature Language="C#" Value="protected virtual void Dump (Java.IO.FileDescriptor? fd, Java.IO.PrintWriter? writer, string[]? args);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig newslot virtual instance void Dump(class Java.IO.FileDescriptor fd, class Java.IO.PrintWriter writer, string[] args) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.Dump(Java.IO.FileDescriptor,Java.IO.PrintWriter,System.String[])" />
-      <MemberSignature Language="VB.NET" Value="Protected Overridable Sub Dump (fd As FileDescriptor, writer As PrintWriter, args As String())" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual void Dump(Java::IO::FileDescriptor ^ fd, Java::IO::PrintWriter ^ writer, cli::array &lt;System::String ^&gt; ^ args);" />
       <MemberSignature Language="F#" Value="abstract member Dump : Java.IO.FileDescriptor * Java.IO.PrintWriter * string[] -&gt; unit&#xA;override this.Dump : Java.IO.FileDescriptor * Java.IO.PrintWriter * string[] -&gt; unit" Usage="service.Dump (fd, writer, args)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -169,7 +372,14 @@
       <Parameters>
         <Parameter Name="fd" Type="Java.IO.FileDescriptor" />
         <Parameter Name="writer" Type="Java.IO.PrintWriter" />
-        <Parameter Name="args" Type="System.String[]" />
+        <Parameter Name="args" Type="System.String[]">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
       </Parameters>
       <Docs>
         <param name="fd">The raw file descriptor that the dump is being sent to.</param>
@@ -178,6 +388,13 @@
         <param name="args">additional arguments to the dump request.</param>
         <summary>Print the Service's state into the given stream.</summary>
         <remarks>
+          <para>Print the Service's state into the given stream.  This gets invoked if
+            you run "adb shell dumpsys activity service &amp;lt;yourservicename&amp;gt;"
+            (note that for this command to work, the service must be running, and
+            you must specify a fully-qualified service name).
+            This is distinct from "dumpsys &amp;lt;servicename&amp;gt;", which only works for
+            named system services and which invokes the <c>IBinder#dump</c> method
+            on the <c>IBinder</c> interface registered with ServiceManager.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#dump(java.io.FileDescriptor,%20java.io.PrintWriter,%20java.lang.String[])" title="Reference documentation">Java documentation for <code>android.app.Service.dump(java.io.FileDescriptor, java.io.PrintWriter, java.lang.String[])</code>.</a>
@@ -193,11 +410,11 @@
       </Docs>
     </Member>
     <Member MemberName="ForegroundServiceType">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property ForegroundServiceType As ForegroundService" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Content::PM::ForegroundService ForegroundServiceType { Android::Content::PM::ForegroundService get(); };" />
       <MemberSignature Language="C#" Value="public Android.Content.PM.ForegroundService ForegroundServiceType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance valuetype Android.Content.PM.ForegroundService ForegroundServiceType" />
       <MemberSignature Language="DocId" Value="P:Android.App.Service.ForegroundServiceType" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property ForegroundServiceType As ForegroundService" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Content::PM::ForegroundService ForegroundServiceType { Android::Content::PM::ForegroundService get(); };" />
       <MemberSignature Language="F#" Value="member this.ForegroundServiceType : Android.Content.PM.ForegroundService" Usage="Android.App.Service.ForegroundServiceType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -224,6 +441,14 @@
             returns the current foreground service type.</summary>
         <value>current foreground service type flags.</value>
         <remarks>
+          <para>If the service has become a foreground service by calling
+            <c>#startForeground(int, Notification)</c>
+            or <c>#startForeground(int, Notification, int)</c>, <c>#getForegroundServiceType()</c>
+            returns the current foreground service type.</para>
+          <para>If there is no foregroundServiceType specified
+            in manifest, <c>ServiceInfo#FOREGROUND_SERVICE_TYPE_NONE</c> is returned.</para>
+          <para>If the service is not a foreground service,
+            <c>ServiceInfo#FOREGROUND_SERVICE_TYPE_NONE</c> is returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#getForegroundServiceType()" title="Reference documentation">Java documentation for <code>android.app.Service.getForegroundServiceType()</code>.</a>
@@ -238,11 +463,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.App.Service.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.App.Service.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -261,6 +486,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -274,11 +507,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnBind">
+      <MemberSignature Language="VB.NET" Value="Public MustOverride Function OnBind (intent As Intent) As IBinder" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract Android::OS::IBinder ^ OnBind(Android::Content::Intent ^ intent);" />
       <MemberSignature Language="C#" Value="public abstract Android.OS.IBinder? OnBind (Android.Content.Intent? intent);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Android.OS.IBinder OnBind(class Android.Content.Intent intent) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnBind(Android.Content.Intent)" />
-      <MemberSignature Language="VB.NET" Value="Public MustOverride Function OnBind (intent As Intent) As IBinder" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract Android::OS::IBinder ^ OnBind(Android::Content::Intent ^ intent);" />
       <MemberSignature Language="F#" Value="abstract member OnBind : Android.Content.Intent -&gt; Android.OS.IBinder" Usage="service.OnBind intent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -306,6 +539,16 @@
         <returns>Return an IBinder through which clients can call on to the 
                     service.</returns>
         <remarks>
+          <para>Return the communication channel to the service.  May return null if 
+            clients can not bind to the service.  The returned
+            <c>android.os.IBinder</c> is usually for a complex interface
+            that has been <see href="https://developer.android.com/guide/components/aidl.html">described using
+            aidl</see>.</para>
+          <para>&lt;em&gt;Note that unlike other application components, calls on to the
+            IBinder interface returned here may not happen on the main thread
+            of the process&lt;/em&gt;.  More information about the main thread can be found in
+            <see href="https://developer.android.com/guide/topics/fundamentals/processes-and-threads.html">Processes and
+            Threads</see>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#onBind(android.content.Intent)" title="Reference documentation">Java documentation for <code>android.app.Service.onBind(android.content.Intent)</code>.</a>
@@ -321,11 +564,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnConfigurationChanged">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnConfigurationChanged (newConfig As Configuration)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnConfigurationChanged(Android::Content::Res::Configuration ^ newConfig);" />
       <MemberSignature Language="C#" Value="public virtual void OnConfigurationChanged (Android.Content.Res.Configuration? newConfig);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnConfigurationChanged(class Android.Content.Res.Configuration newConfig) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnConfigurationChanged(Android.Content.Res.Configuration)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnConfigurationChanged (newConfig As Configuration)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnConfigurationChanged(Android::Content::Res::Configuration ^ newConfig);" />
       <MemberSignature Language="F#" Value="abstract member OnConfigurationChanged : Android.Content.Res.Configuration -&gt; unit&#xA;override this.OnConfigurationChanged : Android.Content.Res.Configuration -&gt; unit" Usage="service.OnConfigurationChanged newConfig" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -359,11 +602,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnCreate">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnCreate ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnCreate();" />
       <MemberSignature Language="C#" Value="public virtual void OnCreate ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnCreate() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnCreate" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnCreate ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnCreate();" />
       <MemberSignature Language="F#" Value="abstract member OnCreate : unit -&gt; unit&#xA;override this.OnCreate : unit -&gt; unit" Usage="service.OnCreate " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -383,6 +626,7 @@
       <Docs>
         <summary>Called by the system when the service is first created.</summary>
         <remarks>
+          <para>Called by the system when the service is first created.  Do not call this method directly.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#onCreate()" title="Reference documentation">Java documentation for <code>android.app.Service.onCreate()</code>.</a>
@@ -398,11 +642,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnDestroy">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnDestroy ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnDestroy();" />
       <MemberSignature Language="C#" Value="public virtual void OnDestroy ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnDestroy() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnDestroy" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnDestroy ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnDestroy();" />
       <MemberSignature Language="F#" Value="abstract member OnDestroy : unit -&gt; unit&#xA;override this.OnDestroy : unit -&gt; unit" Usage="service.OnDestroy " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -422,6 +666,10 @@
       <Docs>
         <summary>Called by the system to notify a Service that it is no longer used and is being removed.</summary>
         <remarks>
+          <para>Called by the system to notify a Service that it is no longer used and is being removed.  The
+            service should clean up any resources it holds (threads, registered
+            receivers, etc) at this point.  Upon return, there will be no more calls
+            in to this Service object and it is effectively dead.  Do not call this method directly.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#onDestroy()" title="Reference documentation">Java documentation for <code>android.app.Service.onDestroy()</code>.</a>
@@ -437,11 +685,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnLowMemory">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnLowMemory ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnLowMemory();" />
       <MemberSignature Language="C#" Value="public virtual void OnLowMemory ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnLowMemory() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnLowMemory" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnLowMemory ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnLowMemory();" />
       <MemberSignature Language="F#" Value="abstract member OnLowMemory : unit -&gt; unit&#xA;override this.OnLowMemory : unit -&gt; unit" Usage="service.OnLowMemory " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -471,11 +719,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnRebind">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnRebind (intent As Intent)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnRebind(Android::Content::Intent ^ intent);" />
       <MemberSignature Language="C#" Value="public virtual void OnRebind (Android.Content.Intent? intent);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnRebind(class Android.Content.Intent intent) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnRebind(Android.Content.Intent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnRebind (intent As Intent)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnRebind(Android::Content::Intent ^ intent);" />
       <MemberSignature Language="F#" Value="abstract member OnRebind : Android.Content.Intent -&gt; unit&#xA;override this.OnRebind : Android.Content.Intent -&gt; unit" Usage="service.OnRebind intent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -503,6 +751,10 @@
             previously been notified that all had disconnected in its
             <c>#onUnbind</c>.</summary>
         <remarks>
+          <para>Called when new clients have connected to the service, after it had
+            previously been notified that all had disconnected in its
+            <c>#onUnbind</c>.  This will only be called if the implementation
+            of <c>#onUnbind</c> was overridden to return true.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#onRebind(android.content.Intent)" title="Reference documentation">Java documentation for <code>android.app.Service.onRebind(android.content.Intent)</code>.</a>
@@ -518,11 +770,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnStart">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnStart (intent As Intent, startId As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnStart(Android::Content::Intent ^ intent, int startId);" />
       <MemberSignature Language="C#" Value="public virtual void OnStart (Android.Content.Intent? intent, int startId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnStart(class Android.Content.Intent intent, int32 startId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnStart(Android.Content.Intent,System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnStart (intent As Intent, startId As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnStart(Android::Content::Intent ^ intent, int startId);" />
       <MemberSignature Language="F#" Value="abstract member OnStart : Android.Content.Intent * int -&gt; unit&#xA;override this.OnStart : Android.Content.Intent * int -&gt; unit" Usage="service.OnStart (intent, startId)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -549,9 +801,9 @@
       <Docs>
         <param name="intent">To be added.</param>
         <param name="startId">To be added.</param>
-        <summary>
-        </summary>
+        <summary>This member is deprecated.</summary>
         <remarks>
+          <para>This member is deprecated. Implement <c>#onStartCommand(Intent, int, int)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#onStart(android.content.Intent,%20int)" title="Reference documentation">Java documentation for <code>android.app.Service.onStart(android.content.Intent, int)</code>.</a>
@@ -567,11 +819,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnStartCommand">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnStartCommand (intent As Intent, flags As StartCommandFlags, startId As Integer) As StartCommandResult" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::App::StartCommandResult OnStartCommand(Android::Content::Intent ^ intent, Android::App::StartCommandFlags flags, int startId);" />
       <MemberSignature Language="C#" Value="public virtual Android.App.StartCommandResult OnStartCommand (Android.Content.Intent? intent, Android.App.StartCommandFlags flags, int startId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance valuetype Android.App.StartCommandResult OnStartCommand(class Android.Content.Intent intent, valuetype Android.App.StartCommandFlags flags, int32 startId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnStartCommand(Android.Content.Intent,Android.App.StartCommandFlags,System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnStartCommand (intent As Intent, flags As StartCommandFlags, startId As Integer) As StartCommandResult" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::App::StartCommandResult OnStartCommand(Android::Content::Intent ^ intent, Android::App::StartCommandFlags flags, int startId);" />
       <MemberSignature Language="F#" Value="abstract member OnStartCommand : Android.Content.Intent * Android.App.StartCommandFlags * int -&gt; Android.App.StartCommandResult&#xA;override this.OnStartCommand : Android.Content.Intent * Android.App.StartCommandFlags * int -&gt; Android.App.StartCommandResult" Usage="service.OnStartCommand (intent, flags, startId)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -620,6 +872,20 @@
             use for the service's current started state.  It may be one of the
             constants associated with the <c>#START_CONTINUATION_MASK</c> bits.</returns>
         <remarks>
+          <para>Called by the system every time a client explicitly starts the service by calling 
+            <c>android.content.Context#startService</c>, providing the arguments it supplied and a 
+            unique integer token representing the start request.  Do not call this method directly.</para>
+          <para>For backwards compatibility, the default implementation calls
+            <c>#onStart</c> and returns either <c>#START_STICKY</c>
+            or <c>#START_STICKY_COMPATIBILITY</c>.
+            
+            &lt;p class="caution"&gt;Note that the system calls this on your
+            service's main thread.  A service's main thread is the same
+            thread where UI operations take place for Activities running in the
+            same process.  You should always avoid stalling the main
+            thread's event loop.  When doing long-running operations,
+            network calls, or heavy disk I/O, you should kick off a new
+            thread, or use <c>android.os.AsyncTask</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#onStartCommand(android.content.Intent,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.app.Service.onStartCommand(android.content.Intent, int, int)</code>.</a>
@@ -636,11 +902,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnTaskRemoved">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnTaskRemoved (rootIntent As Intent)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnTaskRemoved(Android::Content::Intent ^ rootIntent);" />
       <MemberSignature Language="C#" Value="public virtual void OnTaskRemoved (Android.Content.Intent? rootIntent);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnTaskRemoved(class Android.Content.Intent rootIntent) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnTaskRemoved(Android.Content.Intent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnTaskRemoved (rootIntent As Intent)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnTaskRemoved(Android::Content::Intent ^ rootIntent);" />
       <MemberSignature Language="F#" Value="abstract member OnTaskRemoved : Android.Content.Intent -&gt; unit&#xA;override this.OnTaskRemoved : Android.Content.Intent -&gt; unit" Usage="service.OnTaskRemoved rootIntent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -665,6 +931,11 @@
         <summary>This is called if the service is currently running and the user has
             removed a task that comes from the service's application.</summary>
         <remarks>
+          <para>This is called if the service is currently running and the user has
+            removed a task that comes from the service's application.  If you have
+            set <c>android.content.pm.ServiceInfo#FLAG_STOP_WITH_TASK ServiceInfo.FLAG_STOP_WITH_TASK</c>
+            then you will not receive this callback; instead, the service will simply
+            be stopped.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#onTaskRemoved(android.content.Intent)" title="Reference documentation">Java documentation for <code>android.app.Service.onTaskRemoved(android.content.Intent)</code>.</a>
@@ -680,11 +951,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnTimeout">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnTimeout (startId As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnTimeout(int startId);" />
       <MemberSignature Language="C#" Value="public virtual void OnTimeout (int startId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnTimeout(int32 startId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnTimeout(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnTimeout (startId As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnTimeout(int startId);" />
       <MemberSignature Language="F#" Value="abstract member OnTimeout : int -&gt; unit&#xA;override this.OnTimeout : int -&gt; unit" Usage="service.OnTimeout startId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -708,17 +979,45 @@
         <Parameter Name="startId" Type="System.Int32" />
       </Parameters>
       <Docs>
-        <param name="startId">To be added.</param>
-        <summary>To be added.</summary>
-        <remarks>To be added.</remarks>
+        <param name="startId">the startId passed to <c>#onStartCommand(Intent, int, int)</c> when
+            the service started.</param>
+        <summary>Callback called on timeout for <c>ServiceInfo#FOREGROUND_SERVICE_TYPE_SHORT_SERVICE</c>.</summary>
+        <remarks>
+          <para>Callback called on timeout for <c>ServiceInfo#FOREGROUND_SERVICE_TYPE_SHORT_SERVICE</c>.
+            See <c>ServiceInfo#FOREGROUND_SERVICE_TYPE_SHORT_SERVICE</c> for more details.</para>
+          <para>If the foreground service of type
+            <c>ServiceInfo#FOREGROUND_SERVICE_TYPE_SHORT_SERVICE</c>
+            doesn't finish even after it's timed out,
+            the app will be declared an ANR after a short grace period of several seconds.</para>
+          <para>Note, even though
+            <c>ServiceInfo#FOREGROUND_SERVICE_TYPE_SHORT_SERVICE</c>
+            was added
+            on Android version <c>android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE</c>,
+            it can be also used on
+            on prior android versions (just like other new foreground service types can be used).
+            However, because <c>android.app.Service#onTimeout(int)</c> did not exist on prior versions,
+            it will never called on such versions.
+            Because of this, developers must make sure to stop the foreground service even if
+            <c>android.app.Service#onTimeout(int)</c> is not called on such versions.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/app/Service#onTimeout(int)" title="Reference documentation">Java documentation for <code>android.app.Service.onTimeout(int)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="OnTrimMemory">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnTrimMemory (level As TrimMemory)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnTrimMemory(Android::Content::TrimMemory level);" />
       <MemberSignature Language="C#" Value="public virtual void OnTrimMemory (Android.Content.TrimMemory level);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnTrimMemory(valuetype Android.Content.TrimMemory level) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnTrimMemory(Android.Content.TrimMemory)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnTrimMemory (level As TrimMemory)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnTrimMemory(Android::Content::TrimMemory level);" />
       <MemberSignature Language="F#" Value="abstract member OnTrimMemory : Android.Content.TrimMemory -&gt; unit&#xA;override this.OnTrimMemory : Android.Content.TrimMemory -&gt; unit" Usage="service.OnTrimMemory level" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -764,11 +1063,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnUnbind">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnUnbind (intent As Intent) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnUnbind(Android::Content::Intent ^ intent);" />
       <MemberSignature Language="C#" Value="public virtual bool OnUnbind (Android.Content.Intent? intent);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnUnbind(class Android.Content.Intent intent) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.OnUnbind(Android.Content.Intent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnUnbind (intent As Intent) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnUnbind(Android::Content::Intent ^ intent);" />
       <MemberSignature Language="F#" Value="abstract member OnUnbind : Android.Content.Intent -&gt; bool&#xA;override this.OnUnbind : Android.Content.Intent -&gt; bool" Usage="service.OnUnbind intent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -797,6 +1096,9 @@
         <returns>Return true if you would like to have the service's
             <c>#onRebind</c> method later called when new clients bind to it.</returns>
         <remarks>
+          <para>Called when all clients have disconnected from a particular interface
+            published by the service.  The default implementation does nothing and
+            returns false.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#onUnbind(android.content.Intent)" title="Reference documentation">Java documentation for <code>android.app.Service.onUnbind(android.content.Intent)</code>.</a>
@@ -812,11 +1114,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetForeground">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetForeground (isForeground As Boolean)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetForeground(bool isForeground);" />
       <MemberSignature Language="C#" Value="public void SetForeground (bool isForeground);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetForeground(bool isForeground) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.SetForeground(System.Boolean)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetForeground (isForeground As Boolean)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetForeground(bool isForeground);" />
       <MemberSignature Language="F#" Value="member this.SetForeground : bool -&gt; unit" Usage="service.SetForeground isForeground" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -837,8 +1139,18 @@
       </Parameters>
       <Docs>
         <param name="isForeground">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>This member is deprecated.</summary>
         <remarks>
+          <para>This member is deprecated. This is a now a no-op, use
+            <c>#startForeground(int, Notification)</c> instead.  This method
+            has been turned into a no-op rather than simply being deprecated
+            because analysis of numerous poorly behaving devices has shown that
+            increasingly often the trouble is being caused in part by applications
+            that are abusing it.  Thus, given a choice between introducing
+            problems in existing applications using this API (by allowing them to
+            be killed when they would like to avoid it), vs allowing the performance
+            of the entire system to be decreased, this method was deemed less
+            important.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#setForeground(boolean)" title="Reference documentation">Java documentation for <code>android.app.Service.setForeground(boolean)</code>.</a>
@@ -853,11 +1165,11 @@
       </Docs>
     </Member>
     <Member MemberName="StartForeground">
+      <MemberSignature Language="VB.NET" Value="Public Sub StartForeground (id As Integer, notification As Notification)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StartForeground(int id, Android::App::Notification ^ notification);" />
       <MemberSignature Language="C#" Value="public void StartForeground (int id, Android.App.Notification? notification);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void StartForeground(int32 id, class Android.App.Notification notification) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.StartForeground(System.Int32,Android.App.Notification)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub StartForeground (id As Integer, notification As Notification)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StartForeground(int id, Android::App::Notification ^ notification);" />
       <MemberSignature Language="F#" Value="member this.StartForeground : int * Android.App.Notification -&gt; unit" Usage="service.StartForeground (id, notification)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -886,6 +1198,52 @@
             also make this service run in the foreground, supplying the ongoing
             notification to be shown to the user while in this state.</summary>
         <remarks>
+          <para>If your service is started (running through <c>Context#startService(Intent)</c>), then
+            also make this service run in the foreground, supplying the ongoing
+            notification to be shown to the user while in this state.
+            By default started services are background, meaning that their process won't be given
+            foreground CPU scheduling (unless something else in that process is foreground) and,
+            if the system needs to kill them to reclaim more memory (such as to display a large page in a
+            web browser), they can be killed without too much harm.  You use
+            <c>#startForeground</c> if killing your service would be disruptive to the user, such as
+            if your service is performing background music playback, so the user
+            would notice if their music stopped playing.</para>
+          <para>Note that calling this method does &lt;em&gt;not&lt;/em&gt; put the service in the started state
+            itself, even though the name sounds like it.  You must always call
+            <c>#startService(Intent)</c> first to tell the system it should keep the service running,
+            and then use this method to tell it to keep it running harder.</para>
+          <para>Apps targeting API <c>android.os.Build.VERSION_CODES#P</c> or later must request
+            the permission <c>android.Manifest.permission#FOREGROUND_SERVICE</c> in order to use
+            this API.</para>
+          <para>Apps built with SDK version <c>android.os.Build.VERSION_CODES#Q</c> or later can specify
+            the foreground service types using attribute <c>android.R.attr#foregroundServiceType</c> in
+            service element of manifest file. The value of attribute
+            <c>android.R.attr#foregroundServiceType</c> can be multiple flags ORed together.</para>
+          <para>&lt;div class="caution"&gt;</para>
+          <para>&lt;strong&gt;Note:&lt;/strong&gt;
+            Beginning with SDK Version <c>android.os.Build.VERSION_CODES#S</c>,
+            apps targeting SDK Version <c>android.os.Build.VERSION_CODES#S</c>
+            or higher are not allowed to start foreground services from the background.
+            See
+            <see href="https://developer.android.com/about/versions/12/behavior-changes-12">
+            Behavior changes: Apps targeting Android 12
+            </see>
+            for more details.
+            &lt;/div&gt;
+            
+            &lt;div class="caution"&gt;</para>
+          <para>&lt;strong&gt;Note:&lt;/strong&gt;
+            Beginning with SDK Version <c>android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE</c>,
+            apps targeting SDK Version <c>android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE</c>
+            or higher are not allowed to start foreground services without specifying a valid
+            foreground service type in the manifest attribute
+            <c>android.R.attr#foregroundServiceType</c>.
+            See
+            <see href="https://developer.android.com/about/versions/14/behavior-changes-14">
+            Behavior changes: Apps targeting Android 14
+            </see>
+            for more details.
+            &lt;/div&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#startForeground(int,%20android.app.Notification)" title="Reference documentation">Java documentation for <code>android.app.Service.startForeground(int, android.app.Notification)</code>.</a>
@@ -902,11 +1260,11 @@
       </Docs>
     </Member>
     <Member MemberName="StartForeground">
+      <MemberSignature Language="VB.NET" Value="Public Sub StartForeground (id As Integer, notification As Notification, foregroundServiceType As ForegroundService)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StartForeground(int id, Android::App::Notification ^ notification, Android::Content::PM::ForegroundService foregroundServiceType);" />
       <MemberSignature Language="C#" Value="public void StartForeground (int id, Android.App.Notification notification, Android.Content.PM.ForegroundService foregroundServiceType);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void StartForeground(int32 id, class Android.App.Notification notification, valuetype Android.Content.PM.ForegroundService foregroundServiceType) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.StartForeground(System.Int32,Android.App.Notification,Android.Content.PM.ForegroundService)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub StartForeground (id As Integer, notification As Notification, foregroundServiceType As ForegroundService)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StartForeground(int id, Android::App::Notification ^ notification, Android::Content::PM::ForegroundService foregroundServiceType);" />
       <MemberSignature Language="F#" Value="member this.StartForeground : int * Android.App.Notification * Android.Content.PM.ForegroundService -&gt; unit" Usage="service.StartForeground (id, notification, foregroundServiceType)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -917,6 +1275,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("startForeground", "(ILandroid/app/Notification;I)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("startForeground", "(ILandroid/app/Notification;I)V", "", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
@@ -944,10 +1306,48 @@
             NotificationManager.notify(int, Notification)</c>; must not be 0.</param>
         <param name="notification">The Notification to be displayed.</param>
         <param name="foregroundServiceType">must be a subset flags of manifest attribute
-            <c>android.R.attr#foregroundServiceType</c> flags.</param>
+            <c>android.R.attr#foregroundServiceType</c> flags; must not be
+            <c>ServiceInfo#FOREGROUND_SERVICE_TYPE_NONE</c>.</param>
         <summary>An overloaded version of <c>#startForeground(int, Notification)</c> with additional
             foregroundServiceType parameter.</summary>
         <remarks>
+          <para>An overloaded version of <c>#startForeground(int, Notification)</c> with additional
+            foregroundServiceType parameter.</para>
+          <para>Apps built with SDK version <c>android.os.Build.VERSION_CODES#Q</c> or later can specify
+            the foreground service types using attribute <c>android.R.attr#foregroundServiceType</c> in
+            service element of manifest file. The value of attribute
+            <c>android.R.attr#foregroundServiceType</c> can be multiple flags ORed together.</para>
+          <para>The foregroundServiceType parameter must be a subset flags of what is specified in
+            manifest attribute <c>android.R.attr#foregroundServiceType</c>, if not, an
+            IllegalArgumentException is thrown. Specify foregroundServiceType parameter as
+            <c>android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_MANIFEST</c> to use all flags that
+            is specified in manifest attribute foregroundServiceType.</para>
+          <para>&lt;div class="caution"&gt;</para>
+          <para>&lt;strong&gt;Note:&lt;/strong&gt;
+            Beginning with SDK Version <c>android.os.Build.VERSION_CODES#S</c>,
+            apps targeting SDK Version <c>android.os.Build.VERSION_CODES#S</c>
+            or higher are not allowed to start foreground services from the background.
+            See
+            <see href="https://developer.android.com/about/versions/12/behavior-changes-12">
+            Behavior changes: Apps targeting Android 12
+            </see>
+            for more details.
+            &lt;/div&gt;
+            
+            &lt;div class="caution"&gt;</para>
+          <para>&lt;strong&gt;Note:&lt;/strong&gt;
+            Beginning with SDK Version <c>android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE</c>,
+            apps targeting SDK Version <c>android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE</c>
+            or higher are not allowed to start foreground services without specifying a valid
+            foreground service type in the manifest attribute
+            <c>android.R.attr#foregroundServiceType</c>, and the parameter <c>foregroundServiceType</c>
+            here must not be the <c>ServiceInfo#FOREGROUND_SERVICE_TYPE_NONE</c>.
+            See
+            <see href="https://developer.android.com/about/versions/14/behavior-changes-14">
+            Behavior changes: Apps targeting Android 14
+            </see>
+            for more details.
+            &lt;/div&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#startForeground(int,%20android.app.Notification,%20int)" title="Reference documentation">Java documentation for <code>android.app.Service.startForeground(int, android.app.Notification, int)</code>.</a>
@@ -962,11 +1362,11 @@
       </Docs>
     </Member>
     <Member MemberName="StopForeground">
+      <MemberSignature Language="VB.NET" Value="Public Sub StopForeground (flags As StopForegroundFlags)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StopForeground(Android::App::StopForegroundFlags flags);" />
       <MemberSignature Language="C#" Value="public void StopForeground (Android.App.StopForegroundFlags flags);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void StopForeground(valuetype Android.App.StopForegroundFlags flags) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.StopForeground(Android.App.StopForegroundFlags)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub StopForeground (flags As StopForegroundFlags)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StopForeground(Android::App::StopForegroundFlags flags);" />
       <MemberSignature Language="F#" Value="member this.StopForeground : Android.App.StopForegroundFlags -&gt; unit" Usage="service.StopForeground flags" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -998,9 +1398,26 @@
       </Parameters>
       <Docs>
         <param name="flags">additional behavior options.</param>
+        <param name="notificationBehavior">the intended behavior for the service's associated
+            notification</param>
         <summary>Remove this service from foreground state, allowing it to be killed if
             more memory is needed.</summary>
         <remarks>
+          <para>Remove this service from foreground state, allowing it to be killed if
+            more memory is needed.  This does not stop the service from running (for that
+            you use <c>#stopSelf()</c> or related methods), just takes it out of the
+            foreground state.</para>
+          <para>If <c>#STOP_FOREGROUND_REMOVE</c> is supplied, the service's associated
+            notification will be cancelled immediately.</para>
+          <para>If <c>#STOP_FOREGROUND_DETACH</c> is supplied, the service's association
+            with the notification will be severed.  If the notification had not yet been
+            shown, due to foreground-service notification deferral policy, it is
+            immediately posted when <c>stopForeground(STOP_FOREGROUND_DETACH)</c>
+            is called.  In all cases, the notification remains shown
+            even after this service is stopped fully and destroyed.</para>
+          <para>If <c>zero</c> is passed as the argument, the result will be the legacy
+            behavior as defined prior to Android L: the notification will remain posted until
+            the service is fully stopped, at which time it will automatically be cancelled.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#stopForeground(int)" title="Reference documentation">Java documentation for <code>android.app.Service.stopForeground(int)</code>.</a>
@@ -1015,11 +1432,11 @@
       </Docs>
     </Member>
     <Member MemberName="StopForeground">
+      <MemberSignature Language="VB.NET" Value="Public Sub StopForeground (removeNotification As Boolean)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StopForeground(bool removeNotification);" />
       <MemberSignature Language="C#" Value="public void StopForeground (bool removeNotification);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void StopForeground(bool removeNotification) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.StopForeground(System.Boolean)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub StopForeground (removeNotification As Boolean)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StopForeground(bool removeNotification);" />
       <MemberSignature Language="F#" Value="member this.StopForeground : bool -&gt; unit" Usage="service.StopForeground removeNotification" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1048,6 +1465,10 @@
             <c>#STOP_FOREGROUND_LEGACY</c> will be passed.</param>
         <summary>Legacy version of <c>#stopForeground(int)</c>.</summary>
         <remarks>
+          <para>Legacy version of <c>#stopForeground(int)</c>.</para>
+          <para>This member is deprecated. call <c>#stopForeground(int)</c> and pass either
+            <c>#STOP_FOREGROUND_REMOVE</c> or <c>#STOP_FOREGROUND_DETACH</c>
+            explicitly instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#stopForeground(boolean)" title="Reference documentation">Java documentation for <code>android.app.Service.stopForeground(boolean)</code>.</a>
@@ -1064,11 +1485,11 @@
       </Docs>
     </Member>
     <Member MemberName="StopForegroundDetach">
+      <MemberSignature Language="VB.NET" Value="Public Const StopForegroundDetach As StopForegroundFlags  = 2" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::App::StopForegroundFlags StopForegroundDetach = 2;" />
       <MemberSignature Language="C#" Value="public const Android.App.StopForegroundFlags StopForegroundDetach = 2;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.App.StopForegroundFlags StopForegroundDetach = (2)" />
       <MemberSignature Language="DocId" Value="F:Android.App.Service.StopForegroundDetach" />
-      <MemberSignature Language="VB.NET" Value="Public Const StopForegroundDetach As StopForegroundFlags  = 2" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::App::StopForegroundFlags StopForegroundDetach = 2;" />
       <MemberSignature Language="F#" Value="val mutable StopForegroundDetach : Android.App.StopForegroundFlags" Usage="Android.App.Service.StopForegroundDetach" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1097,6 +1518,9 @@
         <summary>Selector for <c>#stopForeground(int)</c>: if set, the notification previously supplied
             to <c>#startForeground</c> will be detached from the service's lifecycle.</summary>
         <remarks>
+          <para>Selector for <c>#stopForeground(int)</c>: if set, the notification previously supplied
+            to <c>#startForeground</c> will be detached from the service's lifecycle.  The notification
+            will remain shown even after the service is stopped and destroyed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#STOP_FOREGROUND_DETACH" title="Reference documentation">Java documentation for <code>android.app.Service.STOP_FOREGROUND_DETACH</code>.</a>
@@ -1111,11 +1535,11 @@
       </Docs>
     </Member>
     <Member MemberName="StopForegroundLegacy">
+      <MemberSignature Language="VB.NET" Value="Public Const StopForegroundLegacy As StopForegroundFlags  = 0" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::App::StopForegroundFlags StopForegroundLegacy = 0;" />
       <MemberSignature Language="C#" Value="public const Android.App.StopForegroundFlags StopForegroundLegacy = 0;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.App.StopForegroundFlags StopForegroundLegacy = (0)" />
       <MemberSignature Language="DocId" Value="F:Android.App.Service.StopForegroundLegacy" />
-      <MemberSignature Language="VB.NET" Value="Public Const StopForegroundLegacy As StopForegroundFlags  = 0" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::App::StopForegroundFlags StopForegroundLegacy = 0;" />
       <MemberSignature Language="F#" Value="val mutable StopForegroundLegacy : Android.App.StopForegroundFlags" Usage="Android.App.Service.StopForegroundLegacy" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1144,6 +1568,10 @@
         <summary>Selector for <c>#stopForeground(int)</c>:  equivalent to passing <c>false</c>
             to the legacy API <c>#stopForeground(boolean)</c>.</summary>
         <remarks>
+          <para>Selector for <c>#stopForeground(int)</c>:  equivalent to passing <c>false</c>
+            to the legacy API <c>#stopForeground(boolean)</c>.</para>
+          <para>This member is deprecated. Use <c>#STOP_FOREGROUND_DETACH</c> instead.  The legacy
+            behavior was inconsistent, leading to bugs around unpredictable results.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#STOP_FOREGROUND_LEGACY" title="Reference documentation">Java documentation for <code>android.app.Service.STOP_FOREGROUND_LEGACY</code>.</a>
@@ -1158,11 +1586,11 @@
       </Docs>
     </Member>
     <Member MemberName="StopForegroundRemove">
+      <MemberSignature Language="VB.NET" Value="Public Const StopForegroundRemove As StopForegroundFlags  = 1" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::App::StopForegroundFlags StopForegroundRemove = 1;" />
       <MemberSignature Language="C#" Value="public const Android.App.StopForegroundFlags StopForegroundRemove = 1;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.App.StopForegroundFlags StopForegroundRemove = (1)" />
       <MemberSignature Language="DocId" Value="F:Android.App.Service.StopForegroundRemove" />
-      <MemberSignature Language="VB.NET" Value="Public Const StopForegroundRemove As StopForegroundFlags  = 1" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::App::StopForegroundFlags StopForegroundRemove = 1;" />
       <MemberSignature Language="F#" Value="val mutable StopForegroundRemove : Android.App.StopForegroundFlags" Usage="Android.App.Service.StopForegroundRemove" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1191,6 +1619,8 @@
         <summary>Selector for <c>#stopForeground(int)</c>: if supplied, the notification previously
             supplied to <c>#startForeground</c> will be cancelled and removed from display.</summary>
         <remarks>
+          <para>Selector for <c>#stopForeground(int)</c>: if supplied, the notification previously
+            supplied to <c>#startForeground</c> will be cancelled and removed from display.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#STOP_FOREGROUND_REMOVE" title="Reference documentation">Java documentation for <code>android.app.Service.STOP_FOREGROUND_REMOVE</code>.</a>
@@ -1205,11 +1635,11 @@
       </Docs>
     </Member>
     <Member MemberName="StopSelf">
+      <MemberSignature Language="VB.NET" Value="Public Sub StopSelf ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StopSelf();" />
       <MemberSignature Language="C#" Value="public void StopSelf ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void StopSelf() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.StopSelf" />
-      <MemberSignature Language="VB.NET" Value="Public Sub StopSelf ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StopSelf();" />
       <MemberSignature Language="F#" Value="member this.StopSelf : unit -&gt; unit" Usage="service.StopSelf " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1229,6 +1659,8 @@
       <Docs>
         <summary>Stop the service, if it was previously started.</summary>
         <remarks>
+          <para>Stop the service, if it was previously started.  This is the same as
+            calling <c>android.content.Context#stopService</c> for this particular service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#stopSelf()" title="Reference documentation">Java documentation for <code>android.app.Service.stopSelf()</code>.</a>
@@ -1245,11 +1677,11 @@
       </Docs>
     </Member>
     <Member MemberName="StopSelf">
+      <MemberSignature Language="VB.NET" Value="Public Sub StopSelf (startId As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StopSelf(int startId);" />
       <MemberSignature Language="C#" Value="public void StopSelf (int startId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void StopSelf(int32 startId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.StopSelf(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub StopSelf (startId As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void StopSelf(int startId);" />
       <MemberSignature Language="F#" Value="member this.StopSelf : int -&gt; unit" Usage="service.StopSelf startId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1272,6 +1704,7 @@
         <param name="startId">To be added.</param>
         <summary>Old version of <c>#stopSelfResult</c> that doesn't return a result.</summary>
         <remarks>
+          <para>Old version of <c>#stopSelfResult</c> that doesn't return a result.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#stopSelf(int)" title="Reference documentation">Java documentation for <code>android.app.Service.stopSelf(int)</code>.</a>
@@ -1288,11 +1721,11 @@
       </Docs>
     </Member>
     <Member MemberName="StopSelfResult">
+      <MemberSignature Language="VB.NET" Value="Public Function StopSelfResult (startId As Integer) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool StopSelfResult(int startId);" />
       <MemberSignature Language="C#" Value="public bool StopSelfResult (int startId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool StopSelfResult(int32 startId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Service.StopSelfResult(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function StopSelfResult (startId As Integer) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool StopSelfResult(int startId);" />
       <MemberSignature Language="F#" Value="member this.StopSelfResult : int -&gt; bool" Usage="service.StopSelfResult startId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1318,6 +1751,16 @@
         <returns>Returns true if the startId matches the last start request
             and the service will be stopped, else false.</returns>
         <remarks>
+          <para>Stop the service if the most recent time it was started was 
+            &lt;var&gt;startId&lt;/var&gt;.  This is the same as calling <c>android.content.Context#stopService</c> for this particular service but allows you to 
+            safely avoid stopping if there is a start request from a client that you 
+            haven't yet seen in <c>#onStart</c>.</para>
+          <para>&lt;em&gt;Be careful about ordering of your calls to this function.&lt;/em&gt;.
+            If you call this function with the most-recently received ID before
+            you have called it for previously received IDs, the service will be
+            immediately stopped anyway.  If you may end up processing IDs out
+            of order (such as by dispatching them on separate threads), then you
+            are responsible for stopping them in the same order you received them.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/Service#stopSelfResult(int)" title="Reference documentation">Java documentation for <code>android.app.Service.stopSelfResult(int)</code>.</a>
@@ -1334,11 +1777,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.App.Service.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.App.Service.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1367,11 +1810,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.App.Service.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.App.Service.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1386,6 +1829,14 @@
         <Attribute>
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>

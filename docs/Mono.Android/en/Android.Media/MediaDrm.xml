@@ -1,9 +1,9 @@
 <Type Name="MediaDrm" FullName="Android.Media.MediaDrm">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class MediaDrm&#xA;Inherits Object&#xA;Implements IAutoCloseable, IDisposable, IJavaPeerable" />
+  <TypeSignature Language="C++ CLI" Value="public ref class MediaDrm sealed : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::Lang::IAutoCloseable" />
   <TypeSignature Language="C#" Value="public sealed class MediaDrm : Java.Lang.Object, IDisposable, Java.Interop.IJavaPeerable, Java.Lang.IAutoCloseable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit MediaDrm extends Java.Lang.Object implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.Lang.IAutoCloseable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Android.Media.MediaDrm" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class MediaDrm&#xA;Inherits Object&#xA;Implements IAutoCloseable, IDisposable, IJavaPeerable" />
-  <TypeSignature Language="C++ CLI" Value="public ref class MediaDrm sealed : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::Lang::IAutoCloseable" />
   <TypeSignature Language="F#" Value="type MediaDrm = class&#xA;    inherit Object&#xA;    interface IAutoCloseable&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -31,11 +31,85 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/media/MediaDrm", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/media/MediaDrm", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="18">
     <summary>MediaDrm can be used to obtain keys for decrypting protected media streams, in
             conjunction with <c>android.media.MediaCrypto</c>.</summary>
     <remarks>
+      <para>MediaDrm can be used to obtain keys for decrypting protected media streams, in
+            conjunction with <c>android.media.MediaCrypto</c>.  The MediaDrm APIs
+            are designed to support the ISO/IEC 23001-7: Common Encryption standard, but
+            may also be used to implement other encryption schemes.</para>
+      <para>Encrypted content is prepared using an encryption server and stored in a content
+            library. The encrypted content is streamed or downloaded from the content library to
+            client devices via content servers.  Licenses to view the content are obtained from
+            a License Server.</para>
+      <para />
+      <para>&lt;img src="../../../images/mediadrm_overview.png"
+                 alt="MediaDrm Overview diagram"
+                 border="0" /&gt;</para>
+      <para>Keys are requested from the license server using a key request. The key
+            response is delivered to the client app, which provides the response to the
+            MediaDrm API.</para>
+      <para>A Provisioning server may be required to distribute device-unique credentials to
+            the devices.</para>
+      <para>Enforcing requirements related to the number of devices that may play content
+            simultaneously can be performed either through key renewal or using the secure
+            stop methods.</para>
+      <para>The following sequence diagram shows the interactions between the objects
+            involved while playing back encrypted content:</para>
+      <para />
+      <para>&lt;img src="../../../images/mediadrm_decryption_sequence.png"
+                    alt="MediaDrm Overview diagram"
+                    border="0" /&gt;</para>
+      <para>The app first constructs <c>android.media.MediaExtractor</c> and
+            <c>android.media.MediaCodec</c> objects. It accesses the DRM-scheme-identifying UUID,
+            typically from metadata in the content, and uses this UUID to construct an instance
+            of a MediaDrm object that is able to support the DRM scheme required by the content.
+            Crypto schemes are assigned 16 byte UUIDs.  The method <c>#isCryptoSchemeSupported</c>
+            can be used to query if a given scheme is supported on the device.</para>
+      <para>The app calls <c>#openSession</c> to generate a sessionId that will uniquely identify
+            the session in subsequent interactions. The app next uses the MediaDrm object to
+            obtain a key request message and send it to the license server, then provide
+            the server's response to the MediaDrm object.</para>
+      <para>Once the app has a sessionId, it can construct a MediaCrypto object from the UUID and
+            sessionId.  The MediaCrypto object is registered with the MediaCodec in the
+            <c>MediaCodec#configure</c> method to enable the codec to decrypt content.</para>
+      <para>When the app has constructed <c>android.media.MediaExtractor</c>,
+            <c>android.media.MediaCodec</c> and <c>android.media.MediaCrypto</c> objects,
+            it proceeds to pull samples from the extractor and queue them into the decoder.  For
+            encrypted content, the samples returned from the extractor remain encrypted, they
+            are only decrypted when the samples are delivered to the decoder.</para>
+      <para>MediaDrm methods throw <c>android.media.MediaDrm.MediaDrmStateException</c>
+            when a method is called on a MediaDrm object that has had an unrecoverable failure
+            in the DRM plugin or security hardware.
+            <c>android.media.MediaDrm.MediaDrmStateException</c> extends
+            <c>java.lang.IllegalStateException</c> with the addition of a developer-readable
+            diagnostic information string associated with the exception.</para>
+      <para>In the event of a mediaserver process crash or restart while a MediaDrm object
+            is active, MediaDrm methods may throw <c>android.media.MediaDrmResetException</c>.
+            To recover, the app must release the MediaDrm object, then create and initialize
+            a new one.</para>
+      <para>As <c>android.media.MediaDrmResetException</c> and
+            <c>android.media.MediaDrm.MediaDrmStateException</c> both extend
+            <c>java.lang.IllegalStateException</c>, they should be in an earlier catch()
+            block than <c>java.lang.IllegalStateException</c> if handled separately.</para>
+      <para>"Callbacks"&gt;&lt;h3&gt;Callbacks&lt;/h3&gt;</para>
+      <para>Applications should register for informational events in order
+            to be informed of key state updates during playback or streaming.
+            Registration for these events is done via a call to
+            <c>#setOnEventListener</c>. In order to receive the respective
+            callback associated with this listener, applications are required to create
+            MediaDrm objects on a thread with its own Looper running (main UI
+            thread by default has a Looper running).</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/media/MediaDrm" title="Reference documentation">Java documentation for <code>android.media.MediaDrm</code>.</a>
@@ -51,11 +125,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (uuid As UUID)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; MediaDrm(Java::Util::UUID ^ uuid);" />
       <MemberSignature Language="C#" Value="public MediaDrm (Java.Util.UUID uuid);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(class Java.Util.UUID uuid) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.#ctor(Java.Util.UUID)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (uuid As UUID)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; MediaDrm(Java::Util::UUID ^ uuid);" />
       <MemberSignature Language="F#" Value="new Android.Media.MediaDrm : Java.Util.UUID -&gt; Android.Media.MediaDrm" Usage="new Android.Media.MediaDrm uuid" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -75,6 +149,7 @@
         <param name="uuid">The UUID of the crypto scheme.</param>
         <summary>Instantiate a MediaDrm object</summary>
         <remarks>
+          <para>Instantiate a MediaDrm object</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#MediaDrm(java.util.UUID)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.MediaDrm(java.util.UUID)</code>.</a>
@@ -93,11 +168,11 @@
       </Docs>
     </Member>
     <Member MemberName="ClearOnEventListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub ClearOnEventListener ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ClearOnEventListener();" />
       <MemberSignature Language="C#" Value="public void ClearOnEventListener ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void ClearOnEventListener() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.ClearOnEventListener" />
-      <MemberSignature Language="VB.NET" Value="Public Sub ClearOnEventListener ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ClearOnEventListener();" />
       <MemberSignature Language="F#" Value="member this.ClearOnEventListener : unit -&gt; unit" Usage="mediaDrm.ClearOnEventListener " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -121,6 +196,7 @@
       <Docs>
         <summary>Clear the <c>OnEventListener</c>.</summary>
         <remarks>
+          <para>Clear the <c>OnEventListener</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#clearOnEventListener()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.clearOnEventListener()</code>.</a>
@@ -135,11 +211,11 @@
       </Docs>
     </Member>
     <Member MemberName="ClearOnExpirationUpdateListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub ClearOnExpirationUpdateListener ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ClearOnExpirationUpdateListener();" />
       <MemberSignature Language="C#" Value="public void ClearOnExpirationUpdateListener ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void ClearOnExpirationUpdateListener() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.ClearOnExpirationUpdateListener" />
-      <MemberSignature Language="VB.NET" Value="Public Sub ClearOnExpirationUpdateListener ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ClearOnExpirationUpdateListener();" />
       <MemberSignature Language="F#" Value="member this.ClearOnExpirationUpdateListener : unit -&gt; unit" Usage="mediaDrm.ClearOnExpirationUpdateListener " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -163,6 +239,7 @@
       <Docs>
         <summary>Clear the <c>OnExpirationUpdateListener</c>.</summary>
         <remarks>
+          <para>Clear the <c>OnExpirationUpdateListener</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#clearOnExpirationUpdateListener()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.clearOnExpirationUpdateListener()</code>.</a>
@@ -177,11 +254,11 @@
       </Docs>
     </Member>
     <Member MemberName="ClearOnKeyStatusChangeListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub ClearOnKeyStatusChangeListener ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ClearOnKeyStatusChangeListener();" />
       <MemberSignature Language="C#" Value="public void ClearOnKeyStatusChangeListener ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void ClearOnKeyStatusChangeListener() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.ClearOnKeyStatusChangeListener" />
-      <MemberSignature Language="VB.NET" Value="Public Sub ClearOnKeyStatusChangeListener ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ClearOnKeyStatusChangeListener();" />
       <MemberSignature Language="F#" Value="member this.ClearOnKeyStatusChangeListener : unit -&gt; unit" Usage="mediaDrm.ClearOnKeyStatusChangeListener " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -205,6 +282,7 @@
       <Docs>
         <summary>Clear the <c>OnKeyStatusChangeListener</c>.</summary>
         <remarks>
+          <para>Clear the <c>OnKeyStatusChangeListener</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#clearOnKeyStatusChangeListener()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.clearOnKeyStatusChangeListener()</code>.</a>
@@ -219,11 +297,11 @@
       </Docs>
     </Member>
     <Member MemberName="ClearOnSessionLostStateListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub ClearOnSessionLostStateListener ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ClearOnSessionLostStateListener();" />
       <MemberSignature Language="C#" Value="public void ClearOnSessionLostStateListener ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void ClearOnSessionLostStateListener() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.ClearOnSessionLostStateListener" />
-      <MemberSignature Language="VB.NET" Value="Public Sub ClearOnSessionLostStateListener ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ClearOnSessionLostStateListener();" />
       <MemberSignature Language="F#" Value="member this.ClearOnSessionLostStateListener : unit -&gt; unit" Usage="mediaDrm.ClearOnSessionLostStateListener " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -247,6 +325,7 @@
       <Docs>
         <summary>Clear the <c>OnSessionLostStateListener</c>.</summary>
         <remarks>
+          <para>Clear the <c>OnSessionLostStateListener</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#clearOnSessionLostStateListener()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.clearOnSessionLostStateListener()</code>.</a>
@@ -261,11 +340,11 @@
       </Docs>
     </Member>
     <Member MemberName="Close">
+      <MemberSignature Language="VB.NET" Value="Public Sub Close ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Close();" />
       <MemberSignature Language="C#" Value="public void Close ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Close() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.Close" />
-      <MemberSignature Language="VB.NET" Value="Public Sub Close ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Close();" />
       <MemberSignature Language="F#" Value="abstract member Close : unit -&gt; unit&#xA;override this.Close : unit -&gt; unit" Usage="mediaDrm.Close " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -293,6 +372,15 @@
         <summary>Releases resources associated with the current session of
             MediaDrm.</summary>
         <remarks>
+          <para>Releases resources associated with the current session of
+            MediaDrm. It is considered good practice to call this method when
+            the <c>MediaDrm</c> object is no longer needed in your
+            application. After this method is called, <c>MediaDrm</c> is no
+            longer usable since it has lost all of its required resource.
+            
+            This method was added in API 28. In API versions 18 through 27, release()
+            should be called instead. There is no need to do anything for API
+            versions prior to 18.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#close()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.close()</code>.</a>
@@ -307,11 +395,11 @@
       </Docs>
     </Member>
     <Member MemberName="CloseSession">
+      <MemberSignature Language="VB.NET" Value="Public Sub CloseSession (sessionId As Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void CloseSession(cli::array &lt;System::Byte&gt; ^ sessionId);" />
       <MemberSignature Language="C#" Value="public void CloseSession (byte[] sessionId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void CloseSession(unsigned int8[] sessionId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.CloseSession(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub CloseSession (sessionId As Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void CloseSession(cli::array &lt;System::Byte&gt; ^ sessionId);" />
       <MemberSignature Language="F#" Value="member this.CloseSession : byte[] -&gt; unit" Usage="mediaDrm.CloseSession sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -335,6 +423,8 @@
         <summary>Close a session on the MediaDrm object that was previously opened
             with <c>#openSession</c>.</summary>
         <remarks>
+          <para>Close a session on the MediaDrm object that was previously opened
+            with <c>#openSession</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#closeSession(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.closeSession(byte[])</code>.</a>
@@ -350,11 +440,11 @@
       </Docs>
     </Member>
     <Member MemberName="ConnectedHdcpLevel">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property ConnectedHdcpLevel As HdcpLevel" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Media::HdcpLevel ConnectedHdcpLevel { Android::Media::HdcpLevel get(); };" />
       <MemberSignature Language="C#" Value="public Android.Media.HdcpLevel ConnectedHdcpLevel { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance valuetype Android.Media.HdcpLevel ConnectedHdcpLevel" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.ConnectedHdcpLevel" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property ConnectedHdcpLevel As HdcpLevel" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Media::HdcpLevel ConnectedHdcpLevel { Android::Media::HdcpLevel get(); };" />
       <MemberSignature Language="F#" Value="member this.ConnectedHdcpLevel : Android.Media.HdcpLevel" Usage="Android.Media.MediaDrm.ConnectedHdcpLevel" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -379,6 +469,14 @@
             device is connected to.</summary>
         <value>the connected HDCP level</value>
         <remarks>
+          <para>Return the HDCP level negotiated with downstream receivers the
+            device is connected to. If multiple HDCP-capable displays are
+            simultaneously connected to separate interfaces, this method
+            returns the lowest negotiated level of all interfaces.</para>
+          <para>This method should only be used for informational purposes, not for
+            enforcing compliance with HDCP requirements. Trusted enforcement of
+            HDCP policies must be handled by the DRM system.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getConnectedHdcpLevel()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getConnectedHdcpLevel()</code>.</a>
@@ -393,11 +491,11 @@
       </Docs>
     </Member>
     <Member MemberName="EventKeyExpired">
+      <MemberSignature Language="VB.NET" Value="Public Const EventKeyExpired As MediaDrmEventType  = 3" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmEventType EventKeyExpired = 3;" />
       <MemberSignature Language="C#" Value="public const Android.Media.MediaDrmEventType EventKeyExpired = 3;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.MediaDrmEventType EventKeyExpired = (3)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.EventKeyExpired" />
-      <MemberSignature Language="VB.NET" Value="Public Const EventKeyExpired As MediaDrmEventType  = 3" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmEventType EventKeyExpired = 3;" />
       <MemberSignature Language="F#" Value="val mutable EventKeyExpired : Android.Media.MediaDrmEventType" Usage="Android.Media.MediaDrm.EventKeyExpired" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -422,6 +520,11 @@
         <summary>This event type indicates that the licensed usage duration for keys in a session
             has expired.</summary>
         <remarks>
+          <para>This event type indicates that the licensed usage duration for keys in a session
+            has expired.  The keys are no longer valid.</para>
+          <para>This member is deprecated. Use <c>OnKeyStatusChangeListener#onKeyStatusChange</c>
+            and check for <c>MediaDrm.KeyStatus#STATUS_EXPIRED</c> in the <c>MediaDrm.KeyStatus</c>
+            instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#EVENT_KEY_EXPIRED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.EVENT_KEY_EXPIRED</code>.</a>
@@ -437,11 +540,11 @@
       </Docs>
     </Member>
     <Member MemberName="EventKeyRequired">
+      <MemberSignature Language="VB.NET" Value="Public Const EventKeyRequired As MediaDrmEventType  = 2" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmEventType EventKeyRequired = 2;" />
       <MemberSignature Language="C#" Value="public const Android.Media.MediaDrmEventType EventKeyRequired = 2;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.MediaDrmEventType EventKeyRequired = (2)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.EventKeyRequired" />
-      <MemberSignature Language="VB.NET" Value="Public Const EventKeyRequired As MediaDrmEventType  = 2" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmEventType EventKeyRequired = 2;" />
       <MemberSignature Language="F#" Value="val mutable EventKeyRequired : Android.Media.MediaDrmEventType" Usage="Android.Media.MediaDrm.EventKeyRequired" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -466,6 +569,8 @@
         <summary>This event type indicates that the app needs to request keys from a license
             server.</summary>
         <remarks>
+          <para>This event type indicates that the app needs to request keys from a license
+            server.  The request message data is obtained using <c>#getKeyRequest</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#EVENT_KEY_REQUIRED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.EVENT_KEY_REQUIRED</code>.</a>
@@ -481,11 +586,11 @@
       </Docs>
     </Member>
     <Member MemberName="EventProvisionRequired">
+      <MemberSignature Language="VB.NET" Value="Public Const EventProvisionRequired As MediaDrmEventType  = 1" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmEventType EventProvisionRequired = 1;" />
       <MemberSignature Language="C#" Value="public const Android.Media.MediaDrmEventType EventProvisionRequired = 1;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.MediaDrmEventType EventProvisionRequired = (1)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.EventProvisionRequired" />
-      <MemberSignature Language="VB.NET" Value="Public Const EventProvisionRequired As MediaDrmEventType  = 1" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmEventType EventProvisionRequired = 1;" />
       <MemberSignature Language="F#" Value="val mutable EventProvisionRequired : Android.Media.MediaDrmEventType" Usage="Android.Media.MediaDrm.EventProvisionRequired" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -510,6 +615,11 @@
         <summary>This event type indicates that the app needs to request a certificate from
             the provisioning server.</summary>
         <remarks>
+          <para>This event type indicates that the app needs to request a certificate from
+            the provisioning server.  The request message data is obtained using
+            <c>#getProvisionRequest</c></para>
+          <para>This member is deprecated. Handle provisioning via <c>android.media.NotProvisionedException</c>
+            instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#EVENT_PROVISION_REQUIRED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.EVENT_PROVISION_REQUIRED</code>.</a>
@@ -525,11 +635,11 @@
       </Docs>
     </Member>
     <Member MemberName="EventSessionReclaimed">
+      <MemberSignature Language="VB.NET" Value="Public Const EventSessionReclaimed As MediaDrmEventType  = 5" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmEventType EventSessionReclaimed = 5;" />
       <MemberSignature Language="C#" Value="public const Android.Media.MediaDrmEventType EventSessionReclaimed = 5;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.MediaDrmEventType EventSessionReclaimed = (5)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.EventSessionReclaimed" />
-      <MemberSignature Language="VB.NET" Value="Public Const EventSessionReclaimed As MediaDrmEventType  = 5" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmEventType EventSessionReclaimed = 5;" />
       <MemberSignature Language="F#" Value="val mutable EventSessionReclaimed : Android.Media.MediaDrmEventType" Usage="Android.Media.MediaDrm.EventSessionReclaimed" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -558,6 +668,8 @@
         <summary>This event indicates that a session opened by the app has been reclaimed by the resource
             manager.</summary>
         <remarks>
+          <para>This event indicates that a session opened by the app has been reclaimed by the resource
+            manager.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#EVENT_SESSION_RECLAIMED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.EVENT_SESSION_RECLAIMED</code>.</a>
@@ -572,11 +684,11 @@
       </Docs>
     </Member>
     <Member MemberName="EventVendorDefined">
+      <MemberSignature Language="VB.NET" Value="Public Const EventVendorDefined As MediaDrmEventType  = 4" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmEventType EventVendorDefined = 4;" />
       <MemberSignature Language="C#" Value="public const Android.Media.MediaDrmEventType EventVendorDefined = 4;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.MediaDrmEventType EventVendorDefined = (4)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.EventVendorDefined" />
-      <MemberSignature Language="VB.NET" Value="Public Const EventVendorDefined As MediaDrmEventType  = 4" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmEventType EventVendorDefined = 4;" />
       <MemberSignature Language="F#" Value="val mutable EventVendorDefined : Android.Media.MediaDrmEventType" Usage="Android.Media.MediaDrm.EventVendorDefined" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -601,6 +713,8 @@
         <summary>This event may indicate some specific vendor-defined condition, see your
             DRM provider documentation for details</summary>
         <remarks>
+          <para>This event may indicate some specific vendor-defined condition, see your
+            DRM provider documentation for details</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#EVENT_VENDOR_DEFINED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.EVENT_VENDOR_DEFINED</code>.</a>
@@ -616,11 +730,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetCryptoSession">
+      <MemberSignature Language="VB.NET" Value="Public Function GetCryptoSession (sessionId As Byte(), cipherAlgorithm As String, macAlgorithm As String) As MediaDrm.CryptoSession" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::MediaDrm::CryptoSession ^ GetCryptoSession(cli::array &lt;System::Byte&gt; ^ sessionId, System::String ^ cipherAlgorithm, System::String ^ macAlgorithm);" />
       <MemberSignature Language="C#" Value="public Android.Media.MediaDrm.CryptoSession? GetCryptoSession (byte[] sessionId, string cipherAlgorithm, string macAlgorithm);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Media.MediaDrm/CryptoSession GetCryptoSession(unsigned int8[] sessionId, string cipherAlgorithm, string macAlgorithm) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.GetCryptoSession(System.Byte[],System.String,System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetCryptoSession (sessionId As Byte(), cipherAlgorithm As String, macAlgorithm As String) As MediaDrm.CryptoSession" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::MediaDrm::CryptoSession ^ GetCryptoSession(cli::array &lt;System::Byte&gt; ^ sessionId, System::String ^ cipherAlgorithm, System::String ^ macAlgorithm);" />
       <MemberSignature Language="F#" Value="member this.GetCryptoSession : byte[] * string * string -&gt; Android.Media.MediaDrm.CryptoSession" Usage="mediaDrm.GetCryptoSession (sessionId, cipherAlgorithm, macAlgorithm)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -635,6 +749,12 @@
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaDrm+CryptoSession</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="sessionId" Type="System.Byte[]" />
@@ -676,11 +796,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetKeyRequest">
+      <MemberSignature Language="VB.NET" Value="Public Function GetKeyRequest (scope As Byte(), init As Byte(), mimeType As String, keyType As Integer, optionalParameters As IDictionary(Of String, String)) As MediaDrm.KeyRequest" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::MediaDrm::KeyRequest ^ GetKeyRequest(cli::array &lt;System::Byte&gt; ^ scope, cli::array &lt;System::Byte&gt; ^ init, System::String ^ mimeType, int keyType, System::Collections::Generic::IDictionary&lt;System::String ^, System::String ^&gt; ^ optionalParameters);" />
       <MemberSignature Language="C#" Value="public Android.Media.MediaDrm.KeyRequest GetKeyRequest (byte[] scope, byte[]? init, string? mimeType, int keyType, System.Collections.Generic.IDictionary&lt;string,string&gt;? optionalParameters);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Media.MediaDrm/KeyRequest GetKeyRequest(unsigned int8[] scope, unsigned int8[] init, string mimeType, int32 keyType, class System.Collections.Generic.IDictionary`2&lt;string, string&gt; optionalParameters) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.GetKeyRequest(System.Byte[],System.Byte[],System.String,System.Int32,System.Collections.Generic.IDictionary{System.String,System.String})" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetKeyRequest (scope As Byte(), init As Byte(), mimeType As String, keyType As Integer, optionalParameters As IDictionary(Of String, String)) As MediaDrm.KeyRequest" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::MediaDrm::KeyRequest ^ GetKeyRequest(cli::array &lt;System::Byte&gt; ^ scope, cli::array &lt;System::Byte&gt; ^ init, System::String ^ mimeType, int keyType, System::Collections::Generic::IDictionary&lt;System::String ^, System::String ^&gt; ^ optionalParameters);" />
       <MemberSignature Language="F#" Value="member this.GetKeyRequest : byte[] * byte[] * string * int * System.Collections.Generic.IDictionary&lt;string, string&gt; -&gt; Android.Media.MediaDrm.KeyRequest" Usage="mediaDrm.GetKeyRequest (scope, init, mimeType, keyType, optionalParameters)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -698,8 +818,22 @@
       </ReturnValue>
       <Parameters>
         <Parameter Name="scope" Type="System.Byte[]" />
-        <Parameter Name="init" Type="System.Byte[]" />
-        <Parameter Name="mimeType" Type="System.String" />
+        <Parameter Name="init" Type="System.Byte[]">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="mimeType" Type="System.String">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
         <Parameter Name="keyType" Type="System.Int32">
           <Attributes>
             <Attribute>
@@ -708,7 +842,14 @@
             </Attribute>
           </Attributes>
         </Parameter>
-        <Parameter Name="optionalParameters" Type="System.Collections.Generic.IDictionary&lt;System.String,System.String&gt;" />
+        <Parameter Name="optionalParameters" Type="System.Collections.Generic.IDictionary&lt;System.String,System.String&gt;">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1, 1 })&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
       </Parameters>
       <Docs>
         <param name="scope">may be a sessionId or a keySetId, depending on the specified keyType.
@@ -749,11 +890,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetOfflineLicenseState">
+      <MemberSignature Language="VB.NET" Value="Public Function GetOfflineLicenseState (keySetId As Byte()) As OfflineLicenseState" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::OfflineLicenseState GetOfflineLicenseState(cli::array &lt;System::Byte&gt; ^ keySetId);" />
       <MemberSignature Language="C#" Value="public Android.Media.OfflineLicenseState GetOfflineLicenseState (byte[] keySetId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance valuetype Android.Media.OfflineLicenseState GetOfflineLicenseState(unsigned int8[] keySetId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.GetOfflineLicenseState(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetOfflineLicenseState (keySetId As Byte()) As OfflineLicenseState" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::OfflineLicenseState GetOfflineLicenseState(cli::array &lt;System::Byte&gt; ^ keySetId);" />
       <MemberSignature Language="F#" Value="member this.GetOfflineLicenseState : byte[] -&gt; Android.Media.OfflineLicenseState" Usage="mediaDrm.GetOfflineLicenseState keySetId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -787,6 +928,12 @@
         <summary>Request the state of an offline license.</summary>
         <returns>the offline license state</returns>
         <remarks>
+          <para>Request the state of an offline license. An offline license may be usable
+            or inactive. The keys in a usable offline license are available for
+            decryption. When the offline license state is inactive, the keys have
+            been marked for release using <c>#getKeyRequest</c> with
+            KEY_TYPE_RELEASE but the key response has not been received. The keys in
+            an inactive offline license are not usable for decryption.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getOfflineLicenseState(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getOfflineLicenseState(byte[])</code>.</a>
@@ -801,11 +948,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetPlaybackComponent">
+      <MemberSignature Language="VB.NET" Value="Public Function GetPlaybackComponent (sessionId As Byte()) As MediaDrm.PlaybackComponent" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::MediaDrm::PlaybackComponent ^ GetPlaybackComponent(cli::array &lt;System::Byte&gt; ^ sessionId);" />
       <MemberSignature Language="C#" Value="public Android.Media.MediaDrm.PlaybackComponent? GetPlaybackComponent (byte[] sessionId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Media.MediaDrm/PlaybackComponent GetPlaybackComponent(unsigned int8[] sessionId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.GetPlaybackComponent(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetPlaybackComponent (sessionId As Byte()) As MediaDrm.PlaybackComponent" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::MediaDrm::PlaybackComponent ^ GetPlaybackComponent(cli::array &lt;System::Byte&gt; ^ sessionId);" />
       <MemberSignature Language="F#" Value="member this.GetPlaybackComponent : byte[] -&gt; Android.Media.MediaDrm.PlaybackComponent" Usage="mediaDrm.GetPlaybackComponent sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -824,6 +971,12 @@
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaDrm+PlaybackComponent</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="sessionId" Type="System.Byte[]" />
@@ -848,11 +1001,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetPropertyByteArray">
+      <MemberSignature Language="VB.NET" Value="Public Function GetPropertyByteArray (propertyName As String) As Byte()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::Byte&gt; ^ GetPropertyByteArray(System::String ^ propertyName);" />
       <MemberSignature Language="C#" Value="public byte[] GetPropertyByteArray (string? propertyName);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance unsigned int8[] GetPropertyByteArray(string propertyName) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.GetPropertyByteArray(System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetPropertyByteArray (propertyName As String) As Byte()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::Byte&gt; ^ GetPropertyByteArray(System::String ^ propertyName);" />
       <MemberSignature Language="F#" Value="member this.GetPropertyByteArray : string -&gt; byte[]" Usage="mediaDrm.GetPropertyByteArray propertyName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -869,13 +1022,22 @@
         <ReturnType>System.Byte[]</ReturnType>
       </ReturnValue>
       <Parameters>
-        <Parameter Name="propertyName" Type="System.String" />
+        <Parameter Name="propertyName" Type="System.String">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
       </Parameters>
       <Docs>
         <param name="propertyName">To be added.</param>
         <summary>Read a MediaDrm byte array property value, given the property name string.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a MediaDrm byte array property value, given the property name string.</para>
+          <para>Standard fields names are <c>#PROPERTY_DEVICE_UNIQUE_ID</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getPropertyByteArray(java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getPropertyByteArray(java.lang.String)</code>.</a>
@@ -891,11 +1053,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetPropertyString">
+      <MemberSignature Language="VB.NET" Value="Public Function GetPropertyString (propertyName As String) As String" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::String ^ GetPropertyString(System::String ^ propertyName);" />
       <MemberSignature Language="C#" Value="public string GetPropertyString (string propertyName);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance string GetPropertyString(string propertyName) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.GetPropertyString(System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetPropertyString (propertyName As String) As String" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::String ^ GetPropertyString(System::String ^ propertyName);" />
       <MemberSignature Language="F#" Value="member this.GetPropertyString : string -&gt; string" Usage="mediaDrm.GetPropertyString propertyName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -919,6 +1081,10 @@
         <summary>Read a MediaDrm String property value, given the property name string.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a MediaDrm String property value, given the property name string.</para>
+          <para>Standard fields names are:
+            <c>#PROPERTY_VENDOR</c>, <c>#PROPERTY_VERSION</c>,
+            <c>#PROPERTY_DESCRIPTION</c>, <c>#PROPERTY_ALGORITHMS</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getPropertyString(java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getPropertyString(java.lang.String)</code>.</a>
@@ -934,11 +1100,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetProvisionRequest">
+      <MemberSignature Language="VB.NET" Value="Public Function GetProvisionRequest () As MediaDrm.ProvisionRequest" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::MediaDrm::ProvisionRequest ^ GetProvisionRequest();" />
       <MemberSignature Language="C#" Value="public Android.Media.MediaDrm.ProvisionRequest GetProvisionRequest ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Media.MediaDrm/ProvisionRequest GetProvisionRequest() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.GetProvisionRequest" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetProvisionRequest () As MediaDrm.ProvisionRequest" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::MediaDrm::ProvisionRequest ^ GetProvisionRequest();" />
       <MemberSignature Language="F#" Value="member this.GetProvisionRequest : unit -&gt; Android.Media.MediaDrm.ProvisionRequest" Usage="mediaDrm.GetProvisionRequest " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -975,11 +1141,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetSecureStop">
+      <MemberSignature Language="VB.NET" Value="Public Function GetSecureStop (ssid As Byte()) As Byte()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::Byte&gt; ^ GetSecureStop(cli::array &lt;System::Byte&gt; ^ ssid);" />
       <MemberSignature Language="C#" Value="public byte[] GetSecureStop (byte[] ssid);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance unsigned int8[] GetSecureStop(unsigned int8[] ssid) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.GetSecureStop(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetSecureStop (ssid As Byte()) As Byte()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::Byte&gt; ^ GetSecureStop(cli::array &lt;System::Byte&gt; ^ ssid);" />
       <MemberSignature Language="F#" Value="member this.GetSecureStop : byte[] -&gt; byte[]" Usage="mediaDrm.GetSecureStop ssid" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1011,6 +1177,12 @@
         <summary>Access a specific secure stop given its secure stop ID.</summary>
         <returns>the secure stop identified by ssid</returns>
         <remarks>
+          <para>Access a specific secure stop given its secure stop ID.
+            Each secure stop has a unique ID.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Use renewals by calling <c>#getKeyRequest</c> to track
+            concurrent playback. See additional information in
+            <c>#getSecureStops</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getSecureStop(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getSecureStop(byte[])</code>.</a>
@@ -1025,11 +1197,11 @@
       </Docs>
     </Member>
     <Member MemberName="GetSecurityLevel">
+      <MemberSignature Language="VB.NET" Value="Public Function GetSecurityLevel (sessionId As Byte()) As SecurityLevel" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::SecurityLevel GetSecurityLevel(cli::array &lt;System::Byte&gt; ^ sessionId);" />
       <MemberSignature Language="C#" Value="public Android.Media.SecurityLevel GetSecurityLevel (byte[] sessionId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance valuetype Android.Media.SecurityLevel GetSecurityLevel(unsigned int8[] sessionId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.GetSecurityLevel(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function GetSecurityLevel (sessionId As Byte()) As SecurityLevel" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Media::SecurityLevel GetSecurityLevel(cli::array &lt;System::Byte&gt; ^ sessionId);" />
       <MemberSignature Language="F#" Value="member this.GetSecurityLevel : byte[] -&gt; Android.Media.SecurityLevel" Usage="mediaDrm.GetSecurityLevel sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1064,6 +1236,10 @@
         <summary>Return the current security level of a session.</summary>
         <returns>the security level of the session</returns>
         <remarks>
+          <para>Return the current security level of a session. A session has an initial
+            security level determined by the robustness of the DRM system's
+            implementation on the device. The security level may be changed at the
+            time a session is opened using <c>#openSession</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getSecurityLevel(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getSecurityLevel(byte[])</code>.</a>
@@ -1078,11 +1254,11 @@
       </Docs>
     </Member>
     <Member MemberName="HdcpLevelUnknown">
+      <MemberSignature Language="VB.NET" Value="Public Const HdcpLevelUnknown As HdcpLevel  = 0" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpLevelUnknown = 0;" />
       <MemberSignature Language="C#" Value="public const Android.Media.HdcpLevel HdcpLevelUnknown = 0;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.HdcpLevel HdcpLevelUnknown = (0)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.HdcpLevelUnknown" />
-      <MemberSignature Language="VB.NET" Value="Public Const HdcpLevelUnknown As HdcpLevel  = 0" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpLevelUnknown = 0;" />
       <MemberSignature Language="F#" Value="val mutable HdcpLevelUnknown : Android.Media.HdcpLevel" Usage="Android.Media.MediaDrm.HdcpLevelUnknown" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1111,6 +1287,8 @@
         <summary>The DRM plugin did not report an HDCP level, or an error
             occurred accessing it</summary>
         <remarks>
+          <para>The DRM plugin did not report an HDCP level, or an error
+            occurred accessing it</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_LEVEL_UNKNOWN" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_LEVEL_UNKNOWN</code>.</a>
@@ -1125,11 +1303,11 @@
       </Docs>
     </Member>
     <Member MemberName="HdcpNoDigitalOutput">
+      <MemberSignature Language="VB.NET" Value="Public Const HdcpNoDigitalOutput As HdcpLevel  = 2147483647" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpNoDigitalOutput = 2147483647;" />
       <MemberSignature Language="C#" Value="public const Android.Media.HdcpLevel HdcpNoDigitalOutput = 2147483647;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.HdcpLevel HdcpNoDigitalOutput = (2147483647)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.HdcpNoDigitalOutput" />
-      <MemberSignature Language="VB.NET" Value="Public Const HdcpNoDigitalOutput As HdcpLevel  = 2147483647" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpNoDigitalOutput = 2147483647;" />
       <MemberSignature Language="F#" Value="val mutable HdcpNoDigitalOutput : Android.Media.HdcpLevel" Usage="Android.Media.MediaDrm.HdcpNoDigitalOutput" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1157,6 +1335,7 @@
       <Docs>
         <summary>No digital output, implicitly secure</summary>
         <remarks>
+          <para>No digital output, implicitly secure</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_NO_DIGITAL_OUTPUT" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_NO_DIGITAL_OUTPUT</code>.</a>
@@ -1171,11 +1350,11 @@
       </Docs>
     </Member>
     <Member MemberName="HdcpNone">
+      <MemberSignature Language="VB.NET" Value="Public Const HdcpNone As HdcpLevel  = 1" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpNone = 1;" />
       <MemberSignature Language="C#" Value="public const Android.Media.HdcpLevel HdcpNone = 1;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.HdcpLevel HdcpNone = (1)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.HdcpNone" />
-      <MemberSignature Language="VB.NET" Value="Public Const HdcpNone As HdcpLevel  = 1" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpNone = 1;" />
       <MemberSignature Language="F#" Value="val mutable HdcpNone : Android.Media.HdcpLevel" Usage="Android.Media.MediaDrm.HdcpNone" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1203,6 +1382,7 @@
       <Docs>
         <summary>HDCP is not supported on this device, content is unprotected</summary>
         <remarks>
+          <para>HDCP is not supported on this device, content is unprotected</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_NONE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_NONE</code>.</a>
@@ -1217,11 +1397,11 @@
       </Docs>
     </Member>
     <Member MemberName="HdcpV1">
+      <MemberSignature Language="VB.NET" Value="Public Const HdcpV1 As HdcpLevel  = 2" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpV1 = 2;" />
       <MemberSignature Language="C#" Value="public const Android.Media.HdcpLevel HdcpV1 = 2;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.HdcpLevel HdcpV1 = (2)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.HdcpV1" />
-      <MemberSignature Language="VB.NET" Value="Public Const HdcpV1 As HdcpLevel  = 2" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpV1 = 2;" />
       <MemberSignature Language="F#" Value="val mutable HdcpV1 : Android.Media.HdcpLevel" Usage="Android.Media.MediaDrm.HdcpV1" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1249,6 +1429,7 @@
       <Docs>
         <summary>HDCP version 1.</summary>
         <remarks>
+          <para>HDCP version 1.0</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_V1" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_V1</code>.</a>
@@ -1263,11 +1444,11 @@
       </Docs>
     </Member>
     <Member MemberName="HdcpV2">
+      <MemberSignature Language="VB.NET" Value="Public Const HdcpV2 As HdcpLevel  = 3" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpV2 = 3;" />
       <MemberSignature Language="C#" Value="public const Android.Media.HdcpLevel HdcpV2 = 3;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.HdcpLevel HdcpV2 = (3)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.HdcpV2" />
-      <MemberSignature Language="VB.NET" Value="Public Const HdcpV2 As HdcpLevel  = 3" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpV2 = 3;" />
       <MemberSignature Language="F#" Value="val mutable HdcpV2 : Android.Media.HdcpLevel" Usage="Android.Media.MediaDrm.HdcpV2" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1295,6 +1476,7 @@
       <Docs>
         <summary>HDCP version 2.</summary>
         <remarks>
+          <para>HDCP version 2.0 Type 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_V2" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_V2</code>.</a>
@@ -1309,11 +1491,11 @@
       </Docs>
     </Member>
     <Member MemberName="HdcpV21">
+      <MemberSignature Language="VB.NET" Value="Public Const HdcpV21 As HdcpLevel  = 4" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpV21 = 4;" />
       <MemberSignature Language="C#" Value="public const Android.Media.HdcpLevel HdcpV21 = 4;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.HdcpLevel HdcpV21 = (4)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.HdcpV21" />
-      <MemberSignature Language="VB.NET" Value="Public Const HdcpV21 As HdcpLevel  = 4" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpV21 = 4;" />
       <MemberSignature Language="F#" Value="val mutable HdcpV21 : Android.Media.HdcpLevel" Usage="Android.Media.MediaDrm.HdcpV21" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1341,6 +1523,7 @@
       <Docs>
         <summary>HDCP version 2.</summary>
         <remarks>
+          <para>HDCP version 2.1 Type 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_V2_1" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_V2_1</code>.</a>
@@ -1355,11 +1538,11 @@
       </Docs>
     </Member>
     <Member MemberName="HdcpV22">
+      <MemberSignature Language="VB.NET" Value="Public Const HdcpV22 As HdcpLevel  = 5" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpV22 = 5;" />
       <MemberSignature Language="C#" Value="public const Android.Media.HdcpLevel HdcpV22 = 5;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.HdcpLevel HdcpV22 = (5)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.HdcpV22" />
-      <MemberSignature Language="VB.NET" Value="Public Const HdcpV22 As HdcpLevel  = 5" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpV22 = 5;" />
       <MemberSignature Language="F#" Value="val mutable HdcpV22 : Android.Media.HdcpLevel" Usage="Android.Media.MediaDrm.HdcpV22" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1387,6 +1570,7 @@
       <Docs>
         <summary>HDCP version 2.</summary>
         <remarks>
+          <para>HDCP version 2.2 Type 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_V2_2" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_V2_2</code>.</a>
@@ -1401,11 +1585,11 @@
       </Docs>
     </Member>
     <Member MemberName="HdcpV23">
+      <MemberSignature Language="VB.NET" Value="Public Const HdcpV23 As HdcpLevel  = 6" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpV23 = 6;" />
       <MemberSignature Language="C#" Value="public const Android.Media.HdcpLevel HdcpV23 = 6;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.HdcpLevel HdcpV23 = (6)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.HdcpV23" />
-      <MemberSignature Language="VB.NET" Value="Public Const HdcpV23 As HdcpLevel  = 6" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::HdcpLevel HdcpV23 = 6;" />
       <MemberSignature Language="F#" Value="val mutable HdcpV23 : Android.Media.HdcpLevel" Usage="Android.Media.MediaDrm.HdcpV23" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1433,6 +1617,7 @@
       <Docs>
         <summary>HDCP version 2.</summary>
         <remarks>
+          <para>HDCP version 2.3 Type 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_V2_3" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_V2_3</code>.</a>
@@ -1447,11 +1632,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsCryptoSchemeSupported">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function IsCryptoSchemeSupported (uuid As UUID) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsCryptoSchemeSupported(Java::Util::UUID ^ uuid);" />
       <MemberSignature Language="C#" Value="public static bool IsCryptoSchemeSupported (Java.Util.UUID uuid);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig bool IsCryptoSchemeSupported(class Java.Util.UUID uuid) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.IsCryptoSchemeSupported(Java.Util.UUID)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function IsCryptoSchemeSupported (uuid As UUID) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsCryptoSchemeSupported(Java::Util::UUID ^ uuid);" />
       <MemberSignature Language="F#" Value="static member IsCryptoSchemeSupported : Java.Util.UUID -&gt; bool" Usage="Android.Media.MediaDrm.IsCryptoSchemeSupported uuid" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1476,6 +1661,8 @@
             this device.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Query if the given scheme identified by its UUID is supported on
+            this device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#isCryptoSchemeSupported(java.util.UUID)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.isCryptoSchemeSupported(java.util.UUID)</code>.</a>
@@ -1491,11 +1678,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsCryptoSchemeSupported">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function IsCryptoSchemeSupported (uuid As UUID, mimeType As String) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsCryptoSchemeSupported(Java::Util::UUID ^ uuid, System::String ^ mimeType);" />
       <MemberSignature Language="C#" Value="public static bool IsCryptoSchemeSupported (Java.Util.UUID uuid, string mimeType);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig bool IsCryptoSchemeSupported(class Java.Util.UUID uuid, string mimeType) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.IsCryptoSchemeSupported(Java.Util.UUID,System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function IsCryptoSchemeSupported (uuid As UUID, mimeType As String) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsCryptoSchemeSupported(Java::Util::UUID ^ uuid, System::String ^ mimeType);" />
       <MemberSignature Language="F#" Value="static member IsCryptoSchemeSupported : Java.Util.UUID * string -&gt; bool" Usage="Android.Media.MediaDrm.IsCryptoSchemeSupported (uuid, mimeType)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1524,6 +1711,9 @@
             media container format specified by mimeType.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Query if the given scheme identified by its UUID is supported on
+            this device, and whether the DRM plugin is able to handle the
+            media container format specified by mimeType.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#isCryptoSchemeSupported(java.util.UUID,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.isCryptoSchemeSupported(java.util.UUID, java.lang.String)</code>.</a>
@@ -1538,11 +1728,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsCryptoSchemeSupported">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function IsCryptoSchemeSupported (uuid As UUID, mimeType As String, securityLevel As SecurityLevel) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsCryptoSchemeSupported(Java::Util::UUID ^ uuid, System::String ^ mimeType, Android::Media::SecurityLevel securityLevel);" />
       <MemberSignature Language="C#" Value="public static bool IsCryptoSchemeSupported (Java.Util.UUID uuid, string mimeType, Android.Media.SecurityLevel securityLevel);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig bool IsCryptoSchemeSupported(class Java.Util.UUID uuid, string mimeType, valuetype Android.Media.SecurityLevel securityLevel) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.IsCryptoSchemeSupported(Java.Util.UUID,System.String,Android.Media.SecurityLevel)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function IsCryptoSchemeSupported (uuid As UUID, mimeType As String, securityLevel As SecurityLevel) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool IsCryptoSchemeSupported(Java::Util::UUID ^ uuid, System::String ^ mimeType, Android::Media::SecurityLevel securityLevel);" />
       <MemberSignature Language="F#" Value="static member IsCryptoSchemeSupported : Java.Util.UUID * string * Android.Media.SecurityLevel -&gt; bool" Usage="Android.Media.MediaDrm.IsCryptoSchemeSupported (uuid, mimeType, securityLevel)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1585,6 +1775,10 @@
             security level.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Query if the given scheme identified by its UUID is supported on
+            this device, and whether the DRM plugin is able to handle the
+            media container format specified by mimeType at the requested
+            security level.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#isCryptoSchemeSupported(java.util.UUID,%20java.lang.String,%20int)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.isCryptoSchemeSupported(java.util.UUID, java.lang.String, int)</code>.</a>
@@ -1599,11 +1793,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Media.MediaDrm.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -1635,11 +1829,11 @@
       </Docs>
     </Member>
     <Member MemberName="KeyTypeOffline">
+      <MemberSignature Language="VB.NET" Value="Public Const KeyTypeOffline As MediaDrmKeyType  = 2" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmKeyType KeyTypeOffline = 2;" />
       <MemberSignature Language="C#" Value="public const Android.Media.MediaDrmKeyType KeyTypeOffline = 2;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.MediaDrmKeyType KeyTypeOffline = (2)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.KeyTypeOffline" />
-      <MemberSignature Language="VB.NET" Value="Public Const KeyTypeOffline As MediaDrmKeyType  = 2" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmKeyType KeyTypeOffline = 2;" />
       <MemberSignature Language="F#" Value="val mutable KeyTypeOffline : Android.Media.MediaDrmKeyType" Usage="Android.Media.MediaDrm.KeyTypeOffline" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1664,6 +1858,8 @@
         <summary>This key request type specifies that the keys will be for offline use, they
             will be saved to the device for use when the device is not connected to a network.</summary>
         <remarks>
+          <para>This key request type specifies that the keys will be for offline use, they
+            will be saved to the device for use when the device is not connected to a network.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#KEY_TYPE_OFFLINE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.KEY_TYPE_OFFLINE</code>.</a>
@@ -1679,11 +1875,11 @@
       </Docs>
     </Member>
     <Member MemberName="KeyTypeRelease">
+      <MemberSignature Language="VB.NET" Value="Public Const KeyTypeRelease As MediaDrmKeyType  = 3" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmKeyType KeyTypeRelease = 3;" />
       <MemberSignature Language="C#" Value="public const Android.Media.MediaDrmKeyType KeyTypeRelease = 3;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.MediaDrmKeyType KeyTypeRelease = (3)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.KeyTypeRelease" />
-      <MemberSignature Language="VB.NET" Value="Public Const KeyTypeRelease As MediaDrmKeyType  = 3" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmKeyType KeyTypeRelease = 3;" />
       <MemberSignature Language="F#" Value="val mutable KeyTypeRelease : Android.Media.MediaDrmKeyType" Usage="Android.Media.MediaDrm.KeyTypeRelease" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1707,6 +1903,7 @@
       <Docs>
         <summary>This key request type specifies that previously saved offline keys should be released.</summary>
         <remarks>
+          <para>This key request type specifies that previously saved offline keys should be released.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#KEY_TYPE_RELEASE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.KEY_TYPE_RELEASE</code>.</a>
@@ -1722,11 +1919,11 @@
       </Docs>
     </Member>
     <Member MemberName="KeyTypeStreaming">
+      <MemberSignature Language="VB.NET" Value="Public Const KeyTypeStreaming As MediaDrmKeyType  = 1" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmKeyType KeyTypeStreaming = 1;" />
       <MemberSignature Language="C#" Value="public const Android.Media.MediaDrmKeyType KeyTypeStreaming = 1;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.MediaDrmKeyType KeyTypeStreaming = (1)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.KeyTypeStreaming" />
-      <MemberSignature Language="VB.NET" Value="Public Const KeyTypeStreaming As MediaDrmKeyType  = 1" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::MediaDrmKeyType KeyTypeStreaming = 1;" />
       <MemberSignature Language="F#" Value="val mutable KeyTypeStreaming : Android.Media.MediaDrmKeyType" Usage="Android.Media.MediaDrm.KeyTypeStreaming" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1752,6 +1949,9 @@
             not be saved to the device for subsequent use when the device is not connected
             to a network.</summary>
         <remarks>
+          <para>This key request type species that the keys will be for online use, they will
+            not be saved to the device for subsequent use when the device is not connected
+            to a network.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#KEY_TYPE_STREAMING" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.KEY_TYPE_STREAMING</code>.</a>
@@ -1767,11 +1967,11 @@
       </Docs>
     </Member>
     <Member MemberName="LogMessages">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property LogMessages As IList(Of MediaDrm.LogMessage)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::IList&lt;Android::Media::MediaDrm::LogMessage ^&gt; ^ LogMessages { System::Collections::Generic::IList&lt;Android::Media::MediaDrm::LogMessage ^&gt; ^ get(); };" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IList&lt;Android.Media.MediaDrm.LogMessage&gt; LogMessages { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Collections.Generic.IList`1&lt;class Android.Media.MediaDrm/LogMessage&gt; LogMessages" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.LogMessages" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property LogMessages As IList(Of MediaDrm.LogMessage)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::IList&lt;Android::Media::MediaDrm::LogMessage ^&gt; ^ LogMessages { System::Collections::Generic::IList&lt;Android::Media::MediaDrm::LogMessage ^&gt; ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.LogMessages : System.Collections.Generic.IList&lt;Android.Media.MediaDrm.LogMessage&gt;" Usage="Android.Media.MediaDrm.LogMessages" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1796,6 +1996,8 @@
             instance.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns recent <c>LogMessage LogMessages</c> associated with this <c>MediaDrm</c>
+            instance.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getLogMessages()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getLogMessages()</code>.</a>
@@ -1810,11 +2012,11 @@
       </Docs>
     </Member>
     <Member MemberName="MaxHdcpLevel">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property MaxHdcpLevel As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int MaxHdcpLevel { int get(); };" />
       <MemberSignature Language="C#" Value="public int MaxHdcpLevel { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 MaxHdcpLevel" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.MaxHdcpLevel" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property MaxHdcpLevel As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int MaxHdcpLevel { int get(); };" />
       <MemberSignature Language="F#" Value="member this.MaxHdcpLevel : int" Usage="Android.Media.MediaDrm.MaxHdcpLevel" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1838,6 +2040,11 @@
         <summary>Return the maximum supported HDCP level.</summary>
         <value>the maximum supported HDCP level</value>
         <remarks>
+          <para>Return the maximum supported HDCP level. The maximum HDCP level is a
+            constant for a given device, it does not depend on downstream receivers
+            that may be connected. If multiple HDCP-capable interfaces are present,
+            it indicates the highest of the maximum HDCP levels of all interfaces.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getMaxHdcpLevel()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getMaxHdcpLevel()</code>.</a>
@@ -1852,12 +2059,12 @@
       </Docs>
     </Member>
     <Member MemberName="MaxSecurityLevel">
+      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property MaxSecurityLevel As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property int MaxSecurityLevel { int get(); };" />
       <MemberSignature Language="C#" Value="public static int MaxSecurityLevel { get; }" />
       <MemberSignature Language="ILAsm" Value=".property int32 MaxSecurityLevel" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.MaxSecurityLevel" />
-      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property MaxSecurityLevel As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property int MaxSecurityLevel { int get(); };" />
-      <MemberSignature Language="F#" Value="static member MaxSecurityLevel : int" Usage="Android.Media.MediaDrm.MaxSecurityLevel" />
+      <MemberSignature Language="F#" Value="member this.MaxSecurityLevel : int" Usage="Android.Media.MediaDrm.MaxSecurityLevel" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -1882,6 +2089,9 @@
             the device.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns a value that may be passed as a parameter to <c>#openSession(int)</c>
+            requesting that the session be opened at the maximum security level of
+            the device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getMaxSecurityLevel()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getMaxSecurityLevel()</code>.</a>
@@ -1896,11 +2106,11 @@
       </Docs>
     </Member>
     <Member MemberName="MaxSessionCount">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property MaxSessionCount As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int MaxSessionCount { int get(); };" />
       <MemberSignature Language="C#" Value="public int MaxSessionCount { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 MaxSessionCount" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.MaxSessionCount" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property MaxSessionCount As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int MaxSessionCount { int get(); };" />
       <MemberSignature Language="F#" Value="member this.MaxSessionCount : int" Usage="Android.Media.MediaDrm.MaxSessionCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1926,6 +2136,10 @@
             scheme.</summary>
         <value>maximum sessions.</value>
         <remarks>
+          <para>Return the maximum number of MediaDrm sessions that may be opened
+            simultaneosly among all MediaDrm instances for the active DRM
+            scheme. The maximum number of sessions is not affected by any
+            sessions that may have already been opened.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getMaxSessionCount()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getMaxSessionCount()</code>.</a>
@@ -1940,11 +2154,11 @@
       </Docs>
     </Member>
     <Member MemberName="MediaDrmEvent">
+      <MemberSignature Language="VB.NET" Value="Public Custom Event MediaDrmEvent As EventHandler(Of MediaDrm.MediaDrmEventArgs) " />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; event EventHandler&lt;Android::Media::MediaDrm::MediaDrmEventArgs ^&gt; ^ MediaDrmEvent;" />
       <MemberSignature Language="C#" Value="public event EventHandler&lt;Android.Media.MediaDrm.MediaDrmEventArgs&gt; MediaDrmEvent;" />
       <MemberSignature Language="ILAsm" Value=".event class System.EventHandler`1&lt;class Android.Media.MediaDrm/MediaDrmEventArgs&gt; MediaDrmEvent" />
       <MemberSignature Language="DocId" Value="E:Android.Media.MediaDrm.MediaDrmEvent" />
-      <MemberSignature Language="VB.NET" Value="Public Custom Event MediaDrmEvent As EventHandler(Of MediaDrm.MediaDrmEventArgs) " />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; event EventHandler&lt;Android::Media::MediaDrm::MediaDrmEventArgs ^&gt; ^ MediaDrmEvent;" />
       <MemberSignature Language="F#" Value="member this.MediaDrmEvent : EventHandler&lt;Android.Media.MediaDrm.MediaDrmEventArgs&gt; " Usage="member this.MediaDrmEvent : System.EventHandler&lt;Android.Media.MediaDrm.MediaDrmEventArgs&gt; " />
       <MemberType>Event</MemberType>
       <AssemblyInfo>
@@ -1962,11 +2176,11 @@
       </Docs>
     </Member>
     <Member MemberName="Metrics">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Metrics As PersistableBundle" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::OS::PersistableBundle ^ Metrics { Android::OS::PersistableBundle ^ get(); };" />
       <MemberSignature Language="C#" Value="public Android.OS.PersistableBundle? Metrics { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Android.OS.PersistableBundle Metrics" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.Metrics" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Metrics As PersistableBundle" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::OS::PersistableBundle ^ Metrics { Android::OS::PersistableBundle ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.Metrics : Android.OS.PersistableBundle" Usage="Android.Media.MediaDrm.Metrics" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1975,12 +2189,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getMetrics", "()Landroid/os/PersistableBundle;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getMetrics", "()Landroid/os/PersistableBundle;", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1995,6 +2217,7 @@
             Additional vendor-specific fields may also be present in
             the return value.</value>
         <remarks>
+          <para>Return Metrics data about the current MediaDrm instance.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getMetrics()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getMetrics()</code>.</a>
@@ -2009,11 +2232,11 @@
       </Docs>
     </Member>
     <Member MemberName="OfflineLicenseKeySetIds">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property OfflineLicenseKeySetIds As IList(Of Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ OfflineLicenseKeySetIds { System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ get(); };" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IList&lt;byte[]&gt; OfflineLicenseKeySetIds { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Collections.Generic.IList`1&lt;unsigned int8[]&gt; OfflineLicenseKeySetIds" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.OfflineLicenseKeySetIds" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property OfflineLicenseKeySetIds As IList(Of Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ OfflineLicenseKeySetIds { System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.OfflineLicenseKeySetIds : System.Collections.Generic.IList&lt;byte[]&gt;" Usage="Android.Media.MediaDrm.OfflineLicenseKeySetIds" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2038,6 +2261,18 @@
             if the device is not connected to a network.</summary>
         <value>a list of offline license keySetIds</value>
         <remarks>
+          <para>The keys in an offline license allow protected content to be played even
+            if the device is not connected to a network. Offline licenses are stored
+            on the device after a key request/response exchange when the key request
+            KeyType is OFFLINE. Normally each app is responsible for keeping track of
+            the keySetIds it has created. If an app loses the keySetId for any stored
+            licenses that it created, however, it must be able to recover the stored
+            keySetIds so those licenses can be removed when they expire or when the
+            app is uninstalled.</para>
+          <para>This method returns a list of the keySetIds for all offline licenses.
+            The offline license keySetId may be used to query the status of an
+            offline license with <c>#getOfflineLicenseState</c> or remove it with
+            <c>#removeOfflineLicense</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getOfflineLicenseKeySetIds()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getOfflineLicenseKeySetIds()</code>.</a>
@@ -2052,11 +2287,11 @@
       </Docs>
     </Member>
     <Member MemberName="OfflineLicenseStateReleased">
+      <MemberSignature Language="VB.NET" Value="Public Const OfflineLicenseStateReleased As OfflineLicenseState  = 2" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::OfflineLicenseState OfflineLicenseStateReleased = 2;" />
       <MemberSignature Language="C#" Value="public const Android.Media.OfflineLicenseState OfflineLicenseStateReleased = 2;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.OfflineLicenseState OfflineLicenseStateReleased = (2)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.OfflineLicenseStateReleased" />
-      <MemberSignature Language="VB.NET" Value="Public Const OfflineLicenseStateReleased As OfflineLicenseState  = 2" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::OfflineLicenseState OfflineLicenseStateReleased = 2;" />
       <MemberSignature Language="F#" Value="val mutable OfflineLicenseStateReleased : Android.Media.OfflineLicenseState" Usage="Android.Media.MediaDrm.OfflineLicenseStateReleased" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -2086,6 +2321,9 @@
             release using <c>#getKeyRequest</c> with KEY_TYPE_RELEASE but
             the key response has not been received.</summary>
         <remarks>
+          <para>Offline license is released, the keys have been marked for
+            release using <c>#getKeyRequest</c> with KEY_TYPE_RELEASE but
+            the key response has not been received.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#OFFLINE_LICENSE_STATE_RELEASED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.OFFLINE_LICENSE_STATE_RELEASED</code>.</a>
@@ -2100,11 +2338,11 @@
       </Docs>
     </Member>
     <Member MemberName="OfflineLicenseStateUnknown">
+      <MemberSignature Language="VB.NET" Value="Public Const OfflineLicenseStateUnknown As OfflineLicenseState  = 0" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::OfflineLicenseState OfflineLicenseStateUnknown = 0;" />
       <MemberSignature Language="C#" Value="public const Android.Media.OfflineLicenseState OfflineLicenseStateUnknown = 0;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.OfflineLicenseState OfflineLicenseStateUnknown = (0)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.OfflineLicenseStateUnknown" />
-      <MemberSignature Language="VB.NET" Value="Public Const OfflineLicenseStateUnknown As OfflineLicenseState  = 0" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::OfflineLicenseState OfflineLicenseStateUnknown = 0;" />
       <MemberSignature Language="F#" Value="val mutable OfflineLicenseStateUnknown : Android.Media.OfflineLicenseState" Usage="Android.Media.MediaDrm.OfflineLicenseStateUnknown" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -2133,6 +2371,8 @@
         <summary>Offline license state is unknown, an error occurred while trying
             to access it.</summary>
         <remarks>
+          <para>Offline license state is unknown, an error occurred while trying
+            to access it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#OFFLINE_LICENSE_STATE_UNKNOWN" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.OFFLINE_LICENSE_STATE_UNKNOWN</code>.</a>
@@ -2147,11 +2387,11 @@
       </Docs>
     </Member>
     <Member MemberName="OfflineLicenseStateUsable">
+      <MemberSignature Language="VB.NET" Value="Public Const OfflineLicenseStateUsable As OfflineLicenseState  = 1" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::OfflineLicenseState OfflineLicenseStateUsable = 1;" />
       <MemberSignature Language="C#" Value="public const Android.Media.OfflineLicenseState OfflineLicenseStateUsable = 1;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.OfflineLicenseState OfflineLicenseStateUsable = (1)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.OfflineLicenseStateUsable" />
-      <MemberSignature Language="VB.NET" Value="Public Const OfflineLicenseStateUsable As OfflineLicenseState  = 1" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::OfflineLicenseState OfflineLicenseStateUsable = 1;" />
       <MemberSignature Language="F#" Value="val mutable OfflineLicenseStateUsable : Android.Media.OfflineLicenseState" Usage="Android.Media.MediaDrm.OfflineLicenseStateUsable" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -2179,6 +2419,7 @@
       <Docs>
         <summary>Offline license is usable, the keys may be used for decryption.</summary>
         <remarks>
+          <para>Offline license is usable, the keys may be used for decryption.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#OFFLINE_LICENSE_STATE_USABLE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.OFFLINE_LICENSE_STATE_USABLE</code>.</a>
@@ -2193,11 +2434,11 @@
       </Docs>
     </Member>
     <Member MemberName="OpenSession">
+      <MemberSignature Language="VB.NET" Value="Public Function OpenSession () As Byte()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::Byte&gt; ^ OpenSession();" />
       <MemberSignature Language="C#" Value="public byte[] OpenSession ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance unsigned int8[] OpenSession() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.OpenSession" />
-      <MemberSignature Language="VB.NET" Value="Public Function OpenSession () As Byte()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::Byte&gt; ^ OpenSession();" />
       <MemberSignature Language="F#" Value="member this.OpenSession : unit -&gt; byte[]" Usage="mediaDrm.OpenSession " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2218,6 +2459,8 @@
         <summary>Open a new session with the MediaDrm object.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Open a new session with the MediaDrm object. A session ID is returned.
+            By default, sessions are opened at the native security level of the device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#openSession()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.openSession()</code>.</a>
@@ -2236,11 +2479,11 @@
       </Docs>
     </Member>
     <Member MemberName="OpenSession">
+      <MemberSignature Language="VB.NET" Value="Public Function OpenSession (level As Integer) As Byte()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::Byte&gt; ^ OpenSession(int level);" />
       <MemberSignature Language="C#" Value="public byte[] OpenSession (int level);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance unsigned int8[] OpenSession(int32 level) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.OpenSession(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function OpenSession (level As Integer) As Byte()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::Byte&gt; ^ OpenSession(int level);" />
       <MemberSignature Language="F#" Value="member this.OpenSession : int -&gt; byte[]" Usage="mediaDrm.OpenSession level" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2275,6 +2518,17 @@
         <summary>Open a new session at a requested security level.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Open a new session at a requested security level. The security level
+            represents the robustness of the device's DRM implementation. By default,
+            sessions are opened at the native security level of the device.
+            Overriding the security level is necessary when the decrypted frames need
+            to be manipulated, such as for image compositing. The security level
+            parameter must be lower than the native level. Reducing the security
+            level will typically limit the content to lower resolutions, as
+            determined by the license policy. If the requested level is not
+            supported, the next lower supported security level will be set. The level
+            can be queried using <c>#getSecurityLevel</c>. A session
+            ID is returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#openSession(int)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.openSession(int)</code>.</a>
@@ -2289,11 +2543,11 @@
       </Docs>
     </Member>
     <Member MemberName="OpenSessionCount">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property OpenSessionCount As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int OpenSessionCount { int get(); };" />
       <MemberSignature Language="C#" Value="public int OpenSessionCount { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 OpenSessionCount" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.OpenSessionCount" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property OpenSessionCount As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int OpenSessionCount { int get(); };" />
       <MemberSignature Language="F#" Value="member this.OpenSessionCount : int" Usage="Android.Media.MediaDrm.OpenSessionCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2318,6 +2572,8 @@
             simultaneously among all MediaDrm instances for the active DRM scheme.</summary>
         <value>the number of open sessions.</value>
         <remarks>
+          <para>Return the number of MediaDrm sessions that are currently opened
+            simultaneously among all MediaDrm instances for the active DRM scheme.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getOpenSessionCount()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getOpenSessionCount()</code>.</a>
@@ -2332,11 +2588,11 @@
       </Docs>
     </Member>
     <Member MemberName="PropertyAlgorithms">
+      <MemberSignature Language="VB.NET" Value="Public Const PropertyAlgorithms As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ PropertyAlgorithms;" />
       <MemberSignature Language="C#" Value="public const string PropertyAlgorithms;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string PropertyAlgorithms" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.PropertyAlgorithms" />
-      <MemberSignature Language="VB.NET" Value="Public Const PropertyAlgorithms As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ PropertyAlgorithms;" />
       <MemberSignature Language="F#" Value="val mutable PropertyAlgorithms : string" Usage="Android.Media.MediaDrm.PropertyAlgorithms" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -2356,6 +2612,9 @@
         <summary>String property name: a comma-separated list of cipher and mac algorithms
             supported by CryptoSession.</summary>
         <remarks>
+          <para>String property name: a comma-separated list of cipher and mac algorithms
+            supported by CryptoSession.  The list may be empty if the DRM
+            plugin does not support CryptoSession operations.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#PROPERTY_ALGORITHMS" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.PROPERTY_ALGORITHMS</code>.</a>
@@ -2371,11 +2630,11 @@
       </Docs>
     </Member>
     <Member MemberName="PropertyDescription">
+      <MemberSignature Language="VB.NET" Value="Public Const PropertyDescription As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ PropertyDescription;" />
       <MemberSignature Language="C#" Value="public const string PropertyDescription;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string PropertyDescription" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.PropertyDescription" />
-      <MemberSignature Language="VB.NET" Value="Public Const PropertyDescription As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ PropertyDescription;" />
       <MemberSignature Language="F#" Value="val mutable PropertyDescription : string" Usage="Android.Media.MediaDrm.PropertyDescription" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -2394,6 +2653,7 @@
       <Docs>
         <summary>String property name: describes the DRM plugin</summary>
         <remarks>
+          <para>String property name: describes the DRM plugin</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#PROPERTY_DESCRIPTION" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.PROPERTY_DESCRIPTION</code>.</a>
@@ -2409,11 +2669,11 @@
       </Docs>
     </Member>
     <Member MemberName="PropertyDeviceUniqueId">
+      <MemberSignature Language="VB.NET" Value="Public Const PropertyDeviceUniqueId As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ PropertyDeviceUniqueId;" />
       <MemberSignature Language="C#" Value="public const string PropertyDeviceUniqueId;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string PropertyDeviceUniqueId" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.PropertyDeviceUniqueId" />
-      <MemberSignature Language="VB.NET" Value="Public Const PropertyDeviceUniqueId As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ PropertyDeviceUniqueId;" />
       <MemberSignature Language="F#" Value="val mutable PropertyDeviceUniqueId : string" Usage="Android.Media.MediaDrm.PropertyDeviceUniqueId" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -2433,6 +2693,8 @@
         <summary>Byte array property name: the device unique identifier is established during
             device provisioning and provides a means of uniquely identifying each device.</summary>
         <remarks>
+          <para>Byte array property name: the device unique identifier is established during
+            device provisioning and provides a means of uniquely identifying each device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#PROPERTY_DEVICE_UNIQUE_ID" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.PROPERTY_DEVICE_UNIQUE_ID</code>.</a>
@@ -2448,11 +2710,11 @@
       </Docs>
     </Member>
     <Member MemberName="PropertyVendor">
+      <MemberSignature Language="VB.NET" Value="Public Const PropertyVendor As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ PropertyVendor;" />
       <MemberSignature Language="C#" Value="public const string PropertyVendor;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string PropertyVendor" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.PropertyVendor" />
-      <MemberSignature Language="VB.NET" Value="Public Const PropertyVendor As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ PropertyVendor;" />
       <MemberSignature Language="F#" Value="val mutable PropertyVendor : string" Usage="Android.Media.MediaDrm.PropertyVendor" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -2471,6 +2733,7 @@
       <Docs>
         <summary>String property name: identifies the maker of the DRM plugin</summary>
         <remarks>
+          <para>String property name: identifies the maker of the DRM plugin</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#PROPERTY_VENDOR" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.PROPERTY_VENDOR</code>.</a>
@@ -2486,11 +2749,11 @@
       </Docs>
     </Member>
     <Member MemberName="PropertyVersion">
+      <MemberSignature Language="VB.NET" Value="Public Const PropertyVersion As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ PropertyVersion;" />
       <MemberSignature Language="C#" Value="public const string PropertyVersion;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string PropertyVersion" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.PropertyVersion" />
-      <MemberSignature Language="VB.NET" Value="Public Const PropertyVersion As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ PropertyVersion;" />
       <MemberSignature Language="F#" Value="val mutable PropertyVersion : string" Usage="Android.Media.MediaDrm.PropertyVersion" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -2509,6 +2772,7 @@
       <Docs>
         <summary>String property name: identifies the version of the DRM plugin</summary>
         <remarks>
+          <para>String property name: identifies the version of the DRM plugin</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#PROPERTY_VERSION" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.PROPERTY_VERSION</code>.</a>
@@ -2524,11 +2788,11 @@
       </Docs>
     </Member>
     <Member MemberName="ProvideKeyResponse">
+      <MemberSignature Language="VB.NET" Value="Public Function ProvideKeyResponse (scope As Byte(), response As Byte()) As Byte()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::Byte&gt; ^ ProvideKeyResponse(cli::array &lt;System::Byte&gt; ^ scope, cli::array &lt;System::Byte&gt; ^ response);" />
       <MemberSignature Language="C#" Value="public byte[]? ProvideKeyResponse (byte[] scope, byte[] response);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance unsigned int8[] ProvideKeyResponse(unsigned int8[] scope, unsigned int8[] response) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.ProvideKeyResponse(System.Byte[],System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function ProvideKeyResponse (scope As Byte(), response As Byte()) As Byte()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; cli::array &lt;System::Byte&gt; ^ ProvideKeyResponse(cli::array &lt;System::Byte&gt; ^ scope, cli::array &lt;System::Byte&gt; ^ response);" />
       <MemberSignature Language="F#" Value="member this.ProvideKeyResponse : byte[] * byte[] -&gt; byte[]" Usage="mediaDrm.ProvideKeyResponse (scope, response)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2543,6 +2807,12 @@
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Byte[]</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="scope" Type="System.Byte[]" />
@@ -2560,6 +2830,13 @@
             keys will be returned. If the response is for a streaming or release request
             an empty byte array will be returned.</returns>
         <remarks>
+          <para>A key response is received from the license server by the app, then it is
+            provided to the MediaDrm instance using provideKeyResponse.  When the
+            response is for an offline key request, a keySetId is returned that can be
+            used to later restore the keys to a new session with the method
+            <c>#restoreKeys</c>.
+            When the response is for a streaming or release request, an empty byte array
+            is returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#provideKeyResponse(byte[],%20byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.provideKeyResponse(byte[], byte[])</code>.</a>
@@ -2580,11 +2857,11 @@
       </Docs>
     </Member>
     <Member MemberName="ProvideProvisionResponse">
+      <MemberSignature Language="VB.NET" Value="Public Sub ProvideProvisionResponse (response As Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ProvideProvisionResponse(cli::array &lt;System::Byte&gt; ^ response);" />
       <MemberSignature Language="C#" Value="public void ProvideProvisionResponse (byte[] response);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void ProvideProvisionResponse(unsigned int8[] response) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.ProvideProvisionResponse(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub ProvideProvisionResponse (response As Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ProvideProvisionResponse(cli::array &lt;System::Byte&gt; ^ response);" />
       <MemberSignature Language="F#" Value="member this.ProvideProvisionResponse : byte[] -&gt; unit" Usage="mediaDrm.ProvideProvisionResponse response" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2609,6 +2886,8 @@
         <summary>After a provision response is received by the app, it is provided to the
             MediaDrm instance using this method.</summary>
         <remarks>
+          <para>After a provision response is received by the app, it is provided to the
+            MediaDrm instance using this method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#provideProvisionResponse(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.provideProvisionResponse(byte[])</code>.</a>
@@ -2627,11 +2906,11 @@
       </Docs>
     </Member>
     <Member MemberName="QueryKeyStatus">
+      <MemberSignature Language="VB.NET" Value="Public Function QueryKeyStatus (sessionId As Byte()) As IDictionary(Of String, String)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IDictionary&lt;System::String ^, System::String ^&gt; ^ QueryKeyStatus(cli::array &lt;System::Byte&gt; ^ sessionId);" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IDictionary&lt;string,string&gt; QueryKeyStatus (byte[] sessionId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Collections.Generic.IDictionary`2&lt;string, string&gt; QueryKeyStatus(unsigned int8[] sessionId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.QueryKeyStatus(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Function QueryKeyStatus (sessionId As Byte()) As IDictionary(Of String, String)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IDictionary&lt;System::String ^, System::String ^&gt; ^ QueryKeyStatus(cli::array &lt;System::Byte&gt; ^ sessionId);" />
       <MemberSignature Language="F#" Value="member this.QueryKeyStatus : byte[] -&gt; System.Collections.Generic.IDictionary&lt;string, string&gt;" Usage="mediaDrm.QueryKeyStatus sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2655,6 +2934,11 @@
         <summary>Request an informative description of the key status for the session.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Request an informative description of the key status for the session.  The status is
+            in the form of {name, value} pairs.  Since DRM license policies vary by vendor,
+            the specific status field names are determined by each DRM vendor.  Refer to your
+            DRM provider documentation for definitions of the field names for a particular
+            DRM plugin.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#queryKeyStatus(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.queryKeyStatus(byte[])</code>.</a>
@@ -2670,11 +2954,11 @@
       </Docs>
     </Member>
     <Member MemberName="Release">
+      <MemberSignature Language="VB.NET" Value="Public Sub Release ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Release();" />
       <MemberSignature Language="C#" Value="public void Release ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void Release() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.Release" />
-      <MemberSignature Language="VB.NET" Value="Public Sub Release ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Release();" />
       <MemberSignature Language="F#" Value="member this.Release : unit -&gt; unit" Usage="mediaDrm.Release " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2696,9 +2980,9 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>
-        </summary>
+        <summary>This member is deprecated.</summary>
         <remarks>
+          <para>This member is deprecated. replaced by <c>#close()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#release()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.release()</code>.</a>
@@ -2714,11 +2998,11 @@
       </Docs>
     </Member>
     <Member MemberName="ReleaseAllSecureStops">
+      <MemberSignature Language="VB.NET" Value="Public Sub ReleaseAllSecureStops ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ReleaseAllSecureStops();" />
       <MemberSignature Language="C#" Value="public void ReleaseAllSecureStops ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void ReleaseAllSecureStops() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.ReleaseAllSecureStops" />
-      <MemberSignature Language="VB.NET" Value="Public Sub ReleaseAllSecureStops ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ReleaseAllSecureStops();" />
       <MemberSignature Language="F#" Value="member this.ReleaseAllSecureStops : unit -&gt; unit" Usage="mediaDrm.ReleaseAllSecureStops " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2747,6 +3031,9 @@
         <summary>Remove all secure stops without requiring a secure stop release message from
             the license server.</summary>
         <remarks>
+          <para>Remove all secure stops without requiring a secure stop release message from
+            the license server.</para>
+          <para>This member is deprecated. Remove all secure stops using <c>#removeAllSecureStops</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#releaseAllSecureStops()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.releaseAllSecureStops()</code>.</a>
@@ -2761,11 +3048,11 @@
       </Docs>
     </Member>
     <Member MemberName="ReleaseSecureStops">
+      <MemberSignature Language="VB.NET" Value="Public Sub ReleaseSecureStops (ssRelease As Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ReleaseSecureStops(cli::array &lt;System::Byte&gt; ^ ssRelease);" />
       <MemberSignature Language="C#" Value="public void ReleaseSecureStops (byte[] ssRelease);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void ReleaseSecureStops(unsigned int8[] ssRelease) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.ReleaseSecureStops(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub ReleaseSecureStops (ssRelease As Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ReleaseSecureStops(cli::array &lt;System::Byte&gt; ^ ssRelease);" />
       <MemberSignature Language="F#" Value="member this.ReleaseSecureStops : byte[] -&gt; unit" Usage="mediaDrm.ReleaseSecureStops ssRelease" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2792,6 +3079,13 @@
         <param name="ssRelease">the server response indicating which secure stops to release</param>
         <summary>Process the secure stop server response message ssRelease.</summary>
         <remarks>
+          <para>Process the secure stop server response message ssRelease.  After
+            authenticating the message, remove the secure stops identified in the
+            response.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Use renewals by calling <c>#getKeyRequest</c> to track
+            concurrent playback. See additional information in
+            <c>#getSecureStops</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#releaseSecureStops(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.releaseSecureStops(byte[])</code>.</a>
@@ -2807,11 +3101,11 @@
       </Docs>
     </Member>
     <Member MemberName="RemoveAllSecureStops">
+      <MemberSignature Language="VB.NET" Value="Public Sub RemoveAllSecureStops ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RemoveAllSecureStops();" />
       <MemberSignature Language="C#" Value="public void RemoveAllSecureStops ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void RemoveAllSecureStops() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.RemoveAllSecureStops" />
-      <MemberSignature Language="VB.NET" Value="Public Sub RemoveAllSecureStops ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RemoveAllSecureStops();" />
       <MemberSignature Language="F#" Value="member this.RemoveAllSecureStops : unit -&gt; unit" Usage="mediaDrm.RemoveAllSecureStops " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2840,6 +3134,16 @@
         <summary>Remove all secure stops without requiring a secure stop release message from
             the license server.</summary>
         <remarks>
+          <para>Remove all secure stops without requiring a secure stop release message from
+            the license server.
+            
+            This method was added in API 28. In API versions 18 through 27,
+            <c>#releaseAllSecureStops</c> should be called instead. There is no need to
+            do anything for API versions prior to 18.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Use renewals by calling <c>#getKeyRequest</c> to track
+            concurrent playback. See additional information in
+            <c>#getSecureStops</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#removeAllSecureStops()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.removeAllSecureStops()</code>.</a>
@@ -2854,11 +3158,11 @@
       </Docs>
     </Member>
     <Member MemberName="RemoveKeys">
+      <MemberSignature Language="VB.NET" Value="Public Sub RemoveKeys (sessionId As Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RemoveKeys(cli::array &lt;System::Byte&gt; ^ sessionId);" />
       <MemberSignature Language="C#" Value="public void RemoveKeys (byte[] sessionId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void RemoveKeys(unsigned int8[] sessionId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.RemoveKeys(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub RemoveKeys (sessionId As Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RemoveKeys(cli::array &lt;System::Byte&gt; ^ sessionId);" />
       <MemberSignature Language="F#" Value="member this.RemoveKeys : byte[] -&gt; unit" Usage="mediaDrm.RemoveKeys sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2881,6 +3185,7 @@
         <param name="sessionId">the session ID for the DRM session</param>
         <summary>Remove the current keys from a session.</summary>
         <remarks>
+          <para>Remove the current keys from a session.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#removeKeys(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.removeKeys(byte[])</code>.</a>
@@ -2896,11 +3201,11 @@
       </Docs>
     </Member>
     <Member MemberName="RemoveOfflineLicense">
+      <MemberSignature Language="VB.NET" Value="Public Sub RemoveOfflineLicense (keySetId As Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RemoveOfflineLicense(cli::array &lt;System::Byte&gt; ^ keySetId);" />
       <MemberSignature Language="C#" Value="public void RemoveOfflineLicense (byte[] keySetId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void RemoveOfflineLicense(unsigned int8[] keySetId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.RemoveOfflineLicense(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub RemoveOfflineLicense (keySetId As Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RemoveOfflineLicense(cli::array &lt;System::Byte&gt; ^ keySetId);" />
       <MemberSignature Language="F#" Value="member this.RemoveOfflineLicense : byte[] -&gt; unit" Usage="mediaDrm.RemoveOfflineLicense keySetId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2929,6 +3234,14 @@
             exchange using <c>#getKeyRequest</c> where the key type is
             KEY_TYPE_RELEASE, followed by <c>#provideKeyResponse</c>.</summary>
         <remarks>
+          <para>Normally offline licenses are released using a key request/response
+            exchange using <c>#getKeyRequest</c> where the key type is
+            KEY_TYPE_RELEASE, followed by <c>#provideKeyResponse</c>. This allows
+            the server to cryptographically confirm that the license has been removed
+            and then adjust the count of offline licenses allocated to the device.</para>
+          <para>In some exceptional situations it may be necessary to directly remove
+            offline licenses without notifying the server, which may be performed
+            using this method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#removeOfflineLicense(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.removeOfflineLicense(byte[])</code>.</a>
@@ -2943,11 +3256,11 @@
       </Docs>
     </Member>
     <Member MemberName="RemoveSecureStop">
+      <MemberSignature Language="VB.NET" Value="Public Sub RemoveSecureStop (ssid As Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RemoveSecureStop(cli::array &lt;System::Byte&gt; ^ ssid);" />
       <MemberSignature Language="C#" Value="public void RemoveSecureStop (byte[] ssid);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void RemoveSecureStop(unsigned int8[] ssid) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.RemoveSecureStop(System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub RemoveSecureStop (ssid As Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RemoveSecureStop(cli::array &lt;System::Byte&gt; ^ ssid);" />
       <MemberSignature Language="F#" Value="member this.RemoveSecureStop : byte[] -&gt; unit" Usage="mediaDrm.RemoveSecureStop ssid" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2979,6 +3292,12 @@
         <summary>Remove a specific secure stop without requiring a secure stop release message
             from the license server.</summary>
         <remarks>
+          <para>Remove a specific secure stop without requiring a secure stop release message
+            from the license server.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Use renewals by calling <c>#getKeyRequest</c> to track
+            concurrent playback. See additional information in
+            <c>#getSecureStops</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#removeSecureStop(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.removeSecureStop(byte[])</code>.</a>
@@ -2993,11 +3312,11 @@
       </Docs>
     </Member>
     <Member MemberName="RequiresSecureDecoder">
+      <MemberSignature Language="VB.NET" Value="Public Function RequiresSecureDecoder (mime As String) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool RequiresSecureDecoder(System::String ^ mime);" />
       <MemberSignature Language="C#" Value="public bool RequiresSecureDecoder (string mime);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool RequiresSecureDecoder(string mime) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.RequiresSecureDecoder(System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Function RequiresSecureDecoder (mime As String) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool RequiresSecureDecoder(System::String ^ mime);" />
       <MemberSignature Language="F#" Value="member this.RequiresSecureDecoder : string -&gt; bool" Usage="mediaDrm.RequiresSecureDecoder mime" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3027,6 +3346,10 @@
             to decode data of the given mime type at the default security level.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Query if the crypto scheme requires the use of a secure decoder
+            to decode data of the given mime type at the default security level.
+            The default security level is defined as the highest security level
+            supported on the device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#requiresSecureDecoder(java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.requiresSecureDecoder(java.lang.String)</code>.</a>
@@ -3041,11 +3364,11 @@
       </Docs>
     </Member>
     <Member MemberName="RequiresSecureDecoder">
+      <MemberSignature Language="VB.NET" Value="Public Function RequiresSecureDecoder (mime As String, level As Integer) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool RequiresSecureDecoder(System::String ^ mime, int level);" />
       <MemberSignature Language="C#" Value="public bool RequiresSecureDecoder (string mime, int level);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool RequiresSecureDecoder(string mime, int32 level) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.RequiresSecureDecoder(System.String,System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function RequiresSecureDecoder (mime As String, level As Integer) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool RequiresSecureDecoder(System::String ^ mime, int level);" />
       <MemberSignature Language="F#" Value="member this.RequiresSecureDecoder : string * int -&gt; bool" Usage="mediaDrm.RequiresSecureDecoder (mime, level)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3088,6 +3411,8 @@
             to decode data of the given mime type at the given security level.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Query if the crypto scheme requires the use of a secure decoder
+            to decode data of the given mime type at the given security level.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#requiresSecureDecoder(java.lang.String,%20int)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.requiresSecureDecoder(java.lang.String, int)</code>.</a>
@@ -3102,11 +3427,11 @@
       </Docs>
     </Member>
     <Member MemberName="RestoreKeys">
+      <MemberSignature Language="VB.NET" Value="Public Sub RestoreKeys (sessionId As Byte(), keySetId As Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RestoreKeys(cli::array &lt;System::Byte&gt; ^ sessionId, cli::array &lt;System::Byte&gt; ^ keySetId);" />
       <MemberSignature Language="C#" Value="public void RestoreKeys (byte[] sessionId, byte[] keySetId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void RestoreKeys(unsigned int8[] sessionId, unsigned int8[] keySetId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.RestoreKeys(System.Byte[],System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub RestoreKeys (sessionId As Byte(), keySetId As Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RestoreKeys(cli::array &lt;System::Byte&gt; ^ sessionId, cli::array &lt;System::Byte&gt; ^ keySetId);" />
       <MemberSignature Language="F#" Value="member this.RestoreKeys : byte[] * byte[] -&gt; unit" Usage="mediaDrm.RestoreKeys (sessionId, keySetId)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3131,6 +3456,8 @@
         <param name="keySetId">identifies the saved key set to restore</param>
         <summary>Restore persisted offline keys into a new session.</summary>
         <remarks>
+          <para>Restore persisted offline keys into a new session.  keySetId identifies the
+            keys to load, obtained from a prior call to <c>#provideKeyResponse</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#restoreKeys(byte[],%20byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.restoreKeys(byte[], byte[])</code>.</a>
@@ -3146,11 +3473,11 @@
       </Docs>
     </Member>
     <Member MemberName="SecureStopIds">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property SecureStopIds As IList(Of Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ SecureStopIds { System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ get(); };" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IList&lt;byte[]&gt; SecureStopIds { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Collections.Generic.IList`1&lt;unsigned int8[]&gt; SecureStopIds" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.SecureStopIds" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property SecureStopIds As IList(Of Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ SecureStopIds { System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.SecureStopIds : System.Collections.Generic.IList&lt;byte[]&gt;" Usage="Android.Media.MediaDrm.SecureStopIds" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -3178,6 +3505,13 @@
         <summary>Return a list of all secure stop IDs currently in persistent memory.</summary>
         <value>a list of secure stop IDs</value>
         <remarks>
+          <para>Return a list of all secure stop IDs currently in persistent memory.
+            The secure stop ID can be used to access or remove the corresponding
+            secure stop.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Use renewals by calling <c>#getKeyRequest</c> to track
+            concurrent playback. See additional information in
+            <c>#getSecureStops</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getSecureStopIds()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getSecureStopIds()</code>.</a>
@@ -3192,11 +3526,11 @@
       </Docs>
     </Member>
     <Member MemberName="SecureStops">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property SecureStops As IList(Of Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ SecureStops { System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ get(); };" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IList&lt;byte[]&gt; SecureStops { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Collections.Generic.IList`1&lt;unsigned int8[]&gt; SecureStops" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.SecureStops" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property SecureStops As IList(Of Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ SecureStops { System::Collections::Generic::IList&lt;cli::array &lt;System::Byte&gt; ^&gt; ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.SecureStops : System.Collections.Generic.IList&lt;byte[]&gt;" Usage="Android.Media.MediaDrm.SecureStops" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -3221,6 +3555,29 @@
             streams per subscriber across devices.</summary>
         <value>a list of all secure stops from secure persistent memory</value>
         <remarks>
+          <para>Secure stops are a way to enforce limits on the number of concurrent
+            streams per subscriber across devices. They provide secure monitoring of
+            the lifetime of content decryption keys in MediaDrm sessions.</para>
+          <para>A secure stop is written to secure persistent memory when keys are loaded
+            into a MediaDrm session. The secure stop state indicates that the keys
+            are available for use. When playback completes and the keys are removed
+            or the session is destroyed, the secure stop state is updated to indicate
+            that keys are no longer usable.</para>
+          <para>After playback, the app can query the secure stop and send it in a
+            message to the license server confirming that the keys are no longer
+            active. The license server returns a secure stop release response
+            message to the app which then deletes the secure stop from persistent
+            memory using <c>#releaseSecureStops</c>.</para>
+          <para>Each secure stop has a unique ID that can be used to identify it during
+            enumeration, access and removal.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Secure stops are a way to enforce limits on the number of
+            concurrent streams per subscriber across devices. They provide secure
+            monitoring of the lifetime of content decryption keys in MediaDrm
+            sessions. Limits on concurrent streams may also be enforced by
+            periodically renewing licenses. This can be achieved by calling
+            <c>#getKeyRequest</c> to initiate a renewal. MediaDrm users should
+            transition away from secure stops to periodic renewals.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getSecureStops()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getSecureStops()</code>.</a>
@@ -3236,11 +3593,11 @@
       </Docs>
     </Member>
     <Member MemberName="SecurityLevelHwSecureAll">
+      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelHwSecureAll As SecurityLevel  = 5" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelHwSecureAll = 5;" />
       <MemberSignature Language="C#" Value="public const Android.Media.SecurityLevel SecurityLevelHwSecureAll = 5;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.SecurityLevel SecurityLevelHwSecureAll = (5)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.SecurityLevelHwSecureAll" />
-      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelHwSecureAll As SecurityLevel  = 5" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelHwSecureAll = 5;" />
       <MemberSignature Language="F#" Value="val mutable SecurityLevelHwSecureAll : Android.Media.SecurityLevel" Usage="Android.Media.MediaDrm.SecurityLevelHwSecureAll" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -3270,6 +3627,9 @@
             handling of the media (compressed and uncompressed) is handled within a
             hardware backed trusted execution environment.</summary>
         <remarks>
+          <para>DRM key management, crypto operations, decoding of content and all
+            handling of the media (compressed and uncompressed) is handled within a
+            hardware backed trusted execution environment.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_HW_SECURE_ALL" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_HW_SECURE_ALL</code>.</a>
@@ -3284,11 +3644,11 @@
       </Docs>
     </Member>
     <Member MemberName="SecurityLevelHwSecureCrypto">
+      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelHwSecureCrypto As SecurityLevel  = 3" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelHwSecureCrypto = 3;" />
       <MemberSignature Language="C#" Value="public const Android.Media.SecurityLevel SecurityLevelHwSecureCrypto = 3;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.SecurityLevel SecurityLevelHwSecureCrypto = (3)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.SecurityLevelHwSecureCrypto" />
-      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelHwSecureCrypto As SecurityLevel  = 3" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelHwSecureCrypto = 3;" />
       <MemberSignature Language="F#" Value="val mutable SecurityLevelHwSecureCrypto : Android.Media.SecurityLevel" Usage="Android.Media.MediaDrm.SecurityLevelHwSecureCrypto" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -3317,6 +3677,8 @@
         <summary>DRM key management and crypto operations are performed within a hardware
             backed trusted execution environment.</summary>
         <remarks>
+          <para>DRM key management and crypto operations are performed within a hardware
+            backed trusted execution environment.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_HW_SECURE_CRYPTO" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_HW_SECURE_CRYPTO</code>.</a>
@@ -3331,11 +3693,11 @@
       </Docs>
     </Member>
     <Member MemberName="SecurityLevelHwSecureDecode">
+      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelHwSecureDecode As SecurityLevel  = 4" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelHwSecureDecode = 4;" />
       <MemberSignature Language="C#" Value="public const Android.Media.SecurityLevel SecurityLevelHwSecureDecode = 4;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.SecurityLevel SecurityLevelHwSecureDecode = (4)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.SecurityLevelHwSecureDecode" />
-      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelHwSecureDecode As SecurityLevel  = 4" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelHwSecureDecode = 4;" />
       <MemberSignature Language="F#" Value="val mutable SecurityLevelHwSecureDecode : Android.Media.SecurityLevel" Usage="Android.Media.MediaDrm.SecurityLevelHwSecureDecode" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -3364,6 +3726,8 @@
         <summary>DRM key management, crypto operations and decoding of content are
             performed within a hardware backed trusted execution environment.</summary>
         <remarks>
+          <para>DRM key management, crypto operations and decoding of content are
+            performed within a hardware backed trusted execution environment.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_HW_SECURE_DECODE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_HW_SECURE_DECODE</code>.</a>
@@ -3378,11 +3742,11 @@
       </Docs>
     </Member>
     <Member MemberName="SecurityLevelSwSecureCrypto">
+      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelSwSecureCrypto As SecurityLevel  = 1" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelSwSecureCrypto = 1;" />
       <MemberSignature Language="C#" Value="public const Android.Media.SecurityLevel SecurityLevelSwSecureCrypto = 1;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.SecurityLevel SecurityLevelSwSecureCrypto = (1)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.SecurityLevelSwSecureCrypto" />
-      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelSwSecureCrypto As SecurityLevel  = 1" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelSwSecureCrypto = 1;" />
       <MemberSignature Language="F#" Value="val mutable SecurityLevelSwSecureCrypto : Android.Media.SecurityLevel" Usage="Android.Media.MediaDrm.SecurityLevelSwSecureCrypto" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -3410,6 +3774,7 @@
       <Docs>
         <summary>DRM key management uses software-based whitebox crypto.</summary>
         <remarks>
+          <para>DRM key management uses software-based whitebox crypto.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_SW_SECURE_CRYPTO" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_SW_SECURE_CRYPTO</code>.</a>
@@ -3424,11 +3789,11 @@
       </Docs>
     </Member>
     <Member MemberName="SecurityLevelSwSecureDecode">
+      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelSwSecureDecode As SecurityLevel  = 2" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelSwSecureDecode = 2;" />
       <MemberSignature Language="C#" Value="public const Android.Media.SecurityLevel SecurityLevelSwSecureDecode = 2;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.SecurityLevel SecurityLevelSwSecureDecode = (2)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.SecurityLevelSwSecureDecode" />
-      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelSwSecureDecode As SecurityLevel  = 2" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelSwSecureDecode = 2;" />
       <MemberSignature Language="F#" Value="val mutable SecurityLevelSwSecureDecode : Android.Media.SecurityLevel" Usage="Android.Media.MediaDrm.SecurityLevelSwSecureDecode" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -3456,6 +3821,7 @@
       <Docs>
         <summary>DRM key management and decoding use software-based whitebox crypto.</summary>
         <remarks>
+          <para>DRM key management and decoding use software-based whitebox crypto.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_SW_SECURE_DECODE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_SW_SECURE_DECODE</code>.</a>
@@ -3470,11 +3836,11 @@
       </Docs>
     </Member>
     <Member MemberName="SecurityLevelUnknown">
+      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelUnknown As SecurityLevel  = 0" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelUnknown = 0;" />
       <MemberSignature Language="C#" Value="public const Android.Media.SecurityLevel SecurityLevelUnknown = 0;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.SecurityLevel SecurityLevelUnknown = (0)" />
       <MemberSignature Language="DocId" Value="F:Android.Media.MediaDrm.SecurityLevelUnknown" />
-      <MemberSignature Language="VB.NET" Value="Public Const SecurityLevelUnknown As SecurityLevel  = 0" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Media::SecurityLevel SecurityLevelUnknown = 0;" />
       <MemberSignature Language="F#" Value="val mutable SecurityLevelUnknown : Android.Media.SecurityLevel" Usage="Android.Media.MediaDrm.SecurityLevelUnknown" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -3503,6 +3869,8 @@
         <summary>The DRM plugin did not report a security level, or an error occurred
             accessing it</summary>
         <remarks>
+          <para>The DRM plugin did not report a security level, or an error occurred
+            accessing it</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_UNKNOWN" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_UNKNOWN</code>.</a>
@@ -3517,11 +3885,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetOnEventListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetOnEventListener (listener As MediaDrm.IOnEventListener)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnEventListener(Android::Media::MediaDrm::IOnEventListener ^ listener);" />
       <MemberSignature Language="C#" Value="public void SetOnEventListener (Android.Media.MediaDrm.IOnEventListener? listener);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetOnEventListener(class Android.Media.MediaDrm/IOnEventListener listener) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetOnEventListener(Android.Media.MediaDrm.IOnEventListener)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetOnEventListener (listener As MediaDrm.IOnEventListener)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnEventListener(Android::Media::MediaDrm::IOnEventListener ^ listener);" />
       <MemberSignature Language="F#" Value="member this.SetOnEventListener : Android.Media.MediaDrm.IOnEventListener -&gt; unit" Usage="mediaDrm.SetOnEventListener listener" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3532,6 +3900,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOnEventListener", "(Landroid/media/MediaDrm$OnEventListener;)V", "")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnEventListener", "(Landroid/media/MediaDrm$OnEventListener;)V", "")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -3560,11 +3932,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetOnEventListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetOnEventListener (listener As MediaDrm.IOnEventListener, handler As Handler)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnEventListener(Android::Media::MediaDrm::IOnEventListener ^ listener, Android::OS::Handler ^ handler);" />
       <MemberSignature Language="C#" Value="public void SetOnEventListener (Android.Media.MediaDrm.IOnEventListener? listener, Android.OS.Handler? handler);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetOnEventListener(class Android.Media.MediaDrm/IOnEventListener listener, class Android.OS.Handler handler) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetOnEventListener(Android.Media.MediaDrm.IOnEventListener,Android.OS.Handler)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetOnEventListener (listener As MediaDrm.IOnEventListener, handler As Handler)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnEventListener(Android::Media::MediaDrm::IOnEventListener ^ listener, Android::OS::Handler ^ handler);" />
       <MemberSignature Language="F#" Value="member this.SetOnEventListener : Android.Media.MediaDrm.IOnEventListener * Android.OS.Handler -&gt; unit" Usage="mediaDrm.SetOnEventListener (listener, handler)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3575,6 +3947,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOnEventListener", "(Landroid/media/MediaDrm$OnEventListener;Landroid/os/Handler;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnEventListener", "(Landroid/media/MediaDrm$OnEventListener;Landroid/os/Handler;)V", "", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
@@ -3608,11 +3984,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetOnEventListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetOnEventListener (executor As IExecutor, listener As MediaDrm.IOnEventListener)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnEventListener(Java::Util::Concurrent::IExecutor ^ executor, Android::Media::MediaDrm::IOnEventListener ^ listener);" />
       <MemberSignature Language="C#" Value="public void SetOnEventListener (Java.Util.Concurrent.IExecutor executor, Android.Media.MediaDrm.IOnEventListener listener);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetOnEventListener(class Java.Util.Concurrent.IExecutor executor, class Android.Media.MediaDrm/IOnEventListener listener) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetOnEventListener(Java.Util.Concurrent.IExecutor,Android.Media.MediaDrm.IOnEventListener)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetOnEventListener (executor As IExecutor, listener As MediaDrm.IOnEventListener)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnEventListener(Java::Util::Concurrent::IExecutor ^ executor, Android::Media::MediaDrm::IOnEventListener ^ listener);" />
       <MemberSignature Language="F#" Value="member this.SetOnEventListener : Java.Util.Concurrent.IExecutor * Android.Media.MediaDrm.IOnEventListener -&gt; unit" Usage="mediaDrm.SetOnEventListener (executor, listener)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3656,11 +4032,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetOnExpirationUpdateListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetOnExpirationUpdateListener (listener As MediaDrm.IOnExpirationUpdateListener, handler As Handler)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnExpirationUpdateListener(Android::Media::MediaDrm::IOnExpirationUpdateListener ^ listener, Android::OS::Handler ^ handler);" />
       <MemberSignature Language="C#" Value="public void SetOnExpirationUpdateListener (Android.Media.MediaDrm.IOnExpirationUpdateListener? listener, Android.OS.Handler? handler);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetOnExpirationUpdateListener(class Android.Media.MediaDrm/IOnExpirationUpdateListener listener, class Android.OS.Handler handler) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetOnExpirationUpdateListener(Android.Media.MediaDrm.IOnExpirationUpdateListener,Android.OS.Handler)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetOnExpirationUpdateListener (listener As MediaDrm.IOnExpirationUpdateListener, handler As Handler)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnExpirationUpdateListener(Android::Media::MediaDrm::IOnExpirationUpdateListener ^ listener, Android::OS::Handler ^ handler);" />
       <MemberSignature Language="F#" Value="member this.SetOnExpirationUpdateListener : Android.Media.MediaDrm.IOnExpirationUpdateListener * Android.OS.Handler -&gt; unit" Usage="mediaDrm.SetOnExpirationUpdateListener (listener, handler)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3671,6 +4047,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOnExpirationUpdateListener", "(Landroid/media/MediaDrm$OnExpirationUpdateListener;Landroid/os/Handler;)V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnExpirationUpdateListener", "(Landroid/media/MediaDrm$OnExpirationUpdateListener;Landroid/os/Handler;)V", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
@@ -3706,11 +4086,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetOnExpirationUpdateListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetOnExpirationUpdateListener (executor As IExecutor, listener As MediaDrm.IOnExpirationUpdateListener)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnExpirationUpdateListener(Java::Util::Concurrent::IExecutor ^ executor, Android::Media::MediaDrm::IOnExpirationUpdateListener ^ listener);" />
       <MemberSignature Language="C#" Value="public void SetOnExpirationUpdateListener (Java.Util.Concurrent.IExecutor executor, Android.Media.MediaDrm.IOnExpirationUpdateListener listener);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetOnExpirationUpdateListener(class Java.Util.Concurrent.IExecutor executor, class Android.Media.MediaDrm/IOnExpirationUpdateListener listener) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetOnExpirationUpdateListener(Java.Util.Concurrent.IExecutor,Android.Media.MediaDrm.IOnExpirationUpdateListener)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetOnExpirationUpdateListener (executor As IExecutor, listener As MediaDrm.IOnExpirationUpdateListener)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnExpirationUpdateListener(Java::Util::Concurrent::IExecutor ^ executor, Android::Media::MediaDrm::IOnExpirationUpdateListener ^ listener);" />
       <MemberSignature Language="F#" Value="member this.SetOnExpirationUpdateListener : Java.Util.Concurrent.IExecutor * Android.Media.MediaDrm.IOnExpirationUpdateListener -&gt; unit" Usage="mediaDrm.SetOnExpirationUpdateListener (executor, listener)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3755,11 +4135,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetOnKeyStatusChangeListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetOnKeyStatusChangeListener (listener As MediaDrm.IOnKeyStatusChangeListener, handler As Handler)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnKeyStatusChangeListener(Android::Media::MediaDrm::IOnKeyStatusChangeListener ^ listener, Android::OS::Handler ^ handler);" />
       <MemberSignature Language="C#" Value="public void SetOnKeyStatusChangeListener (Android.Media.MediaDrm.IOnKeyStatusChangeListener? listener, Android.OS.Handler? handler);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetOnKeyStatusChangeListener(class Android.Media.MediaDrm/IOnKeyStatusChangeListener listener, class Android.OS.Handler handler) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetOnKeyStatusChangeListener(Android.Media.MediaDrm.IOnKeyStatusChangeListener,Android.OS.Handler)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetOnKeyStatusChangeListener (listener As MediaDrm.IOnKeyStatusChangeListener, handler As Handler)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnKeyStatusChangeListener(Android::Media::MediaDrm::IOnKeyStatusChangeListener ^ listener, Android::OS::Handler ^ handler);" />
       <MemberSignature Language="F#" Value="member this.SetOnKeyStatusChangeListener : Android.Media.MediaDrm.IOnKeyStatusChangeListener * Android.OS.Handler -&gt; unit" Usage="mediaDrm.SetOnKeyStatusChangeListener (listener, handler)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3770,6 +4150,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOnKeyStatusChangeListener", "(Landroid/media/MediaDrm$OnKeyStatusChangeListener;Landroid/os/Handler;)V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnKeyStatusChangeListener", "(Landroid/media/MediaDrm$OnKeyStatusChangeListener;Landroid/os/Handler;)V", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
@@ -3805,11 +4189,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetOnKeyStatusChangeListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetOnKeyStatusChangeListener (executor As IExecutor, listener As MediaDrm.IOnKeyStatusChangeListener)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnKeyStatusChangeListener(Java::Util::Concurrent::IExecutor ^ executor, Android::Media::MediaDrm::IOnKeyStatusChangeListener ^ listener);" />
       <MemberSignature Language="C#" Value="public void SetOnKeyStatusChangeListener (Java.Util.Concurrent.IExecutor executor, Android.Media.MediaDrm.IOnKeyStatusChangeListener listener);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetOnKeyStatusChangeListener(class Java.Util.Concurrent.IExecutor executor, class Android.Media.MediaDrm/IOnKeyStatusChangeListener listener) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetOnKeyStatusChangeListener(Java.Util.Concurrent.IExecutor,Android.Media.MediaDrm.IOnKeyStatusChangeListener)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetOnKeyStatusChangeListener (executor As IExecutor, listener As MediaDrm.IOnKeyStatusChangeListener)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnKeyStatusChangeListener(Java::Util::Concurrent::IExecutor ^ executor, Android::Media::MediaDrm::IOnKeyStatusChangeListener ^ listener);" />
       <MemberSignature Language="F#" Value="member this.SetOnKeyStatusChangeListener : Java.Util.Concurrent.IExecutor * Android.Media.MediaDrm.IOnKeyStatusChangeListener -&gt; unit" Usage="mediaDrm.SetOnKeyStatusChangeListener (executor, listener)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3854,11 +4238,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetOnSessionLostStateListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetOnSessionLostStateListener (listener As MediaDrm.IOnSessionLostStateListener, handler As Handler)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnSessionLostStateListener(Android::Media::MediaDrm::IOnSessionLostStateListener ^ listener, Android::OS::Handler ^ handler);" />
       <MemberSignature Language="C#" Value="public void SetOnSessionLostStateListener (Android.Media.MediaDrm.IOnSessionLostStateListener? listener, Android.OS.Handler? handler);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetOnSessionLostStateListener(class Android.Media.MediaDrm/IOnSessionLostStateListener listener, class Android.OS.Handler handler) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetOnSessionLostStateListener(Android.Media.MediaDrm.IOnSessionLostStateListener,Android.OS.Handler)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetOnSessionLostStateListener (listener As MediaDrm.IOnSessionLostStateListener, handler As Handler)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnSessionLostStateListener(Android::Media::MediaDrm::IOnSessionLostStateListener ^ listener, Android::OS::Handler ^ handler);" />
       <MemberSignature Language="F#" Value="member this.SetOnSessionLostStateListener : Android.Media.MediaDrm.IOnSessionLostStateListener * Android.OS.Handler -&gt; unit" Usage="mediaDrm.SetOnSessionLostStateListener (listener, handler)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3869,6 +4253,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOnSessionLostStateListener", "(Landroid/media/MediaDrm$OnSessionLostStateListener;Landroid/os/Handler;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnSessionLostStateListener", "(Landroid/media/MediaDrm$OnSessionLostStateListener;Landroid/os/Handler;)V", "", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
@@ -3904,11 +4292,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetOnSessionLostStateListener">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetOnSessionLostStateListener (executor As IExecutor, listener As MediaDrm.IOnSessionLostStateListener)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnSessionLostStateListener(Java::Util::Concurrent::IExecutor ^ executor, Android::Media::MediaDrm::IOnSessionLostStateListener ^ listener);" />
       <MemberSignature Language="C#" Value="public void SetOnSessionLostStateListener (Java.Util.Concurrent.IExecutor executor, Android.Media.MediaDrm.IOnSessionLostStateListener? listener);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetOnSessionLostStateListener(class Java.Util.Concurrent.IExecutor executor, class Android.Media.MediaDrm/IOnSessionLostStateListener listener) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetOnSessionLostStateListener(Java.Util.Concurrent.IExecutor,Android.Media.MediaDrm.IOnSessionLostStateListener)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetOnSessionLostStateListener (executor As IExecutor, listener As MediaDrm.IOnSessionLostStateListener)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetOnSessionLostStateListener(Java::Util::Concurrent::IExecutor ^ executor, Android::Media::MediaDrm::IOnSessionLostStateListener ^ listener);" />
       <MemberSignature Language="F#" Value="member this.SetOnSessionLostStateListener : Java.Util.Concurrent.IExecutor * Android.Media.MediaDrm.IOnSessionLostStateListener -&gt; unit" Usage="mediaDrm.SetOnSessionLostStateListener (executor, listener)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3930,7 +4318,14 @@
       </ReturnValue>
       <Parameters>
         <Parameter Name="executor" Type="Java.Util.Concurrent.IExecutor" />
-        <Parameter Name="listener" Type="Android.Media.MediaDrm+IOnSessionLostStateListener" />
+        <Parameter Name="listener" Type="Android.Media.MediaDrm+IOnSessionLostStateListener">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
       </Parameters>
       <Docs>
         <param name="executor">To be added.</param>
@@ -3953,11 +4348,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetPropertyByteArray">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetPropertyByteArray (propertyName As String, value As Byte())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetPropertyByteArray(System::String ^ propertyName, cli::array &lt;System::Byte&gt; ^ value);" />
       <MemberSignature Language="C#" Value="public void SetPropertyByteArray (string propertyName, byte[] value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetPropertyByteArray(string propertyName, unsigned int8[] value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetPropertyByteArray(System.String,System.Byte[])" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetPropertyByteArray (propertyName As String, value As Byte())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetPropertyByteArray(System::String ^ propertyName, cli::array &lt;System::Byte&gt; ^ value);" />
       <MemberSignature Language="F#" Value="member this.SetPropertyByteArray : string * byte[] -&gt; unit" Usage="mediaDrm.SetPropertyByteArray (propertyName, value)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -3983,6 +4378,8 @@
         <summary>Set a MediaDrm byte array property value, given the property name string
             and new value for the property.</summary>
         <remarks>
+          <para>Set a MediaDrm byte array property value, given the property name string
+            and new value for the property.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#setPropertyByteArray(java.lang.String,%20byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.setPropertyByteArray(java.lang.String, byte[])</code>.</a>
@@ -3998,11 +4395,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetPropertyString">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetPropertyString (propertyName As String, value As String)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetPropertyString(System::String ^ propertyName, System::String ^ value);" />
       <MemberSignature Language="C#" Value="public void SetPropertyString (string propertyName, string value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetPropertyString(string propertyName, string value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Media.MediaDrm.SetPropertyString(System.String,System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetPropertyString (propertyName As String, value As String)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetPropertyString(System::String ^ propertyName, System::String ^ value);" />
       <MemberSignature Language="F#" Value="member this.SetPropertyString : string * string -&gt; unit" Usage="mediaDrm.SetPropertyString (propertyName, value)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -4028,6 +4425,8 @@
         <summary>Set a MediaDrm String property value, given the property name string
             and new value for the property.</summary>
         <remarks>
+          <para>Set a MediaDrm String property value, given the property name string
+            and new value for the property.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#setPropertyString(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.setPropertyString(java.lang.String, java.lang.String)</code>.</a>
@@ -4043,12 +4442,12 @@
       </Docs>
     </Member>
     <Member MemberName="SupportedCryptoSchemes">
+      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property SupportedCryptoSchemes As IList(Of UUID)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property System::Collections::Generic::IList&lt;Java::Util::UUID ^&gt; ^ SupportedCryptoSchemes { System::Collections::Generic::IList&lt;Java::Util::UUID ^&gt; ^ get(); };" />
       <MemberSignature Language="C#" Value="public static System.Collections.Generic.IList&lt;Java.Util.UUID&gt; SupportedCryptoSchemes { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.Generic.IList`1&lt;class Java.Util.UUID&gt; SupportedCryptoSchemes" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.SupportedCryptoSchemes" />
-      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property SupportedCryptoSchemes As IList(Of UUID)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property System::Collections::Generic::IList&lt;Java::Util::UUID ^&gt; ^ SupportedCryptoSchemes { System::Collections::Generic::IList&lt;Java::Util::UUID ^&gt; ^ get(); };" />
-      <MemberSignature Language="F#" Value="static member SupportedCryptoSchemes : System.Collections.Generic.IList&lt;Java.Util.UUID&gt;" Usage="Android.Media.MediaDrm.SupportedCryptoSchemes" />
+      <MemberSignature Language="F#" Value="member this.SupportedCryptoSchemes : System.Collections.Generic.IList&lt;Java.Util.UUID&gt;" Usage="Android.Media.MediaDrm.SupportedCryptoSchemes" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -4087,11 +4486,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Media.MediaDrm.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -4120,11 +4519,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Media.MediaDrm.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>

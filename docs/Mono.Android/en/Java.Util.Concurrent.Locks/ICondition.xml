@@ -1,9 +1,9 @@
 <Type Name="ICondition" FullName="Java.Util.Concurrent.Locks.ICondition">
+  <TypeSignature Language="VB.NET" Value="Public Interface ICondition&#xA;Implements IDisposable, IJavaObject, IJavaPeerable" />
+  <TypeSignature Language="C++ CLI" Value="public interface class ICondition : Android::Runtime::IJavaObject, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="C#" Value="public interface ICondition : Android.Runtime.IJavaObject, IDisposable, Java.Interop.IJavaPeerable" />
   <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract beforefieldinit ICondition implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Concurrent.Locks.ICondition" />
-  <TypeSignature Language="VB.NET" Value="Public Interface ICondition&#xA;Implements IDisposable, IJavaObject, IJavaPeerable" />
-  <TypeSignature Language="C++ CLI" Value="public interface class ICondition : Android::Runtime::IJavaObject, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="F#" Value="type ICondition = interface&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -35,6 +35,129 @@
             combining them with the use of arbitrary <c>Lock</c> implementations.</summary>
     <remarks>
       <para>
+        <c>Condition</c> factors out the <c>Object</c> monitor
+            methods (<c>Object#wait() wait</c>, <c>Object#notify notify</c>
+            and <c>Object#notifyAll notifyAll</c>) into distinct objects to
+            give the effect of having multiple wait-sets per object, by
+            combining them with the use of arbitrary <c>Lock</c> implementations.
+            Where a <c>Lock</c> replaces the use of <c>synchronized</c> methods
+            and statements, a <c>Condition</c> replaces the use of the Object
+            monitor methods.</para>
+      <para>Conditions (also known as &lt;em&gt;condition queues&lt;/em&gt; or
+            &lt;em&gt;condition variables&lt;/em&gt;) provide a means for one thread to
+            suspend execution (to &amp;quot;wait&amp;quot;) until notified by another
+            thread that some state condition may now be true.  Because access
+            to this shared state information occurs in different threads, it
+            must be protected, so a lock of some form is associated with the
+            condition. The key property that waiting for a condition provides
+            is that it &lt;em&gt;atomically&lt;/em&gt; releases the associated lock and
+            suspends the current thread, just like <c>Object.wait</c>.</para>
+      <para>A <c>Condition</c> instance is intrinsically bound to a lock.
+            To obtain a <c>Condition</c> instance for a particular <c>Lock</c>
+            instance use its <c>Lock#newCondition newCondition()</c> method.</para>
+      <para>As an example, suppose we have a bounded buffer which supports
+            <c>put</c> and <c>take</c> methods.  If a
+            <c>take</c> is attempted on an empty buffer, then the thread will block
+            until an item becomes available; if a <c>put</c> is attempted on a
+            full buffer, then the thread will block until a space becomes available.
+            We would like to keep waiting <c>put</c> threads and <c>take</c>
+            threads in separate wait-sets so that we can use the optimization of
+            only notifying a single thread at a time when items or spaces become
+            available in the buffer. This can be achieved using two
+            <c>Condition</c> instances.</para>
+      <code lang="text/java">class BoundedBuffer&amp;lt;E&amp;gt; {
+              &lt;b&gt;final Lock lock = new ReentrantLock();&lt;/b&gt;
+              final Condition notFull  = &lt;b&gt;lock.newCondition(); &lt;/b&gt;
+              final Condition notEmpty = &lt;b&gt;lock.newCondition(); &lt;/b&gt;
+            
+              final Object[] items = new Object[100];
+              int putptr, takeptr, count;
+            
+              public void put(E x) throws InterruptedException {
+                &lt;b&gt;lock.lock();
+                try {&lt;/b&gt;
+                  while (count == items.length)
+                    &lt;b&gt;notFull.await();&lt;/b&gt;
+                  items[putptr] = x;
+                  if (++putptr == items.length) putptr = 0;
+                  ++count;
+                  &lt;b&gt;notEmpty.signal();&lt;/b&gt;
+                &lt;b&gt;} finally {
+                  lock.unlock();
+                }&lt;/b&gt;
+              }
+            
+              public E take() throws InterruptedException {
+                &lt;b&gt;lock.lock();
+                try {&lt;/b&gt;
+                  while (count == 0)
+                    &lt;b&gt;notEmpty.await();&lt;/b&gt;
+                  E x = (E) items[takeptr];
+                  if (++takeptr == items.length) takeptr = 0;
+                  --count;
+                  &lt;b&gt;notFull.signal();&lt;/b&gt;
+                  return x;
+                &lt;b&gt;} finally {
+                  lock.unlock();
+                }&lt;/b&gt;
+              }
+            }
+            </code>
+      <para>(The <c>java.util.concurrent.ArrayBlockingQueue</c> class provides
+            this functionality, so there is no reason to implement this
+            sample usage class.)</para>
+      <para>A <c>Condition</c> implementation can provide behavior and semantics
+            that is
+            different from that of the <c>Object</c> monitor methods, such as
+            guaranteed ordering for notifications, or not requiring a lock to be held
+            when performing notifications.
+            If an implementation provides such specialized semantics then the
+            implementation must document those semantics.</para>
+      <para>Note that <c>Condition</c> instances are just normal objects and can
+            themselves be used as the target in a <c>synchronized</c> statement,
+            and can have their own monitor <c>Object#wait wait</c> and
+            <c>Object#notify notify</c> methods invoked.
+            Acquiring the monitor lock of a <c>Condition</c> instance, or using its
+            monitor methods, has no specified relationship with acquiring the
+            <c>Lock</c> associated with that <c>Condition</c> or the use of its
+            #await waiting and #signal signalling methods.
+            It is recommended that to avoid confusion you never use <c>Condition</c>
+            instances in this way, except perhaps within their own implementation.</para>
+      <para>Except where noted, passing a <c>null</c> value for any parameter
+            will result in a <c>NullPointerException</c> being thrown.
+            
+            &lt;h2&gt;Implementation Considerations&lt;/h2&gt;</para>
+      <para>When waiting upon a <c>Condition</c>, a &amp;quot;&lt;em&gt;spurious
+            wakeup&lt;/em&gt;&amp;quot; is permitted to occur, in
+            general, as a concession to the underlying platform semantics.
+            This has little practical impact on most application programs as a
+            <c>Condition</c> should always be waited upon in a loop, testing
+            the state predicate that is being waited for.  An implementation is
+            free to remove the possibility of spurious wakeups but it is
+            recommended that applications programmers always assume that they can
+            occur and so always wait in a loop.</para>
+      <para>The three forms of condition waiting
+            (interruptible, non-interruptible, and timed) may differ in their ease of
+            implementation on some platforms and in their performance characteristics.
+            In particular, it may be difficult to provide these features and maintain
+            specific semantics such as ordering guarantees.
+            Further, the ability to interrupt the actual suspension of the thread may
+            not always be feasible to implement on all platforms.</para>
+      <para>Consequently, an implementation is not required to define exactly the
+            same guarantees or semantics for all three forms of waiting, nor is it
+            required to support interruption of the actual suspension of the thread.</para>
+      <para>An implementation is required to
+            clearly document the semantics and guarantees provided by each of the
+            waiting methods, and when an implementation does support interruption of
+            thread suspension then it must obey the interruption semantics as defined
+            in this interface.</para>
+      <para>As interruption generally implies cancellation, and checks for
+            interruption are often infrequent, an implementation can favor responding
+            to an interrupt over normal method return. This is true even if it can be
+            shown that the interrupt occurred after another action that may have
+            unblocked the thread. An implementation should document this behavior.</para>
+      <para>Added in 1.5.</para>
+      <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/locks/Condition" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.Condition</code>.</a>
         </format>
@@ -49,11 +172,11 @@
   </Docs>
   <Members>
     <Member MemberName="Await">
+      <MemberSignature Language="VB.NET" Value="Public Sub Await ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Await();" />
       <MemberSignature Language="C#" Value="public void Await ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Await() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.ICondition.Await" />
-      <MemberSignature Language="VB.NET" Value="Public Sub Await ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Await();" />
       <MemberSignature Language="F#" Value="abstract member Await : unit -&gt; unit" Usage="iCondition.Await " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -74,6 +197,45 @@
         <summary>Causes the current thread to wait until it is signalled or
             Thread#interrupt interrupted.</summary>
         <remarks>
+          <para>Causes the current thread to wait until it is signalled or
+            Thread#interrupt interrupted.</para>
+          <para>The lock associated with this <c>Condition</c> is atomically
+            released and the current thread becomes disabled for thread scheduling
+            purposes and lies dormant until &lt;em&gt;one&lt;/em&gt; of four things happens:
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes the <c>#signal</c> method for this
+            <c>Condition</c> and the current thread happens to be chosen as the
+            thread to be awakened; or
+            &lt;li&gt;Some other thread invokes the <c>#signalAll</c> method for this
+            <c>Condition</c>; or
+            &lt;li&gt;Some other thread Thread#interrupt interrupts the
+            current thread, and interruption of thread suspension is supported; or
+            &lt;li&gt;A &amp;quot;&lt;em&gt;spurious wakeup&lt;/em&gt;&amp;quot; occurs.
+            &lt;/ul&gt;</para>
+          <para>In all cases, before this method can return the current thread must
+            re-acquire the lock associated with this condition. When the
+            thread returns it is &lt;em&gt;guaranteed&lt;/em&gt; to hold this lock.</para>
+          <para>If the current thread:
+            &lt;ul&gt;
+            &lt;li&gt;has its interrupted status set on entry to this method; or
+            &lt;li&gt;is Thread#interrupt interrupted while waiting
+            and interruption of thread suspension is supported,
+            &lt;/ul&gt;
+            then <c>InterruptedException</c> is thrown and the current thread's
+            interrupted status is cleared. It is not specified, in the first
+            case, whether or not the test for interruption occurs before the lock
+            is released.</para>
+          <para>&lt;b&gt;Implementation Considerations&lt;/b&gt;</para>
+          <para>The current thread is assumed to hold the lock associated with this
+            <c>Condition</c> when this method is called.
+            It is up to the implementation to determine if this is
+            the case and if not, how to respond. Typically, an exception will be
+            thrown (such as <c>IllegalMonitorStateException</c>) and the
+            implementation must document that fact.</para>
+          <para>An implementation can favor responding to an interrupt over normal
+            method return in response to a signal. In that case the implementation
+            must ensure that the signal is redirected to another waiting thread, if
+            there is one.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/Condition#await()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.Condition.await()</code>.</a>
@@ -92,11 +254,11 @@
       </Docs>
     </Member>
     <Member MemberName="Await">
+      <MemberSignature Language="VB.NET" Value="Public Function Await (time As Long, unit As TimeUnit) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool Await(long time, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public bool Await (long time, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool Await(int64 time, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.ICondition.Await(System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Await (time As Long, unit As TimeUnit) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool Await(long time, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member Await : int64 * Java.Util.Concurrent.TimeUnit -&gt; bool" Usage="iCondition.Await (time, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -107,6 +269,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("await", "(JLjava/util/concurrent/TimeUnit;)Z", "GetAwait_JLjava_util_concurrent_TimeUnit_Handler:Java.Util.Concurrent.Locks.IConditionInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("await", "(JLjava/util/concurrent/TimeUnit;)Z", "GetAwait_JLjava_util_concurrent_TimeUnit_Handler:Java.Util.Concurrent.Locks.IConditionInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -125,6 +291,10 @@
           <c>false</c> if the waiting time detectably elapsed
                     before return from the method, else <c>true</c></returns>
         <remarks>
+          <para>Causes the current thread to wait until it is signalled or interrupted,
+            or the specified waiting time elapses. This method is behaviorally
+            equivalent to:</para>
+          <code lang="text/java">{@code awaitNanos(unit.toNanos(time)) &gt; 0}</code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/Condition#await(long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.Condition.await(long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -143,11 +313,11 @@
       </Docs>
     </Member>
     <Member MemberName="AwaitNanos">
+      <MemberSignature Language="VB.NET" Value="Public Function AwaitNanos (nanosTimeout As Long) As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; long AwaitNanos(long nanosTimeout);" />
       <MemberSignature Language="C#" Value="public long AwaitNanos (long nanosTimeout);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int64 AwaitNanos(int64 nanosTimeout) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.ICondition.AwaitNanos(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function AwaitNanos (nanosTimeout As Long) As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; long AwaitNanos(long nanosTimeout);" />
       <MemberSignature Language="F#" Value="abstract member AwaitNanos : int64 -&gt; int64" Usage="iCondition.AwaitNanos nanosTimeout" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -177,6 +347,76 @@
                     the desired time.  A value less than or equal to zero
                     indicates that no time remains.</returns>
         <remarks>
+          <para>Causes the current thread to wait until it is signalled or interrupted,
+            or the specified waiting time elapses.</para>
+          <para>The lock associated with this condition is atomically
+            released and the current thread becomes disabled for thread scheduling
+            purposes and lies dormant until &lt;em&gt;one&lt;/em&gt; of five things happens:
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes the <c>#signal</c> method for this
+            <c>Condition</c> and the current thread happens to be chosen as the
+            thread to be awakened; or
+            &lt;li&gt;Some other thread invokes the <c>#signalAll</c> method for this
+            <c>Condition</c>; or
+            &lt;li&gt;Some other thread Thread#interrupt interrupts the
+            current thread, and interruption of thread suspension is supported; or
+            &lt;li&gt;The specified waiting time elapses; or
+            &lt;li&gt;A &amp;quot;&lt;em&gt;spurious wakeup&lt;/em&gt;&amp;quot; occurs.
+            &lt;/ul&gt;</para>
+          <para>In all cases, before this method can return the current thread must
+            re-acquire the lock associated with this condition. When the
+            thread returns it is &lt;em&gt;guaranteed&lt;/em&gt; to hold this lock.</para>
+          <para>If the current thread:
+            &lt;ul&gt;
+            &lt;li&gt;has its interrupted status set on entry to this method; or
+            &lt;li&gt;is Thread#interrupt interrupted while waiting
+            and interruption of thread suspension is supported,
+            &lt;/ul&gt;
+            then <c>InterruptedException</c> is thrown and the current thread's
+            interrupted status is cleared. It is not specified, in the first
+            case, whether or not the test for interruption occurs before the lock
+            is released.</para>
+          <para>The method returns an estimate of the number of nanoseconds
+            remaining to wait given the supplied <c>nanosTimeout</c>
+            value upon return, or a value less than or equal to zero if it
+            timed out. This value can be used to determine whether and how
+            long to re-wait in cases where the wait returns but an awaited
+            condition still does not hold. Typical uses of this method take
+            the following form:</para>
+          <code lang="text/java">{@code
+            boolean aMethod(long timeout, TimeUnit unit)
+                throws InterruptedException {
+              long nanosRemaining = unit.toNanos(timeout);
+              lock.lock();
+              try {
+                while (!conditionBeingWaitedFor()) {
+                  if (nanosRemaining &lt;= 0L)
+                    return false;
+                  nanosRemaining = theCondition.awaitNanos(nanosRemaining);
+                }
+                // ...
+                return true;
+              } finally {
+                lock.unlock();
+              }
+            }}</code>
+          <para>Design note: This method requires a nanosecond argument so
+            as to avoid truncation errors in reporting remaining times.
+            Such precision loss would make it difficult for programmers to
+            ensure that total waiting times are not systematically shorter
+            than specified when re-waits occur.</para>
+          <para>&lt;b&gt;Implementation Considerations&lt;/b&gt;</para>
+          <para>The current thread is assumed to hold the lock associated with this
+            <c>Condition</c> when this method is called.
+            It is up to the implementation to determine if this is
+            the case and if not, how to respond. Typically, an exception will be
+            thrown (such as <c>IllegalMonitorStateException</c>) and the
+            implementation must document that fact.</para>
+          <para>An implementation can favor responding to an interrupt over normal
+            method return in response to a signal, or over indicating the elapse
+            of the specified waiting time. In either case the implementation
+            must ensure that the signal is redirected to another waiting thread, if
+            there is one.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/Condition#awaitNanos(long)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.Condition.awaitNanos(long)</code>.</a>
@@ -195,11 +435,11 @@
       </Docs>
     </Member>
     <Member MemberName="AwaitUninterruptibly">
+      <MemberSignature Language="VB.NET" Value="Public Sub AwaitUninterruptibly ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void AwaitUninterruptibly();" />
       <MemberSignature Language="C#" Value="public void AwaitUninterruptibly ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void AwaitUninterruptibly() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.ICondition.AwaitUninterruptibly" />
-      <MemberSignature Language="VB.NET" Value="Public Sub AwaitUninterruptibly ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void AwaitUninterruptibly();" />
       <MemberSignature Language="F#" Value="abstract member AwaitUninterruptibly : unit -&gt; unit" Usage="iCondition.AwaitUninterruptibly " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -219,6 +459,33 @@
       <Docs>
         <summary>Causes the current thread to wait until it is signalled.</summary>
         <remarks>
+          <para>Causes the current thread to wait until it is signalled.</para>
+          <para>The lock associated with this condition is atomically
+            released and the current thread becomes disabled for thread scheduling
+            purposes and lies dormant until &lt;em&gt;one&lt;/em&gt; of three things happens:
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes the <c>#signal</c> method for this
+            <c>Condition</c> and the current thread happens to be chosen as the
+            thread to be awakened; or
+            &lt;li&gt;Some other thread invokes the <c>#signalAll</c> method for this
+            <c>Condition</c>; or
+            &lt;li&gt;A &amp;quot;&lt;em&gt;spurious wakeup&lt;/em&gt;&amp;quot; occurs.
+            &lt;/ul&gt;</para>
+          <para>In all cases, before this method can return the current thread must
+            re-acquire the lock associated with this condition. When the
+            thread returns it is &lt;em&gt;guaranteed&lt;/em&gt; to hold this lock.</para>
+          <para>If the current thread's interrupted status is set when it enters
+            this method, or it is Thread#interrupt interrupted
+            while waiting, it will continue to wait until signalled. When it finally
+            returns from this method its interrupted status will still
+            be set.</para>
+          <para>&lt;b&gt;Implementation Considerations&lt;/b&gt;</para>
+          <para>The current thread is assumed to hold the lock associated with this
+            <c>Condition</c> when this method is called.
+            It is up to the implementation to determine if this is
+            the case and if not, how to respond. Typically, an exception will be
+            thrown (such as <c>IllegalMonitorStateException</c>) and the
+            implementation must document that fact.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/Condition#awaitUninterruptibly()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.Condition.awaitUninterruptibly()</code>.</a>
@@ -234,11 +501,11 @@
       </Docs>
     </Member>
     <Member MemberName="AwaitUntil">
+      <MemberSignature Language="VB.NET" Value="Public Function AwaitUntil (deadline As Date) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool AwaitUntil(Java::Util::Date ^ deadline);" />
       <MemberSignature Language="C#" Value="public bool AwaitUntil (Java.Util.Date? deadline);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool AwaitUntil(class Java.Util.Date deadline) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.ICondition.AwaitUntil(Java.Util.Date)" />
-      <MemberSignature Language="VB.NET" Value="Public Function AwaitUntil (deadline As Date) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool AwaitUntil(Java::Util::Date ^ deadline);" />
       <MemberSignature Language="F#" Value="abstract member AwaitUntil : Java.Util.Date -&gt; bool" Usage="iCondition.AwaitUntil deadline" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -249,6 +516,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("awaitUntil", "(Ljava/util/Date;)Z", "GetAwaitUntil_Ljava_util_Date_Handler:Java.Util.Concurrent.Locks.IConditionInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("awaitUntil", "(Ljava/util/Date;)Z", "GetAwaitUntil_Ljava_util_Date_Handler:Java.Util.Concurrent.Locks.IConditionInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -265,6 +536,66 @@
           <c>false</c> if the deadline has elapsed upon return, else
                     <c>true</c></returns>
         <remarks>
+          <para>Causes the current thread to wait until it is signalled or interrupted,
+            or the specified deadline elapses.</para>
+          <para>The lock associated with this condition is atomically
+            released and the current thread becomes disabled for thread scheduling
+            purposes and lies dormant until &lt;em&gt;one&lt;/em&gt; of five things happens:
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes the <c>#signal</c> method for this
+            <c>Condition</c> and the current thread happens to be chosen as the
+            thread to be awakened; or
+            &lt;li&gt;Some other thread invokes the <c>#signalAll</c> method for this
+            <c>Condition</c>; or
+            &lt;li&gt;Some other thread Thread#interrupt interrupts the
+            current thread, and interruption of thread suspension is supported; or
+            &lt;li&gt;The specified deadline elapses; or
+            &lt;li&gt;A &amp;quot;&lt;em&gt;spurious wakeup&lt;/em&gt;&amp;quot; occurs.
+            &lt;/ul&gt;</para>
+          <para>In all cases, before this method can return the current thread must
+            re-acquire the lock associated with this condition. When the
+            thread returns it is &lt;em&gt;guaranteed&lt;/em&gt; to hold this lock.</para>
+          <para>If the current thread:
+            &lt;ul&gt;
+            &lt;li&gt;has its interrupted status set on entry to this method; or
+            &lt;li&gt;is Thread#interrupt interrupted while waiting
+            and interruption of thread suspension is supported,
+            &lt;/ul&gt;
+            then <c>InterruptedException</c> is thrown and the current thread's
+            interrupted status is cleared. It is not specified, in the first
+            case, whether or not the test for interruption occurs before the lock
+            is released.</para>
+          <para>The return value indicates whether the deadline has elapsed,
+            which can be used as follows:</para>
+          <code lang="text/java">{@code
+            boolean aMethod(Date deadline)
+                throws InterruptedException {
+              boolean stillWaiting = true;
+              lock.lock();
+              try {
+                while (!conditionBeingWaitedFor()) {
+                  if (!stillWaiting)
+                    return false;
+                  stillWaiting = theCondition.awaitUntil(deadline);
+                }
+                // ...
+                return true;
+              } finally {
+                lock.unlock();
+              }
+            }}</code>
+          <para>&lt;b&gt;Implementation Considerations&lt;/b&gt;</para>
+          <para>The current thread is assumed to hold the lock associated with this
+            <c>Condition</c> when this method is called.
+            It is up to the implementation to determine if this is
+            the case and if not, how to respond. Typically, an exception will be
+            thrown (such as <c>IllegalMonitorStateException</c>) and the
+            implementation must document that fact.</para>
+          <para>An implementation can favor responding to an interrupt over normal
+            method return in response to a signal, or over indicating the passing
+            of the specified deadline. In either case the implementation
+            must ensure that the signal is redirected to another waiting thread, if
+            there is one.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/Condition#awaitUntil(java.util.Date)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.Condition.awaitUntil(java.util.Date)</code>.</a>
@@ -283,11 +614,11 @@
       </Docs>
     </Member>
     <Member MemberName="Signal">
+      <MemberSignature Language="VB.NET" Value="Public Sub Signal ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Signal();" />
       <MemberSignature Language="C#" Value="public void Signal ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Signal() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.ICondition.Signal" />
-      <MemberSignature Language="VB.NET" Value="Public Sub Signal ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Signal();" />
       <MemberSignature Language="F#" Value="abstract member Signal : unit -&gt; unit" Usage="iCondition.Signal " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -307,6 +638,15 @@
       <Docs>
         <summary>Wakes up one waiting thread.</summary>
         <remarks>
+          <para>Wakes up one waiting thread.</para>
+          <para>If any threads are waiting on this condition then one
+            is selected for waking up. That thread must then re-acquire the
+            lock before returning from <c>await</c>.</para>
+          <para>&lt;b&gt;Implementation Considerations&lt;/b&gt;</para>
+          <para>An implementation may (and typically does) require that the
+            current thread hold the lock associated with this <c>Condition</c> when this method is called. Implementations must
+            document this precondition and any actions taken if the lock is
+            not held. Typically, an exception such as <c>IllegalMonitorStateException</c> will be thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/Condition#signal()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.Condition.signal()</code>.</a>
@@ -322,11 +662,11 @@
       </Docs>
     </Member>
     <Member MemberName="SignalAll">
+      <MemberSignature Language="VB.NET" Value="Public Sub SignalAll ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SignalAll();" />
       <MemberSignature Language="C#" Value="public void SignalAll ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SignalAll() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.ICondition.SignalAll" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SignalAll ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SignalAll();" />
       <MemberSignature Language="F#" Value="abstract member SignalAll : unit -&gt; unit" Usage="iCondition.SignalAll " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -346,6 +686,15 @@
       <Docs>
         <summary>Wakes up all waiting threads.</summary>
         <remarks>
+          <para>Wakes up all waiting threads.</para>
+          <para>If any threads are waiting on this condition then they are
+            all woken up. Each thread must re-acquire the lock before it can
+            return from <c>await</c>.</para>
+          <para>&lt;b&gt;Implementation Considerations&lt;/b&gt;</para>
+          <para>An implementation may (and typically does) require that the
+            current thread hold the lock associated with this <c>Condition</c> when this method is called. Implementations must
+            document this precondition and any actions taken if the lock is
+            not held. Typically, an exception such as <c>IllegalMonitorStateException</c> will be thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/Condition#signalAll()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.Condition.signalAll()</code>.</a>

@@ -1,9 +1,9 @@
 <Type Name="JsonReader" FullName="Android.Util.JsonReader">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class JsonReader&#xA;Inherits Object&#xA;Implements ICloseable, IDisposable, IJavaPeerable" />
+  <TypeSignature Language="C++ CLI" Value="public ref class JsonReader sealed : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ICloseable" />
   <TypeSignature Language="C#" Value="public sealed class JsonReader : Java.Lang.Object, IDisposable, Java.Interop.IJavaPeerable, Java.IO.ICloseable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit JsonReader extends Java.Lang.Object implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.IO.ICloseable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Android.Util.JsonReader" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class JsonReader&#xA;Inherits Object&#xA;Implements ICloseable, IDisposable, IJavaPeerable" />
-  <TypeSignature Language="C++ CLI" Value="public ref class JsonReader sealed : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ICloseable" />
   <TypeSignature Language="F#" Value="type JsonReader = class&#xA;    inherit Object&#xA;    interface ICloseable&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -31,11 +31,157 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/util/JsonReader", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/util/JsonReader", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="11">
     <summary>Reads a JSON (<see href="http://www.ietf.org/rfc/rfc4627.txt">RFC 4627</see>)
             encoded value as a stream of tokens.</summary>
     <remarks>
+      <para>Reads a JSON (<see href="http://www.ietf.org/rfc/rfc4627.txt">RFC 4627</see>)
+            encoded value as a stream of tokens. This stream includes both literal
+            values (strings, numbers, booleans, and nulls) as well as the begin and
+            end delimiters of objects and arrays. The tokens are traversed in
+            depth-first order, the same order that they appear in the JSON document.
+            Within JSON objects, name/value pairs are represented by a single token.
+            
+            &lt;h3&gt;Parsing JSON&lt;/h3&gt;
+            To create a recursive descent parser for your own JSON streams, first create
+            an entry point method that creates a <c>JsonReader</c>.</para>
+      <para>Next, create handler methods for each structure in your JSON text. You'll
+            need a method for each object type and for each array type.
+            &lt;ul&gt;
+              &lt;li&gt;Within &lt;strong&gt;array handling&lt;/strong&gt; methods, first call <c>#beginArray</c> to consume the array's opening bracket. Then create a
+                  while loop that accumulates values, terminating when <c>#hasNext</c>
+                  is false. Finally, read the array's closing bracket by calling <c>#endArray</c>.
+              &lt;li&gt;Within &lt;strong&gt;object handling&lt;/strong&gt; methods, first call <c>#beginObject</c> to consume the object's opening brace. Then create a
+                  while loop that assigns values to local variables based on their name.
+                  This loop should terminate when <c>#hasNext</c> is false. Finally,
+                  read the object's closing brace by calling <c>#endObject</c>.
+            &lt;/ul&gt;</para>
+      <para>When a nested object or array is encountered, delegate to the
+            corresponding handler method.</para>
+      <para>When an unknown name is encountered, strict parsers should fail with an
+            exception. Lenient parsers should call <c>#skipValue()</c> to recursively
+            skip the value's nested tokens, which may otherwise conflict.</para>
+      <para>If a value may be null, you should first check using <c>#peek()</c>.
+            Null literals can be consumed using either <c>#nextNull()</c> or <c>#skipValue()</c>.
+            
+            &lt;h3&gt;Example&lt;/h3&gt;
+            Suppose we'd like to parse a stream of messages such as the following:</para>
+      <code lang="text/java">{@code
+            [
+              {
+                "id": 912345678901,
+                "text": "How do I read JSON on Android?",
+                "geo": null,
+                "user": {
+                  "name": "android_newb",
+                  "followers_count": 41
+                 }
+              },
+              {
+                "id": 912345678902,
+                "text": "@android_newb just use android.util.JsonReader!",
+                "geo": [50.454722, -104.606667],
+                "user": {
+                  "name": "jesse",
+                  "followers_count": 2
+                }
+              }
+            ]}</code>
+      <para>This code implements the parser for the above structure:</para>
+      <code lang="text/java">{@code
+            
+              public List&lt;Message&gt; readJsonStream(InputStream in) throws IOException {
+                JsonReader reader = new JsonReader(new InputStreamReader(in, "UTF-8"));
+                try {
+                  return readMessagesArray(reader);
+                } finally {
+                  reader.close();
+                }
+              }
+            
+              public List&lt;Message&gt; readMessagesArray(JsonReader reader) throws IOException {
+                List&lt;Message&gt; messages = new ArrayList&lt;Message&gt;();
+            
+                reader.beginArray();
+                while (reader.hasNext()) {
+                  messages.add(readMessage(reader));
+                }
+                reader.endArray();
+                return messages;
+              }
+            
+              public Message readMessage(JsonReader reader) throws IOException {
+                long id = -1;
+                String text = null;
+                User user = null;
+                List&lt;Double&gt; geo = null;
+            
+                reader.beginObject();
+                while (reader.hasNext()) {
+                  String name = reader.nextName();
+                  if (name.equals("id")) {
+                    id = reader.nextLong();
+                  } else if (name.equals("text")) {
+                    text = reader.nextString();
+                  } else if (name.equals("geo") &amp;&amp; reader.peek() != JsonToken.NULL) {
+                    geo = readDoublesArray(reader);
+                  } else if (name.equals("user")) {
+                    user = readUser(reader);
+                  } else {
+                    reader.skipValue();
+                  }
+                }
+                reader.endObject();
+                return new Message(id, text, user, geo);
+              }
+            
+              public List&lt;Double&gt; readDoublesArray(JsonReader reader) throws IOException {
+                List&lt;Double&gt; doubles = new ArrayList&lt;Double&gt;();
+            
+                reader.beginArray();
+                while (reader.hasNext()) {
+                  doubles.add(reader.nextDouble());
+                }
+                reader.endArray();
+                return doubles;
+              }
+            
+              public User readUser(JsonReader reader) throws IOException {
+                String username = null;
+                int followersCount = -1;
+            
+                reader.beginObject();
+                while (reader.hasNext()) {
+                  String name = reader.nextName();
+                  if (name.equals("name")) {
+                    username = reader.nextString();
+                  } else if (name.equals("followers_count")) {
+                    followersCount = reader.nextInt();
+                  } else {
+                    reader.skipValue();
+                  }
+                }
+                reader.endObject();
+                return new User(username, followersCount);
+              }}</code>
+      <para>&lt;h3&gt;Number Handling&lt;/h3&gt;
+            This reader permits numeric values to be read as strings and string values to
+            be read as numbers. For example, both elements of the JSON array <c>[1, "1"]</c> may be read using either <c>#nextInt</c> or <c>#nextString</c>.
+            This behavior is intended to prevent lossy numeric conversions: double is
+            JavaScript's only numeric type and very large values like <c>9007199254740993</c> cannot be represented exactly on that platform. To minimize
+            precision loss, extremely large values should be written and read as strings
+            in JSON.</para>
+      <para>Each <c>JsonReader</c> may be used to read a single JSON stream. Instances
+            of this class are not thread safe.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/util/JsonReader" title="Reference documentation">Java documentation for <code>android.util.JsonReader</code>.</a>
@@ -51,11 +197,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (in As Reader)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; JsonReader(Java::IO::Reader ^ in);" />
       <MemberSignature Language="C#" Value="public JsonReader (Java.IO.Reader? in);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(class Java.IO.Reader in) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.#ctor(Java.IO.Reader)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (in As Reader)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; JsonReader(Java::IO::Reader ^ in);" />
       <MemberSignature Language="F#" Value="new Android.Util.JsonReader : Java.IO.Reader -&gt; Android.Util.JsonReader" Usage="new Android.Util.JsonReader in" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -67,6 +213,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/io/Reader;)V", "")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/io/Reader;)V", "")&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters>
         <Parameter Name="in" Type="Java.IO.Reader" />
@@ -75,6 +225,7 @@
         <param name="in">To be added.</param>
         <summary>Creates a new instance that reads a JSON-encoded stream from <c>in</c>.</summary>
         <remarks>
+          <para>Creates a new instance that reads a JSON-encoded stream from <c>in</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#JsonReader(java.io.Reader)" title="Reference documentation">Java documentation for <code>android.util.JsonReader.JsonReader(java.io.Reader)</code>.</a>
@@ -90,11 +241,11 @@
       </Docs>
     </Member>
     <Member MemberName="BeginArray">
+      <MemberSignature Language="VB.NET" Value="Public Sub BeginArray ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void BeginArray();" />
       <MemberSignature Language="C#" Value="public void BeginArray ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void BeginArray() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.BeginArray" />
-      <MemberSignature Language="VB.NET" Value="Public Sub BeginArray ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void BeginArray();" />
       <MemberSignature Language="F#" Value="member this.BeginArray : unit -&gt; unit" Usage="jsonReader.BeginArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -115,6 +266,8 @@
         <summary>Consumes the next token from the JSON stream and asserts that it is the
             beginning of a new array.</summary>
         <remarks>
+          <para>Consumes the next token from the JSON stream and asserts that it is the
+            beginning of a new array.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#beginArray()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.beginArray()</code>.</a>
@@ -131,11 +284,11 @@
       </Docs>
     </Member>
     <Member MemberName="BeginArrayAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function BeginArrayAsync () As Task" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ BeginArrayAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task BeginArrayAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task BeginArrayAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.BeginArrayAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function BeginArrayAsync () As Task" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ BeginArrayAsync();" />
       <MemberSignature Language="F#" Value="member this.BeginArrayAsync : unit -&gt; System.Threading.Tasks.Task" Usage="jsonReader.BeginArrayAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -155,11 +308,11 @@
       </Docs>
     </Member>
     <Member MemberName="BeginObject">
+      <MemberSignature Language="VB.NET" Value="Public Sub BeginObject ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void BeginObject();" />
       <MemberSignature Language="C#" Value="public void BeginObject ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void BeginObject() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.BeginObject" />
-      <MemberSignature Language="VB.NET" Value="Public Sub BeginObject ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void BeginObject();" />
       <MemberSignature Language="F#" Value="member this.BeginObject : unit -&gt; unit" Usage="jsonReader.BeginObject " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -180,6 +333,8 @@
         <summary>Consumes the next token from the JSON stream and asserts that it is the
             beginning of a new object.</summary>
         <remarks>
+          <para>Consumes the next token from the JSON stream and asserts that it is the
+            beginning of a new object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#beginObject()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.beginObject()</code>.</a>
@@ -196,11 +351,11 @@
       </Docs>
     </Member>
     <Member MemberName="BeginObjectAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function BeginObjectAsync () As Task" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ BeginObjectAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task BeginObjectAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task BeginObjectAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.BeginObjectAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function BeginObjectAsync () As Task" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ BeginObjectAsync();" />
       <MemberSignature Language="F#" Value="member this.BeginObjectAsync : unit -&gt; System.Threading.Tasks.Task" Usage="jsonReader.BeginObjectAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -220,11 +375,11 @@
       </Docs>
     </Member>
     <Member MemberName="Close">
+      <MemberSignature Language="VB.NET" Value="Public Sub Close ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Close();" />
       <MemberSignature Language="C#" Value="public void Close ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Close() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.Close" />
-      <MemberSignature Language="VB.NET" Value="Public Sub Close ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Close();" />
       <MemberSignature Language="F#" Value="abstract member Close : unit -&gt; unit&#xA;override this.Close : unit -&gt; unit" Usage="jsonReader.Close " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -247,6 +402,7 @@
       <Docs>
         <summary>Closes this JSON reader and the underlying <c>Reader</c>.</summary>
         <remarks>
+          <para>Closes this JSON reader and the underlying <c>Reader</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#close()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.close()</code>.</a>
@@ -263,11 +419,11 @@
       </Docs>
     </Member>
     <Member MemberName="EndArray">
+      <MemberSignature Language="VB.NET" Value="Public Sub EndArray ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void EndArray();" />
       <MemberSignature Language="C#" Value="public void EndArray ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void EndArray() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.EndArray" />
-      <MemberSignature Language="VB.NET" Value="Public Sub EndArray ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void EndArray();" />
       <MemberSignature Language="F#" Value="member this.EndArray : unit -&gt; unit" Usage="jsonReader.EndArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -288,6 +444,8 @@
         <summary>Consumes the next token from the JSON stream and asserts that it is the
             end of the current array.</summary>
         <remarks>
+          <para>Consumes the next token from the JSON stream and asserts that it is the
+            end of the current array.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#endArray()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.endArray()</code>.</a>
@@ -304,11 +462,11 @@
       </Docs>
     </Member>
     <Member MemberName="EndArrayAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function EndArrayAsync () As Task" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ EndArrayAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task EndArrayAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task EndArrayAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.EndArrayAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function EndArrayAsync () As Task" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ EndArrayAsync();" />
       <MemberSignature Language="F#" Value="member this.EndArrayAsync : unit -&gt; System.Threading.Tasks.Task" Usage="jsonReader.EndArrayAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -328,11 +486,11 @@
       </Docs>
     </Member>
     <Member MemberName="EndObject">
+      <MemberSignature Language="VB.NET" Value="Public Sub EndObject ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void EndObject();" />
       <MemberSignature Language="C#" Value="public void EndObject ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void EndObject() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.EndObject" />
-      <MemberSignature Language="VB.NET" Value="Public Sub EndObject ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void EndObject();" />
       <MemberSignature Language="F#" Value="member this.EndObject : unit -&gt; unit" Usage="jsonReader.EndObject " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -353,6 +511,8 @@
         <summary>Consumes the next token from the JSON stream and asserts that it is the
             end of the current object.</summary>
         <remarks>
+          <para>Consumes the next token from the JSON stream and asserts that it is the
+            end of the current object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#endObject()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.endObject()</code>.</a>
@@ -369,11 +529,11 @@
       </Docs>
     </Member>
     <Member MemberName="EndObjectAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function EndObjectAsync () As Task" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ EndObjectAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task EndObjectAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task EndObjectAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.EndObjectAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function EndObjectAsync () As Task" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ EndObjectAsync();" />
       <MemberSignature Language="F#" Value="member this.EndObjectAsync : unit -&gt; System.Threading.Tasks.Task" Usage="jsonReader.EndObjectAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -393,11 +553,11 @@
       </Docs>
     </Member>
     <Member MemberName="HasNext">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property HasNext As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool HasNext { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool HasNext { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool HasNext" />
       <MemberSignature Language="DocId" Value="P:Android.Util.JsonReader.HasNext" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property HasNext As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool HasNext { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.HasNext : bool" Usage="Android.Util.JsonReader.HasNext" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -417,6 +577,7 @@
         <summary>Returns true if the current array or object has another element.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns true if the current array or object has another element.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#hasNext()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.hasNext()</code>.</a>
@@ -433,11 +594,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Util.JsonReader.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Util.JsonReader.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -469,11 +630,11 @@
       </Docs>
     </Member>
     <Member MemberName="Lenient">
+      <MemberSignature Language="VB.NET" Value="Public Property Lenient As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool Lenient { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public bool Lenient { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool Lenient" />
       <MemberSignature Language="DocId" Value="P:Android.Util.JsonReader.Lenient" />
-      <MemberSignature Language="VB.NET" Value="Public Property Lenient As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool Lenient { bool get(); void set(bool value); };" />
       <MemberSignature Language="F#" Value="member this.Lenient : bool with get, set" Usage="Android.Util.JsonReader.Lenient" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -498,12 +659,31 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns true if this parser is liberal in what it accepts.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#isLenient()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.isLenient()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Configure this parser to be  be liberal in what it accepts. By default,
+            this parser is strict and only accepts JSON as specified by <see href="http://www.ietf.org/rfc/rfc4627.txt">RFC 4627</see>. Setting the
+            parser to lenient causes it to ignore the following syntax errors:
+            
+            &lt;ul&gt;
+              &lt;li&gt;End of line comments starting with <c>//</c> or <c>#</c> and
+                  ending with a newline character.
+              &lt;li&gt;C-style comments starting with <c>/*</c> and ending with
+                  <c>*</c><c>/</c>. Such comments may not be nested.
+              &lt;li&gt;Names that are unquoted or <c>'single quoted'</c>.
+              &lt;li&gt;Strings that are unquoted or <c>'single quoted'</c>.
+              &lt;li&gt;Array elements separated by <c>;</c> instead of <c>,</c>.
+              &lt;li&gt;Unnecessary array separators. These are interpreted as if null
+                  was the omitted value.
+              &lt;li&gt;Names and values separated by <c>=</c> or <c>=&gt;</c> instead of
+                  <c>:</c>.
+              &lt;li&gt;Name/value pairs separated by <c>;</c> instead of <c>,</c>.
+            &lt;/ul&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#setLenient(boolean)" title="Reference documentation">Java documentation for <code>android.util.JsonReader.setLenient(boolean)</code>.</a>
@@ -519,11 +699,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextBoolean">
+      <MemberSignature Language="VB.NET" Value="Public Function NextBoolean () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool NextBoolean();" />
       <MemberSignature Language="C#" Value="public bool NextBoolean ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool NextBoolean() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextBoolean" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextBoolean () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool NextBoolean();" />
       <MemberSignature Language="F#" Value="member this.NextBoolean : unit -&gt; bool" Usage="jsonReader.NextBoolean " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -545,6 +725,8 @@
             consuming it.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the <c>JsonToken#BOOLEAN boolean</c> value of the next token,
+            consuming it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#nextBoolean()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.nextBoolean()</code>.</a>
@@ -564,11 +746,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextBooleanAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function NextBooleanAsync () As Task(Of Boolean)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;bool&gt; ^ NextBooleanAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;bool&gt; NextBooleanAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;bool&gt; NextBooleanAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextBooleanAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextBooleanAsync () As Task(Of Boolean)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;bool&gt; ^ NextBooleanAsync();" />
       <MemberSignature Language="F#" Value="member this.NextBooleanAsync : unit -&gt; System.Threading.Tasks.Task&lt;bool&gt;" Usage="jsonReader.NextBooleanAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -588,11 +770,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextDouble">
+      <MemberSignature Language="VB.NET" Value="Public Function NextDouble () As Double" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; double NextDouble();" />
       <MemberSignature Language="C#" Value="public double NextDouble ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance float64 NextDouble() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextDouble" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextDouble () As Double" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; double NextDouble();" />
       <MemberSignature Language="F#" Value="member this.NextDouble : unit -&gt; double" Usage="jsonReader.NextDouble " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -614,6 +796,9 @@
             consuming it.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the <c>JsonToken#NUMBER double</c> value of the next token,
+            consuming it. If the next token is a string, this method will attempt to
+            parse it as a double using <c>Double#parseDouble(String)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#nextDouble()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.nextDouble()</code>.</a>
@@ -632,11 +817,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextDoubleAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function NextDoubleAsync () As Task(Of Double)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;double&gt; ^ NextDoubleAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;double&gt; NextDoubleAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;float64&gt; NextDoubleAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextDoubleAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextDoubleAsync () As Task(Of Double)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;double&gt; ^ NextDoubleAsync();" />
       <MemberSignature Language="F#" Value="member this.NextDoubleAsync : unit -&gt; System.Threading.Tasks.Task&lt;double&gt;" Usage="jsonReader.NextDoubleAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -656,11 +841,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextInt">
+      <MemberSignature Language="VB.NET" Value="Public Function NextInt () As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; int NextInt();" />
       <MemberSignature Language="C#" Value="public int NextInt ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance int32 NextInt() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextInt" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextInt () As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; int NextInt();" />
       <MemberSignature Language="F#" Value="member this.NextInt : unit -&gt; int" Usage="jsonReader.NextInt " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -682,6 +867,10 @@
             consuming it.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the <c>JsonToken#NUMBER int</c> value of the next token,
+            consuming it. If the next token is a string, this method will attempt to
+            parse it as an int. If the next token's numeric value cannot be exactly
+            represented by a Java <c>int</c>, this method throws.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#nextInt()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.nextInt()</code>.</a>
@@ -702,11 +891,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextIntAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function NextIntAsync () As Task(Of Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;int&gt; ^ NextIntAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;int&gt; NextIntAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;int32&gt; NextIntAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextIntAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextIntAsync () As Task(Of Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;int&gt; ^ NextIntAsync();" />
       <MemberSignature Language="F#" Value="member this.NextIntAsync : unit -&gt; System.Threading.Tasks.Task&lt;int&gt;" Usage="jsonReader.NextIntAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -726,11 +915,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextLong">
+      <MemberSignature Language="VB.NET" Value="Public Function NextLong () As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; long NextLong();" />
       <MemberSignature Language="C#" Value="public long NextLong ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance int64 NextLong() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextLong" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextLong () As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; long NextLong();" />
       <MemberSignature Language="F#" Value="member this.NextLong : unit -&gt; int64" Usage="jsonReader.NextLong " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -752,6 +941,10 @@
             consuming it.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the <c>JsonToken#NUMBER long</c> value of the next token,
+            consuming it. If the next token is a string, this method will attempt to
+            parse it as a long. If the next token's numeric value cannot be exactly
+            represented by a Java <c>long</c>, this method throws.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#nextLong()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.nextLong()</code>.</a>
@@ -772,11 +965,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextLongAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function NextLongAsync () As Task(Of Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;long&gt; ^ NextLongAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;long&gt; NextLongAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;int64&gt; NextLongAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextLongAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextLongAsync () As Task(Of Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;long&gt; ^ NextLongAsync();" />
       <MemberSignature Language="F#" Value="member this.NextLongAsync : unit -&gt; System.Threading.Tasks.Task&lt;int64&gt;" Usage="jsonReader.NextLongAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -796,11 +989,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextName">
+      <MemberSignature Language="VB.NET" Value="Public Function NextName () As String" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::String ^ NextName();" />
       <MemberSignature Language="C#" Value="public string? NextName ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance string NextName() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextName" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextName () As String" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::String ^ NextName();" />
       <MemberSignature Language="F#" Value="member this.NextName : unit -&gt; string" Usage="jsonReader.NextName " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -812,6 +1005,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("nextName", "()Ljava/lang/String;", "")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("nextName", "()Ljava/lang/String;", "")&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -822,6 +1019,8 @@
             consumes it.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the next token, a <c>JsonToken#NAME property name</c>, and
+            consumes it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#nextName()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.nextName()</code>.</a>
@@ -840,11 +1039,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextNameAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function NextNameAsync () As Task(Of String)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;System::String ^&gt; ^ NextNameAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;string?&gt; NextNameAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;string&gt; NextNameAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextNameAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextNameAsync () As Task(Of String)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;System::String ^&gt; ^ NextNameAsync();" />
       <MemberSignature Language="F#" Value="member this.NextNameAsync : unit -&gt; System.Threading.Tasks.Task&lt;string&gt;" Usage="jsonReader.NextNameAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -853,6 +1052,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;System.String&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters />
       <Docs>
@@ -864,11 +1069,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextNull">
+      <MemberSignature Language="VB.NET" Value="Public Sub NextNull ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void NextNull();" />
       <MemberSignature Language="C#" Value="public void NextNull ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void NextNull() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextNull" />
-      <MemberSignature Language="VB.NET" Value="Public Sub NextNull ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void NextNull();" />
       <MemberSignature Language="F#" Value="member this.NextNull : unit -&gt; unit" Usage="jsonReader.NextNull " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -889,6 +1094,8 @@
         <summary>Consumes the next token from the JSON stream and asserts that it is a
             literal null.</summary>
         <remarks>
+          <para>Consumes the next token from the JSON stream and asserts that it is a
+            literal null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#nextNull()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.nextNull()</code>.</a>
@@ -908,11 +1115,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextNullAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function NextNullAsync () As Task" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ NextNullAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task NextNullAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task NextNullAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextNullAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextNullAsync () As Task" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ NextNullAsync();" />
       <MemberSignature Language="F#" Value="member this.NextNullAsync : unit -&gt; System.Threading.Tasks.Task" Usage="jsonReader.NextNullAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -932,11 +1139,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextString">
+      <MemberSignature Language="VB.NET" Value="Public Function NextString () As String" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::String ^ NextString();" />
       <MemberSignature Language="C#" Value="public string? NextString ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance string NextString() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextString" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextString () As String" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::String ^ NextString();" />
       <MemberSignature Language="F#" Value="member this.NextString : unit -&gt; string" Usage="jsonReader.NextString " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -948,6 +1155,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("nextString", "()Ljava/lang/String;", "")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("nextString", "()Ljava/lang/String;", "")&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -958,6 +1169,9 @@
             consuming it.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the <c>JsonToken#STRING string</c> value of the next token,
+            consuming it. If the next token is a number, this method will return its
+            string form.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#nextString()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.nextString()</code>.</a>
@@ -977,11 +1191,11 @@
       </Docs>
     </Member>
     <Member MemberName="NextStringAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function NextStringAsync () As Task(Of String)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;System::String ^&gt; ^ NextStringAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;string?&gt; NextStringAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;string&gt; NextStringAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.NextStringAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function NextStringAsync () As Task(Of String)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;System::String ^&gt; ^ NextStringAsync();" />
       <MemberSignature Language="F#" Value="member this.NextStringAsync : unit -&gt; System.Threading.Tasks.Task&lt;string&gt;" Usage="jsonReader.NextStringAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -990,6 +1204,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;System.String&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters />
       <Docs>
@@ -1001,11 +1221,11 @@
       </Docs>
     </Member>
     <Member MemberName="Peek">
+      <MemberSignature Language="VB.NET" Value="Public Function Peek () As JsonToken" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonToken ^ Peek();" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonToken? Peek ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonToken Peek() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.Peek" />
-      <MemberSignature Language="VB.NET" Value="Public Function Peek () As JsonToken" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonToken ^ Peek();" />
       <MemberSignature Language="F#" Value="member this.Peek : unit -&gt; Android.Util.JsonToken" Usage="jsonReader.Peek " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1017,6 +1237,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("peek", "()Landroid/util/JsonToken;", "")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("peek", "()Landroid/util/JsonToken;", "")&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Util.JsonToken</ReturnType>
@@ -1026,6 +1250,7 @@
         <summary>Returns the type of the next token without consuming it.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the type of the next token without consuming it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#peek()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.peek()</code>.</a>
@@ -1042,11 +1267,11 @@
       </Docs>
     </Member>
     <Member MemberName="PeekAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function PeekAsync () As Task(Of JsonToken)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonToken ^&gt; ^ PeekAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonToken?&gt; PeekAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonToken&gt; PeekAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.PeekAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function PeekAsync () As Task(Of JsonToken)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonToken ^&gt; ^ PeekAsync();" />
       <MemberSignature Language="F#" Value="member this.PeekAsync : unit -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonToken&gt;" Usage="jsonReader.PeekAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1055,6 +1280,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonToken&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters />
       <Docs>
@@ -1066,11 +1297,11 @@
       </Docs>
     </Member>
     <Member MemberName="SkipValue">
+      <MemberSignature Language="VB.NET" Value="Public Sub SkipValue ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SkipValue();" />
       <MemberSignature Language="C#" Value="public void SkipValue ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SkipValue() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.SkipValue" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SkipValue ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SkipValue();" />
       <MemberSignature Language="F#" Value="member this.SkipValue : unit -&gt; unit" Usage="jsonReader.SkipValue " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1090,6 +1321,9 @@
       <Docs>
         <summary>Skips the next value recursively.</summary>
         <remarks>
+          <para>Skips the next value recursively. If it is an object or array, all nested
+            elements are skipped. This method is intended for use when the JSON token
+            stream contains unrecognized or unhandled values.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonReader#skipValue()" title="Reference documentation">Java documentation for <code>android.util.JsonReader.skipValue()</code>.</a>
@@ -1106,11 +1340,11 @@
       </Docs>
     </Member>
     <Member MemberName="SkipValueAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function SkipValueAsync () As Task" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ SkipValueAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task SkipValueAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task SkipValueAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonReader.SkipValueAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function SkipValueAsync () As Task" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ SkipValueAsync();" />
       <MemberSignature Language="F#" Value="member this.SkipValueAsync : unit -&gt; System.Threading.Tasks.Task" Usage="jsonReader.SkipValueAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1130,11 +1364,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Util.JsonReader.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Util.JsonReader.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1163,11 +1397,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Util.JsonReader.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Util.JsonReader.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>

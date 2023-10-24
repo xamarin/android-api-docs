@@ -1,9 +1,9 @@
 <Type Name="CountDownLatch" FullName="Java.Util.Concurrent.CountDownLatch">
+  <TypeSignature Language="VB.NET" Value="Public Class CountDownLatch&#xA;Inherits Object" />
+  <TypeSignature Language="C++ CLI" Value="public ref class CountDownLatch : Java::Lang::Object" />
   <TypeSignature Language="C#" Value="public class CountDownLatch : Java.Lang.Object" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi beforefieldinit CountDownLatch extends Java.Lang.Object" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Concurrent.CountDownLatch" />
-  <TypeSignature Language="VB.NET" Value="Public Class CountDownLatch&#xA;Inherits Object" />
-  <TypeSignature Language="C++ CLI" Value="public ref class CountDownLatch : Java::Lang::Object" />
   <TypeSignature Language="F#" Value="type CountDownLatch = class&#xA;    inherit Object" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -18,11 +18,120 @@
       <AttributeName Language="C#">[Android.Runtime.Register("java/util/concurrent/CountDownLatch", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/util/concurrent/CountDownLatch", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="1">
     <summary>A synchronization aid that allows one or more threads to wait until
             a set of operations being performed in other threads completes.</summary>
     <remarks>
+      <para>A synchronization aid that allows one or more threads to wait until
+            a set of operations being performed in other threads completes.</para>
+      <para>A <c>CountDownLatch</c> is initialized with a given &lt;em&gt;count&lt;/em&gt;.
+            The <c>#await await</c> methods block until the current count reaches
+            zero due to invocations of the <c>#countDown</c> method, after which
+            all waiting threads are released and any subsequent invocations of
+            <c>#await await</c> return immediately.  This is a one-shot phenomenon
+            -- the count cannot be reset.  If you need a version that resets the
+            count, consider using a <c>CyclicBarrier</c>.</para>
+      <para>A <c>CountDownLatch</c> is a versatile synchronization tool
+            and can be used for a number of purposes.  A
+            <c>CountDownLatch</c> initialized with a count of one serves as a
+            simple on/off latch, or gate: all threads invoking <c>#await await</c>
+            wait at the gate until it is opened by a thread invoking <c>#countDown</c>.  A <c>CountDownLatch</c> initialized to &lt;em&gt;N&lt;/em&gt;
+            can be used to make one thread wait until &lt;em&gt;N&lt;/em&gt; threads have
+            completed some action, or some action has been completed N times.</para>
+      <para>A useful property of a <c>CountDownLatch</c> is that it
+            doesn't require that threads calling <c>countDown</c> wait for
+            the count to reach zero before proceeding, it simply prevents any
+            thread from proceeding past an <c>#await await</c> until all
+            threads could pass.</para>
+      <para>&lt;b&gt;Sample usage:&lt;/b&gt; Here is a pair of classes in which a group
+            of worker threads use two countdown latches:
+            &lt;ul&gt;
+            &lt;li&gt;The first is a start signal that prevents any worker from proceeding
+            until the driver is ready for them to proceed;
+            &lt;li&gt;The second is a completion signal that allows the driver to wait
+            until all workers have completed.
+            &lt;/ul&gt;</para>
+      <code lang="text/java">{@code
+            class Driver { // ...
+              void main() throws InterruptedException {
+                CountDownLatch startSignal = new CountDownLatch(1);
+                CountDownLatch doneSignal = new CountDownLatch(N);
+            
+                for (int i = 0; i &lt; N; ++i) // create and start threads
+                  new Thread(new Worker(startSignal, doneSignal)).start();
+            
+                doSomethingElse();            // don't let run yet
+                startSignal.countDown();      // let all threads proceed
+                doSomethingElse();
+                doneSignal.await();           // wait for all to finish
+              }
+            }
+            
+            class Worker implements Runnable {
+              private final CountDownLatch startSignal;
+              private final CountDownLatch doneSignal;
+              Worker(CountDownLatch startSignal, CountDownLatch doneSignal) {
+                this.startSignal = startSignal;
+                this.doneSignal = doneSignal;
+              }
+              public void run() {
+                try {
+                  startSignal.await();
+                  doWork();
+                  doneSignal.countDown();
+                } catch (InterruptedException ex) {} // return;
+              }
+            
+              void doWork() { ... }
+            }}</code>
+      <para>Another typical usage would be to divide a problem into N parts,
+            describe each part with a Runnable that executes that portion and
+            counts down on the latch, and queue all the Runnables to an
+            Executor.  When all sub-parts are complete, the coordinating thread
+            will be able to pass through await. (When threads must repeatedly
+            count down in this way, instead use a <c>CyclicBarrier</c>.)</para>
+      <code lang="text/java">{@code
+            class Driver2 { // ...
+              void main() throws InterruptedException {
+                CountDownLatch doneSignal = new CountDownLatch(N);
+                Executor e = ...;
+            
+                for (int i = 0; i &lt; N; ++i) // create and start threads
+                  e.execute(new WorkerRunnable(doneSignal, i));
+            
+                doneSignal.await();           // wait for all to finish
+              }
+            }
+            
+            class WorkerRunnable implements Runnable {
+              private final CountDownLatch doneSignal;
+              private final int i;
+              WorkerRunnable(CountDownLatch doneSignal, int i) {
+                this.doneSignal = doneSignal;
+                this.i = i;
+              }
+              public void run() {
+                doWork();
+                doneSignal.countDown();
+              }
+            
+              void doWork() { ... }
+            }}</code>
+      <para>Memory consistency effects: Until the count reaches
+            zero, actions in a thread prior to calling
+            <c>countDown()</c>&lt;i&gt;happen-before&lt;/i&gt;
+            actions following a successful return from a corresponding
+            <c>await()</c> in another thread.</para>
+      <para>Added in 1.5.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/CountDownLatch" title="Reference documentation">Java documentation for <code>java.util.concurrent.CountDownLatch</code>.</a>
@@ -38,11 +147,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (count As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; CountDownLatch(int count);" />
       <MemberSignature Language="C#" Value="public CountDownLatch (int count);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(int32 count) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.CountDownLatch.#ctor(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (count As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; CountDownLatch(int count);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.CountDownLatch : int -&gt; Java.Util.Concurrent.CountDownLatch" Usage="new Java.Util.Concurrent.CountDownLatch count" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -63,6 +172,7 @@
                    before threads can pass through <c>#await</c></param>
         <summary>Constructs a <c>CountDownLatch</c> initialized with the given count.</summary>
         <remarks>
+          <para>Constructs a <c>CountDownLatch</c> initialized with the given count.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/CountDownLatch#CountDownLatch(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.CountDownLatch.CountDownLatch(int)</code>.</a>
@@ -80,11 +190,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; CountDownLatch(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected CountDownLatch (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.CountDownLatch.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; CountDownLatch(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.CountDownLatch : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Concurrent.CountDownLatch" Usage="new Java.Util.Concurrent.CountDownLatch (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -105,11 +215,11 @@
       </Docs>
     </Member>
     <Member MemberName="Await">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Await ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Await();" />
       <MemberSignature Language="C#" Value="public virtual void Await ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Await() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.CountDownLatch.Await" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Await ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Await();" />
       <MemberSignature Language="F#" Value="abstract member Await : unit -&gt; unit&#xA;override this.Await : unit -&gt; unit" Usage="countDownLatch.Await " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -130,6 +240,25 @@
         <summary>Causes the current thread to wait until the latch has counted down to
             zero, unless the thread is Thread#interrupt interrupted.</summary>
         <remarks>
+          <para>Causes the current thread to wait until the latch has counted down to
+            zero, unless the thread is Thread#interrupt interrupted.</para>
+          <para>If the current count is zero then this method returns immediately.</para>
+          <para>If the current count is greater than zero then the current
+            thread becomes disabled for thread scheduling purposes and lies
+            dormant until one of two things happen:
+            &lt;ul&gt;
+            &lt;li&gt;The count reaches zero due to invocations of the
+            <c>#countDown</c> method; or
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread.
+            &lt;/ul&gt;</para>
+          <para>If the current thread:
+            &lt;ul&gt;
+            &lt;li&gt;has its interrupted status set on entry to this method; or
+            &lt;li&gt;is Thread#interrupt interrupted while waiting,
+            &lt;/ul&gt;
+            then <c>InterruptedException</c> is thrown and the current thread's
+            interrupted status is cleared.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/CountDownLatch#await()" title="Reference documentation">Java documentation for <code>java.util.concurrent.CountDownLatch.await()</code>.</a>
@@ -148,11 +277,11 @@
       </Docs>
     </Member>
     <Member MemberName="Await">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function Await (timeout As Long, unit As TimeUnit) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool Await(long timeout, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public virtual bool Await (long timeout, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool Await(int64 timeout, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.CountDownLatch.Await(System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function Await (timeout As Long, unit As TimeUnit) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool Await(long timeout, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member Await : int64 * Java.Util.Concurrent.TimeUnit -&gt; bool&#xA;override this.Await : int64 * Java.Util.Concurrent.TimeUnit -&gt; bool" Usage="countDownLatch.Await (timeout, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -163,6 +292,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("await", "(JLjava/util/concurrent/TimeUnit;)Z", "GetAwait_JLjava_util_concurrent_TimeUnit_Handler")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("await", "(JLjava/util/concurrent/TimeUnit;)Z", "GetAwait_JLjava_util_concurrent_TimeUnit_Handler")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -182,6 +315,33 @@
           <c>true</c> if the count reached zero and <c>false</c>
                     if the waiting time elapsed before the count reached zero</returns>
         <remarks>
+          <para>Causes the current thread to wait until the latch has counted down to
+            zero, unless the thread is Thread#interrupt interrupted,
+            or the specified waiting time elapses.</para>
+          <para>If the current count is zero then this method returns immediately
+            with the value <c>true</c>.</para>
+          <para>If the current count is greater than zero then the current
+            thread becomes disabled for thread scheduling purposes and lies
+            dormant until one of three things happen:
+            &lt;ul&gt;
+            &lt;li&gt;The count reaches zero due to invocations of the
+            <c>#countDown</c> method; or
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread; or
+            &lt;li&gt;The specified waiting time elapses.
+            &lt;/ul&gt;</para>
+          <para>If the count reaches zero then the method returns with the
+            value <c>true</c>.</para>
+          <para>If the current thread:
+            &lt;ul&gt;
+            &lt;li&gt;has its interrupted status set on entry to this method; or
+            &lt;li&gt;is Thread#interrupt interrupted while waiting,
+            &lt;/ul&gt;
+            then <c>InterruptedException</c> is thrown and the current thread's
+            interrupted status is cleared.</para>
+          <para>If the specified waiting time elapses then the value <c>false</c>
+            is returned.  If the time is less than or equal to zero, the method
+            will not wait at all.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/CountDownLatch#await(long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.CountDownLatch.await(long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -200,11 +360,11 @@
       </Docs>
     </Member>
     <Member MemberName="AwaitAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function AwaitAsync () As Task" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ AwaitAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task AwaitAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task AwaitAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.CountDownLatch.AwaitAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function AwaitAsync () As Task" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ AwaitAsync();" />
       <MemberSignature Language="F#" Value="member this.AwaitAsync : unit -&gt; System.Threading.Tasks.Task" Usage="countDownLatch.AwaitAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -224,11 +384,11 @@
       </Docs>
     </Member>
     <Member MemberName="AwaitAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function AwaitAsync (timeout As Long, unit As TimeUnit) As Task(Of Boolean)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;bool&gt; ^ AwaitAsync(long timeout, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;bool&gt; AwaitAsync (long timeout, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;bool&gt; AwaitAsync(int64 timeout, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.CountDownLatch.AwaitAsync(System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Function AwaitAsync (timeout As Long, unit As TimeUnit) As Task(Of Boolean)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;bool&gt; ^ AwaitAsync(long timeout, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="member this.AwaitAsync : int64 * Java.Util.Concurrent.TimeUnit -&gt; System.Threading.Tasks.Task&lt;bool&gt;" Usage="countDownLatch.AwaitAsync (timeout, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -240,7 +400,14 @@
       </ReturnValue>
       <Parameters>
         <Parameter Name="timeout" Type="System.Int64" />
-        <Parameter Name="unit" Type="Java.Util.Concurrent.TimeUnit" />
+        <Parameter Name="unit" Type="Java.Util.Concurrent.TimeUnit">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
       </Parameters>
       <Docs>
         <param name="timeout">To be added.</param>
@@ -253,11 +420,11 @@
       </Docs>
     </Member>
     <Member MemberName="Count">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property Count As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property long Count { long get(); };" />
       <MemberSignature Language="C#" Value="public virtual long Count { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int64 Count" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.CountDownLatch.Count" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property Count As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property long Count { long get(); };" />
       <MemberSignature Language="F#" Value="member this.Count : int64" Usage="Java.Util.Concurrent.CountDownLatch.Count" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -277,6 +444,8 @@
         <summary>Returns the current count.</summary>
         <value>the current count</value>
         <remarks>
+          <para>Returns the current count.</para>
+          <para>This method is typically used for debugging and testing purposes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/CountDownLatch#getCount()" title="Reference documentation">Java documentation for <code>java.util.concurrent.CountDownLatch.getCount()</code>.</a>
@@ -292,11 +461,11 @@
       </Docs>
     </Member>
     <Member MemberName="CountDown">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub CountDown ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void CountDown();" />
       <MemberSignature Language="C#" Value="public virtual void CountDown ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void CountDown() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.CountDownLatch.CountDown" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub CountDown ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void CountDown();" />
       <MemberSignature Language="F#" Value="abstract member CountDown : unit -&gt; unit&#xA;override this.CountDown : unit -&gt; unit" Usage="countDownLatch.CountDown " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -317,6 +486,12 @@
         <summary>Decrements the count of the latch, releasing all waiting threads if
             the count reaches zero.</summary>
         <remarks>
+          <para>Decrements the count of the latch, releasing all waiting threads if
+            the count reaches zero.</para>
+          <para>If the current count is greater than zero then it is decremented.
+            If the new count is zero then all waiting threads are re-enabled for
+            thread scheduling purposes.</para>
+          <para>If the current count equals zero then nothing happens.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/CountDownLatch#countDown()" title="Reference documentation">Java documentation for <code>java.util.concurrent.CountDownLatch.countDown()</code>.</a>
@@ -332,11 +507,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.CountDownLatch.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Java.Util.Concurrent.CountDownLatch.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -365,11 +540,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.CountDownLatch.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.CountDownLatch.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -398,11 +573,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.CountDownLatch.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.CountDownLatch.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>

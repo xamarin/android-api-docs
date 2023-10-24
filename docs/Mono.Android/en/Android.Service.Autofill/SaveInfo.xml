@@ -1,9 +1,9 @@
 <Type Name="SaveInfo" FullName="Android.Service.Autofill.SaveInfo">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class SaveInfo&#xA;Inherits Object&#xA;Implements IDisposable, IJavaPeerable, IParcelable" />
+  <TypeSignature Language="C++ CLI" Value="public ref class SaveInfo sealed : Java::Lang::Object, Android::OS::IParcelable, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="C#" Value="public sealed class SaveInfo : Java.Lang.Object, Android.OS.IParcelable, IDisposable, Java.Interop.IJavaPeerable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit SaveInfo extends Java.Lang.Object implements class Android.OS.IParcelable, class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Android.Service.Autofill.SaveInfo" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class SaveInfo&#xA;Inherits Object&#xA;Implements IDisposable, IJavaPeerable, IParcelable" />
-  <TypeSignature Language="C++ CLI" Value="public ref class SaveInfo sealed : Java::Lang::Object, Android::OS::IParcelable, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="F#" Value="type SaveInfo = class&#xA;    inherit Object&#xA;    interface IParcelable&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -42,6 +42,93 @@
             <c>AutofillService#onSaveRequest(SaveRequest, SaveCallback)</c>
             call.</summary>
     <remarks>
+      <para>Information used to indicate that an <c>AutofillService</c> is interested on saving the
+            user-inputed data for future use, through a
+            <c>AutofillService#onSaveRequest(SaveRequest, SaveCallback)</c>
+            call.</para>
+      <para>A <c>SaveInfo</c> is always associated with a <c>FillResponse</c>, and it contains at least
+            two pieces of information:
+            
+            &lt;ol&gt;
+              &lt;li&gt;The type(s) of user data (like password or credit card info) that would be saved.
+              &lt;li&gt;The minimum set of views (represented by their <c>AutofillId</c>) that need to be changed
+                  to trigger a save request.
+            &lt;/ol&gt;</para>
+      <para>Typically, the <c>SaveInfo</c> contains the same <c>id</c>s as the <c>Dataset</c>:</para>
+      <code lang="text/java">new FillResponse.Builder()
+                  .addDataset(new Dataset.Builder()
+                      .setValue(id1, AutofillValue.forText("homer"), createPresentation("homer")) // username
+                      .setValue(id2, AutofillValue.forText("D'OH!"), createPresentation("password for homer")) // password
+                      .build())
+                  .setSaveInfo(new SaveInfo.Builder(
+                      SaveInfo.SAVE_DATA_TYPE_USERNAME | SaveInfo.SAVE_DATA_TYPE_PASSWORD,
+                      new AutofillId[] { id1, id2 }).build())
+                  .build();
+            </code>
+      <para>The save type flags are used to display the appropriate strings in the autofill save UI.
+            You can pass multiple values, but try to keep it short if possible. In the above example, just
+            <c>SaveInfo.SAVE_DATA_TYPE_PASSWORD</c> would be enough.</para>
+      <para>There might be cases where the <c>AutofillService</c> knows how to fill the screen,
+            but the user has no data for it. In that case, the <c>FillResponse</c> should contain just the
+            <c>SaveInfo</c>, but no <c>Dataset Datasets</c>:</para>
+      <code lang="text/java">new FillResponse.Builder()
+                  .setSaveInfo(new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_PASSWORD,
+                      new AutofillId[] { id1, id2 }).build())
+                  .build();
+            </code>
+      <para>There might be cases where the user data in the <c>AutofillService</c> is enough
+            to populate some fields but not all, and the service would still be interested on saving the
+            other fields. In that case, the service could set the
+            <c>SaveInfo.Builder#setOptionalIds(AutofillId[])</c> as well:</para>
+      <code lang="text/java">new FillResponse.Builder()
+                  .addDataset(new Dataset.Builder()
+                      .setValue(id1, AutofillValue.forText("742 Evergreen Terrace"),
+                          createPresentation("742 Evergreen Terrace")) // street
+                      .setValue(id2, AutofillValue.forText("Springfield"),
+                          createPresentation("Springfield")) // city
+                      .build())
+                  .setSaveInfo(new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_ADDRESS,
+                      new AutofillId[] { id1, id2 }) // street and  city
+                      .setOptionalIds(new AutofillId[] { id3, id4 }) // state and zipcode
+                      .build())
+                  .build();
+            </code>
+      <para>"TriggeringSaveRequest"&gt;&lt;h3&gt;Triggering a save request&lt;/h3&gt;</para>
+      <para>The <c>AutofillService#onSaveRequest(SaveRequest, SaveCallback)</c> can be triggered after
+            any of the following events:
+            &lt;ul&gt;
+              &lt;li&gt;The <c>Activity</c> finishes.
+              &lt;li&gt;The app explicitly calls <c>AutofillManager#commit()</c>.
+              &lt;li&gt;All required views become invisible (if the <c>SaveInfo</c> was created with the
+                  <c>#FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE</c> flag).
+              &lt;li&gt;The user clicks a specific view (defined by <c>Builder#setTriggerId(AutofillId)</c>.
+            &lt;/ul&gt;</para>
+      <para>But it is only triggered when all conditions below are met:
+            &lt;ul&gt;
+              &lt;li&gt;The <c>SaveInfo</c> associated with the <c>FillResponse</c> is not <c>null</c> neither
+                  has the <c>#FLAG_DELAY_SAVE</c> flag.
+              &lt;li&gt;The <c>AutofillValue</c>s of all required views (as set by the <c>requiredIds</c> passed
+                  to the <c>SaveInfo.Builder</c> constructor are not empty.
+              &lt;li&gt;The <c>AutofillValue</c> of at least one view (be it required or optional) has changed
+                  (i.e., it's neither the same value passed in a <c>Dataset</c>, nor the initial value
+                  presented in the view).
+              &lt;li&gt;There is no <c>Dataset</c> in the last <c>FillResponse</c> that completely matches the
+                  screen state (i.e., all required and optional fields in the dataset have the same value as
+                  the fields in the screen).
+              &lt;li&gt;The user explicitly tapped the autofill save UI asking to save data for autofill.
+            &lt;/ul&gt;
+            
+            "CustomizingSaveUI"&gt;&lt;h3&gt;Customizing the autofill save UI&lt;/h3&gt;</para>
+      <para>The service can also customize some aspects of the autofill save UI:
+            &lt;ul&gt;
+              &lt;li&gt;Add a simple subtitle by calling <c>Builder#setDescription(CharSequence)</c>.
+              &lt;li&gt;Add a customized subtitle by calling
+                  <c>Builder#setCustomDescription(CustomDescription)</c>.
+              &lt;li&gt;Customize the button used to reject the save request by calling
+                  <c>Builder#setNegativeAction(int, IntentSender)</c>.
+              &lt;li&gt;Decide whether the UI should be shown based on the user input validation by calling
+                  <c>Builder#setValidator(Validator)</c>.
+            &lt;/ul&gt;</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo</code>.</a>
@@ -56,12 +143,12 @@
   </Docs>
   <Members>
     <Member MemberName="Creator">
+      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property Creator As IParcelableCreator" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Android::OS::IParcelableCreator ^ Creator { Android::OS::IParcelableCreator ^ get(); };" />
       <MemberSignature Language="C#" Value="public static Android.OS.IParcelableCreator? Creator { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.OS.IParcelableCreator Creator" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Autofill.SaveInfo.Creator" />
-      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property Creator As IParcelableCreator" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Android::OS::IParcelableCreator ^ Creator { Android::OS::IParcelableCreator ^ get(); };" />
-      <MemberSignature Language="F#" Value="static member Creator : Android.OS.IParcelableCreator" Usage="Android.Service.Autofill.SaveInfo.Creator" />
+      <MemberSignature Language="F#" Value="member this.Creator : Android.OS.IParcelableCreator" Usage="Android.Service.Autofill.SaveInfo.Creator" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -73,8 +160,16 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("CREATOR", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -89,11 +184,11 @@
       </Docs>
     </Member>
     <Member MemberName="DescribeContents">
+      <MemberSignature Language="VB.NET" Value="Public Function DescribeContents () As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int DescribeContents();" />
       <MemberSignature Language="C#" Value="public int DescribeContents ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 DescribeContents() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Autofill.SaveInfo.DescribeContents" />
-      <MemberSignature Language="VB.NET" Value="Public Function DescribeContents () As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int DescribeContents();" />
       <MemberSignature Language="F#" Value="abstract member DescribeContents : unit -&gt; int&#xA;override this.DescribeContents : unit -&gt; int" Usage="saveInfo.DescribeContents " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -126,11 +221,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Autofill.SaveInfo.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Service.Autofill.SaveInfo.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -149,6 +244,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -162,11 +265,11 @@
       </Docs>
     </Member>
     <Member MemberName="NegativeButtonStyleNever">
+      <MemberSignature Language="VB.NET" Value="Public Const NegativeButtonStyleNever As NegativeButtonStyle  = 2" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::NegativeButtonStyle NegativeButtonStyleNever = 2;" />
       <MemberSignature Language="C#" Value="public const Android.Service.Autofill.NegativeButtonStyle NegativeButtonStyleNever = 2;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Service.Autofill.NegativeButtonStyle NegativeButtonStyleNever = (2)" />
       <MemberSignature Language="DocId" Value="F:Android.Service.Autofill.SaveInfo.NegativeButtonStyleNever" />
-      <MemberSignature Language="VB.NET" Value="Public Const NegativeButtonStyleNever As NegativeButtonStyle  = 2" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::NegativeButtonStyle NegativeButtonStyleNever = 2;" />
       <MemberSignature Language="F#" Value="val mutable NegativeButtonStyleNever : Android.Service.Autofill.NegativeButtonStyle" Usage="Android.Service.Autofill.SaveInfo.NegativeButtonStyleNever" />
       <MemberType>Field</MemberType>
       <Implements>
@@ -198,6 +301,12 @@
         <summary>Style for the negative button of the save UI to never do the
             save operation.</summary>
         <remarks>
+          <para>Style for the negative button of the save UI to never do the
+            save operation. This means that the user does not need to save
+            any data on this activity or application. Once the user tapping
+            the negative button, the service should never trigger the save
+            UI again. In addition to this, must consider providing restore
+            options for the user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#NEGATIVE_BUTTON_STYLE_NEVER" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.NEGATIVE_BUTTON_STYLE_NEVER</code>.</a>
@@ -212,11 +321,11 @@
       </Docs>
     </Member>
     <Member MemberName="PositiveButtonStyleContinue">
+      <MemberSignature Language="VB.NET" Value="Public Const PositiveButtonStyleContinue As PositiveButtonStyle  = 1" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::PositiveButtonStyle PositiveButtonStyleContinue = 1;" />
       <MemberSignature Language="C#" Value="public const Android.Service.Autofill.PositiveButtonStyle PositiveButtonStyleContinue = 1;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Service.Autofill.PositiveButtonStyle PositiveButtonStyleContinue = (1)" />
       <MemberSignature Language="DocId" Value="F:Android.Service.Autofill.SaveInfo.PositiveButtonStyleContinue" />
-      <MemberSignature Language="VB.NET" Value="Public Const PositiveButtonStyleContinue As PositiveButtonStyle  = 1" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::PositiveButtonStyle PositiveButtonStyleContinue = 1;" />
       <MemberSignature Language="F#" Value="val mutable PositiveButtonStyleContinue : Android.Service.Autofill.PositiveButtonStyle" Usage="Android.Service.Autofill.SaveInfo.PositiveButtonStyleContinue" />
       <MemberType>Field</MemberType>
       <Implements>
@@ -247,6 +356,11 @@
       <Docs>
         <summary>Style for the positive button of save UI to have next action before the save operation.</summary>
         <remarks>
+          <para>Style for the positive button of save UI to have next action before the save operation.
+            This could be useful if the filled content contains sensitive personally identifiable
+            information and then requires user confirmation or verification. In this case, the user
+            tapping the positive button signals that they would complete the next required action
+            to save the filled content.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#POSITIVE_BUTTON_STYLE_CONTINUE" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.POSITIVE_BUTTON_STYLE_CONTINUE</code>.</a>
@@ -261,11 +375,11 @@
       </Docs>
     </Member>
     <Member MemberName="PositiveButtonStyleSave">
+      <MemberSignature Language="VB.NET" Value="Public Const PositiveButtonStyleSave As PositiveButtonStyle  = 0" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::PositiveButtonStyle PositiveButtonStyleSave = 0;" />
       <MemberSignature Language="C#" Value="public const Android.Service.Autofill.PositiveButtonStyle PositiveButtonStyleSave = 0;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Service.Autofill.PositiveButtonStyle PositiveButtonStyleSave = (0)" />
       <MemberSignature Language="DocId" Value="F:Android.Service.Autofill.SaveInfo.PositiveButtonStyleSave" />
-      <MemberSignature Language="VB.NET" Value="Public Const PositiveButtonStyleSave As PositiveButtonStyle  = 0" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::PositiveButtonStyle PositiveButtonStyleSave = 0;" />
       <MemberSignature Language="F#" Value="val mutable PositiveButtonStyleSave : Android.Service.Autofill.PositiveButtonStyle" Usage="Android.Service.Autofill.SaveInfo.PositiveButtonStyleSave" />
       <MemberType>Field</MemberType>
       <Implements>
@@ -296,6 +410,9 @@
       <Docs>
         <summary>Style for the positive button of save UI to request the save operation.</summary>
         <remarks>
+          <para>Style for the positive button of save UI to request the save operation.
+            In this case, the user tapping the positive button signals that they
+            agrees to save the filled content.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#POSITIVE_BUTTON_STYLE_SAVE" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.POSITIVE_BUTTON_STYLE_SAVE</code>.</a>
@@ -310,11 +427,11 @@
       </Docs>
     </Member>
     <Member MemberName="SaveDataTypeDebitCard">
+      <MemberSignature Language="VB.NET" Value="Public Const SaveDataTypeDebitCard As SaveDataType  = 32" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::SaveDataType SaveDataTypeDebitCard = 32;" />
       <MemberSignature Language="C#" Value="public const Android.Service.Autofill.SaveDataType SaveDataTypeDebitCard = 32;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Service.Autofill.SaveDataType SaveDataTypeDebitCard = (32)" />
       <MemberSignature Language="DocId" Value="F:Android.Service.Autofill.SaveInfo.SaveDataTypeDebitCard" />
-      <MemberSignature Language="VB.NET" Value="Public Const SaveDataTypeDebitCard As SaveDataType  = 32" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::SaveDataType SaveDataTypeDebitCard = 32;" />
       <MemberSignature Language="F#" Value="val mutable SaveDataTypeDebitCard : Android.Service.Autofill.SaveDataType" Usage="Android.Service.Autofill.SaveInfo.SaveDataTypeDebitCard" />
       <MemberType>Field</MemberType>
       <Implements>
@@ -345,6 +462,7 @@
       <Docs>
         <summary>Type used when the <c>FillResponse</c> represents a debit card.</summary>
         <remarks>
+          <para>Type used when the <c>FillResponse</c> represents a debit card.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#SAVE_DATA_TYPE_DEBIT_CARD" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.SAVE_DATA_TYPE_DEBIT_CARD</code>.</a>
@@ -359,11 +477,11 @@
       </Docs>
     </Member>
     <Member MemberName="SaveDataTypeGenericCard">
+      <MemberSignature Language="VB.NET" Value="Public Const SaveDataTypeGenericCard As SaveDataType  = 128" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::SaveDataType SaveDataTypeGenericCard = 128;" />
       <MemberSignature Language="C#" Value="public const Android.Service.Autofill.SaveDataType SaveDataTypeGenericCard = 128;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Service.Autofill.SaveDataType SaveDataTypeGenericCard = (128)" />
       <MemberSignature Language="DocId" Value="F:Android.Service.Autofill.SaveInfo.SaveDataTypeGenericCard" />
-      <MemberSignature Language="VB.NET" Value="Public Const SaveDataTypeGenericCard As SaveDataType  = 128" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::SaveDataType SaveDataTypeGenericCard = 128;" />
       <MemberSignature Language="F#" Value="val mutable SaveDataTypeGenericCard : Android.Service.Autofill.SaveDataType" Usage="Android.Service.Autofill.SaveInfo.SaveDataTypeGenericCard" />
       <MemberType>Field</MemberType>
       <Implements>
@@ -395,6 +513,8 @@
         <summary>Type used when the <c>FillResponse</c> represents a card that does not a specified card or
             cannot identify what the card is for.</summary>
         <remarks>
+          <para>Type used when the <c>FillResponse</c> represents a card that does not a specified card or
+            cannot identify what the card is for.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#SAVE_DATA_TYPE_GENERIC_CARD" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC_CARD</code>.</a>
@@ -409,11 +529,11 @@
       </Docs>
     </Member>
     <Member MemberName="SaveDataTypePaymentCard">
+      <MemberSignature Language="VB.NET" Value="Public Const SaveDataTypePaymentCard As SaveDataType  = 64" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::SaveDataType SaveDataTypePaymentCard = 64;" />
       <MemberSignature Language="C#" Value="public const Android.Service.Autofill.SaveDataType SaveDataTypePaymentCard = 64;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Service.Autofill.SaveDataType SaveDataTypePaymentCard = (64)" />
       <MemberSignature Language="DocId" Value="F:Android.Service.Autofill.SaveInfo.SaveDataTypePaymentCard" />
-      <MemberSignature Language="VB.NET" Value="Public Const SaveDataTypePaymentCard As SaveDataType  = 64" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Service::Autofill::SaveDataType SaveDataTypePaymentCard = 64;" />
       <MemberSignature Language="F#" Value="val mutable SaveDataTypePaymentCard : Android.Service.Autofill.SaveDataType" Usage="Android.Service.Autofill.SaveInfo.SaveDataTypePaymentCard" />
       <MemberType>Field</MemberType>
       <Implements>
@@ -445,6 +565,8 @@
         <summary>Type used when the <c>FillResponse</c> represents a payment card except for credit and
             debit cards.</summary>
         <remarks>
+          <para>Type used when the <c>FillResponse</c> represents a payment card except for credit and
+            debit cards.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#SAVE_DATA_TYPE_PAYMENT_CARD" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PAYMENT_CARD</code>.</a>
@@ -459,11 +581,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Autofill.SaveInfo.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Service.Autofill.SaveInfo.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -492,11 +614,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Autofill.SaveInfo.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Service.Autofill.SaveInfo.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -512,6 +634,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Type</ReturnType>
@@ -525,11 +655,11 @@
       </Docs>
     </Member>
     <Member MemberName="WriteToParcel">
+      <MemberSignature Language="VB.NET" Value="Public Sub WriteToParcel (parcel As Parcel, flags As ParcelableWriteFlags)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void WriteToParcel(Android::OS::Parcel ^ parcel, Android::OS::ParcelableWriteFlags flags);" />
       <MemberSignature Language="C#" Value="public void WriteToParcel (Android.OS.Parcel? parcel, Android.OS.ParcelableWriteFlags flags);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void WriteToParcel(class Android.OS.Parcel parcel, valuetype Android.OS.ParcelableWriteFlags flags) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Autofill.SaveInfo.WriteToParcel(Android.OS.Parcel,Android.OS.ParcelableWriteFlags)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub WriteToParcel (parcel As Parcel, flags As ParcelableWriteFlags)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void WriteToParcel(Android::OS::Parcel ^ parcel, Android::OS::ParcelableWriteFlags flags);" />
       <MemberSignature Language="F#" Value="abstract member WriteToParcel : Android.OS.Parcel * Android.OS.ParcelableWriteFlags -&gt; unit&#xA;override this.WriteToParcel : Android.OS.Parcel * Android.OS.ParcelableWriteFlags -&gt; unit" Usage="saveInfo.WriteToParcel (parcel, flags)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -543,6 +673,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("writeToParcel", "(Landroid/os/Parcel;I)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("writeToParcel", "(Landroid/os/Parcel;I)V", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>

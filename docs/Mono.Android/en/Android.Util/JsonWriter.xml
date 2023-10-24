@@ -1,9 +1,9 @@
 <Type Name="JsonWriter" FullName="Android.Util.JsonWriter">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class JsonWriter&#xA;Inherits Object&#xA;Implements ICloseable, IDisposable, IJavaPeerable" />
+  <TypeSignature Language="C++ CLI" Value="public ref class JsonWriter sealed : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ICloseable" />
   <TypeSignature Language="C#" Value="public sealed class JsonWriter : Java.Lang.Object, IDisposable, Java.Interop.IJavaPeerable, Java.IO.ICloseable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit JsonWriter extends Java.Lang.Object implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.IO.ICloseable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Android.Util.JsonWriter" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class JsonWriter&#xA;Inherits Object&#xA;Implements ICloseable, IDisposable, IJavaPeerable" />
-  <TypeSignature Language="C++ CLI" Value="public ref class JsonWriter sealed : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ICloseable" />
   <TypeSignature Language="F#" Value="type JsonWriter = class&#xA;    inherit Object&#xA;    interface ICloseable&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -31,11 +31,113 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/util/JsonWriter", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/util/JsonWriter", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="11">
     <summary>Writes a JSON (<see href="http://www.ietf.org/rfc/rfc4627.txt">RFC 4627</see>)
             encoded value to a stream, one token at a time.</summary>
     <remarks>
+      <para>Writes a JSON (<see href="http://www.ietf.org/rfc/rfc4627.txt">RFC 4627</see>)
+            encoded value to a stream, one token at a time. The stream includes both
+            literal values (strings, numbers, booleans and nulls) as well as the begin
+            and end delimiters of objects and arrays.
+            
+            &lt;h3&gt;Encoding JSON&lt;/h3&gt;
+            To encode your data as JSON, create a new <c>JsonWriter</c>. Each JSON
+            document must contain one top-level array or object. Call methods on the
+            writer as you walk the structure's contents, nesting arrays and objects as
+            necessary:
+            &lt;ul&gt;
+              &lt;li&gt;To write &lt;strong&gt;arrays&lt;/strong&gt;, first call <c>#beginArray()</c>.
+                  Write each of the array's elements with the appropriate <c>#value</c>
+                  methods or by nesting other arrays and objects. Finally close the array
+                  using <c>#endArray()</c>.
+              &lt;li&gt;To write &lt;strong&gt;objects&lt;/strong&gt;, first call <c>#beginObject()</c>.
+                  Write each of the object's properties by alternating calls to
+                  <c>#name</c> with the property's value. Write property values with the
+                  appropriate <c>#value</c> method or by nesting other objects or arrays.
+                  Finally close the object using <c>#endObject()</c>.
+            &lt;/ul&gt;
+            
+            &lt;h3&gt;Example&lt;/h3&gt;
+            Suppose we'd like to encode a stream of messages such as the following:</para>
+      <code lang="text/java">{@code
+            [
+              {
+                "id": 912345678901,
+                "text": "How do I write JSON on Android?",
+                "geo": null,
+                "user": {
+                  "name": "android_newb",
+                  "followers_count": 41
+                 }
+              },
+              {
+                "id": 912345678902,
+                "text": "@android_newb just use android.util.JsonWriter!",
+                "geo": [50.454722, -104.606667],
+                "user": {
+                  "name": "jesse",
+                  "followers_count": 2
+                }
+              }
+            ]}</code>
+      <para>This code encodes the above structure:</para>
+      <code lang="text/java">{@code
+              public void writeJsonStream(OutputStream out, List&lt;Message&gt; messages) throws IOException {
+                JsonWriter writer = new JsonWriter(new OutputStreamWriter(out, "UTF-8"));
+                writer.setIndent("  ");
+                writeMessagesArray(writer, messages);
+                writer.close();
+              }
+            
+              public void writeMessagesArray(JsonWriter writer, List&lt;Message&gt; messages) throws IOException {
+                writer.beginArray();
+                for (Message message : messages) {
+                  writeMessage(writer, message);
+                }
+                writer.endArray();
+              }
+            
+              public void writeMessage(JsonWriter writer, Message message) throws IOException {
+                writer.beginObject();
+                writer.name("id").value(message.getId());
+                writer.name("text").value(message.getText());
+                if (message.getGeo() != null) {
+                  writer.name("geo");
+                  writeDoublesArray(writer, message.getGeo());
+                } else {
+                  writer.name("geo").nullValue();
+                }
+                writer.name("user");
+                writeUser(writer, message.getUser());
+                writer.endObject();
+              }
+            
+              public void writeUser(JsonWriter writer, User user) throws IOException {
+                writer.beginObject();
+                writer.name("name").value(user.getName());
+                writer.name("followers_count").value(user.getFollowersCount());
+                writer.endObject();
+              }
+            
+              public void writeDoublesArray(JsonWriter writer, List&lt;Double&gt; doubles) throws IOException {
+                writer.beginArray();
+                for (Double value : doubles) {
+                  writer.value(value);
+                }
+                writer.endArray();
+              }}</code>
+      <para>Each <c>JsonWriter</c> may be used to write a single JSON stream.
+            Instances of this class are not thread safe. Calls that would result in a
+            malformed JSON string will fail with an <c>IllegalStateException</c>.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/util/JsonWriter" title="Reference documentation">Java documentation for <code>android.util.JsonWriter</code>.</a>
@@ -51,11 +153,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (out As Writer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; JsonWriter(Java::IO::Writer ^ out);" />
       <MemberSignature Language="C#" Value="public JsonWriter (Java.IO.Writer? out);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(class Java.IO.Writer out) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.#ctor(Java.IO.Writer)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (out As Writer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; JsonWriter(Java::IO::Writer ^ out);" />
       <MemberSignature Language="F#" Value="new Android.Util.JsonWriter : Java.IO.Writer -&gt; Android.Util.JsonWriter" Usage="new Android.Util.JsonWriter out" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -75,6 +177,9 @@
         <param name="out">To be added.</param>
         <summary>Creates a new instance that writes a JSON-encoded stream to <c>out</c>.</summary>
         <remarks>
+          <para>Creates a new instance that writes a JSON-encoded stream to <c>out</c>.
+            For best performance, ensure <c>Writer</c> is buffered; wrapping in
+            <c>java.io.BufferedWriter BufferedWriter</c> if necessary.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#JsonWriter(java.io.Writer)" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.JsonWriter(java.io.Writer)</code>.</a>
@@ -90,11 +195,11 @@
       </Docs>
     </Member>
     <Member MemberName="BeginArray">
+      <MemberSignature Language="VB.NET" Value="Public Function BeginArray () As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ BeginArray();" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? BeginArray ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter BeginArray() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.BeginArray" />
-      <MemberSignature Language="VB.NET" Value="Public Function BeginArray () As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ BeginArray();" />
       <MemberSignature Language="F#" Value="member this.BeginArray : unit -&gt; Android.Util.JsonWriter" Usage="jsonWriter.BeginArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -115,6 +220,8 @@
         <summary>Begins encoding a new array.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Begins encoding a new array. Each call to this method must be paired with
+            a call to <c>#endArray</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#beginArray()" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.beginArray()</code>.</a>
@@ -131,11 +238,11 @@
       </Docs>
     </Member>
     <Member MemberName="BeginArrayAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function BeginArrayAsync () As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ BeginArrayAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; BeginArrayAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; BeginArrayAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.BeginArrayAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function BeginArrayAsync () As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ BeginArrayAsync();" />
       <MemberSignature Language="F#" Value="member this.BeginArrayAsync : unit -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.BeginArrayAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -144,6 +251,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters />
       <Docs>
@@ -155,11 +268,11 @@
       </Docs>
     </Member>
     <Member MemberName="BeginObject">
+      <MemberSignature Language="VB.NET" Value="Public Function BeginObject () As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ BeginObject();" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? BeginObject ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter BeginObject() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.BeginObject" />
-      <MemberSignature Language="VB.NET" Value="Public Function BeginObject () As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ BeginObject();" />
       <MemberSignature Language="F#" Value="member this.BeginObject : unit -&gt; Android.Util.JsonWriter" Usage="jsonWriter.BeginObject " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -180,6 +293,8 @@
         <summary>Begins encoding a new object.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Begins encoding a new object. Each call to this method must be paired
+            with a call to <c>#endObject</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#beginObject()" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.beginObject()</code>.</a>
@@ -196,11 +311,11 @@
       </Docs>
     </Member>
     <Member MemberName="BeginObjectAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function BeginObjectAsync () As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ BeginObjectAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; BeginObjectAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; BeginObjectAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.BeginObjectAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function BeginObjectAsync () As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ BeginObjectAsync();" />
       <MemberSignature Language="F#" Value="member this.BeginObjectAsync : unit -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.BeginObjectAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -209,6 +324,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters />
       <Docs>
@@ -220,11 +341,11 @@
       </Docs>
     </Member>
     <Member MemberName="Close">
+      <MemberSignature Language="VB.NET" Value="Public Sub Close ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Close();" />
       <MemberSignature Language="C#" Value="public void Close ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Close() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.Close" />
-      <MemberSignature Language="VB.NET" Value="Public Sub Close ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Close();" />
       <MemberSignature Language="F#" Value="abstract member Close : unit -&gt; unit&#xA;override this.Close : unit -&gt; unit" Usage="jsonWriter.Close " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -247,6 +368,7 @@
       <Docs>
         <summary>Flushes and closes this writer and the underlying <c>Writer</c>.</summary>
         <remarks>
+          <para>Flushes and closes this writer and the underlying <c>Writer</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#close()" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.close()</code>.</a>
@@ -264,11 +386,11 @@
       </Docs>
     </Member>
     <Member MemberName="EndArray">
+      <MemberSignature Language="VB.NET" Value="Public Function EndArray () As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ EndArray();" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? EndArray ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter EndArray() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.EndArray" />
-      <MemberSignature Language="VB.NET" Value="Public Function EndArray () As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ EndArray();" />
       <MemberSignature Language="F#" Value="member this.EndArray : unit -&gt; Android.Util.JsonWriter" Usage="jsonWriter.EndArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -289,6 +411,7 @@
         <summary>Ends encoding the current array.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Ends encoding the current array.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#endArray()" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.endArray()</code>.</a>
@@ -305,11 +428,11 @@
       </Docs>
     </Member>
     <Member MemberName="EndArrayAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function EndArrayAsync () As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ EndArrayAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; EndArrayAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; EndArrayAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.EndArrayAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function EndArrayAsync () As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ EndArrayAsync();" />
       <MemberSignature Language="F#" Value="member this.EndArrayAsync : unit -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.EndArrayAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -318,6 +441,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters />
       <Docs>
@@ -329,11 +458,11 @@
       </Docs>
     </Member>
     <Member MemberName="EndObject">
+      <MemberSignature Language="VB.NET" Value="Public Function EndObject () As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ EndObject();" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? EndObject ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter EndObject() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.EndObject" />
-      <MemberSignature Language="VB.NET" Value="Public Function EndObject () As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ EndObject();" />
       <MemberSignature Language="F#" Value="member this.EndObject : unit -&gt; Android.Util.JsonWriter" Usage="jsonWriter.EndObject " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -354,6 +483,7 @@
         <summary>Ends encoding the current object.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Ends encoding the current object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#endObject()" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.endObject()</code>.</a>
@@ -370,11 +500,11 @@
       </Docs>
     </Member>
     <Member MemberName="EndObjectAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function EndObjectAsync () As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ EndObjectAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; EndObjectAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; EndObjectAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.EndObjectAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function EndObjectAsync () As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ EndObjectAsync();" />
       <MemberSignature Language="F#" Value="member this.EndObjectAsync : unit -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.EndObjectAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -383,6 +513,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters />
       <Docs>
@@ -394,11 +530,11 @@
       </Docs>
     </Member>
     <Member MemberName="Flush">
+      <MemberSignature Language="VB.NET" Value="Public Sub Flush ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Flush();" />
       <MemberSignature Language="C#" Value="public void Flush ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void Flush() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.Flush" />
-      <MemberSignature Language="VB.NET" Value="Public Sub Flush ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Flush();" />
       <MemberSignature Language="F#" Value="member this.Flush : unit -&gt; unit" Usage="jsonWriter.Flush " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -419,6 +555,8 @@
         <summary>Ensures all buffered data is written to the underlying <c>Writer</c>
             and flushes that writer.</summary>
         <remarks>
+          <para>Ensures all buffered data is written to the underlying <c>Writer</c>
+            and flushes that writer.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#flush()" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.flush()</code>.</a>
@@ -435,17 +573,23 @@
       </Docs>
     </Member>
     <Member MemberName="FlushAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function FlushAsync () As Task" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ FlushAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task FlushAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task FlushAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.FlushAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function FlushAsync () As Task" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task ^ FlushAsync();" />
       <MemberSignature Language="F#" Value="member this.FlushAsync : unit -&gt; System.Threading.Tasks.Task" Usage="jsonWriter.FlushAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task</ReturnType>
       </ReturnValue>
@@ -459,11 +603,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Util.JsonWriter.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Util.JsonWriter.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -482,6 +626,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -495,11 +647,11 @@
       </Docs>
     </Member>
     <Member MemberName="Lenient">
+      <MemberSignature Language="VB.NET" Value="Public Property Lenient As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool Lenient { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public bool Lenient { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool Lenient" />
       <MemberSignature Language="DocId" Value="P:Android.Util.JsonWriter.Lenient" />
-      <MemberSignature Language="VB.NET" Value="Public Property Lenient As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool Lenient { bool get(); void set(bool value); };" />
       <MemberSignature Language="F#" Value="member this.Lenient : bool with get, set" Usage="Android.Util.JsonWriter.Lenient" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -524,12 +676,21 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns true if this writer has relaxed syntax rules.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#isLenient()" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.isLenient()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Configure this writer to relax its syntax rules. By default, this writer
+            only emits well-formed JSON as specified by <see href="http://www.ietf.org/rfc/rfc4627.txt">RFC 4627</see>. Setting the writer
+            to lenient permits the following:
+            &lt;ul&gt;
+              &lt;li&gt;Top-level values of any type. With strict writing, the top-level
+                  value must be an object or an array.
+              &lt;li&gt;Numbers may be <c>Double#isNaN() NaNs</c> or <c>Double#isInfinite() infinities</c>.
+            &lt;/ul&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#setLenient(boolean)" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.setLenient(boolean)</code>.</a>
@@ -545,11 +706,11 @@
       </Docs>
     </Member>
     <Member MemberName="Name">
+      <MemberSignature Language="VB.NET" Value="Public Function Name (name As String) As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Name(System::String ^ name);" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? Name (string? name);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter Name(string name) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.Name(System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Name (name As String) As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Name(System::String ^ name);" />
       <MemberSignature Language="F#" Value="member this.Name : string -&gt; Android.Util.JsonWriter" Usage="jsonWriter.Name name" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -573,6 +734,7 @@
         <summary>Encodes the property name.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Encodes the property name.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#name(java.lang.String)" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.name(java.lang.String)</code>.</a>
@@ -589,11 +751,11 @@
       </Docs>
     </Member>
     <Member MemberName="NameAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function NameAsync (name As String) As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ NameAsync(System::String ^ name);" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; NameAsync (string? name);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; NameAsync(string name) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.NameAsync(System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Function NameAsync (name As String) As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ NameAsync(System::String ^ name);" />
       <MemberSignature Language="F#" Value="member this.NameAsync : string -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.NameAsync name" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -602,6 +764,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="name" Type="System.String" />
@@ -616,11 +784,11 @@
       </Docs>
     </Member>
     <Member MemberName="NullValue">
+      <MemberSignature Language="VB.NET" Value="Public Function NullValue () As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ NullValue();" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? NullValue ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter NullValue() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.NullValue" />
-      <MemberSignature Language="VB.NET" Value="Public Function NullValue () As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ NullValue();" />
       <MemberSignature Language="F#" Value="member this.NullValue : unit -&gt; Android.Util.JsonWriter" Usage="jsonWriter.NullValue " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -641,6 +809,7 @@
         <summary>Encodes <c>null</c>.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Encodes <c>null</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#nullValue()" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.nullValue()</code>.</a>
@@ -657,11 +826,11 @@
       </Docs>
     </Member>
     <Member MemberName="NullValueAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function NullValueAsync () As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ NullValueAsync();" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; NullValueAsync ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; NullValueAsync() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.NullValueAsync" />
-      <MemberSignature Language="VB.NET" Value="Public Function NullValueAsync () As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ NullValueAsync();" />
       <MemberSignature Language="F#" Value="member this.NullValueAsync : unit -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.NullValueAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -670,6 +839,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters />
       <Docs>
@@ -681,11 +856,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetIndent">
+      <MemberSignature Language="VB.NET" Value="Public Sub SetIndent (indent As String)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetIndent(System::String ^ indent);" />
       <MemberSignature Language="C#" Value="public void SetIndent (string? indent);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetIndent(string indent) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.SetIndent(System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SetIndent (indent As String)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SetIndent(System::String ^ indent);" />
       <MemberSignature Language="F#" Value="member this.SetIndent : string -&gt; unit" Usage="jsonWriter.SetIndent indent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -709,6 +884,10 @@
         <summary>Sets the indentation string to be repeated for each level of indentation
             in the encoded document.</summary>
         <remarks>
+          <para>Sets the indentation string to be repeated for each level of indentation
+            in the encoded document. If <c>indent.isEmpty()</c> the encoded document
+            will be compact. Otherwise the encoded document will be more
+            human-readable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#setIndent(java.lang.String)" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.setIndent(java.lang.String)</code>.</a>
@@ -724,11 +903,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Util.JsonWriter.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Util.JsonWriter.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -757,11 +936,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Util.JsonWriter.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Util.JsonWriter.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -777,6 +956,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Type</ReturnType>
@@ -790,11 +977,11 @@
       </Docs>
     </Member>
     <Member MemberName="Value">
+      <MemberSignature Language="VB.NET" Value="Public Function Value (value As Number) As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Value(Java::Lang::Number ^ value);" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? Value (Java.Lang.Number? value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter Value(class Java.Lang.Number value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.Value(Java.Lang.Number)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Value (value As Number) As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Value(Java::Lang::Number ^ value);" />
       <MemberSignature Language="F#" Value="member this.Value : Java.Lang.Number -&gt; Android.Util.JsonWriter" Usage="jsonWriter.Value value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -819,6 +1006,7 @@
         <summary>Encodes <c>value</c>.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Encodes <c>value</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#value(java.lang.Number)" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.value(java.lang.Number)</code>.</a>
@@ -835,11 +1023,11 @@
       </Docs>
     </Member>
     <Member MemberName="Value">
+      <MemberSignature Language="VB.NET" Value="Public Function Value (value As Boolean) As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Value(bool value);" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? Value (bool value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter Value(bool value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.Value(System.Boolean)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Value (value As Boolean) As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Value(bool value);" />
       <MemberSignature Language="F#" Value="member this.Value : bool -&gt; Android.Util.JsonWriter" Usage="jsonWriter.Value value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -864,6 +1052,7 @@
         <summary>Encodes <c>value</c>.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Encodes <c>value</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#value(boolean)" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.value(boolean)</code>.</a>
@@ -880,11 +1069,11 @@
       </Docs>
     </Member>
     <Member MemberName="Value">
+      <MemberSignature Language="VB.NET" Value="Public Function Value (value As Double) As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Value(double value);" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? Value (double value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter Value(float64 value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.Value(System.Double)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Value (value As Double) As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Value(double value);" />
       <MemberSignature Language="F#" Value="member this.Value : double -&gt; Android.Util.JsonWriter" Usage="jsonWriter.Value value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -909,6 +1098,7 @@
         <summary>Encodes <c>value</c>.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Encodes <c>value</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#value(double)" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.value(double)</code>.</a>
@@ -925,11 +1115,11 @@
       </Docs>
     </Member>
     <Member MemberName="Value">
+      <MemberSignature Language="VB.NET" Value="Public Function Value (value As Long) As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Value(long value);" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? Value (long value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter Value(int64 value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.Value(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Value (value As Long) As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Value(long value);" />
       <MemberSignature Language="F#" Value="member this.Value : int64 -&gt; Android.Util.JsonWriter" Usage="jsonWriter.Value value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -954,6 +1144,7 @@
         <summary>Encodes <c>value</c>.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Encodes <c>value</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#value(long)" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.value(long)</code>.</a>
@@ -970,11 +1161,11 @@
       </Docs>
     </Member>
     <Member MemberName="Value">
+      <MemberSignature Language="VB.NET" Value="Public Function Value (value As String) As JsonWriter" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Value(System::String ^ value);" />
       <MemberSignature Language="C#" Value="public Android.Util.JsonWriter? Value (string? value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.Util.JsonWriter Value(string value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.Value(System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Value (value As String) As JsonWriter" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::Util::JsonWriter ^ Value(System::String ^ value);" />
       <MemberSignature Language="F#" Value="member this.Value : string -&gt; Android.Util.JsonWriter" Usage="jsonWriter.Value value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -998,6 +1189,7 @@
         <summary>Encodes <c>value</c>.</summary>
         <returns>this writer.</returns>
         <remarks>
+          <para>Encodes <c>value</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/JsonWriter#value(java.lang.String)" title="Reference documentation">Java documentation for <code>android.util.JsonWriter.value(java.lang.String)</code>.</a>
@@ -1014,11 +1206,11 @@
       </Docs>
     </Member>
     <Member MemberName="ValueAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function ValueAsync (value As Number) As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ ValueAsync(Java::Lang::Number ^ value);" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; ValueAsync (Java.Lang.Number? value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; ValueAsync(class Java.Lang.Number value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.ValueAsync(Java.Lang.Number)" />
-      <MemberSignature Language="VB.NET" Value="Public Function ValueAsync (value As Number) As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ ValueAsync(Java::Lang::Number ^ value);" />
       <MemberSignature Language="F#" Value="member this.ValueAsync : Java.Lang.Number -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.ValueAsync value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1027,6 +1219,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="value" Type="Java.Lang.Number" />
@@ -1041,11 +1239,11 @@
       </Docs>
     </Member>
     <Member MemberName="ValueAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function ValueAsync (value As Boolean) As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ ValueAsync(bool value);" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; ValueAsync (bool value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; ValueAsync(bool value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.ValueAsync(System.Boolean)" />
-      <MemberSignature Language="VB.NET" Value="Public Function ValueAsync (value As Boolean) As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ ValueAsync(bool value);" />
       <MemberSignature Language="F#" Value="member this.ValueAsync : bool -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.ValueAsync value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1054,6 +1252,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="value" Type="System.Boolean" />
@@ -1068,11 +1272,11 @@
       </Docs>
     </Member>
     <Member MemberName="ValueAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function ValueAsync (value As Double) As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ ValueAsync(double value);" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; ValueAsync (double value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; ValueAsync(float64 value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.ValueAsync(System.Double)" />
-      <MemberSignature Language="VB.NET" Value="Public Function ValueAsync (value As Double) As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ ValueAsync(double value);" />
       <MemberSignature Language="F#" Value="member this.ValueAsync : double -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.ValueAsync value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1081,6 +1285,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="value" Type="System.Double" />
@@ -1095,11 +1305,11 @@
       </Docs>
     </Member>
     <Member MemberName="ValueAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function ValueAsync (value As Long) As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ ValueAsync(long value);" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; ValueAsync (long value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; ValueAsync(int64 value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.ValueAsync(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function ValueAsync (value As Long) As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ ValueAsync(long value);" />
       <MemberSignature Language="F#" Value="member this.ValueAsync : int64 -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.ValueAsync value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1108,6 +1318,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="value" Type="System.Int64" />
@@ -1122,11 +1338,11 @@
       </Docs>
     </Member>
     <Member MemberName="ValueAsync">
+      <MemberSignature Language="VB.NET" Value="Public Function ValueAsync (value As String) As Task(Of JsonWriter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ ValueAsync(System::String ^ value);" />
       <MemberSignature Language="C#" Value="public System.Threading.Tasks.Task&lt;Android.Util.JsonWriter?&gt; ValueAsync (string? value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Threading.Tasks.Task`1&lt;class Android.Util.JsonWriter&gt; ValueAsync(string value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Util.JsonWriter.ValueAsync(System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Function ValueAsync (value As String) As Task(Of JsonWriter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Threading::Tasks::Task&lt;Android::Util::JsonWriter ^&gt; ^ ValueAsync(System::String ^ value);" />
       <MemberSignature Language="F#" Value="member this.ValueAsync : string -&gt; System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;" Usage="jsonWriter.ValueAsync value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1135,6 +1351,12 @@
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Android.Util.JsonWriter&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 1, 2 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="value" Type="System.String" />

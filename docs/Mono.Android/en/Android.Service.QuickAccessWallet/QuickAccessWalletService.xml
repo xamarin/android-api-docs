@@ -1,9 +1,9 @@
 <Type Name="QuickAccessWalletService" FullName="Android.Service.QuickAccessWallet.QuickAccessWalletService">
+  <TypeSignature Language="VB.NET" Value="Public MustInherit Class QuickAccessWalletService&#xA;Inherits Service" />
+  <TypeSignature Language="C++ CLI" Value="public ref class QuickAccessWalletService abstract : Android::App::Service" />
   <TypeSignature Language="C#" Value="public abstract class QuickAccessWalletService : Android.App.Service" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi abstract beforefieldinit QuickAccessWalletService extends Android.App.Service" />
   <TypeSignature Language="DocId" Value="T:Android.Service.QuickAccessWallet.QuickAccessWalletService" />
-  <TypeSignature Language="VB.NET" Value="Public MustInherit Class QuickAccessWalletService&#xA;Inherits Service" />
-  <TypeSignature Language="C++ CLI" Value="public ref class QuickAccessWalletService abstract : Android::App::Service" />
   <TypeSignature Language="F#" Value="type QuickAccessWalletService = class&#xA;    inherit Service" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -19,6 +19,14 @@
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/service/quickaccesswallet/QuickAccessWalletService", ApiSince=30, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
     <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
       <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
     </Attribute>
@@ -27,6 +35,111 @@
     <summary>A <c>QuickAccessWalletService</c> provides a list of <c>WalletCard</c>s shown in the Quick
             Access Wallet.</summary>
     <remarks>
+      <para>A <c>QuickAccessWalletService</c> provides a list of <c>WalletCard</c>s shown in the Quick
+            Access Wallet. The Quick Access Wallet allows the user to change their selected payment method
+            and access other important passes, such as tickets and transit passes, without leaving the
+            context of their current app.</para>
+      <para>An <c>QuickAccessWalletService</c> is only bound to the Android System for the purposes of
+            showing wallet cards if:
+            &lt;ol&gt;
+              &lt;li&gt;The application hosting the QuickAccessWalletService is also the default NFC payment
+              application. This means that the same application must also have a
+              <c>android.nfc.cardemulation.HostApduService</c> or
+              <c>android.nfc.cardemulation.OffHostApduService</c> that requires the
+              android.permission.BIND_NFC_SERVICE permission.
+              &lt;li&gt;The user explicitly selected the application as the default payment application in
+              the Tap &amp;amp; pay settings screen.
+              &lt;li&gt;The QuickAccessWalletService requires that the binding application hold the
+              <c>android.permission.BIND_QUICK_ACCESS_WALLET_SERVICE</c> permission, which only the System
+              Service can hold.
+              &lt;li&gt;The user explicitly enables it using Android Settings (the
+                  <c>Settings#ACTION_QUICK_ACCESS_WALLET_SETTINGS</c> intent can be used to launch it).
+            &lt;/ol&gt;
+            
+            "BasicUsage"&gt;&lt;h3&gt;Basic usage&lt;/h3&gt;</para>
+      <para>The basic Quick Access Wallet process is defined by the workflow below:
+            &lt;ol&gt;
+              &lt;li&gt;User performs a gesture to bring up the Quick Access Wallet, which is displayed by the
+              Android System.
+              &lt;li&gt;The Android System creates a <c>GetWalletCardsRequest</c>, binds to the
+              <c>QuickAccessWalletService</c>, and delivers the request.
+              &lt;li&gt;The service receives the request through <c>#onWalletCardsRequested</c>&lt;li&gt;The service responds by calling <c>GetWalletCardsCallback#onSuccess</c> with a
+              <c>GetWalletCardsResponse response</c> that contains between 1 and
+              <c>GetWalletCardsRequest#getMaxCards() maxCards</c> cards.
+              &lt;li&gt;The Android System displays the Quick Access Wallet containing the provided cards. The
+              card at the <c>GetWalletCardsResponse#getSelectedIndex() selectedIndex</c> will initially
+              be presented as the 'selected' card.
+              &lt;li&gt;As soon as the cards are displayed, the Android System will notify the service that the
+              card at the selected index has been selected through <c>#onWalletCardSelected</c>.
+              &lt;li&gt;The user interacts with the wallet and may select one or more cards in sequence. Each time
+              a new card is selected, the Android System will notify the service through
+              <c>#onWalletCardSelected</c> and will provide the <c>WalletCard#getCardId() cardId</c> of the
+              card that is now selected.
+              &lt;li&gt;If the user commences an NFC payment, the service may send a <c>WalletServiceEvent</c>
+              to the System indicating that the wallet application now needs to show the activity associated
+              with making a payment. Sending a <c>WalletServiceEvent</c> of type
+              <c>WalletServiceEvent#TYPE_NFC_PAYMENT_STARTED</c> should cause the quick access wallet UI
+              to be dismissed.
+              &lt;li&gt;When the wallet is dismissed, the Android System will notify the service through
+              <c>#onWalletDismissed</c>.
+            &lt;/ol&gt;</para>
+      <para>The workflow is designed to minimize the time that the Android System is bound to the
+            service, but connections may be cached and reused to improve performance and conserve memory.
+            All calls should be considered stateless: if the service needs to keep state between calls, it
+            must do its own state management (keeping in mind that the service's process might be killed
+            by the Android System when unbound; for example, if the device is running low in memory).</para>
+      <para>"ErrorHandling"&gt;&lt;h3&gt;Error handling&lt;/h3&gt;</para>
+      <para>If the service encountered an error processing the request, it should call
+            <c>GetWalletCardsCallback#onFailure</c>.
+            For performance reasons, it's paramount that the service calls either
+            <c>GetWalletCardsCallback#onSuccess</c> or
+            <c>GetWalletCardsCallback#onFailure</c> for each
+            <c>#onWalletCardsRequested</c> received - if it doesn't, the request will eventually time out
+            and be discarded by the Android System.</para>
+      <para>"ManifestEntry"&gt;&lt;h3&gt;Manifest entry&lt;/h3&gt;</para>
+      <para>QuickAccessWalletService must require the permission
+            "android.permission.BIND_QUICK_ACCESS_WALLET_SERVICE".</para>
+      <code lang="text/java">{@literal
+            &lt;service
+                android:name=".MyQuickAccessWalletService"
+                android:label="@string/my_default_tile_label"
+                android:icon="@drawable/my_default_icon_label"
+                android:logo="@drawable/my_wallet_logo"
+                android:permission="android.permission.BIND_QUICK_ACCESS_WALLET_SERVICE"&gt;
+                &lt;intent-filter&gt;
+                    &lt;action android:name="android.service.quickaccesswallet.QuickAccessWalletService" /&gt;
+                    &lt;category android:name="android.intent.category.DEFAULT"/&gt;
+                &lt;/intent-filter&gt;
+                &lt;meta-data android:name="android.quickaccesswallet"
+                     android:resource="@xml/quickaccesswallet_configuration" /&gt;;
+            &lt;/service&gt;}
+            </code>
+      <para>The &lt;meta-data&gt; element includes an android:resource attribute that points to an
+            XML resource with further details about the service. The <c>quickaccesswallet_configuration</c>
+            in the example above specifies an activity that allows the users to view the entire wallet.
+            The following example shows the quickaccesswallet_configuration XML resource:</para>
+      <para />
+      <code lang="text/java">{@literal
+            &lt;quickaccesswallet-service
+              xmlns:android="http://schemas.android.com/apk/res/android"
+              android:settingsActivity="com.example.android.SettingsActivity"
+              android:shortcutLongLabel="@string/my_wallet_empty_state_text"
+              android:shortcutShortLabel="@string/my_wallet_button_text"
+              android:targetActivity="com.example.android.WalletActivity"/&gt;
+            }
+            </code>
+      <para>The entry for <c>settingsActivity</c> should contain the fully qualified class name of an
+            activity that allows the user to modify the settings for this service. The <c>targetActivity</c>
+            entry should contain the fully qualified class name of an activity that allows the user to view
+            their entire wallet. The <c>targetActivity</c> will be started with the Intent action
+            <c>#ACTION_VIEW_WALLET</c> and the <c>settingsActivity</c> will be started with the Intent
+            action <c>#ACTION_VIEW_WALLET_SETTINGS</c>.</para>
+      <para>The <c>shortcutShortLabel</c> and <c>shortcutLongLabel</c> are used by the QuickAccessWallet
+            in the buttons that navigate to the wallet app. The <c>shortcutShortLabel</c> is displayed next
+            to the cards that are returned by the service and should be no more than 20 characters. The
+            <c>shortcutLongLabel</c> is displayed when no cards are returned. This 'empty state' view also
+            displays the service logo, specified by the <c>android:logo</c> manifest entry. If the logo is
+            not specified, the empty state view will show the app icon instead.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService</code>.</a>
@@ -41,11 +154,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; QuickAccessWalletService();" />
       <MemberSignature Language="C#" Value="public QuickAccessWalletService ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.QuickAccessWallet.QuickAccessWalletService.#ctor" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; QuickAccessWalletService();" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -68,11 +181,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; QuickAccessWalletService(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected QuickAccessWalletService (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.QuickAccessWallet.QuickAccessWalletService.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; QuickAccessWalletService(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Android.Service.QuickAccessWallet.QuickAccessWalletService : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Service.QuickAccessWallet.QuickAccessWalletService" Usage="new Android.Service.QuickAccessWallet.QuickAccessWalletService (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -91,11 +204,11 @@
       </Docs>
     </Member>
     <Member MemberName="ActionViewWallet">
+      <MemberSignature Language="VB.NET" Value="Public Const ActionViewWallet As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ActionViewWallet;" />
       <MemberSignature Language="C#" Value="public const string ActionViewWallet;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string ActionViewWallet" />
       <MemberSignature Language="DocId" Value="F:Android.Service.QuickAccessWallet.QuickAccessWalletService.ActionViewWallet" />
-      <MemberSignature Language="VB.NET" Value="Public Const ActionViewWallet As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ActionViewWallet;" />
       <MemberSignature Language="F#" Value="val mutable ActionViewWallet : string" Usage="Android.Service.QuickAccessWallet.QuickAccessWalletService.ActionViewWallet" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -118,6 +231,7 @@
       <Docs>
         <summary>Intent action to launch an activity to display the wallet.</summary>
         <remarks>
+          <para>Intent action to launch an activity to display the wallet.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#ACTION_VIEW_WALLET" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.ACTION_VIEW_WALLET</code>.</a>
@@ -132,11 +246,11 @@
       </Docs>
     </Member>
     <Member MemberName="ActionViewWalletSettings">
+      <MemberSignature Language="VB.NET" Value="Public Const ActionViewWalletSettings As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ActionViewWalletSettings;" />
       <MemberSignature Language="C#" Value="public const string ActionViewWalletSettings;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string ActionViewWalletSettings" />
       <MemberSignature Language="DocId" Value="F:Android.Service.QuickAccessWallet.QuickAccessWalletService.ActionViewWalletSettings" />
-      <MemberSignature Language="VB.NET" Value="Public Const ActionViewWalletSettings As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ActionViewWalletSettings;" />
       <MemberSignature Language="F#" Value="val mutable ActionViewWalletSettings : string" Usage="Android.Service.QuickAccessWallet.QuickAccessWalletService.ActionViewWalletSettings" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -159,6 +273,7 @@
       <Docs>
         <summary>Intent action to launch an activity to display quick access wallet settings.</summary>
         <remarks>
+          <para>Intent action to launch an activity to display quick access wallet settings.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#ACTION_VIEW_WALLET_SETTINGS" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.ACTION_VIEW_WALLET_SETTINGS</code>.</a>
@@ -173,11 +288,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Service.QuickAccessWallet.QuickAccessWalletService.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Service.QuickAccessWallet.QuickAccessWalletService.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -204,11 +319,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnBind">
+      <MemberSignature Language="VB.NET" Value="Public Overrides Function OnBind (intent As Intent) As IBinder" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; override Android::OS::IBinder ^ OnBind(Android::Content::Intent ^ intent);" />
       <MemberSignature Language="C#" Value="public override Android.OS.IBinder? OnBind (Android.Content.Intent intent);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance class Android.OS.IBinder OnBind(class Android.Content.Intent intent) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.QuickAccessWallet.QuickAccessWalletService.OnBind(Android.Content.Intent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides Function OnBind (intent As Intent) As IBinder" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; override Android::OS::IBinder ^ OnBind(Android::Content::Intent ^ intent);" />
       <MemberSignature Language="F#" Value="override this.OnBind : Android.Content.Intent -&gt; Android.OS.IBinder" Usage="quickAccessWalletService.OnBind intent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -227,6 +342,12 @@
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.OS.IBinder</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="intent" Type="Android.Content.Intent" />
@@ -239,11 +360,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnWalletCardSelected">
+      <MemberSignature Language="VB.NET" Value="Public MustOverride Sub OnWalletCardSelected (request As SelectWalletCardRequest)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract void OnWalletCardSelected(Android::Service::QuickAccessWallet::SelectWalletCardRequest ^ request);" />
       <MemberSignature Language="C#" Value="public abstract void OnWalletCardSelected (Android.Service.QuickAccessWallet.SelectWalletCardRequest request);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnWalletCardSelected(class Android.Service.QuickAccessWallet.SelectWalletCardRequest request) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.QuickAccessWallet.QuickAccessWalletService.OnWalletCardSelected(Android.Service.QuickAccessWallet.SelectWalletCardRequest)" />
-      <MemberSignature Language="VB.NET" Value="Public MustOverride Sub OnWalletCardSelected (request As SelectWalletCardRequest)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract void OnWalletCardSelected(Android::Service::QuickAccessWallet::SelectWalletCardRequest ^ request);" />
       <MemberSignature Language="F#" Value="abstract member OnWalletCardSelected : Android.Service.QuickAccessWallet.SelectWalletCardRequest -&gt; unit" Usage="quickAccessWalletService.OnWalletCardSelected request" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -270,6 +391,14 @@
         <param name="request">To be added.</param>
         <summary>A wallet card was selected.</summary>
         <remarks>
+          <para>A wallet card was selected. Sent when the user selects a wallet card from the list of cards.
+            Selection may indicate that the card is now in the center of the screen, or highlighted in
+            some other fashion. It does not mean that the user clicked on the card -- clicking on the
+            card will cause the <c>WalletCard#getPendingIntent()</c> to be sent.</para>
+          <para>Card selection events are especially important to NFC payment applications because
+            many NFC terminals can only accept one payment card at a time. If the user has several NFC
+            cards in their wallet, selecting different cards can change which payment method is presented
+            to the terminal.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#onWalletCardSelected(android.service.quickaccesswallet.SelectWalletCardRequest)" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.onWalletCardSelected(android.service.quickaccesswallet.SelectWalletCardRequest)</code>.</a>
@@ -284,11 +413,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnWalletCardsRequested">
+      <MemberSignature Language="VB.NET" Value="Public MustOverride Sub OnWalletCardsRequested (request As GetWalletCardsRequest, callback As IGetWalletCardsCallback)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract void OnWalletCardsRequested(Android::Service::QuickAccessWallet::GetWalletCardsRequest ^ request, Android::Service::QuickAccessWallet::IGetWalletCardsCallback ^ callback);" />
       <MemberSignature Language="C#" Value="public abstract void OnWalletCardsRequested (Android.Service.QuickAccessWallet.GetWalletCardsRequest request, Android.Service.QuickAccessWallet.IGetWalletCardsCallback callback);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnWalletCardsRequested(class Android.Service.QuickAccessWallet.GetWalletCardsRequest request, class Android.Service.QuickAccessWallet.IGetWalletCardsCallback callback) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.QuickAccessWallet.QuickAccessWalletService.OnWalletCardsRequested(Android.Service.QuickAccessWallet.GetWalletCardsRequest,Android.Service.QuickAccessWallet.IGetWalletCardsCallback)" />
-      <MemberSignature Language="VB.NET" Value="Public MustOverride Sub OnWalletCardsRequested (request As GetWalletCardsRequest, callback As IGetWalletCardsCallback)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract void OnWalletCardsRequested(Android::Service::QuickAccessWallet::GetWalletCardsRequest ^ request, Android::Service::QuickAccessWallet::IGetWalletCardsCallback ^ callback);" />
       <MemberSignature Language="F#" Value="abstract member OnWalletCardsRequested : Android.Service.QuickAccessWallet.GetWalletCardsRequest * Android.Service.QuickAccessWallet.IGetWalletCardsCallback -&gt; unit" Usage="quickAccessWalletService.OnWalletCardsRequested (request, callback)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -317,6 +446,11 @@
         <param name="callback">To be added.</param>
         <summary>Called when the user requests the service to provide wallet cards.</summary>
         <remarks>
+          <para>Called when the user requests the service to provide wallet cards.</para>
+          <para>This method will be called on the main thread, but the callback may be called from any
+            thread. The callback should be called as quickly as possible. The service must always call
+            either <c>GetWalletCardsCallback#onSuccess(GetWalletCardsResponse)</c> or <c>GetWalletCardsCallback#onFailure(GetWalletCardsError)</c>. Calling multiple times or calling
+            both methods will cause an exception to be thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#onWalletCardsRequested(android.service.quickaccesswallet.GetWalletCardsRequest,%20android.service.quickaccesswallet.GetWalletCardsCallback)" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.onWalletCardsRequested(android.service.quickaccesswallet.GetWalletCardsRequest, android.service.quickaccesswallet.GetWalletCardsCallback)</code>.</a>
@@ -331,11 +465,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnWalletDismissed">
+      <MemberSignature Language="VB.NET" Value="Public MustOverride Sub OnWalletDismissed ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract void OnWalletDismissed();" />
       <MemberSignature Language="C#" Value="public abstract void OnWalletDismissed ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnWalletDismissed() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.QuickAccessWallet.QuickAccessWalletService.OnWalletDismissed" />
-      <MemberSignature Language="VB.NET" Value="Public MustOverride Sub OnWalletDismissed ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract void OnWalletDismissed();" />
       <MemberSignature Language="F#" Value="abstract member OnWalletDismissed : unit -&gt; unit" Usage="quickAccessWalletService.OnWalletDismissed " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -359,6 +493,8 @@
       <Docs>
         <summary>Indicates that the wallet was dismissed.</summary>
         <remarks>
+          <para>Indicates that the wallet was dismissed. This is received when the Quick Access Wallet is no
+            longer visible.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#onWalletDismissed()" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.onWalletDismissed()</code>.</a>
@@ -373,11 +509,11 @@
       </Docs>
     </Member>
     <Member MemberName="SendWalletServiceEvent">
+      <MemberSignature Language="VB.NET" Value="Public Sub SendWalletServiceEvent (serviceEvent As WalletServiceEvent)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SendWalletServiceEvent(Android::Service::QuickAccessWallet::WalletServiceEvent ^ serviceEvent);" />
       <MemberSignature Language="C#" Value="public void SendWalletServiceEvent (Android.Service.QuickAccessWallet.WalletServiceEvent serviceEvent);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SendWalletServiceEvent(class Android.Service.QuickAccessWallet.WalletServiceEvent serviceEvent) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.QuickAccessWallet.QuickAccessWalletService.SendWalletServiceEvent(Android.Service.QuickAccessWallet.WalletServiceEvent)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub SendWalletServiceEvent (serviceEvent As WalletServiceEvent)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void SendWalletServiceEvent(Android::Service::QuickAccessWallet::WalletServiceEvent ^ serviceEvent);" />
       <MemberSignature Language="F#" Value="member this.SendWalletServiceEvent : Android.Service.QuickAccessWallet.WalletServiceEvent -&gt; unit" Usage="quickAccessWalletService.SendWalletServiceEvent serviceEvent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -404,6 +540,11 @@
         <param name="serviceEvent">To be added.</param>
         <summary>Send a <c>WalletServiceEvent</c> to the Quick Access Wallet.</summary>
         <remarks>
+          <para>Send a <c>WalletServiceEvent</c> to the Quick Access Wallet.</para>
+          <para>Background events may require that the Quick Access Wallet view be updated. For example, if
+            the wallet application hosting this service starts to handle an NFC payment while the Quick
+            Access Wallet is being shown, the Quick Access Wallet will need to be dismissed so that the
+            Activity showing the payment can be displayed to the user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#sendWalletServiceEvent(android.service.quickaccesswallet.WalletServiceEvent)" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.sendWalletServiceEvent(android.service.quickaccesswallet.WalletServiceEvent)</code>.</a>
@@ -418,11 +559,11 @@
       </Docs>
     </Member>
     <Member MemberName="ServiceInterface">
+      <MemberSignature Language="VB.NET" Value="Public Const ServiceInterface As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ServiceInterface;" />
       <MemberSignature Language="C#" Value="public const string ServiceInterface;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string ServiceInterface" />
       <MemberSignature Language="DocId" Value="F:Android.Service.QuickAccessWallet.QuickAccessWalletService.ServiceInterface" />
-      <MemberSignature Language="VB.NET" Value="Public Const ServiceInterface As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ServiceInterface;" />
       <MemberSignature Language="F#" Value="val mutable ServiceInterface : string" Usage="Android.Service.QuickAccessWallet.QuickAccessWalletService.ServiceInterface" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -445,6 +586,10 @@
       <Docs>
         <summary>The <c>Intent</c> that must be declared as handled by the service.</summary>
         <remarks>
+          <para>The <c>Intent</c> that must be declared as handled by the service. To be supported, the
+            service must also require the
+            <c>android.Manifest.permission#BIND_QUICK_ACCESS_WALLET_SERVICE</c>
+            permission so that other applications can not abuse it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#SERVICE_INTERFACE" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.SERVICE_INTERFACE</code>.</a>
@@ -459,11 +604,11 @@
       </Docs>
     </Member>
     <Member MemberName="ServiceMetaData">
+      <MemberSignature Language="VB.NET" Value="Public Const ServiceMetaData As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ServiceMetaData;" />
       <MemberSignature Language="C#" Value="public const string ServiceMetaData;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string ServiceMetaData" />
       <MemberSignature Language="DocId" Value="F:Android.Service.QuickAccessWallet.QuickAccessWalletService.ServiceMetaData" />
-      <MemberSignature Language="VB.NET" Value="Public Const ServiceMetaData As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ServiceMetaData;" />
       <MemberSignature Language="F#" Value="val mutable ServiceMetaData : string" Usage="Android.Service.QuickAccessWallet.QuickAccessWalletService.ServiceMetaData" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -486,6 +631,15 @@
       <Docs>
         <summary>Name under which a QuickAccessWalletService component publishes information about itself.</summary>
         <remarks>
+          <para>Name under which a QuickAccessWalletService component publishes information about itself.
+            This meta-data should reference an XML resource containing a
+            <c>&amp;lt;{@link
+            android.R.styleable#QuickAccessWalletService quickaccesswallet-service}&amp;gt;</c> tag. This
+            is a a sample XML file configuring an QuickAccessWalletService:</para>
+          <code lang="text/java">&amp;lt;quickaccesswallet-service
+                android:walletActivity="foo.bar.WalletActivity"
+                . . .
+            /&amp;gt;</code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#SERVICE_META_DATA" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.SERVICE_META_DATA</code>.</a>
@@ -500,11 +654,11 @@
       </Docs>
     </Member>
     <Member MemberName="TargetActivityPendingIntent">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property TargetActivityPendingIntent As PendingIntent" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Android::App::PendingIntent ^ TargetActivityPendingIntent { Android::App::PendingIntent ^ get(); };" />
       <MemberSignature Language="C#" Value="public virtual Android.App.PendingIntent? TargetActivityPendingIntent { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Android.App.PendingIntent TargetActivityPendingIntent" />
       <MemberSignature Language="DocId" Value="P:Android.Service.QuickAccessWallet.QuickAccessWalletService.TargetActivityPendingIntent" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property TargetActivityPendingIntent As PendingIntent" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Android::App::PendingIntent ^ TargetActivityPendingIntent { Android::App::PendingIntent ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.TargetActivityPendingIntent : Android.App.PendingIntent" Usage="Android.Service.QuickAccessWallet.QuickAccessWalletService.TargetActivityPendingIntent" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -513,12 +667,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getTargetActivityPendingIntent", "()Landroid/app/PendingIntent;", "GetGetTargetActivityPendingIntentHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getTargetActivityPendingIntent", "()Landroid/app/PendingIntent;", "GetGetTargetActivityPendingIntentHandler", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -528,6 +690,12 @@
         <summary>Specify a <c>PendingIntent</c> to be launched as the "Quick Access" activity.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Specify a <c>PendingIntent</c> to be launched as the "Quick Access" activity.
+            
+            This activity will be launched directly by the system in lieu of the card switcher activity
+            provided by the system.
+            
+            In order to use the system-provided card switcher activity, return null from this method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#getTargetActivityPendingIntent()" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.getTargetActivityPendingIntent()</code>.</a>
@@ -542,11 +710,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Service.QuickAccessWallet.QuickAccessWalletService.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Service.QuickAccessWallet.QuickAccessWalletService.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -573,11 +741,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Service.QuickAccessWallet.QuickAccessWalletService.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Service.QuickAccessWallet.QuickAccessWalletService.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>

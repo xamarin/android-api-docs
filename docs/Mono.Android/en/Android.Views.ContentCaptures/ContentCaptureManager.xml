@@ -1,9 +1,9 @@
 <Type Name="ContentCaptureManager" FullName="Android.Views.ContentCaptures.ContentCaptureManager">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class ContentCaptureManager&#xA;Inherits Object" />
+  <TypeSignature Language="C++ CLI" Value="public ref class ContentCaptureManager sealed : Java::Lang::Object" />
   <TypeSignature Language="C#" Value="public sealed class ContentCaptureManager : Java.Lang.Object" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit ContentCaptureManager extends Java.Lang.Object" />
   <TypeSignature Language="DocId" Value="T:Android.Views.ContentCaptures.ContentCaptureManager" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class ContentCaptureManager&#xA;Inherits Object" />
-  <TypeSignature Language="C++ CLI" Value="public ref class ContentCaptureManager sealed : Java::Lang::Object" />
   <TypeSignature Language="F#" Value="type ContentCaptureManager = class&#xA;    inherit Object" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -19,14 +19,150 @@
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/view/contentcapture/ContentCaptureManager", ApiSince=29, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
     <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
       <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
     </Attribute>
   </Attributes>
   <Docs>
-    <summary>The <c>ContentCaptureManager</c> provides additional ways for for apps to
-            integrate with the content capture subsystem.</summary>
+    <summary>Provides additional ways for apps to integrate with the content capture subsystem.</summary>
     <remarks>
+      <para>Provides additional ways for apps to integrate with the content capture subsystem.</para>
+      <para>Content capture provides real-time, continuous capture of application activity, display and
+            events to an intelligence service that is provided by the Android system. The intelligence
+            service then uses that info to mediate and speed user journey through different apps. For
+            example, when the user receives a restaurant address in a chat app and switches to a map app
+            to search for that restaurant, the intelligence service could offer an autofill dialog to
+            let the user automatically select its address.</para>
+      <para>Content capture was designed with two major concerns in mind: privacy and performance.
+            
+            &lt;ul&gt;
+              &lt;li&gt;&lt;b&gt;Privacy:&lt;/b&gt; the intelligence service is a trusted component provided that is provided
+              by the device manufacturer and that cannot be changed by the user (although the user can
+              globaly disable content capture using the Android Settings app). This service can only use the
+              data for in-device machine learning, which is enforced both by process isolation and
+              <see href="https://source.android.com/compatibility/cdd">CDD requirements</see>.
+              &lt;li&gt;&lt;b&gt;Performance:&lt;/b&gt; content capture is highly optimized to minimize its impact in the app
+              jankiness and overall device system health. For example, its only enabled on apps (or even
+              specific activities from an app) that were explicitly allowlisted by the intelligence service,
+              and it buffers the events so they are sent in a batch to the service (see
+              <c>#isContentCaptureEnabled()</c> for other cases when its disabled).
+            &lt;/ul&gt;</para>
+      <para>In fact, before using this manager, the app developer should check if it's available. Example:</para>
+      <code lang="text/java">&lt;code&gt;
+             ContentCaptureManager mgr = context.getSystemService(ContentCaptureManager.class);
+             if (mgr != null &amp;&amp; mgr.isContentCaptureEnabled()) {
+               // ...
+             }
+             &lt;/code&gt;</code>
+      <para>App developers usually don't need to explicitly interact with content capture, except when the
+            app:
+            
+            &lt;ul&gt;
+              &lt;li&gt;Can define a contextual <c>android.content.LocusId</c> to identify unique state (such as a
+              conversation between 2 chat users).
+              &lt;li&gt;Can have multiple view hierarchies with different contextual meaning (for example, a
+              browser app with multiple tabs, each representing a different URL).
+              &lt;li&gt;Contains custom views (that extend View directly and are not provided by the standard
+              Android SDK.
+              &lt;li&gt;Contains views that provide their own virtual hierarchy (like a web browser that render the
+              HTML elements using a Canvas).
+            &lt;/ul&gt;</para>
+      <para>The main integration point with content capture is the <c>ContentCaptureSession</c>. A "main"
+            session is automatically created by the Android System when content capture is enabled for the
+            activity and its used by the standard Android views to notify the content capture service of
+            events such as views being added, views been removed, and text changed by user input. The session
+            could have a <c>ContentCaptureContext</c> to provide more contextual info about it, such as
+            the locus associated with the view hierarchy (see <c>android.content.LocusId</c> for more info
+            about locus). By default, the main session doesn't have a <c>ContentCaptureContext</c>, but you
+            can change it after its created. Example:</para>
+      <code lang="text/java">&lt;code&gt;
+            protected void onCreate(Bundle savedInstanceState) {
+              // Initialize view structure
+              ContentCaptureSession session = rootView.getContentCaptureSession();
+              if (session != null) {
+                session.setContentCaptureContext(ContentCaptureContext.forLocusId("chat_UserA_UserB"));
+              }
+            }
+            &lt;/code&gt;</code>
+      <para>If your activity contains view hierarchies with a different contextual meaning, you should
+            created child sessions for each view hierarchy root. For example, if your activity is a browser,
+            you could use the main session for the main URL being rendered, then child sessions for each
+            <c>IFRAME</c>:</para>
+      <code lang="text/java">&lt;code&gt;
+            ContentCaptureSession mMainSession;
+            
+            protected void onCreate(Bundle savedInstanceState) {
+               // Initialize view structure...
+               mMainSession = rootView.getContentCaptureSession();
+               if (mMainSession != null) {
+                 mMainSession.setContentCaptureContext(
+                     ContentCaptureContext.forLocusId("https://example.com"));
+               }
+            }
+            
+            private void loadIFrame(View iframeRootView, String url) {
+              if (mMainSession != null) {
+                 ContentCaptureSession iFrameSession = mMainSession.newChild(
+                     ContentCaptureContext.forLocusId(url));
+                 }
+                 iframeRootView.setContentCaptureSession(iFrameSession);
+              }
+              // Load iframe...
+            }
+            &lt;/code&gt;</code>
+      <para>If your activity has custom views (i.e., views that extend <c>View</c> directly and provide
+            just one logical view, not a virtual tree hiearchy) and it provides content that's relevant for
+            content capture (as of <c>android.os.Build.VERSION_CODES#Q Android Q</c>, the only relevant
+            content is text), then your view implementation should:
+            
+            &lt;ul&gt;
+              &lt;li&gt;Set it as important for content capture.
+              &lt;li&gt;Fill <c>ViewStructure</c> used for content capture.
+              &lt;li&gt;Notify the <c>ContentCaptureSession</c> when the text is changed by user input.
+            &lt;/ul&gt;</para>
+      <para>Here's an example of the relevant methods for an <c>EditText</c>-like view:</para>
+      <code lang="text/java">&lt;code&gt;
+            public class MyEditText extends View {
+            
+            public MyEditText(...) {
+              if (getImportantForContentCapture() == IMPORTANT_FOR_CONTENT_CAPTURE_AUTO) {
+                setImportantForContentCapture(IMPORTANT_FOR_CONTENT_CAPTURE_YES);
+              }
+            }
+            
+            public void onProvideContentCaptureStructure(@NonNull ViewStructure structure, int flags) {
+              super.onProvideContentCaptureStructure(structure, flags);
+            
+              structure.setText(getText(), getSelectionStart(), getSelectionEnd());
+              structure.setHint(getHint());
+              structure.setInputType(getInputType());
+              // set other properties like setTextIdEntry(), setTextLines(), setTextStyle(),
+              // setMinTextEms(), setMaxTextEms(), setMaxTextLength()
+            }
+            
+            private void onTextChanged() {
+              if (isLaidOut() &amp;&amp; isImportantForContentCapture() &amp;&amp; isTextEditable()) {
+                ContentCaptureManager mgr = mContext.getSystemService(ContentCaptureManager.class);
+                if (cm != null &amp;&amp; cm.isContentCaptureEnabled()) {
+                   ContentCaptureSession session = getContentCaptureSession();
+                   if (session != null) {
+                     session.notifyViewTextChanged(getAutofillId(), getText());
+                   }
+              }
+            }
+            &lt;/code&gt;</code>
+      <para>If your view provides its own virtual hierarchy (for example, if it's a browser that draws
+            the HTML using <c>Canvas</c> or native libraries in a different render process), then the view
+            is also responsible to notify the session when the virtual elements appear and disappear - see
+            <c>View#onProvideContentCaptureStructure(ViewStructure, int)</c> for more info.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager</code>.</a>
@@ -41,11 +177,11 @@
   </Docs>
   <Members>
     <Member MemberName="ContentCaptureConditions">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property ContentCaptureConditions As ICollection(Of ContentCaptureCondition)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::ICollection&lt;Android::Views::ContentCaptures::ContentCaptureCondition ^&gt; ^ ContentCaptureConditions { System::Collections::Generic::ICollection&lt;Android::Views::ContentCaptures::ContentCaptureCondition ^&gt; ^ get(); };" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.ICollection&lt;Android.Views.ContentCaptures.ContentCaptureCondition&gt;? ContentCaptureConditions { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Collections.Generic.ICollection`1&lt;class Android.Views.ContentCaptures.ContentCaptureCondition&gt; ContentCaptureConditions" />
       <MemberSignature Language="DocId" Value="P:Android.Views.ContentCaptures.ContentCaptureManager.ContentCaptureConditions" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property ContentCaptureConditions As ICollection(Of ContentCaptureCondition)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::ICollection&lt;Android::Views::ContentCaptures::ContentCaptureCondition ^&gt; ^ ContentCaptureConditions { System::Collections::Generic::ICollection&lt;Android::Views::ContentCaptures::ContentCaptureCondition ^&gt; ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ContentCaptureConditions : System.Collections.Generic.ICollection&lt;Android.Views.ContentCaptures.ContentCaptureCondition&gt;" Usage="Android.Views.ContentCaptures.ContentCaptureManager.ContentCaptureConditions" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -53,6 +189,10 @@
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
@@ -71,6 +211,9 @@
             (in which case content capture events should always be generated). If the list is empty,
             then it should not generate any event at all.</value>
         <remarks>
+          <para>Gets the list of conditions for when content capture should be allowed.</para>
+          <para>This method is typically used by web browsers so they don't generate unnecessary content
+            capture events for websites the content capture service is not interested on.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#getContentCaptureConditions()" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.getContentCaptureConditions()</code>.</a>
@@ -85,11 +228,11 @@
       </Docs>
     </Member>
     <Member MemberName="ContentCaptureEnabled">
+      <MemberSignature Language="VB.NET" Value="Public Property ContentCaptureEnabled As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool ContentCaptureEnabled { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public bool ContentCaptureEnabled { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool ContentCaptureEnabled" />
       <MemberSignature Language="DocId" Value="P:Android.Views.ContentCaptures.ContentCaptureManager.ContentCaptureEnabled" />
-      <MemberSignature Language="VB.NET" Value="Public Property ContentCaptureEnabled As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool ContentCaptureEnabled { bool get(); void set(bool value); };" />
       <MemberSignature Language="F#" Value="member this.ContentCaptureEnabled : bool with get, set" Usage="Android.Views.ContentCaptures.ContentCaptureManager.ContentCaptureEnabled" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -122,12 +265,26 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Checks whether content capture is enabled for this activity.</para>
+          <para>There are many reasons it could be disabled, such as:
+            &lt;ul&gt;
+              &lt;li&gt;App itself disabled content capture through <c>#setContentCaptureEnabled(boolean)</c>.
+              &lt;li&gt;Intelligence service did not allowlist content capture for this activity's package.
+              &lt;li&gt;Intelligence service did not allowlist content capture for this specific activity.
+              &lt;li&gt;Intelligence service disabled content capture globally.
+              &lt;li&gt;User disabled content capture globally through the Android Settings app.
+              &lt;li&gt;Device manufacturer (OEM) disabled content capture globally.
+              &lt;li&gt;Transient errors, such as intelligence service package being updated.
+            &lt;/ul&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#isContentCaptureEnabled()" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.isContentCaptureEnabled()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Called by apps to explicitly enable or disable content capture.</para>
+          <para>&lt;b&gt;Note: &lt;/b&gt; this call is not persisted accross reboots, so apps should typically call
+            it on <c>android.app.Activity#onCreate(android.os.Bundle, android.os.PersistableBundle)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#setContentCaptureEnabled(boolean)" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.setContentCaptureEnabled(boolean)</code>.</a>
@@ -142,11 +299,11 @@
       </Docs>
     </Member>
     <Member MemberName="DataShareErrorConcurrentRequest">
+      <MemberSignature Language="VB.NET" Value="Public Const DataShareErrorConcurrentRequest As DataShareError  = 2" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Views::ContentCapture::DataShareError DataShareErrorConcurrentRequest = 2;" />
       <MemberSignature Language="C#" Value="public const Android.Views.ContentCapture.DataShareError DataShareErrorConcurrentRequest = 2;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Views.ContentCapture.DataShareError DataShareErrorConcurrentRequest = (2)" />
       <MemberSignature Language="DocId" Value="F:Android.Views.ContentCaptures.ContentCaptureManager.DataShareErrorConcurrentRequest" />
-      <MemberSignature Language="VB.NET" Value="Public Const DataShareErrorConcurrentRequest As DataShareError  = 2" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Views::ContentCapture::DataShareError DataShareErrorConcurrentRequest = 2;" />
       <MemberSignature Language="F#" Value="val mutable DataShareErrorConcurrentRequest : Android.Views.ContentCapture.DataShareError" Usage="Android.Views.ContentCaptures.ContentCaptureManager.DataShareErrorConcurrentRequest" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -174,6 +331,7 @@
       <Docs>
         <summary>Request has been rejected, because a concurrent data share sessions is in progress.</summary>
         <remarks>
+          <para>Request has been rejected, because a concurrent data share sessions is in progress.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#DATA_SHARE_ERROR_CONCURRENT_REQUEST" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.DATA_SHARE_ERROR_CONCURRENT_REQUEST</code>.</a>
@@ -188,11 +346,11 @@
       </Docs>
     </Member>
     <Member MemberName="DataShareErrorTimeoutInterrupted">
+      <MemberSignature Language="VB.NET" Value="Public Const DataShareErrorTimeoutInterrupted As DataShareError  = 3" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Views::ContentCapture::DataShareError DataShareErrorTimeoutInterrupted = 3;" />
       <MemberSignature Language="C#" Value="public const Android.Views.ContentCapture.DataShareError DataShareErrorTimeoutInterrupted = 3;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Views.ContentCapture.DataShareError DataShareErrorTimeoutInterrupted = (3)" />
       <MemberSignature Language="DocId" Value="F:Android.Views.ContentCaptures.ContentCaptureManager.DataShareErrorTimeoutInterrupted" />
-      <MemberSignature Language="VB.NET" Value="Public Const DataShareErrorTimeoutInterrupted As DataShareError  = 3" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Views::ContentCapture::DataShareError DataShareErrorTimeoutInterrupted = 3;" />
       <MemberSignature Language="F#" Value="val mutable DataShareErrorTimeoutInterrupted : Android.Views.ContentCapture.DataShareError" Usage="Android.Views.ContentCaptures.ContentCaptureManager.DataShareErrorTimeoutInterrupted" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -220,6 +378,7 @@
       <Docs>
         <summary>Request has been interrupted because of data share session timeout.</summary>
         <remarks>
+          <para>Request has been interrupted because of data share session timeout.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#DATA_SHARE_ERROR_TIMEOUT_INTERRUPTED" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.DATA_SHARE_ERROR_TIMEOUT_INTERRUPTED</code>.</a>
@@ -234,11 +393,11 @@
       </Docs>
     </Member>
     <Member MemberName="DataShareErrorUnknown">
+      <MemberSignature Language="VB.NET" Value="Public Const DataShareErrorUnknown As DataShareError  = 1" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::Views::ContentCapture::DataShareError DataShareErrorUnknown = 1;" />
       <MemberSignature Language="C#" Value="public const Android.Views.ContentCapture.DataShareError DataShareErrorUnknown = 1;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Views.ContentCapture.DataShareError DataShareErrorUnknown = (1)" />
       <MemberSignature Language="DocId" Value="F:Android.Views.ContentCaptures.ContentCaptureManager.DataShareErrorUnknown" />
-      <MemberSignature Language="VB.NET" Value="Public Const DataShareErrorUnknown As DataShareError  = 1" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::Views::ContentCapture::DataShareError DataShareErrorUnknown = 1;" />
       <MemberSignature Language="F#" Value="val mutable DataShareErrorUnknown : Android.Views.ContentCapture.DataShareError" Usage="Android.Views.ContentCaptures.ContentCaptureManager.DataShareErrorUnknown" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -266,6 +425,7 @@
       <Docs>
         <summary>Error happened during the data sharing session.</summary>
         <remarks>
+          <para>Error happened during the data sharing session.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#DATA_SHARE_ERROR_UNKNOWN" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.DATA_SHARE_ERROR_UNKNOWN</code>.</a>
@@ -280,11 +440,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Views.ContentCaptures.ContentCaptureManager.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Views.ContentCaptures.ContentCaptureManager.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -311,11 +471,11 @@
       </Docs>
     </Member>
     <Member MemberName="RemoveData">
+      <MemberSignature Language="VB.NET" Value="Public Sub RemoveData (request As DataRemovalRequest)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RemoveData(Android::Views::ContentCaptures::DataRemovalRequest ^ request);" />
       <MemberSignature Language="C#" Value="public void RemoveData (Android.Views.ContentCaptures.DataRemovalRequest request);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void RemoveData(class Android.Views.ContentCaptures.DataRemovalRequest request) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Views.ContentCaptures.ContentCaptureManager.RemoveData(Android.Views.ContentCaptures.DataRemovalRequest)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub RemoveData (request As DataRemovalRequest)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void RemoveData(Android::Views::ContentCaptures::DataRemovalRequest ^ request);" />
       <MemberSignature Language="F#" Value="member this.RemoveData : Android.Views.ContentCaptures.DataRemovalRequest -&gt; unit" Usage="contentCaptureManager.RemoveData request" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -343,6 +503,8 @@
         <summary>Called by the app to request the content capture service to remove content capture data
             associated with some context.</summary>
         <remarks>
+          <para>Called by the app to request the content capture service to remove content capture data
+            associated with some context.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#removeData(android.view.contentcapture.DataRemovalRequest)" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.removeData(android.view.contentcapture.DataRemovalRequest)</code>.</a>
@@ -357,11 +519,11 @@
       </Docs>
     </Member>
     <Member MemberName="ServiceComponentName">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property ServiceComponentName As ComponentName" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Content::ComponentName ^ ServiceComponentName { Android::Content::ComponentName ^ get(); };" />
       <MemberSignature Language="C#" Value="public Android.Content.ComponentName? ServiceComponentName { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Android.Content.ComponentName ServiceComponentName" />
       <MemberSignature Language="DocId" Value="P:Android.Views.ContentCaptures.ContentCaptureManager.ServiceComponentName" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property ServiceComponentName As ComponentName" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::Content::ComponentName ^ ServiceComponentName { Android::Content::ComponentName ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ServiceComponentName : Android.Content.ComponentName" Usage="Android.Views.ContentCaptures.ContentCaptureManager.ServiceComponentName" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -370,12 +532,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getServiceComponentName", "()Landroid/content/ComponentName;", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getServiceComponentName", "()Landroid/content/ComponentName;", "", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -386,6 +556,8 @@
             the current user.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the component name of the system service that is consuming the captured events for
+            the current user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#getServiceComponentName()" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.getServiceComponentName()</code>.</a>
@@ -400,11 +572,11 @@
       </Docs>
     </Member>
     <Member MemberName="ShareData">
+      <MemberSignature Language="VB.NET" Value="Public Sub ShareData (request As DataShareRequest, executor As IExecutor, dataShareWriteAdapter As IDataShareWriteAdapter)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ShareData(Android::Views::ContentCaptures::DataShareRequest ^ request, Java::Util::Concurrent::IExecutor ^ executor, Android::Views::ContentCaptures::IDataShareWriteAdapter ^ dataShareWriteAdapter);" />
       <MemberSignature Language="C#" Value="public void ShareData (Android.Views.ContentCaptures.DataShareRequest request, Java.Util.Concurrent.IExecutor executor, Android.Views.ContentCaptures.IDataShareWriteAdapter dataShareWriteAdapter);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void ShareData(class Android.Views.ContentCaptures.DataShareRequest request, class Java.Util.Concurrent.IExecutor executor, class Android.Views.ContentCaptures.IDataShareWriteAdapter dataShareWriteAdapter) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Views.ContentCaptures.ContentCaptureManager.ShareData(Android.Views.ContentCaptures.DataShareRequest,Java.Util.Concurrent.IExecutor,Android.Views.ContentCaptures.IDataShareWriteAdapter)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub ShareData (request As DataShareRequest, executor As IExecutor, dataShareWriteAdapter As IDataShareWriteAdapter)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ShareData(Android::Views::ContentCaptures::DataShareRequest ^ request, Java::Util::Concurrent::IExecutor ^ executor, Android::Views::ContentCaptures::IDataShareWriteAdapter ^ dataShareWriteAdapter);" />
       <MemberSignature Language="F#" Value="member this.ShareData : Android.Views.ContentCaptures.DataShareRequest * Java.Util.Concurrent.IExecutor * Android.Views.ContentCaptures.IDataShareWriteAdapter -&gt; unit" Usage="contentCaptureManager.ShareData (request, executor, dataShareWriteAdapter)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -430,11 +602,17 @@
         <Parameter Name="dataShareWriteAdapter" Type="Android.Views.ContentCaptures.IDataShareWriteAdapter" />
       </Parameters>
       <Docs>
-        <param name="request">object specifying details of the data being shared.</param>
         <param name="executor">To be added.</param>
         <param name="dataShareWriteAdapter">To be added.</param>
+        <param name="request">object specifying details of the data being shared.</param>
         <summary>Called by the app to request data sharing via writing to a file.</summary>
         <remarks>
+          <para>Called by the app to request data sharing via writing to a file.</para>
+          <para>The ContentCaptureService app will receive a read-only file descriptor pointing to the
+            same file and will be able to read data being shared from it.</para>
+          <para>Note: using this API doesn't guarantee the app staying alive and is "best-effort".
+            Starting a foreground service would minimize the chances of the app getting killed during the
+            file sharing session.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#shareData(android.view.contentcapture.DataShareRequest,%20java.util.concurrent.Executor,%20android.view.contentcapture.DataShareWriteAdapter)" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.shareData(android.view.contentcapture.DataShareRequest, java.util.concurrent.Executor, android.view.contentcapture.DataShareWriteAdapter)</code>.</a>
@@ -449,11 +627,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Views.ContentCaptures.ContentCaptureManager.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Views.ContentCaptures.ContentCaptureManager.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -480,11 +658,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Views.ContentCaptures.ContentCaptureManager.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Views.ContentCaptures.ContentCaptureManager.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>

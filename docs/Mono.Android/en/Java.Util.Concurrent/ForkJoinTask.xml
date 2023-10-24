@@ -1,9 +1,9 @@
 <Type Name="ForkJoinTask" FullName="Java.Util.Concurrent.ForkJoinTask">
+  <TypeSignature Language="VB.NET" Value="Public MustInherit Class ForkJoinTask&#xA;Inherits Object&#xA;Implements IDisposable, IFuture, IJavaPeerable, ISerializable" />
+  <TypeSignature Language="C++ CLI" Value="public ref class ForkJoinTask abstract : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ISerializable, Java::Util::Concurrent::IFuture" />
   <TypeSignature Language="C#" Value="public abstract class ForkJoinTask : Java.Lang.Object, IDisposable, Java.Interop.IJavaPeerable, Java.IO.ISerializable, Java.Util.Concurrent.IFuture" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi abstract beforefieldinit ForkJoinTask extends Java.Lang.Object implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.IO.ISerializable, class Java.Util.Concurrent.IFuture, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Concurrent.ForkJoinTask" />
-  <TypeSignature Language="VB.NET" Value="Public MustInherit Class ForkJoinTask&#xA;Inherits Object&#xA;Implements IDisposable, IFuture, IJavaPeerable, ISerializable" />
-  <TypeSignature Language="C++ CLI" Value="public ref class ForkJoinTask abstract : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ISerializable, Java::Util::Concurrent::IFuture" />
   <TypeSignature Language="F#" Value="type ForkJoinTask = class&#xA;    inherit Object&#xA;    interface ISerializable&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable&#xA;    interface IFuture" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -38,10 +38,147 @@
       <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "V" })]</AttributeName>
       <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "V" })&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="21">
     <summary>Abstract base class for tasks that run within a <c>ForkJoinPool</c>.</summary>
     <remarks>
+      <para>Abstract base class for tasks that run within a <c>ForkJoinPool</c>.
+            A <c>ForkJoinTask</c> is a thread-like entity that is much
+            lighter weight than a normal thread.  Huge numbers of tasks and
+            subtasks may be hosted by a small number of actual threads in a
+            ForkJoinPool, at the price of some usage limitations.</para>
+      <para>A "main" <c>ForkJoinTask</c> begins execution when it is
+            explicitly submitted to a <c>ForkJoinPool</c>, or, if not already
+            engaged in a ForkJoin computation, commenced in the <c>ForkJoinPool#commonPool()</c> via <c>#fork</c>, <c>#invoke</c>, or
+            related methods.  Once started, it will usually in turn start other
+            subtasks.  As indicated by the name of this class, many programs
+            using <c>ForkJoinTask</c> employ only methods <c>#fork</c> and
+            <c>#join</c>, or derivatives such as <c>#invokeAll(ForkJoinTask...) invokeAll</c>.  However, this class also
+            provides a number of other methods that can come into play in
+            advanced usages, as well as extension mechanics that allow support
+            of new forms of fork/join processing.</para>
+      <para>A <c>ForkJoinTask</c> is a lightweight form of <c>Future</c>.
+            The efficiency of <c>ForkJoinTask</c>s stems from a set of
+            restrictions (that are only partially statically enforceable)
+            reflecting their main use as computational tasks calculating pure
+            functions or operating on purely isolated objects.  The primary
+            coordination mechanisms are <c>#fork</c>, that arranges
+            asynchronous execution, and <c>#join</c>, that doesn't proceed
+            until the task's result has been computed.  Computations should
+            ideally avoid <c>synchronized</c> methods or blocks, and should
+            minimize other blocking synchronization apart from joining other
+            tasks or using synchronizers such as Phasers that are advertised to
+            cooperate with fork/join scheduling. Subdividable tasks should also
+            not perform blocking I/O, and should ideally access variables that
+            are completely independent of those accessed by other running
+            tasks. These guidelines are loosely enforced by not permitting
+            checked exceptions such as <c>IOExceptions</c> to be
+            thrown. However, computations may still encounter unchecked
+            exceptions, that are rethrown to callers attempting to join
+            them. These exceptions may additionally include <c>RejectedExecutionException</c> stemming from internal resource
+            exhaustion, such as failure to allocate internal task
+            queues. Rethrown exceptions behave in the same way as regular
+            exceptions, but, when possible, contain stack traces (as displayed
+            for example using <c>ex.printStackTrace()</c>) of both the thread
+            that initiated the computation as well as the thread actually
+            encountering the exception; minimally only the latter.</para>
+      <para>It is possible to define and use ForkJoinTasks that may block,
+            but doing so requires three further considerations: (1) Completion
+            of few if any &lt;em&gt;other&lt;/em&gt; tasks should be dependent on a task
+            that blocks on external synchronization or I/O. Event-style async
+            tasks that are never joined (for example, those subclassing <c>CountedCompleter</c>) often fall into this category.  (2) To minimize
+            resource impact, tasks should be small; ideally performing only the
+            (possibly) blocking action. (3) Unless the <c>ForkJoinPool.ManagedBlocker</c> API is used, or the number of possibly
+            blocked tasks is known to be less than the pool's <c>ForkJoinPool#getParallelism</c> level, the pool cannot guarantee that
+            enough threads will be available to ensure progress or good
+            performance.</para>
+      <para>The primary method for awaiting completion and extracting
+            results of a task is <c>#join</c>, but there are several variants:
+            The <c>Future#get</c> methods support interruptible and/or timed
+            waits for completion and report results using <c>Future</c>
+            conventions. Method <c>#invoke</c> is semantically
+            equivalent to <c>fork(); join()</c> but always attempts to begin
+            execution in the current thread. The "&lt;em&gt;quiet&lt;/em&gt;" forms of
+            these methods do not extract results or report exceptions. These
+            may be useful when a set of tasks are being executed, and you need
+            to delay processing of results or exceptions until all complete.
+            Method <c>invokeAll</c> (available in multiple versions)
+            performs the most common form of parallel invocation: forking a set
+            of tasks and joining them all.</para>
+      <para>In the most typical usages, a fork-join pair act like a call
+            (fork) and return (join) from a parallel recursive function. As is
+            the case with other forms of recursive calls, returns (joins)
+            should be performed innermost-first. For example, <c>a.fork();
+            b.fork(); b.join(); a.join();</c> is likely to be substantially more
+            efficient than joining <c>a</c> before <c>b</c>.</para>
+      <para>The execution status of tasks may be queried at several levels
+            of detail: <c>#isDone</c> is true if a task completed in any way
+            (including the case where a task was cancelled without executing);
+            <c>#isCompletedNormally</c> is true if a task completed without
+            cancellation or encountering an exception; <c>#isCancelled</c> is
+            true if the task was cancelled (in which case <c>#getException</c>
+            returns a <c>CancellationException</c>); and
+            <c>#isCompletedAbnormally</c> is true if a task was either
+            cancelled or encountered an exception, in which case <c>#getException</c> will return either the encountered exception or
+            <c>CancellationException</c>.</para>
+      <para>The ForkJoinTask class is not usually directly subclassed.
+            Instead, you subclass one of the abstract classes that support a
+            particular style of fork/join processing, typically <c>RecursiveAction</c> for most computations that do not return results,
+            <c>RecursiveTask</c> for those that do, and <c>CountedCompleter</c> for those in which completed actions trigger
+            other actions.  Normally, a concrete ForkJoinTask subclass declares
+            fields comprising its parameters, established in a constructor, and
+            then defines a <c>compute</c> method that somehow uses the control
+            methods supplied by this base class.</para>
+      <para>Method <c>#join</c> and its variants are appropriate for use
+            only when completion dependencies are acyclic; that is, the
+            parallel computation can be described as a directed acyclic graph
+            (DAG). Otherwise, executions may encounter a form of deadlock as
+            tasks cyclically wait for each other.  However, this framework
+            supports other methods and techniques (for example the use of
+            <c>Phaser</c>, <c>#helpQuiesce</c>, and <c>#complete</c>) that
+            may be of use in constructing custom subclasses for problems that
+            are not statically structured as DAGs. To support such usages, a
+            ForkJoinTask may be atomically &lt;em&gt;tagged&lt;/em&gt; with a <c>short</c>
+            value using <c>#setForkJoinTaskTag</c> or <c>#compareAndSetForkJoinTaskTag</c> and checked using <c>#getForkJoinTaskTag</c>. The ForkJoinTask implementation does not use
+            these <c>protected</c> methods or tags for any purpose, but they
+            may be of use in the construction of specialized subclasses.  For
+            example, parallel graph traversals can use the supplied methods to
+            avoid revisiting nodes/tasks that have already been processed.
+            (Method names for tagging are bulky in part to encourage definition
+            of methods that reflect their usage patterns.)</para>
+      <para>Most base support methods are <c>final</c>, to prevent
+            overriding of implementations that are intrinsically tied to the
+            underlying lightweight task scheduling framework.  Developers
+            creating new basic styles of fork/join processing should minimally
+            implement <c>protected</c> methods <c>#exec</c>, <c>#setRawResult</c>, and <c>#getRawResult</c>, while also introducing
+            an abstract computational method that can be implemented in its
+            subclasses, possibly relying on other <c>protected</c> methods
+            provided by this class.</para>
+      <para>ForkJoinTasks should perform relatively small amounts of
+            computation. Large tasks should be split into smaller subtasks,
+            usually via recursive decomposition. As a very rough rule of thumb,
+            a task should perform more than 100 and less than 10000 basic
+            computational steps, and should avoid indefinite looping. If tasks
+            are too big, then parallelism cannot improve throughput. If too
+            small, then memory and internal task maintenance overhead may
+            overwhelm processing.</para>
+      <para>This class provides <c>adapt</c> methods for <c>Runnable</c>
+            and <c>Callable</c>, that may be of use when mixing execution of
+            <c>ForkJoinTasks</c> with other kinds of tasks. When all tasks are
+            of this form, consider using a pool constructed in &lt;em&gt;asyncMode&lt;/em&gt;.</para>
+      <para>ForkJoinTasks are <c>Serializable</c>, which enables them to be
+            used in extensions such as remote execution frameworks. It is
+            sensible to serialize tasks only before or after, but not during,
+            execution. Serialization is not relied on during execution itself.</para>
+      <para>Added in 1.7.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask</code>.</a>
@@ -56,11 +193,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; ForkJoinTask();" />
       <MemberSignature Language="C#" Value="public ForkJoinTask ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.#ctor" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; ForkJoinTask();" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -74,19 +211,28 @@
       </Attributes>
       <Parameters />
       <Docs>
-        <summary>
-        </summary>
+        <summary>Constructor for subclasses to call.</summary>
         <remarks>
-          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+          <para>Constructor for subclasses to call.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#ForkJoinTask()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.ForkJoinTask()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; ForkJoinTask(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected ForkJoinTask (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; ForkJoinTask(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ForkJoinTask : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Concurrent.ForkJoinTask" Usage="new Java.Util.Concurrent.ForkJoinTask (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -107,11 +253,11 @@
       </Docs>
     </Member>
     <Member MemberName="Adapt">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Adapt (runnable As IRunnable) As ForkJoinTask" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ Adapt(Java::Lang::IRunnable ^ runnable);" />
       <MemberSignature Language="C#" Value="public static Java.Util.Concurrent.ForkJoinTask? Adapt (Java.Lang.IRunnable? runnable);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Util.Concurrent.ForkJoinTask Adapt(class Java.Lang.IRunnable runnable) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Adapt(Java.Lang.IRunnable)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Adapt (runnable As IRunnable) As ForkJoinTask" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ Adapt(Java::Lang::IRunnable ^ runnable);" />
       <MemberSignature Language="F#" Value="static member Adapt : Java.Lang.IRunnable -&gt; Java.Util.Concurrent.ForkJoinTask" Usage="Java.Util.Concurrent.ForkJoinTask.Adapt runnable" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -137,6 +283,9 @@
             a null result upon <c>#join</c>.</summary>
         <returns>the task</returns>
         <remarks>
+          <para>Returns a new <c>ForkJoinTask</c> that performs the <c>run</c>
+            method of the given <c>Runnable</c> as its action, and returns
+            a null result upon <c>#join</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#adapt(java.lang.Runnable)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.adapt(java.lang.Runnable)</code>.</a>
@@ -151,11 +300,11 @@
       </Docs>
     </Member>
     <Member MemberName="Adapt">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Adapt (callable As ICallable) As ForkJoinTask" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ Adapt(Java::Util::Concurrent::ICallable ^ callable);" />
       <MemberSignature Language="C#" Value="public static Java.Util.Concurrent.ForkJoinTask? Adapt (Java.Util.Concurrent.ICallable? callable);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Util.Concurrent.ForkJoinTask Adapt(class Java.Util.Concurrent.ICallable callable) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Adapt(Java.Util.Concurrent.ICallable)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Adapt (callable As ICallable) As ForkJoinTask" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ Adapt(Java::Util::Concurrent::ICallable ^ callable);" />
       <MemberSignature Language="F#" Value="static member Adapt : Java.Util.Concurrent.ICallable -&gt; Java.Util.Concurrent.ForkJoinTask" Usage="Java.Util.Concurrent.ForkJoinTask.Adapt callable" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -180,12 +329,17 @@
       </Parameters>
       <Docs>
         <param name="callable">the callable action</param>
+        <param name="&lt;T&gt;&lt;T&gt;">the type of the callable's result</param>
         <summary>Returns a new <c>ForkJoinTask</c> that performs the <c>call</c>
             method of the given <c>Callable</c> as its action, and returns
             its result upon <c>#join</c>, translating any checked exceptions
             encountered into <c>RuntimeException</c>.</summary>
         <returns>the task</returns>
         <remarks>
+          <para>Returns a new <c>ForkJoinTask</c> that performs the <c>call</c>
+            method of the given <c>Callable</c> as its action, and returns
+            its result upon <c>#join</c>, translating any checked exceptions
+            encountered into <c>RuntimeException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#adapt(java.util.concurrent.Callable%3C?%20extends%20T%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.adapt(java.util.concurrent.Callable&lt;? extends T&gt;)</code>.</a>
@@ -200,11 +354,11 @@
       </Docs>
     </Member>
     <Member MemberName="Adapt">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function Adapt (runnable As IRunnable, result As Object) As ForkJoinTask" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ Adapt(Java::Lang::IRunnable ^ runnable, Java::Lang::Object ^ result);" />
       <MemberSignature Language="C#" Value="public static Java.Util.Concurrent.ForkJoinTask? Adapt (Java.Lang.IRunnable? runnable, Java.Lang.Object? result);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Java.Util.Concurrent.ForkJoinTask Adapt(class Java.Lang.IRunnable runnable, class Java.Lang.Object result) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Adapt(Java.Lang.IRunnable,Java.Lang.Object)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function Adapt (runnable As IRunnable, result As Object) As ForkJoinTask" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ Adapt(Java::Lang::IRunnable ^ runnable, Java::Lang::Object ^ result);" />
       <MemberSignature Language="F#" Value="static member Adapt : Java.Lang.IRunnable * Java.Lang.Object -&gt; Java.Util.Concurrent.ForkJoinTask" Usage="Java.Util.Concurrent.ForkJoinTask.Adapt (runnable, result)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -231,11 +385,15 @@
       <Docs>
         <param name="runnable">the runnable action</param>
         <param name="result">the result upon completion</param>
+        <param name="&lt;T&gt;&lt;T&gt;">the type of the result</param>
         <summary>Returns a new <c>ForkJoinTask</c> that performs the <c>run</c>
             method of the given <c>Runnable</c> as its action, and returns
             the given result upon <c>#join</c>.</summary>
         <returns>the task</returns>
         <remarks>
+          <para>Returns a new <c>ForkJoinTask</c> that performs the <c>run</c>
+            method of the given <c>Runnable</c> as its action, and returns
+            the given result upon <c>#join</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#adapt(java.lang.Runnable,%20T)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.adapt(java.lang.Runnable, T)</code>.</a>
@@ -250,11 +408,11 @@
       </Docs>
     </Member>
     <Member MemberName="Cancel">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function Cancel (mayInterruptIfRunning As Boolean) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool Cancel(bool mayInterruptIfRunning);" />
       <MemberSignature Language="C#" Value="public virtual bool Cancel (bool mayInterruptIfRunning);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool Cancel(bool mayInterruptIfRunning) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Cancel(System.Boolean)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function Cancel (mayInterruptIfRunning As Boolean) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool Cancel(bool mayInterruptIfRunning);" />
       <MemberSignature Language="F#" Value="abstract member Cancel : bool -&gt; bool&#xA;override this.Cancel : bool -&gt; bool" Usage="forkJoinTask.Cancel mayInterruptIfRunning" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -284,6 +442,22 @@
         <returns>
           <c>true</c> if this task is now cancelled</returns>
         <remarks>
+          <para>Attempts to cancel execution of this task. This attempt will
+            fail if the task has already completed or could not be
+            cancelled for some other reason. If successful, and this task
+            has not started when <c>cancel</c> is called, execution of
+            this task is suppressed. After this method returns
+            successfully, unless there is an intervening call to <c>#reinitialize</c>, subsequent calls to <c>#isCancelled</c>,
+            <c>#isDone</c>, and <c>cancel</c> will return <c>true</c>
+            and calls to <c>#join</c> and related methods will result in
+            <c>CancellationException</c>.</para>
+          <para>This method may be overridden in subclasses, but if so, must
+            still ensure that these properties hold. In particular, the
+            <c>cancel</c> method itself must not throw exceptions.</para>
+          <para>This method is designed to be invoked by &lt;em&gt;other&lt;/em&gt;
+            tasks. To terminate the current task, you can just return or
+            throw an unchecked exception from its computation method, or
+            invoke <c>#completeExceptionally(Throwable)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#cancel(boolean)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.cancel(boolean)</code>.</a>
@@ -298,11 +472,11 @@
       </Docs>
     </Member>
     <Member MemberName="CompareAndSetForkJoinTaskTag">
+      <MemberSignature Language="VB.NET" Value="Public Function CompareAndSetForkJoinTaskTag (expect As Short, update As Short) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool CompareAndSetForkJoinTaskTag(short expect, short update);" />
       <MemberSignature Language="C#" Value="public bool CompareAndSetForkJoinTaskTag (short expect, short update);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool CompareAndSetForkJoinTaskTag(int16 expect, int16 update) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.CompareAndSetForkJoinTaskTag(System.Int16,System.Int16)" />
-      <MemberSignature Language="VB.NET" Value="Public Function CompareAndSetForkJoinTaskTag (expect As Short, update As Short) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool CompareAndSetForkJoinTaskTag(short expect, short update);" />
       <MemberSignature Language="F#" Value="member this.CompareAndSetForkJoinTaskTag : int16 * int16 -&gt; bool" Usage="forkJoinTask.CompareAndSetForkJoinTaskTag (expect, update)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -334,6 +508,12 @@
           <c>true</c> if successful; i.e., the current value was
             equal to <c>expect</c> and was changed to <c>update</c>.</returns>
         <remarks>
+          <para>Atomically conditionally sets the tag value for this task.
+            Among other applications, tags can be used as visit markers
+            in tasks operating on graphs, as in methods that check: <c>if (task.compareAndSetForkJoinTaskTag((short)0, (short)1))</c>
+            before processing, otherwise exiting because the node has
+            already been visited.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#compareAndSetForkJoinTaskTag(short,%20short)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.compareAndSetForkJoinTaskTag(short, short)</code>.</a>
@@ -348,11 +528,11 @@
       </Docs>
     </Member>
     <Member MemberName="Complete">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Complete (value As Object)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Complete(Java::Lang::Object ^ value);" />
       <MemberSignature Language="C#" Value="public virtual void Complete (Java.Lang.Object? value);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Complete(class Java.Lang.Object value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Complete(Java.Lang.Object)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Complete (value As Object)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Complete(Java::Lang::Object ^ value);" />
       <MemberSignature Language="F#" Value="abstract member Complete : Java.Lang.Object -&gt; unit&#xA;override this.Complete : Java.Lang.Object -&gt; unit" Usage="forkJoinTask.Complete value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -377,6 +557,15 @@
             returning the given value as the result of subsequent
             invocations of <c>join</c> and related operations.</summary>
         <remarks>
+          <para>Completes this task, and if not already aborted or cancelled,
+            returning the given value as the result of subsequent
+            invocations of <c>join</c> and related operations. This method
+            may be used to provide results for asynchronous tasks, or to
+            provide alternative handling for tasks that would not otherwise
+            complete normally. Its use in other situations is
+            discouraged. This method is overridable, but overridden
+            versions must invoke <c>super</c> implementation to maintain
+            guarantees.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#complete(V)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.complete(V)</code>.</a>
@@ -391,11 +580,11 @@
       </Docs>
     </Member>
     <Member MemberName="CompleteExceptionally">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub CompleteExceptionally (ex As Throwable)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void CompleteExceptionally(Java::Lang::Throwable ^ ex);" />
       <MemberSignature Language="C#" Value="public virtual void CompleteExceptionally (Java.Lang.Throwable? ex);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void CompleteExceptionally(class Java.Lang.Throwable ex) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.CompleteExceptionally(Java.Lang.Throwable)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub CompleteExceptionally (ex As Throwable)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void CompleteExceptionally(Java::Lang::Throwable ^ ex);" />
       <MemberSignature Language="F#" Value="abstract member CompleteExceptionally : Java.Lang.Throwable -&gt; unit&#xA;override this.CompleteExceptionally : Java.Lang.Throwable -&gt; unit" Usage="forkJoinTask.CompleteExceptionally ex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -422,6 +611,14 @@
             cancelled, causes it to throw the given exception upon
             <c>join</c> and related operations.</summary>
         <remarks>
+          <para>Completes this task abnormally, and if not already aborted or
+            cancelled, causes it to throw the given exception upon
+            <c>join</c> and related operations. This method may be used
+            to induce exceptions in asynchronous tasks, or to force
+            completion of tasks that would not otherwise complete.  Its use
+            in other situations is discouraged.  This method is
+            overridable, but overridden versions must invoke <c>super</c>
+            implementation to maintain guarantees.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#completeExceptionally(java.lang.Throwable)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.completeExceptionally(java.lang.Throwable)</code>.</a>
@@ -436,11 +633,11 @@
       </Docs>
     </Member>
     <Member MemberName="Exception">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Exception As Throwable" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Lang::Throwable ^ Exception { Java::Lang::Throwable ^ get(); };" />
       <MemberSignature Language="C#" Value="public Java.Lang.Throwable? Exception { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Lang.Throwable Exception" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.Exception" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property Exception As Throwable" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Java::Lang::Throwable ^ Exception { Java::Lang::Throwable ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.Exception : Java.Lang.Throwable" Usage="Java.Util.Concurrent.ForkJoinTask.Exception" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -462,6 +659,9 @@
             none or if the method has not yet completed.</summary>
         <value>the exception, or <c>null</c> if none</value>
         <remarks>
+          <para>Returns the exception thrown by the base computation, or a
+            <c>CancellationException</c> if cancelled, or <c>null</c> if
+            none or if the method has not yet completed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#getException()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.getException()</code>.</a>
@@ -476,11 +676,11 @@
       </Docs>
     </Member>
     <Member MemberName="Exec">
+      <MemberSignature Language="VB.NET" Value="Protected MustOverride Function Exec () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; abstract bool Exec();" />
       <MemberSignature Language="C#" Value="protected abstract bool Exec ();" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig newslot virtual instance bool Exec() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Exec" />
-      <MemberSignature Language="VB.NET" Value="Protected MustOverride Function Exec () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; abstract bool Exec();" />
       <MemberSignature Language="F#" Value="abstract member Exec : unit -&gt; bool" Usage="forkJoinTask.Exec " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -500,10 +700,19 @@
       <Docs>
         <summary>Immediately performs the base action of this task and returns
             true if, upon return from this method, this task is guaranteed
-            to have completed normally.</summary>
+            to have completed.</summary>
         <returns>
           <c>true</c> if this task is known to have completed normally</returns>
         <remarks>
+          <para>Immediately performs the base action of this task and returns
+            true if, upon return from this method, this task is guaranteed
+            to have completed. This method may return false otherwise, to
+            indicate that this task is not necessarily complete (or is not
+            known to be complete), for example in asynchronous actions that
+            require explicit invocations of completion methods. This method
+            may also throw an (unchecked) exception to indicate abnormal
+            exit. This method is designed to support extensions, and should
+            not in general be called otherwise.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#exec()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.exec()</code>.</a>
@@ -518,11 +727,11 @@
       </Docs>
     </Member>
     <Member MemberName="Fork">
+      <MemberSignature Language="VB.NET" Value="Public Function Fork () As ForkJoinTask" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Util::Concurrent::ForkJoinTask ^ Fork();" />
       <MemberSignature Language="C#" Value="public Java.Util.Concurrent.ForkJoinTask? Fork ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Util.Concurrent.ForkJoinTask Fork() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Fork" />
-      <MemberSignature Language="VB.NET" Value="Public Function Fork () As ForkJoinTask" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Util::Concurrent::ForkJoinTask ^ Fork();" />
       <MemberSignature Language="F#" Value="member this.Fork : unit -&gt; Java.Util.Concurrent.ForkJoinTask" Usage="forkJoinTask.Fork " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -545,6 +754,15 @@
         <returns>
           <c>this</c>, to simplify usage</returns>
         <remarks>
+          <para>Arranges to asynchronously execute this task in the pool the
+            current task is running in, if applicable, or using the <c>ForkJoinPool#commonPool()</c> if not <c>#inForkJoinPool</c>.  While
+            it is not necessarily enforced, it is a usage error to fork a
+            task more than once unless it has completed and been
+            reinitialized.  Subsequent modifications to the state of this
+            task or any data it operates on are not necessarily
+            consistently observable by any thread other than the one
+            executing it unless preceded by a call to <c>#join</c> or
+            related methods, or a call to <c>#isDone</c> returning <c>true</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#fork()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.fork()</code>.</a>
@@ -559,11 +777,11 @@
       </Docs>
     </Member>
     <Member MemberName="ForkJoinTaskTag">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property ForkJoinTaskTag As Short" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property short ForkJoinTaskTag { short get(); };" />
       <MemberSignature Language="C#" Value="public short ForkJoinTaskTag { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int16 ForkJoinTaskTag" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.ForkJoinTaskTag" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property ForkJoinTaskTag As Short" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property short ForkJoinTaskTag { short get(); };" />
       <MemberSignature Language="F#" Value="member this.ForkJoinTaskTag : int16" Usage="Java.Util.Concurrent.ForkJoinTask.ForkJoinTaskTag" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -587,6 +805,8 @@
         <summary>Returns the tag for this task.</summary>
         <value>the tag for this task</value>
         <remarks>
+          <para>Returns the tag for this task.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#getForkJoinTaskTag()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.getForkJoinTaskTag()</code>.</a>
@@ -601,11 +821,11 @@
       </Docs>
     </Member>
     <Member MemberName="Get">
+      <MemberSignature Language="VB.NET" Value="Public Function Get () As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Lang::Object ^ Get();" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? Get ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Lang.Object Get() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Get" />
-      <MemberSignature Language="VB.NET" Value="Public Function Get () As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Lang::Object ^ Get();" />
       <MemberSignature Language="F#" Value="abstract member Get : unit -&gt; Java.Lang.Object&#xA;override this.Get : unit -&gt; Java.Lang.Object" Usage="forkJoinTask.Get " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -630,6 +850,8 @@
             retrieves its result.</summary>
         <returns>the computed result</returns>
         <remarks>
+          <para>Waits if necessary for the computation to complete, and then
+            retrieves its result.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#get()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.get()</code>.</a>
@@ -650,11 +872,11 @@
       </Docs>
     </Member>
     <Member MemberName="Get">
+      <MemberSignature Language="VB.NET" Value="Public Function Get (timeout As Long, unit As TimeUnit) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Lang::Object ^ Get(long timeout, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? Get (long timeout, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Lang.Object Get(int64 timeout, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Get(System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Get (timeout As Long, unit As TimeUnit) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Lang::Object ^ Get(long timeout, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member Get : int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Lang.Object&#xA;override this.Get : int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Lang.Object" Usage="forkJoinTask.Get (timeout, unit)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -684,6 +906,8 @@
             to complete, and then retrieves its result, if available.</summary>
         <returns>the computed result</returns>
         <remarks>
+          <para>Waits if necessary for at most the given time for the computation
+            to complete, and then retrieves its result, if available.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#get(long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.get(long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -705,11 +929,11 @@
       </Docs>
     </Member>
     <Member MemberName="HelpQuiesce">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub HelpQuiesce ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void HelpQuiesce();" />
       <MemberSignature Language="C#" Value="public static void HelpQuiesce ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void HelpQuiesce() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.HelpQuiesce" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub HelpQuiesce ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void HelpQuiesce();" />
       <MemberSignature Language="F#" Value="static member HelpQuiesce : unit -&gt; unit" Usage="Java.Util.Concurrent.ForkJoinTask.HelpQuiesce " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -730,6 +954,11 @@
         <summary>Possibly executes tasks until the pool hosting the current task
             ForkJoinPool#isQuiescent is quiescent.</summary>
         <remarks>
+          <para>Possibly executes tasks until the pool hosting the current task
+            ForkJoinPool#isQuiescent is quiescent.  This
+            method may be of use in designs in which many tasks are forked,
+            but none are explicitly joined, instead executing them until
+            all are processed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#helpQuiesce()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.helpQuiesce()</code>.</a>
@@ -744,11 +973,11 @@
       </Docs>
     </Member>
     <Member MemberName="InForkJoinPool">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function InForkJoinPool () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool InForkJoinPool();" />
       <MemberSignature Language="C#" Value="public static bool InForkJoinPool ();" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig bool InForkJoinPool() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.InForkJoinPool" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function InForkJoinPool () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static bool InForkJoinPool();" />
       <MemberSignature Language="F#" Value="static member InForkJoinPool : unit -&gt; bool" Usage="Java.Util.Concurrent.ForkJoinTask.InForkJoinPool " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -771,6 +1000,7 @@
           <c>true</c> if the current thread is a <c>ForkJoinWorkerThread</c> executing as a ForkJoinPool computation,
             or <c>false</c> otherwise</returns>
         <remarks>
+          <para>Returns <c>true</c> if the current thread is a <c>ForkJoinWorkerThread</c> executing as a ForkJoinPool computation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#inForkJoinPool()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.inForkJoinPool()</code>.</a>
@@ -785,11 +1015,11 @@
       </Docs>
     </Member>
     <Member MemberName="Invoke">
+      <MemberSignature Language="VB.NET" Value="Public Function Invoke () As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ Invoke();" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? Invoke ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object Invoke() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Invoke" />
-      <MemberSignature Language="VB.NET" Value="Public Function Invoke () As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ Invoke();" />
       <MemberSignature Language="F#" Value="member this.Invoke : unit -&gt; Java.Lang.Object" Usage="forkJoinTask.Invoke " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -813,6 +1043,10 @@
             computation did so.</summary>
         <returns>the computed result</returns>
         <remarks>
+          <para>Commences performing this task, awaits its completion if
+            necessary, and returns its result, or throws an (unchecked)
+            <c>RuntimeException</c> or <c>Error</c> if the underlying
+            computation did so.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#invoke()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.invoke()</code>.</a>
@@ -827,11 +1061,11 @@
       </Docs>
     </Member>
     <Member MemberName="InvokeAll">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub InvokeAll (ParamArray tasks As ForkJoinTask())" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void InvokeAll(... cli::array &lt;Java::Util::Concurrent::ForkJoinTask ^&gt; ^ tasks);" />
       <MemberSignature Language="C#" Value="public static void InvokeAll (params Java.Util.Concurrent.ForkJoinTask[]? tasks);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void InvokeAll(class Java.Util.Concurrent.ForkJoinTask[] tasks) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.InvokeAll(Java.Util.Concurrent.ForkJoinTask[])" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub InvokeAll (ParamArray tasks As ForkJoinTask())" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void InvokeAll(... cli::array &lt;Java::Util::Concurrent::ForkJoinTask ^&gt; ^ tasks);" />
       <MemberSignature Language="F#" Value="static member InvokeAll : Java.Util.Concurrent.ForkJoinTask[] -&gt; unit" Usage="Java.Util.Concurrent.ForkJoinTask.InvokeAll tasks" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -853,6 +1087,10 @@
             <Attribute>
               <AttributeName Language="C#">[System.ParamArray]</AttributeName>
               <AttributeName Language="F#">[&lt;System.ParamArray&gt;]</AttributeName>
+            </Attribute>
+            <Attribute>
+              <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+              <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
             </Attribute>
           </Attributes>
         </Parameter>
@@ -878,11 +1116,11 @@
       </Docs>
     </Member>
     <Member MemberName="InvokeAll">
+      <MemberSignature Language="VB.NET" Value="Public Shared Function InvokeAll (tasks As ICollection) As ICollection" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static System::Collections::ICollection ^ InvokeAll(System::Collections::ICollection ^ tasks);" />
       <MemberSignature Language="C#" Value="public static System.Collections.ICollection? InvokeAll (System.Collections.ICollection? tasks);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class System.Collections.ICollection InvokeAll(class System.Collections.ICollection tasks) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.InvokeAll(System.Collections.ICollection)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Function InvokeAll (tasks As ICollection) As ICollection" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static System::Collections::ICollection ^ InvokeAll(System::Collections::ICollection ^ tasks);" />
       <MemberSignature Language="F#" Value="static member InvokeAll : System.Collections.ICollection -&gt; System.Collections.ICollection" Usage="Java.Util.Concurrent.ForkJoinTask.InvokeAll tasks" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -907,11 +1145,22 @@
       </Parameters>
       <Docs>
         <param name="tasks">the collection of tasks</param>
+        <param name="&lt;T&gt;&lt;T&gt;">the type of the values returned from the tasks</param>
         <summary>Forks all tasks in the specified collection, returning when
             <c>isDone</c> holds for each task or an (unchecked) exception
             is encountered, in which case the exception is rethrown.</summary>
         <returns>the tasks argument, to simplify usage</returns>
         <remarks>
+          <para>Forks all tasks in the specified collection, returning when
+            <c>isDone</c> holds for each task or an (unchecked) exception
+            is encountered, in which case the exception is rethrown. If
+            more than one task encounters an exception, then this method
+            throws any one of these exceptions. If any task encounters an
+            exception, others may be cancelled. However, the execution
+            status of individual tasks is not guaranteed upon exceptional
+            return. The status of each task may be obtained using <c>#getException()</c> and related methods to check if they have been
+            cancelled, completed normally or exceptionally, or left
+            unprocessed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#invokeAll(java.util.Collection%3CT%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.invokeAll(java.util.Collection&lt;T&gt;)</code>.</a>
@@ -926,11 +1175,11 @@
       </Docs>
     </Member>
     <Member MemberName="InvokeAll">
+      <MemberSignature Language="VB.NET" Value="Public Shared Sub InvokeAll (t1 As ForkJoinTask, t2 As ForkJoinTask)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void InvokeAll(Java::Util::Concurrent::ForkJoinTask ^ t1, Java::Util::Concurrent::ForkJoinTask ^ t2);" />
       <MemberSignature Language="C#" Value="public static void InvokeAll (Java.Util.Concurrent.ForkJoinTask? t1, Java.Util.Concurrent.ForkJoinTask? t2);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig void InvokeAll(class Java.Util.Concurrent.ForkJoinTask t1, class Java.Util.Concurrent.ForkJoinTask t2) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.InvokeAll(Java.Util.Concurrent.ForkJoinTask,Java.Util.Concurrent.ForkJoinTask)" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Sub InvokeAll (t1 As ForkJoinTask, t2 As ForkJoinTask)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static void InvokeAll(Java::Util::Concurrent::ForkJoinTask ^ t1, Java::Util::Concurrent::ForkJoinTask ^ t2);" />
       <MemberSignature Language="F#" Value="static member InvokeAll : Java.Util.Concurrent.ForkJoinTask * Java.Util.Concurrent.ForkJoinTask -&gt; unit" Usage="Java.Util.Concurrent.ForkJoinTask.InvokeAll (t1, t2)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -958,6 +1207,16 @@
             case the exception is rethrown.</summary>
         <returns>the tasks argument, to simplify usage</returns>
         <remarks>
+          <para>Forks the given tasks, returning when <c>isDone</c> holds for
+            each task or an (unchecked) exception is encountered, in which
+            case the exception is rethrown. If more than one task
+            encounters an exception, then this method throws any one of
+            these exceptions. If any task encounters an exception, the
+            other may be cancelled. However, the execution status of
+            individual tasks is not guaranteed upon exceptional return. The
+            status of each task may be obtained using <c>#getException()</c> and related methods to check if they have been
+            cancelled, completed normally or exceptionally, or left
+            unprocessed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#invokeAll(java.util.concurrent.ForkJoinTask%3C?%3E,%20java.util.concurrent.ForkJoinTask%3C?%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.invokeAll(java.util.concurrent.ForkJoinTask&lt;?&gt;, java.util.concurrent.ForkJoinTask&lt;?&gt;)</code>.</a>
@@ -972,11 +1231,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsCancelled">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsCancelled As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsCancelled { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsCancelled { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsCancelled" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.IsCancelled" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsCancelled As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsCancelled { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsCancelled : bool" Usage="Java.Util.Concurrent.ForkJoinTask.IsCancelled" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -1005,11 +1264,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsCompletedAbnormally">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsCompletedAbnormally As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsCompletedAbnormally { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsCompletedAbnormally { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsCompletedAbnormally" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.IsCompletedAbnormally" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsCompletedAbnormally As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsCompletedAbnormally { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsCompletedAbnormally : bool" Usage="Java.Util.Concurrent.ForkJoinTask.IsCompletedAbnormally" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1030,6 +1289,7 @@
         <value>
           <c>true</c> if this task threw an exception or was cancelled</value>
         <remarks>
+          <para>Returns <c>true</c> if this task threw an exception or was cancelled.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#isCompletedAbnormally()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.isCompletedAbnormally()</code>.</a>
@@ -1044,11 +1304,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsCompletedNormally">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsCompletedNormally As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsCompletedNormally { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsCompletedNormally { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsCompletedNormally" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.IsCompletedNormally" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsCompletedNormally As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsCompletedNormally { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsCompletedNormally : bool" Usage="Java.Util.Concurrent.ForkJoinTask.IsCompletedNormally" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1071,6 +1331,8 @@
           <c>true</c> if this task completed without throwing an
             exception and was not cancelled</value>
         <remarks>
+          <para>Returns <c>true</c> if this task completed without throwing an
+            exception and was not cancelled.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#isCompletedNormally()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.isCompletedNormally()</code>.</a>
@@ -1085,11 +1347,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsDone">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsDone As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsDone { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsDone { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsDone" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.IsDone" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsDone As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsDone { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsDone : bool" Usage="Java.Util.Concurrent.ForkJoinTask.IsDone" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -1117,11 +1379,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Java.Util.Concurrent.ForkJoinTask.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -1140,6 +1402,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -1153,11 +1423,11 @@
       </Docs>
     </Member>
     <Member MemberName="Join">
+      <MemberSignature Language="VB.NET" Value="Public Function Join () As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ Join();" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object? Join ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object Join() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Join" />
-      <MemberSignature Language="VB.NET" Value="Public Function Join () As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ Join();" />
       <MemberSignature Language="F#" Value="member this.Join : unit -&gt; Java.Lang.Object" Usage="forkJoinTask.Join " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1179,6 +1449,13 @@
             #isDone is done.</summary>
         <returns>the computed result</returns>
         <remarks>
+          <para>Returns the result of the computation when it
+            #isDone is done.
+            This method differs from <c>#get()</c> in that abnormal
+            completion results in <c>RuntimeException</c> or <c>Error</c>,
+            not <c>ExecutionException</c>, and that interrupts of the
+            calling thread do &lt;em&gt;not&lt;/em&gt; cause the method to abruptly
+            return by throwing <c>InterruptedException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#join()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.join()</code>.</a>
@@ -1193,11 +1470,11 @@
       </Docs>
     </Member>
     <Member MemberName="PeekNextLocalTask">
+      <MemberSignature Language="VB.NET" Value="Protected Shared Function PeekNextLocalTask () As ForkJoinTask" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ PeekNextLocalTask();" />
       <MemberSignature Language="C#" Value="protected static Java.Util.Concurrent.ForkJoinTask? PeekNextLocalTask ();" />
       <MemberSignature Language="ILAsm" Value=".method familystatic hidebysig class Java.Util.Concurrent.ForkJoinTask PeekNextLocalTask() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.PeekNextLocalTask" />
-      <MemberSignature Language="VB.NET" Value="Protected Shared Function PeekNextLocalTask () As ForkJoinTask" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ PeekNextLocalTask();" />
       <MemberSignature Language="F#" Value="static member PeekNextLocalTask : unit -&gt; Java.Util.Concurrent.ForkJoinTask" Usage="Java.Util.Concurrent.ForkJoinTask.PeekNextLocalTask " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1220,6 +1497,14 @@
             available.</summary>
         <returns>the next task, or <c>null</c> if none are available</returns>
         <remarks>
+          <para>Returns, but does not unschedule or execute, a task queued by
+            the current thread but not yet executed, if one is immediately
+            available. There is no guarantee that this task will actually
+            be polled or executed next. Conversely, this method may return
+            null even if a task exists but cannot be accessed without
+            contention with other threads.  This method is designed
+            primarily to support extensions, and is unlikely to be useful
+            otherwise.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#peekNextLocalTask()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.peekNextLocalTask()</code>.</a>
@@ -1234,11 +1519,11 @@
       </Docs>
     </Member>
     <Member MemberName="PollNextLocalTask">
+      <MemberSignature Language="VB.NET" Value="Protected Shared Function PollNextLocalTask () As ForkJoinTask" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ PollNextLocalTask();" />
       <MemberSignature Language="C#" Value="protected static Java.Util.Concurrent.ForkJoinTask? PollNextLocalTask ();" />
       <MemberSignature Language="ILAsm" Value=".method familystatic hidebysig class Java.Util.Concurrent.ForkJoinTask PollNextLocalTask() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.PollNextLocalTask" />
-      <MemberSignature Language="VB.NET" Value="Protected Shared Function PollNextLocalTask () As ForkJoinTask" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ PollNextLocalTask();" />
       <MemberSignature Language="F#" Value="static member PollNextLocalTask : unit -&gt; Java.Util.Concurrent.ForkJoinTask" Usage="Java.Util.Concurrent.ForkJoinTask.PollNextLocalTask " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1261,6 +1546,11 @@
             current thread is operating in a ForkJoinPool.</summary>
         <returns>the next task, or <c>null</c> if none are available</returns>
         <remarks>
+          <para>Unschedules and returns, without executing, the next task
+            queued by the current thread but not yet executed, if the
+            current thread is operating in a ForkJoinPool.  This method is
+            designed primarily to support extensions, and is unlikely to be
+            useful otherwise.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#pollNextLocalTask()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.pollNextLocalTask()</code>.</a>
@@ -1275,11 +1565,11 @@
       </Docs>
     </Member>
     <Member MemberName="PollTask">
+      <MemberSignature Language="VB.NET" Value="Protected Shared Function PollTask () As ForkJoinTask" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ PollTask();" />
       <MemberSignature Language="C#" Value="protected static Java.Util.Concurrent.ForkJoinTask? PollTask ();" />
       <MemberSignature Language="ILAsm" Value=".method familystatic hidebysig class Java.Util.Concurrent.ForkJoinTask PollTask() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.PollTask" />
-      <MemberSignature Language="VB.NET" Value="Protected Shared Function PollTask () As ForkJoinTask" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; static Java::Util::Concurrent::ForkJoinTask ^ PollTask();" />
       <MemberSignature Language="F#" Value="static member PollTask : unit -&gt; Java.Util.Concurrent.ForkJoinTask" Usage="Java.Util.Concurrent.ForkJoinTask.PollTask " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1304,6 +1594,15 @@
             other thread, if available.</summary>
         <returns>a task, or <c>null</c> if none are available</returns>
         <remarks>
+          <para>If the current thread is operating in a ForkJoinPool,
+            unschedules and returns, without executing, the next task
+            queued by the current thread but not yet executed, if one is
+            available, or if not available, a task that was forked by some
+            other thread, if available. Availability may be transient, so a
+            <c>null</c> result does not necessarily imply quiescence of
+            the pool this task is operating in.  This method is designed
+            primarily to support extensions, and is unlikely to be useful
+            otherwise.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#pollTask()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.pollTask()</code>.</a>
@@ -1318,12 +1617,12 @@
       </Docs>
     </Member>
     <Member MemberName="Pool">
+      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property Pool As ForkJoinPool" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Java::Util::Concurrent::ForkJoinPool ^ Pool { Java::Util::Concurrent::ForkJoinPool ^ get(); };" />
       <MemberSignature Language="C#" Value="public static Java.Util.Concurrent.ForkJoinPool? Pool { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.Concurrent.ForkJoinPool Pool" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.Pool" />
-      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property Pool As ForkJoinPool" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Java::Util::Concurrent::ForkJoinPool ^ Pool { Java::Util::Concurrent::ForkJoinPool ^ get(); };" />
-      <MemberSignature Language="F#" Value="static member Pool : Java.Util.Concurrent.ForkJoinPool" Usage="Java.Util.Concurrent.ForkJoinTask.Pool" />
+      <MemberSignature Language="F#" Value="member this.Pool : Java.Util.Concurrent.ForkJoinPool" Usage="Java.Util.Concurrent.ForkJoinTask.Pool" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -1343,6 +1642,9 @@
             if the current thread is executing outside of any ForkJoinPool.</summary>
         <value>the pool, or <c>null</c> if none</value>
         <remarks>
+          <para>Returns the pool hosting the current thread, or <c>null</c>
+            if the current thread is executing outside of any ForkJoinPool.</para>
+          <para>This method returns <c>null</c> if and only if <c>#inForkJoinPool</c> returns <c>false</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#getPool()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.getPool()</code>.</a>
@@ -1358,12 +1660,12 @@
       </Docs>
     </Member>
     <Member MemberName="QueuedTaskCount">
+      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property QueuedTaskCount As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property int QueuedTaskCount { int get(); };" />
       <MemberSignature Language="C#" Value="public static int QueuedTaskCount { get; }" />
       <MemberSignature Language="ILAsm" Value=".property int32 QueuedTaskCount" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.QueuedTaskCount" />
-      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property QueuedTaskCount As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property int QueuedTaskCount { int get(); };" />
-      <MemberSignature Language="F#" Value="static member QueuedTaskCount : int" Usage="Java.Util.Concurrent.ForkJoinTask.QueuedTaskCount" />
+      <MemberSignature Language="F#" Value="member this.QueuedTaskCount : int" Usage="Java.Util.Concurrent.ForkJoinTask.QueuedTaskCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -1383,6 +1685,10 @@
             forked by the current worker thread but not yet executed.</summary>
         <value>the number of tasks</value>
         <remarks>
+          <para>Returns an estimate of the number of tasks that have been
+            forked by the current worker thread but not yet executed. This
+            value may be useful for heuristic decisions about whether to
+            fork other tasks.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#getQueuedTaskCount()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.getQueuedTaskCount()</code>.</a>
@@ -1397,11 +1703,11 @@
       </Docs>
     </Member>
     <Member MemberName="QuietlyComplete">
+      <MemberSignature Language="VB.NET" Value="Public Sub QuietlyComplete ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void QuietlyComplete();" />
       <MemberSignature Language="C#" Value="public void QuietlyComplete ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void QuietlyComplete() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.QuietlyComplete" />
-      <MemberSignature Language="VB.NET" Value="Public Sub QuietlyComplete ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void QuietlyComplete();" />
       <MemberSignature Language="F#" Value="member this.QuietlyComplete : unit -&gt; unit" Usage="forkJoinTask.QuietlyComplete " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1425,6 +1731,10 @@
       <Docs>
         <summary>Completes this task normally without setting a value.</summary>
         <remarks>
+          <para>Completes this task normally without setting a value. The most
+            recent value established by <c>#setRawResult</c> (or <c>null</c> by default) will be returned as the result of subsequent
+            invocations of <c>join</c> and related operations.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#quietlyComplete()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.quietlyComplete()</code>.</a>
@@ -1439,11 +1749,11 @@
       </Docs>
     </Member>
     <Member MemberName="QuietlyInvoke">
+      <MemberSignature Language="VB.NET" Value="Public Sub QuietlyInvoke ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void QuietlyInvoke();" />
       <MemberSignature Language="C#" Value="public void QuietlyInvoke ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void QuietlyInvoke() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.QuietlyInvoke" />
-      <MemberSignature Language="VB.NET" Value="Public Sub QuietlyInvoke ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void QuietlyInvoke();" />
       <MemberSignature Language="F#" Value="member this.QuietlyInvoke : unit -&gt; unit" Usage="forkJoinTask.QuietlyInvoke " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1465,6 +1775,9 @@
             necessary, without returning its result or throwing its
             exception.</summary>
         <remarks>
+          <para>Commences performing this task and awaits its completion if
+            necessary, without returning its result or throwing its
+            exception.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#quietlyInvoke()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.quietlyInvoke()</code>.</a>
@@ -1479,11 +1792,11 @@
       </Docs>
     </Member>
     <Member MemberName="QuietlyJoin">
+      <MemberSignature Language="VB.NET" Value="Public Sub QuietlyJoin ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void QuietlyJoin();" />
       <MemberSignature Language="C#" Value="public void QuietlyJoin ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void QuietlyJoin() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.QuietlyJoin" />
-      <MemberSignature Language="VB.NET" Value="Public Sub QuietlyJoin ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void QuietlyJoin();" />
       <MemberSignature Language="F#" Value="member this.QuietlyJoin : unit -&gt; unit" Usage="forkJoinTask.QuietlyJoin " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1504,6 +1817,10 @@
         <summary>Joins this task, without returning its result or throwing its
             exception.</summary>
         <remarks>
+          <para>Joins this task, without returning its result or throwing its
+            exception. This method may be useful when processing
+            collections of tasks when some have been cancelled or otherwise
+            known to have aborted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#quietlyJoin()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.quietlyJoin()</code>.</a>
@@ -1518,11 +1835,11 @@
       </Docs>
     </Member>
     <Member MemberName="RawRawResult">
+      <MemberSignature Language="VB.NET" Value="Protected MustOverride ReadOnly Property RawRawResult As Object" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; abstract property Java::Lang::Object ^ RawRawResult { Java::Lang::Object ^ get(); };" />
       <MemberSignature Language="C#" Value="protected abstract Java.Lang.Object? RawRawResult { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Lang.Object RawRawResult" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.RawRawResult" />
-      <MemberSignature Language="VB.NET" Value="Protected MustOverride ReadOnly Property RawRawResult As Object" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; abstract property Java::Lang::Object ^ RawRawResult { Java::Lang::Object ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.RawRawResult : Java.Lang.Object" Usage="Java.Util.Concurrent.ForkJoinTask.RawRawResult" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1549,11 +1866,11 @@
       </Docs>
     </Member>
     <Member MemberName="Reinitialize">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Reinitialize ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Reinitialize();" />
       <MemberSignature Language="C#" Value="public virtual void Reinitialize ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Reinitialize() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.Reinitialize" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Reinitialize ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Reinitialize();" />
       <MemberSignature Language="F#" Value="abstract member Reinitialize : unit -&gt; unit&#xA;override this.Reinitialize : unit -&gt; unit" Usage="forkJoinTask.Reinitialize " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1574,6 +1891,17 @@
         <summary>Resets the internal bookkeeping state of this task, allowing a
             subsequent <c>fork</c>.</summary>
         <remarks>
+          <para>Resets the internal bookkeeping state of this task, allowing a
+            subsequent <c>fork</c>. This method allows repeated reuse of
+            this task, but only if reuse occurs when this task has either
+            never been forked, or has been forked, then completed and all
+            outstanding joins of this task have also completed. Effects
+            under any other usage conditions are not guaranteed.
+            This method may be useful when executing
+            pre-constructed trees of subtasks in loops.</para>
+          <para>Upon completion of this method, <c>isDone()</c> reports
+            <c>false</c>, and <c>getException()</c> reports <c>null</c>. However, the value returned by <c>getRawResult</c> is
+            unaffected. To clear this value, you can invoke <c>setRawResult(null)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#reinitialize()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.reinitialize()</code>.</a>
@@ -1588,11 +1916,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetForkJoinTaskTag">
+      <MemberSignature Language="VB.NET" Value="Public Function SetForkJoinTaskTag (newValue As Short) As Short" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; short SetForkJoinTaskTag(short newValue);" />
       <MemberSignature Language="C#" Value="public short SetForkJoinTaskTag (short newValue);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance int16 SetForkJoinTaskTag(int16 newValue) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.SetForkJoinTaskTag(System.Int16)" />
-      <MemberSignature Language="VB.NET" Value="Public Function SetForkJoinTaskTag (newValue As Short) As Short" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; short SetForkJoinTaskTag(short newValue);" />
       <MemberSignature Language="F#" Value="member this.SetForkJoinTaskTag : int16 -&gt; int16" Usage="forkJoinTask.SetForkJoinTaskTag newValue" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1620,6 +1948,8 @@
         <summary>Atomically sets the tag value for this task and returns the old value.</summary>
         <returns>the previous value of the tag</returns>
         <remarks>
+          <para>Atomically sets the tag value for this task and returns the old value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#setForkJoinTaskTag(short)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.setForkJoinTaskTag(short)</code>.</a>
@@ -1634,11 +1964,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetRawResult">
+      <MemberSignature Language="VB.NET" Value="Protected MustOverride Sub SetRawResult (value As Object)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; abstract void SetRawResult(Java::Lang::Object ^ value);" />
       <MemberSignature Language="C#" Value="protected abstract void SetRawResult (Java.Lang.Object? value);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig newslot virtual instance void SetRawResult(class Java.Lang.Object value) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.SetRawResult(Java.Lang.Object)" />
-      <MemberSignature Language="VB.NET" Value="Protected MustOverride Sub SetRawResult (value As Object)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; abstract void SetRawResult(Java::Lang::Object ^ value);" />
       <MemberSignature Language="F#" Value="abstract member SetRawResult : Java.Lang.Object -&gt; unit" Usage="forkJoinTask.SetRawResult value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1661,6 +1991,9 @@
         <param name="value">the value</param>
         <summary>Forces the given value to be returned as a result.</summary>
         <remarks>
+          <para>Forces the given value to be returned as a result.  This method
+            is designed to support extensions, and should not in general be
+            called otherwise.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#setRawResult(V)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.setRawResult(V)</code>.</a>
@@ -1675,12 +2008,12 @@
       </Docs>
     </Member>
     <Member MemberName="SurplusQueuedTaskCount">
+      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property SurplusQueuedTaskCount As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property int SurplusQueuedTaskCount { int get(); };" />
       <MemberSignature Language="C#" Value="public static int SurplusQueuedTaskCount { get; }" />
       <MemberSignature Language="ILAsm" Value=".property int32 SurplusQueuedTaskCount" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.SurplusQueuedTaskCount" />
-      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property SurplusQueuedTaskCount As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property int SurplusQueuedTaskCount { int get(); };" />
-      <MemberSignature Language="F#" Value="static member SurplusQueuedTaskCount : int" Usage="Java.Util.Concurrent.ForkJoinTask.SurplusQueuedTaskCount" />
+      <MemberSignature Language="F#" Value="member this.SurplusQueuedTaskCount : int" Usage="Java.Util.Concurrent.ForkJoinTask.SurplusQueuedTaskCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -1702,6 +2035,15 @@
             operating in a ForkJoinPool.</summary>
         <value>the surplus number of tasks, which may be negative</value>
         <remarks>
+          <para>Returns an estimate of how many more locally queued tasks are
+            held by the current worker thread than there are other worker
+            threads that might steal them, or zero if this thread is not
+            operating in a ForkJoinPool. This value may be useful for
+            heuristic decisions about whether to fork other tasks. In many
+            usages of ForkJoinTasks, at steady state, each worker should
+            aim to maintain a small constant surplus (for example, 3) of
+            tasks, and to process computations locally if this threshold is
+            exceeded.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#getSurplusQueuedTaskCount()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.getSurplusQueuedTaskCount()</code>.</a>
@@ -1716,11 +2058,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.ForkJoinTask.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1749,11 +2091,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ForkJoinTask.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.ForkJoinTask.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1769,6 +2111,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Type</ReturnType>
@@ -1782,11 +2132,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryUnfork">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryUnfork () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryUnfork();" />
       <MemberSignature Language="C#" Value="public virtual bool TryUnfork ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool TryUnfork() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ForkJoinTask.TryUnfork" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryUnfork () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryUnfork();" />
       <MemberSignature Language="F#" Value="abstract member TryUnfork : unit -&gt; bool&#xA;override this.TryUnfork : unit -&gt; bool" Usage="forkJoinTask.TryUnfork " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1808,6 +2158,12 @@
         <returns>
           <c>true</c> if unforked</returns>
         <remarks>
+          <para>Tries to unschedule this task for execution. This method will
+            typically (but is not guaranteed to) succeed if this task is
+            the most recently forked task by the current thread, and has
+            not commenced executing in another thread.  This method may be
+            useful when arranging alternative local processing of tasks
+            that could have been, but were not, stolen.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ForkJoinTask#tryUnfork()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ForkJoinTask.tryUnfork()</code>.</a>

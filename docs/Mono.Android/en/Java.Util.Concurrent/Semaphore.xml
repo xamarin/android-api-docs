@@ -1,9 +1,9 @@
 <Type Name="Semaphore" FullName="Java.Util.Concurrent.Semaphore">
+  <TypeSignature Language="VB.NET" Value="Public Class Semaphore&#xA;Inherits Object&#xA;Implements IDisposable, IJavaPeerable, ISerializable" />
+  <TypeSignature Language="C++ CLI" Value="public ref class Semaphore : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ISerializable" />
   <TypeSignature Language="C#" Value="public class Semaphore : Java.Lang.Object, IDisposable, Java.Interop.IJavaPeerable, Java.IO.ISerializable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi beforefieldinit Semaphore extends Java.Lang.Object implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.IO.ISerializable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Concurrent.Semaphore" />
-  <TypeSignature Language="VB.NET" Value="Public Class Semaphore&#xA;Inherits Object&#xA;Implements IDisposable, IJavaPeerable, ISerializable" />
-  <TypeSignature Language="C++ CLI" Value="public ref class Semaphore : Java::Lang::Object, IDisposable, Java::Interop::IJavaPeerable, Java::IO::ISerializable" />
   <TypeSignature Language="F#" Value="type Semaphore = class&#xA;    inherit Object&#xA;    interface ISerializable&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -31,10 +31,125 @@
       <AttributeName Language="C#">[Android.Runtime.Register("java/util/concurrent/Semaphore", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/util/concurrent/Semaphore", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="1">
     <summary>A counting semaphore.</summary>
     <remarks>
+      <para>A counting semaphore.  Conceptually, a semaphore maintains a set of
+            permits.  Each <c>#acquire</c> blocks if necessary until a permit is
+            available, and then takes it.  Each <c>#release</c> adds a permit,
+            potentially releasing a blocking acquirer.
+            However, no actual permit objects are used; the <c>Semaphore</c> just
+            keeps a count of the number available and acts accordingly.</para>
+      <para>Semaphores are often used to restrict the number of threads than can
+            access some (physical or logical) resource. For example, here is
+            a class that uses a semaphore to control access to a pool of items:</para>
+      <code lang="text/java">{@code
+            class Pool {
+              private static final int MAX_AVAILABLE = 100;
+              private final Semaphore available = new Semaphore(MAX_AVAILABLE, true);
+            
+              public Object getItem() throws InterruptedException {
+                available.acquire();
+                return getNextAvailableItem();
+              }
+            
+              public void putItem(Object x) {
+                if (markAsUnused(x))
+                  available.release();
+              }
+            
+              // Not a particularly efficient data structure; just for demo
+            
+              protected Object[] items = ...; // whatever kinds of items being managed
+              protected boolean[] used = new boolean[MAX_AVAILABLE];
+            
+              protected synchronized Object getNextAvailableItem() {
+                for (int i = 0; i &lt; MAX_AVAILABLE; ++i) {
+                  if (!used[i]) {
+                    used[i] = true;
+                    return items[i];
+                  }
+                }
+                return null; // not reached
+              }
+            
+              protected synchronized boolean markAsUnused(Object item) {
+                for (int i = 0; i &lt; MAX_AVAILABLE; ++i) {
+                  if (item == items[i]) {
+                    if (used[i]) {
+                      used[i] = false;
+                      return true;
+                    } else
+                      return false;
+                  }
+                }
+                return false;
+              }
+            }}</code>
+      <para>Before obtaining an item each thread must acquire a permit from
+            the semaphore, guaranteeing that an item is available for use. When
+            the thread has finished with the item it is returned back to the
+            pool and a permit is returned to the semaphore, allowing another
+            thread to acquire that item.  Note that no synchronization lock is
+            held when <c>#acquire</c> is called as that would prevent an item
+            from being returned to the pool.  The semaphore encapsulates the
+            synchronization needed to restrict access to the pool, separately
+            from any synchronization needed to maintain the consistency of the
+            pool itself.</para>
+      <para>A semaphore initialized to one, and which is used such that it
+            only has at most one permit available, can serve as a mutual
+            exclusion lock.  This is more commonly known as a &lt;em&gt;binary
+            semaphore&lt;/em&gt;, because it only has two states: one permit
+            available, or zero permits available.  When used in this way, the
+            binary semaphore has the property (unlike many <c>java.util.concurrent.locks.Lock</c>
+            implementations), that the &amp;quot;lock&amp;quot; can be released by a
+            thread other than the owner (as semaphores have no notion of
+            ownership).  This can be useful in some specialized contexts, such
+            as deadlock recovery.</para>
+      <para>The constructor for this class optionally accepts a
+            &lt;em&gt;fairness&lt;/em&gt; parameter. When set false, this class makes no
+            guarantees about the order in which threads acquire permits. In
+            particular, &lt;em&gt;barging&lt;/em&gt; is permitted, that is, a thread
+            invoking <c>#acquire</c> can be allocated a permit ahead of a
+            thread that has been waiting - logically the new thread places itself at
+            the head of the queue of waiting threads. When fairness is set true, the
+            semaphore guarantees that threads invoking any of the <c>#acquire() acquire</c> methods are selected to obtain permits in the order in
+            which their invocation of those methods was processed
+            (first-in-first-out; FIFO). Note that FIFO ordering necessarily
+            applies to specific internal points of execution within these
+            methods.  So, it is possible for one thread to invoke
+            <c>acquire</c> before another, but reach the ordering point after
+            the other, and similarly upon return from the method.
+            Also note that the untimed <c>#tryAcquire() tryAcquire</c> methods do not
+            honor the fairness setting, but will take any permits that are
+            available.</para>
+      <para>Generally, semaphores used to control resource access should be
+            initialized as fair, to ensure that no thread is starved out from
+            accessing a resource. When using semaphores for other kinds of
+            synchronization control, the throughput advantages of non-fair
+            ordering often outweigh fairness considerations.</para>
+      <para>This class also provides convenience methods to <c>#acquire(int) acquire</c> and <c>#release(int) release</c> multiple
+            permits at a time. These methods are generally more efficient and
+            effective than loops. However, they do not establish any preference
+            order. For example, if thread A invokes <c>s.acquire(3</c>) and
+            thread B invokes <c>s.acquire(2)</c>, and two permits become
+            available, then there is no guarantee that thread B will obtain
+            them unless its acquire came first and Semaphore <c>s</c> is in
+            fair mode.</para>
+      <para>Memory consistency effects: Actions in a thread prior to calling
+            a "release" method such as <c>release()</c>&lt;i&gt;happen-before&lt;/i&gt;
+            actions following a successful "acquire" method such as <c>acquire()</c>
+            in another thread.</para>
+      <para>Added in 1.5.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore</code>.</a>
@@ -50,11 +165,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (permits As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Semaphore(int permits);" />
       <MemberSignature Language="C#" Value="public Semaphore (int permits);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(int32 permits) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.#ctor(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (permits As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Semaphore(int permits);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Semaphore : int -&gt; Java.Util.Concurrent.Semaphore" Usage="new Java.Util.Concurrent.Semaphore permits" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -77,6 +192,8 @@
         <summary>Creates a <c>Semaphore</c> with the given number of
             permits and nonfair fairness setting.</summary>
         <remarks>
+          <para>Creates a <c>Semaphore</c> with the given number of
+            permits and nonfair fairness setting.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#Semaphore(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.Semaphore(int)</code>.</a>
@@ -92,11 +209,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (permits As Integer, fair As Boolean)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Semaphore(int permits, bool fair);" />
       <MemberSignature Language="C#" Value="public Semaphore (int permits, bool fair);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(int32 permits, bool fair) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.#ctor(System.Int32,System.Boolean)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (permits As Integer, fair As Boolean)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Semaphore(int permits, bool fair);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Semaphore : int * bool -&gt; Java.Util.Concurrent.Semaphore" Usage="new Java.Util.Concurrent.Semaphore (permits, fair)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -124,6 +241,8 @@
         <summary>Creates a <c>Semaphore</c> with the given number of
             permits and the given fairness setting.</summary>
         <remarks>
+          <para>Creates a <c>Semaphore</c> with the given number of
+            permits and the given fairness setting.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#Semaphore(int,%20boolean)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.Semaphore(int, boolean)</code>.</a>
@@ -139,11 +258,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; Semaphore(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected Semaphore (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; Semaphore(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Semaphore : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Concurrent.Semaphore" Usage="new Java.Util.Concurrent.Semaphore (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -164,11 +283,11 @@
       </Docs>
     </Member>
     <Member MemberName="Acquire">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Acquire ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Acquire();" />
       <MemberSignature Language="C#" Value="public virtual void Acquire ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Acquire() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.Acquire" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Acquire ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Acquire();" />
       <MemberSignature Language="F#" Value="abstract member Acquire : unit -&gt; unit&#xA;override this.Acquire : unit -&gt; unit" Usage="semaphore.Acquire " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -189,6 +308,27 @@
         <summary>Acquires a permit from this semaphore, blocking until one is
             available, or the thread is Thread#interrupt interrupted.</summary>
         <remarks>
+          <para>Acquires a permit from this semaphore, blocking until one is
+            available, or the thread is Thread#interrupt interrupted.</para>
+          <para>Acquires a permit, if one is available and returns immediately,
+            reducing the number of available permits by one.</para>
+          <para>If no permit is available then the current thread becomes
+            disabled for thread scheduling purposes and lies dormant until
+            one of two things happens:
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes the <c>#release</c> method for this
+            semaphore and the current thread is next to be assigned a permit; or
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread.
+            &lt;/ul&gt;</para>
+          <para>If the current thread:
+            &lt;ul&gt;
+            &lt;li&gt;has its interrupted status set on entry to this method; or
+            &lt;li&gt;is Thread#interrupt interrupted while waiting
+            for a permit,
+            &lt;/ul&gt;
+            then <c>InterruptedException</c> is thrown and the current thread's
+            interrupted status is cleared.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#acquire()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.acquire()</code>.</a>
@@ -206,11 +346,11 @@
       </Docs>
     </Member>
     <Member MemberName="Acquire">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Acquire (permits As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Acquire(int permits);" />
       <MemberSignature Language="C#" Value="public virtual void Acquire (int permits);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Acquire(int32 permits) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.Acquire(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Acquire (permits As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Acquire(int permits);" />
       <MemberSignature Language="F#" Value="abstract member Acquire : int -&gt; unit&#xA;override this.Acquire : int -&gt; unit" Usage="semaphore.Acquire permits" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -235,6 +375,35 @@
             blocking until all are available,
             or the thread is Thread#interrupt interrupted.</summary>
         <remarks>
+          <para>Acquires the given number of permits from this semaphore,
+            blocking until all are available,
+            or the thread is Thread#interrupt interrupted.</para>
+          <para>Acquires the given number of permits, if they are available,
+            and returns immediately, reducing the number of available permits
+            by the given amount. This method has the same effect as the
+            loop <c>for (int i = 0; i &lt; permits; ++i) acquire();</c> except
+            that it atomically acquires the permits all at once:</para>
+          <para>If insufficient permits are available then the current thread becomes
+            disabled for thread scheduling purposes and lies dormant until
+            one of two things happens:
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes one of the <c>#release() release</c>
+            methods for this semaphore and the current thread is next to be assigned
+            permits and the number of available permits satisfies this request; or
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread.
+            &lt;/ul&gt;</para>
+          <para>If the current thread:
+            &lt;ul&gt;
+            &lt;li&gt;has its interrupted status set on entry to this method; or
+            &lt;li&gt;is Thread#interrupt interrupted while waiting
+            for a permit,
+            &lt;/ul&gt;
+            then <c>InterruptedException</c> is thrown and the current thread's
+            interrupted status is cleared.
+            Any permits that were to be assigned to this thread are instead
+            assigned to other threads trying to acquire permits, as if
+            permits had been made available by a call to <c>#release()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#acquire(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.acquire(int)</code>.</a>
@@ -253,11 +422,11 @@
       </Docs>
     </Member>
     <Member MemberName="AcquireUninterruptibly">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireUninterruptibly ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireUninterruptibly();" />
       <MemberSignature Language="C#" Value="public virtual void AcquireUninterruptibly ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void AcquireUninterruptibly() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.AcquireUninterruptibly" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireUninterruptibly ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireUninterruptibly();" />
       <MemberSignature Language="F#" Value="abstract member AcquireUninterruptibly : unit -&gt; unit&#xA;override this.AcquireUninterruptibly : unit -&gt; unit" Usage="semaphore.AcquireUninterruptibly " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -278,6 +447,20 @@
         <summary>Acquires a permit from this semaphore, blocking until one is
             available.</summary>
         <remarks>
+          <para>Acquires a permit from this semaphore, blocking until one is
+            available.</para>
+          <para>Acquires a permit, if one is available and returns immediately,
+            reducing the number of available permits by one.</para>
+          <para>If no permit is available then the current thread becomes
+            disabled for thread scheduling purposes and lies dormant until
+            some other thread invokes the <c>#release</c> method for this
+            semaphore and the current thread is next to be assigned a permit.</para>
+          <para>If the current thread is Thread#interrupt interrupted
+            while waiting for a permit then it will continue to wait, but the
+            time at which the thread is assigned a permit may change compared to
+            the time it would have received the permit had no interruption
+            occurred.  When the thread does return from this method its interrupt
+            status will be set.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#acquireUninterruptibly()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.acquireUninterruptibly()</code>.</a>
@@ -293,11 +476,11 @@
       </Docs>
     </Member>
     <Member MemberName="AcquireUninterruptibly">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireUninterruptibly (permits As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireUninterruptibly(int permits);" />
       <MemberSignature Language="C#" Value="public virtual void AcquireUninterruptibly (int permits);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void AcquireUninterruptibly(int32 permits) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.AcquireUninterruptibly(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AcquireUninterruptibly (permits As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AcquireUninterruptibly(int permits);" />
       <MemberSignature Language="F#" Value="abstract member AcquireUninterruptibly : int -&gt; unit&#xA;override this.AcquireUninterruptibly : int -&gt; unit" Usage="semaphore.AcquireUninterruptibly permits" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -321,6 +504,22 @@
         <summary>Acquires the given number of permits from this semaphore,
             blocking until all are available.</summary>
         <remarks>
+          <para>Acquires the given number of permits from this semaphore,
+            blocking until all are available.</para>
+          <para>Acquires the given number of permits, if they are available,
+            and returns immediately, reducing the number of available permits
+            by the given amount. This method has the same effect as the
+            loop <c>for (int i = 0; i &lt; permits; ++i) acquireUninterruptibly();</c>
+            except that it atomically acquires the permits all at once:</para>
+          <para>If insufficient permits are available then the current thread becomes
+            disabled for thread scheduling purposes and lies dormant until
+            some other thread invokes one of the <c>#release() release</c>
+            methods for this semaphore and the current thread is next to be assigned
+            permits and the number of available permits satisfies this request.</para>
+          <para>If the current thread is Thread#interrupt interrupted
+            while waiting for permits then it will continue to wait and its
+            position in the queue is not affected.  When the thread does return
+            from this method its interrupt status will be set.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#acquireUninterruptibly(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.acquireUninterruptibly(int)</code>.</a>
@@ -338,11 +537,11 @@
       </Docs>
     </Member>
     <Member MemberName="AvailablePermits">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function AvailablePermits () As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int AvailablePermits();" />
       <MemberSignature Language="C#" Value="public virtual int AvailablePermits ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 AvailablePermits() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.AvailablePermits" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function AvailablePermits () As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int AvailablePermits();" />
       <MemberSignature Language="F#" Value="abstract member AvailablePermits : unit -&gt; int&#xA;override this.AvailablePermits : unit -&gt; int" Usage="semaphore.AvailablePermits " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -363,6 +562,8 @@
         <summary>Returns the current number of permits available in this semaphore.</summary>
         <returns>the number of permits available in this semaphore</returns>
         <remarks>
+          <para>Returns the current number of permits available in this semaphore.</para>
+          <para>This method is typically used for debugging and testing purposes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#availablePermits()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.availablePermits()</code>.</a>
@@ -378,11 +579,11 @@
       </Docs>
     </Member>
     <Member MemberName="DrainPermits">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function DrainPermits () As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int DrainPermits();" />
       <MemberSignature Language="C#" Value="public virtual int DrainPermits ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 DrainPermits() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.DrainPermits" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function DrainPermits () As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int DrainPermits();" />
       <MemberSignature Language="F#" Value="abstract member DrainPermits : unit -&gt; int&#xA;override this.DrainPermits : unit -&gt; int" Usage="semaphore.DrainPermits " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -405,6 +606,9 @@
         <returns>the number of permits acquired or, if negative, the
             number released</returns>
         <remarks>
+          <para>Acquires and returns all permits that are immediately
+            available, or if negative permits are available, releases them.
+            Upon return, zero permits are available.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#drainPermits()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.drainPermits()</code>.</a>
@@ -420,11 +624,11 @@
       </Docs>
     </Member>
     <Member MemberName="HasQueuedThreads">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property HasQueuedThreads As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool HasQueuedThreads { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool HasQueuedThreads { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool HasQueuedThreads" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Semaphore.HasQueuedThreads" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property HasQueuedThreads As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool HasQueuedThreads { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.HasQueuedThreads : bool" Usage="Java.Util.Concurrent.Semaphore.HasQueuedThreads" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -446,6 +650,11 @@
           <c>true</c> if there may be other threads waiting to
                     acquire the lock</value>
         <remarks>
+          <para>Queries whether any threads are waiting to acquire. Note that
+            because cancellations may occur at any time, a <c>true</c>
+            return does not guarantee that any other thread will ever
+            acquire.  This method is designed primarily for use in
+            monitoring of the system state.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#hasQueuedThreads()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.hasQueuedThreads()</code>.</a>
@@ -461,11 +670,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsFair">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property IsFair As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool IsFair { bool get(); };" />
       <MemberSignature Language="C#" Value="public virtual bool IsFair { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsFair" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Semaphore.IsFair" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property IsFair As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool IsFair { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsFair : bool" Usage="Java.Util.Concurrent.Semaphore.IsFair" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -486,6 +695,7 @@
         <value>
           <c>true</c> if this semaphore has fairness set true</value>
         <remarks>
+          <para>Returns <c>true</c> if this semaphore has fairness set true.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#isFair()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.isFair()</code>.</a>
@@ -501,11 +711,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Semaphore.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Java.Util.Concurrent.Semaphore.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -537,11 +747,11 @@
       </Docs>
     </Member>
     <Member MemberName="QueuedThreads">
+      <MemberSignature Language="VB.NET" Value="Protected Overridable ReadOnly Property QueuedThreads As ICollection(Of Thread)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property System::Collections::Generic::ICollection&lt;Java::Lang::Thread ^&gt; ^ QueuedThreads { System::Collections::Generic::ICollection&lt;Java::Lang::Thread ^&gt; ^ get(); };" />
       <MemberSignature Language="C#" Value="protected virtual System.Collections.Generic.ICollection&lt;Java.Lang.Thread&gt;? QueuedThreads { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Collections.Generic.ICollection`1&lt;class Java.Lang.Thread&gt; QueuedThreads" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Semaphore.QueuedThreads" />
-      <MemberSignature Language="VB.NET" Value="Protected Overridable ReadOnly Property QueuedThreads As ICollection(Of Thread)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property System::Collections::Generic::ICollection&lt;Java::Lang::Thread ^&gt; ^ QueuedThreads { System::Collections::Generic::ICollection&lt;Java::Lang::Thread ^&gt; ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.QueuedThreads : System.Collections.Generic.ICollection&lt;Java.Lang.Thread&gt;" Usage="Java.Util.Concurrent.Semaphore.QueuedThreads" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -549,6 +759,10 @@
         <AssemblyName>Mono.Android</AssemblyName>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getQueuedThreads", "()Ljava/util/Collection;", "GetGetQueuedThreadsHandler")]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getQueuedThreads", "()Ljava/util/Collection;", "GetGetQueuedThreadsHandler")&gt;]</AttributeName>
@@ -561,6 +775,12 @@
         <summary>Returns a collection containing threads that may be waiting to acquire.</summary>
         <value>the collection of threads</value>
         <remarks>
+          <para>Returns a collection containing threads that may be waiting to acquire.
+            Because the actual set of threads may change dynamically while
+            constructing this result, the returned collection is only a best-effort
+            estimate.  The elements of the returned collection are in no particular
+            order.  This method is designed to facilitate construction of
+            subclasses that provide more extensive monitoring facilities.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#getQueuedThreads()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.getQueuedThreads()</code>.</a>
@@ -576,11 +796,11 @@
       </Docs>
     </Member>
     <Member MemberName="QueueLength">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property QueueLength As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int QueueLength { int get(); };" />
       <MemberSignature Language="C#" Value="public int QueueLength { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 QueueLength" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Semaphore.QueueLength" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property QueueLength As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property int QueueLength { int get(); };" />
       <MemberSignature Language="F#" Value="member this.QueueLength : int" Usage="Java.Util.Concurrent.Semaphore.QueueLength" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -600,6 +820,11 @@
         <summary>Returns an estimate of the number of threads waiting to acquire.</summary>
         <value>the estimated number of threads waiting for this lock</value>
         <remarks>
+          <para>Returns an estimate of the number of threads waiting to acquire.
+            The value is only an estimate because the number of threads may
+            change dynamically while this method traverses internal data
+            structures.  This method is designed for use in monitoring
+            system state, not for synchronization control.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#getQueueLength()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.getQueueLength()</code>.</a>
@@ -615,11 +840,11 @@
       </Docs>
     </Member>
     <Member MemberName="ReducePermits">
+      <MemberSignature Language="VB.NET" Value="Protected Overridable Sub ReducePermits (reduction As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual void ReducePermits(int reduction);" />
       <MemberSignature Language="C#" Value="protected virtual void ReducePermits (int reduction);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig newslot virtual instance void ReducePermits(int32 reduction) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.ReducePermits(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Protected Overridable Sub ReducePermits (reduction As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual void ReducePermits(int reduction);" />
       <MemberSignature Language="F#" Value="abstract member ReducePermits : int -&gt; unit&#xA;override this.ReducePermits : int -&gt; unit" Usage="semaphore.ReducePermits reduction" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -643,6 +868,11 @@
         <summary>Shrinks the number of available permits by the indicated
             reduction.</summary>
         <remarks>
+          <para>Shrinks the number of available permits by the indicated
+            reduction. This method can be useful in subclasses that use
+            semaphores to track resources that become unavailable. This
+            method differs from <c>acquire</c> in that it does not block
+            waiting for permits to become available.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#reducePermits(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.reducePermits(int)</code>.</a>
@@ -660,11 +890,11 @@
       </Docs>
     </Member>
     <Member MemberName="Release">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Release ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Release();" />
       <MemberSignature Language="C#" Value="public virtual void Release ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Release() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.Release" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Release ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Release();" />
       <MemberSignature Language="F#" Value="abstract member Release : unit -&gt; unit&#xA;override this.Release : unit -&gt; unit" Usage="semaphore.Release " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -684,6 +914,15 @@
       <Docs>
         <summary>Releases a permit, returning it to the semaphore.</summary>
         <remarks>
+          <para>Releases a permit, returning it to the semaphore.</para>
+          <para>Releases a permit, increasing the number of available permits by
+            one.  If any threads are trying to acquire a permit, then one is
+            selected and given the permit that was just released.  That thread
+            is (re)enabled for thread scheduling purposes.</para>
+          <para>There is no requirement that a thread that releases a permit must
+            have acquired that permit by calling <c>#acquire</c>.
+            Correct usage of a semaphore is established by programming convention
+            in the application.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#release()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.release()</code>.</a>
@@ -699,11 +938,11 @@
       </Docs>
     </Member>
     <Member MemberName="Release">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Release (permits As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Release(int permits);" />
       <MemberSignature Language="C#" Value="public virtual void Release (int permits);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Release(int32 permits) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.Release(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub Release (permits As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Release(int permits);" />
       <MemberSignature Language="F#" Value="abstract member Release : int -&gt; unit&#xA;override this.Release : int -&gt; unit" Usage="semaphore.Release permits" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -726,6 +965,21 @@
         <param name="permits">the number of permits to release</param>
         <summary>Releases the given number of permits, returning them to the semaphore.</summary>
         <remarks>
+          <para>Releases the given number of permits, returning them to the semaphore.</para>
+          <para>Releases the given number of permits, increasing the number of
+            available permits by that amount.
+            If any threads are trying to acquire permits, then one thread
+            is selected and given the permits that were just released.
+            If the number of available permits satisfies that thread's request
+            then that thread is (re)enabled for thread scheduling purposes;
+            otherwise the thread will wait until sufficient permits are available.
+            If there are still permits available
+            after this thread's request has been satisfied, then those permits
+            are assigned in turn to other threads trying to acquire permits.</para>
+          <para>There is no requirement that a thread that releases a permit must
+            have acquired that permit by calling <c>Semaphore#acquire acquire</c>.
+            Correct usage of a semaphore is established by programming convention
+            in the application.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#release(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.release(int)</code>.</a>
@@ -743,11 +997,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Semaphore.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.Semaphore.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -776,11 +1030,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.Semaphore.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.Semaphore.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -809,11 +1063,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryAcquire () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryAcquire();" />
       <MemberSignature Language="C#" Value="public virtual bool TryAcquire ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool TryAcquire() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.TryAcquire" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryAcquire () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryAcquire();" />
       <MemberSignature Language="F#" Value="abstract member TryAcquire : unit -&gt; bool&#xA;override this.TryAcquire : unit -&gt; bool" Usage="semaphore.TryAcquire " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -837,6 +1091,22 @@
           <c>true</c> if a permit was acquired and <c>false</c>
                     otherwise</returns>
         <remarks>
+          <para>Acquires a permit from this semaphore, only if one is available at the
+            time of invocation.</para>
+          <para>Acquires a permit, if one is available and returns immediately,
+            with the value <c>true</c>,
+            reducing the number of available permits by one.</para>
+          <para>If no permit is available then this method will return
+            immediately with the value <c>false</c>.</para>
+          <para>Even when this semaphore has been set to use a
+            fair ordering policy, a call to <c>tryAcquire()</c>&lt;em&gt;will&lt;/em&gt;
+            immediately acquire a permit if one is available, whether or not
+            other threads are currently waiting.
+            This &amp;quot;barging&amp;quot; behavior can be useful in certain
+            circumstances, even though it breaks fairness. If you want to honor
+            the fairness setting, then use
+            <c>#tryAcquire(long, TimeUnit) tryAcquire(0, TimeUnit.SECONDS)</c>
+            which is almost equivalent (it also detects interruption).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#tryAcquire()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.tryAcquire()</code>.</a>
@@ -852,11 +1122,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryAcquire (permits As Integer) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryAcquire(int permits);" />
       <MemberSignature Language="C#" Value="public virtual bool TryAcquire (int permits);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool TryAcquire(int32 permits) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.TryAcquire(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryAcquire (permits As Integer) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryAcquire(int permits);" />
       <MemberSignature Language="F#" Value="abstract member TryAcquire : int -&gt; bool&#xA;override this.TryAcquire : int -&gt; bool" Usage="semaphore.TryAcquire permits" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -883,6 +1153,23 @@
           <c>true</c> if the permits were acquired and
                     <c>false</c> otherwise</returns>
         <remarks>
+          <para>Acquires the given number of permits from this semaphore, only
+            if all are available at the time of invocation.</para>
+          <para>Acquires the given number of permits, if they are available, and
+            returns immediately, with the value <c>true</c>,
+            reducing the number of available permits by the given amount.</para>
+          <para>If insufficient permits are available then this method will return
+            immediately with the value <c>false</c> and the number of available
+            permits is unchanged.</para>
+          <para>Even when this semaphore has been set to use a fair ordering
+            policy, a call to <c>tryAcquire</c>&lt;em&gt;will&lt;/em&gt;
+            immediately acquire a permit if one is available, whether or
+            not other threads are currently waiting.  This
+            &amp;quot;barging&amp;quot; behavior can be useful in certain
+            circumstances, even though it breaks fairness. If you want to
+            honor the fairness setting, then use <c>#tryAcquire(int,
+            long, TimeUnit) tryAcquire(permits, 0, TimeUnit.SECONDS)</c>
+            which is almost equivalent (it also detects interruption).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#tryAcquire(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.tryAcquire(int)</code>.</a>
@@ -900,11 +1187,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryAcquire (timeout As Long, unit As TimeUnit) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryAcquire(long timeout, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public virtual bool TryAcquire (long timeout, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool TryAcquire(int64 timeout, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.TryAcquire(System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryAcquire (timeout As Long, unit As TimeUnit) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryAcquire(long timeout, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member TryAcquire : int64 * Java.Util.Concurrent.TimeUnit -&gt; bool&#xA;override this.TryAcquire : int64 * Java.Util.Concurrent.TimeUnit -&gt; bool" Usage="semaphore.TryAcquire (timeout, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -915,6 +1202,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("tryAcquire", "(JLjava/util/concurrent/TimeUnit;)Z", "GetTryAcquire_JLjava_util_concurrent_TimeUnit_Handler")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("tryAcquire", "(JLjava/util/concurrent/TimeUnit;)Z", "GetTryAcquire_JLjava_util_concurrent_TimeUnit_Handler")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -934,6 +1225,34 @@
           <c>true</c> if a permit was acquired and <c>false</c>
                     if the waiting time elapsed before a permit was acquired</returns>
         <remarks>
+          <para>Acquires a permit from this semaphore, if one becomes available
+            within the given waiting time and the current thread has not
+            been Thread#interrupt interrupted.</para>
+          <para>Acquires a permit, if one is available and returns immediately,
+            with the value <c>true</c>,
+            reducing the number of available permits by one.</para>
+          <para>If no permit is available then the current thread becomes
+            disabled for thread scheduling purposes and lies dormant until
+            one of three things happens:
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes the <c>#release</c> method for this
+            semaphore and the current thread is next to be assigned a permit; or
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread; or
+            &lt;li&gt;The specified waiting time elapses.
+            &lt;/ul&gt;</para>
+          <para>If a permit is acquired then the value <c>true</c> is returned.</para>
+          <para>If the current thread:
+            &lt;ul&gt;
+            &lt;li&gt;has its interrupted status set on entry to this method; or
+            &lt;li&gt;is Thread#interrupt interrupted while waiting
+            to acquire a permit,
+            &lt;/ul&gt;
+            then <c>InterruptedException</c> is thrown and the current thread's
+            interrupted status is cleared.</para>
+          <para>If the specified waiting time elapses then the value <c>false</c>
+            is returned.  If the time is less than or equal to zero, the method
+            will not wait at all.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#tryAcquire(long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.tryAcquire(long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -951,11 +1270,11 @@
       </Docs>
     </Member>
     <Member MemberName="TryAcquire">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryAcquire (permits As Integer, timeout As Long, unit As TimeUnit) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryAcquire(int permits, long timeout, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public virtual bool TryAcquire (int permits, long timeout, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool TryAcquire(int32 permits, int64 timeout, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Semaphore.TryAcquire(System.Int32,System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function TryAcquire (permits As Integer, timeout As Long, unit As TimeUnit) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool TryAcquire(int permits, long timeout, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member TryAcquire : int * int64 * Java.Util.Concurrent.TimeUnit -&gt; bool&#xA;override this.TryAcquire : int * int64 * Java.Util.Concurrent.TimeUnit -&gt; bool" Usage="semaphore.TryAcquire (permits, timeout, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -966,6 +1285,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("tryAcquire", "(IJLjava/util/concurrent/TimeUnit;)Z", "GetTryAcquire_IJLjava_util_concurrent_TimeUnit_Handler")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("tryAcquire", "(IJLjava/util/concurrent/TimeUnit;)Z", "GetTryAcquire_IJLjava_util_concurrent_TimeUnit_Handler")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -987,6 +1310,41 @@
           <c>true</c> if all permits were acquired and <c>false</c>
                     if the waiting time elapsed before all permits were acquired</returns>
         <remarks>
+          <para>Acquires the given number of permits from this semaphore, if all
+            become available within the given waiting time and the current
+            thread has not been Thread#interrupt interrupted.</para>
+          <para>Acquires the given number of permits, if they are available and
+            returns immediately, with the value <c>true</c>,
+            reducing the number of available permits by the given amount.</para>
+          <para>If insufficient permits are available then
+            the current thread becomes disabled for thread scheduling
+            purposes and lies dormant until one of three things happens:
+            &lt;ul&gt;
+            &lt;li&gt;Some other thread invokes one of the <c>#release() release</c>
+            methods for this semaphore and the current thread is next to be assigned
+            permits and the number of available permits satisfies this request; or
+            &lt;li&gt;Some other thread Thread#interrupt interrupts
+            the current thread; or
+            &lt;li&gt;The specified waiting time elapses.
+            &lt;/ul&gt;</para>
+          <para>If the permits are acquired then the value <c>true</c> is returned.</para>
+          <para>If the current thread:
+            &lt;ul&gt;
+            &lt;li&gt;has its interrupted status set on entry to this method; or
+            &lt;li&gt;is Thread#interrupt interrupted while waiting
+            to acquire the permits,
+            &lt;/ul&gt;
+            then <c>InterruptedException</c> is thrown and the current thread's
+            interrupted status is cleared.
+            Any permits that were to be assigned to this thread, are instead
+            assigned to other threads trying to acquire permits, as if
+            the permits had been made available by a call to <c>#release()</c>.</para>
+          <para>If the specified waiting time elapses then the value <c>false</c>
+            is returned.  If the time is less than or equal to zero, the method
+            will not wait at all.  Any permits that were to be assigned to this
+            thread, are instead assigned to other threads trying to acquire
+            permits, as if the permits had been made available by a call to
+            <c>#release()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Semaphore#tryAcquire(int,%20long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Semaphore.tryAcquire(int, long, java.util.concurrent.TimeUnit)</code>.</a>

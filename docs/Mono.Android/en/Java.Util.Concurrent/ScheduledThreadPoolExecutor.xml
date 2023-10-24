@@ -1,9 +1,9 @@
 <Type Name="ScheduledThreadPoolExecutor" FullName="Java.Util.Concurrent.ScheduledThreadPoolExecutor">
+  <TypeSignature Language="VB.NET" Value="Public Class ScheduledThreadPoolExecutor&#xA;Inherits ThreadPoolExecutor&#xA;Implements IDisposable, IJavaPeerable, IScheduledExecutorService" />
+  <TypeSignature Language="C++ CLI" Value="public ref class ScheduledThreadPoolExecutor : Java::Util::Concurrent::ThreadPoolExecutor, IDisposable, Java::Interop::IJavaPeerable, Java::Util::Concurrent::IScheduledExecutorService" />
   <TypeSignature Language="C#" Value="public class ScheduledThreadPoolExecutor : Java.Util.Concurrent.ThreadPoolExecutor, IDisposable, Java.Interop.IJavaPeerable, Java.Util.Concurrent.IScheduledExecutorService" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi beforefieldinit ScheduledThreadPoolExecutor extends Java.Util.Concurrent.ThreadPoolExecutor implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.Util.Concurrent.IExecutor, class Java.Util.Concurrent.IExecutorService, class Java.Util.Concurrent.IScheduledExecutorService, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Concurrent.ScheduledThreadPoolExecutor" />
-  <TypeSignature Language="VB.NET" Value="Public Class ScheduledThreadPoolExecutor&#xA;Inherits ThreadPoolExecutor&#xA;Implements IDisposable, IJavaPeerable, IScheduledExecutorService" />
-  <TypeSignature Language="C++ CLI" Value="public ref class ScheduledThreadPoolExecutor : Java::Util::Concurrent::ThreadPoolExecutor, IDisposable, Java::Interop::IJavaPeerable, Java::Util::Concurrent::IScheduledExecutorService" />
   <TypeSignature Language="F#" Value="type ScheduledThreadPoolExecutor = class&#xA;    inherit ThreadPoolExecutor&#xA;    interface IScheduledExecutorService&#xA;    interface IExecutorService&#xA;    interface IExecutor&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -37,11 +37,88 @@
       <AttributeName Language="C#">[Android.Runtime.Register("java/util/concurrent/ScheduledThreadPoolExecutor", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/util/concurrent/ScheduledThreadPoolExecutor", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="1">
     <summary>A <c>ThreadPoolExecutor</c> that can additionally schedule
             commands to run after a given delay, or to execute periodically.</summary>
     <remarks>
+      <para>A <c>ThreadPoolExecutor</c> that can additionally schedule
+            commands to run after a given delay, or to execute periodically.
+            This class is preferable to <c>java.util.Timer</c> when multiple
+            worker threads are needed, or when the additional flexibility or
+            capabilities of <c>ThreadPoolExecutor</c> (which this class
+            extends) are required.</para>
+      <para>Delayed tasks execute no sooner than they are enabled, but
+            without any real-time guarantees about when, after they are
+            enabled, they will commence. Tasks scheduled for exactly the same
+            execution time are enabled in first-in-first-out (FIFO) order of
+            submission.</para>
+      <para>When a submitted task is cancelled before it is run, execution
+            is suppressed.  By default, such a cancelled task is not
+            automatically removed from the work queue until its delay elapses.
+            While this enables further inspection and monitoring, it may also
+            cause unbounded retention of cancelled tasks.</para>
+      <para>Successive executions of a periodic task scheduled via
+            <c>#scheduleAtFixedRate scheduleAtFixedRate</c> or
+            <c>#scheduleWithFixedDelay scheduleWithFixedDelay</c>
+            do not overlap. While different executions may be performed by
+            different threads, the effects of prior executions
+            &lt;i&gt;happen-before&lt;/i&gt;
+            those of subsequent ones.</para>
+      <para>While this class inherits from <c>ThreadPoolExecutor</c>, a few
+            of the inherited tuning methods are not useful for it. In
+            particular, because it acts as a fixed-sized pool using
+            <c>corePoolSize</c> threads and an unbounded queue, adjustments
+            to <c>maximumPoolSize</c> have no useful effect. Additionally, it
+            is almost never a good idea to set <c>corePoolSize</c> to zero or
+            use <c>allowCoreThreadTimeOut</c> because this may leave the pool
+            without threads to handle tasks once they become eligible to run.</para>
+      <para>As with <c>ThreadPoolExecutor</c>, if not otherwise specified,
+            this class uses <c>Executors#defaultThreadFactory</c> as the
+            default thread factory, and <c>ThreadPoolExecutor.AbortPolicy</c>
+            as the default rejected execution handler.</para>
+      <para>&lt;b&gt;Extension notes:&lt;/b&gt; This class overrides the
+            <c>ThreadPoolExecutor#execute(Runnable) execute</c> and
+            <c>AbstractExecutorService#submit(Runnable) submit</c>
+            methods to generate internal <c>ScheduledFuture</c> objects to
+            control per-task delays and scheduling.  To preserve
+            functionality, any further overrides of these methods in
+            subclasses must invoke superclass versions, which effectively
+            disables additional task customization.  However, this class
+            provides alternative protected extension method
+            <c>decorateTask</c> (one version each for <c>Runnable</c> and
+            <c>Callable</c>) that can be used to customize the concrete task
+            types used to execute commands entered via <c>execute</c>,
+            <c>submit</c>, <c>schedule</c>, <c>scheduleAtFixedRate</c>,
+            and <c>scheduleWithFixedDelay</c>.  By default, a
+            <c>ScheduledThreadPoolExecutor</c> uses a task type extending
+            <c>FutureTask</c>. However, this may be modified or replaced using
+            subclasses of the form:</para>
+      <code lang="text/java">{@code
+            public class CustomScheduledExecutor extends ScheduledThreadPoolExecutor {
+            
+              static class CustomTask&lt;V&gt; implements RunnableScheduledFuture&lt;V&gt; { ... }
+            
+              protected &lt;V&gt; RunnableScheduledFuture&lt;V&gt; decorateTask(
+                           Runnable r, RunnableScheduledFuture&lt;V&gt; task) {
+                  return new CustomTask&lt;V&gt;(r, task);
+              }
+            
+              protected &lt;V&gt; RunnableScheduledFuture&lt;V&gt; decorateTask(
+                           Callable&lt;V&gt; c, RunnableScheduledFuture&lt;V&gt; task) {
+                  return new CustomTask&lt;V&gt;(c, task);
+              }
+              // ... add constructors, etc.
+            }}</code>
+      <para>Added in 1.5.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor</code>.</a>
@@ -57,11 +134,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (corePoolSize As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; ScheduledThreadPoolExecutor(int corePoolSize);" />
       <MemberSignature Language="C#" Value="public ScheduledThreadPoolExecutor (int corePoolSize);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(int32 corePoolSize) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.#ctor(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (corePoolSize As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; ScheduledThreadPoolExecutor(int corePoolSize);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ScheduledThreadPoolExecutor : int -&gt; Java.Util.Concurrent.ScheduledThreadPoolExecutor" Usage="new Java.Util.Concurrent.ScheduledThreadPoolExecutor corePoolSize" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -83,6 +160,8 @@
         <summary>Creates a new <c>ScheduledThreadPoolExecutor</c> with the
             given core pool size.</summary>
         <remarks>
+          <para>Creates a new <c>ScheduledThreadPoolExecutor</c> with the
+            given core pool size.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#ScheduledThreadPoolExecutor(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.ScheduledThreadPoolExecutor(int)</code>.</a>
@@ -99,11 +178,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (corePoolSize As Integer, handler As IRejectedExecutionHandler)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; ScheduledThreadPoolExecutor(int corePoolSize, Java::Util::Concurrent::IRejectedExecutionHandler ^ handler);" />
       <MemberSignature Language="C#" Value="public ScheduledThreadPoolExecutor (int corePoolSize, Java.Util.Concurrent.IRejectedExecutionHandler? handler);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(int32 corePoolSize, class Java.Util.Concurrent.IRejectedExecutionHandler handler) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.#ctor(System.Int32,Java.Util.Concurrent.IRejectedExecutionHandler)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (corePoolSize As Integer, handler As IRejectedExecutionHandler)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; ScheduledThreadPoolExecutor(int corePoolSize, Java::Util::Concurrent::IRejectedExecutionHandler ^ handler);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ScheduledThreadPoolExecutor : int * Java.Util.Concurrent.IRejectedExecutionHandler -&gt; Java.Util.Concurrent.ScheduledThreadPoolExecutor" Usage="new Java.Util.Concurrent.ScheduledThreadPoolExecutor (corePoolSize, handler)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -128,6 +207,8 @@
         <summary>Creates a new <c>ScheduledThreadPoolExecutor</c> with the
             given initial parameters.</summary>
         <remarks>
+          <para>Creates a new <c>ScheduledThreadPoolExecutor</c> with the
+            given initial parameters.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#ScheduledThreadPoolExecutor(int,%20java.util.concurrent.RejectedExecutionHandler)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.ScheduledThreadPoolExecutor(int, java.util.concurrent.RejectedExecutionHandler)</code>.</a>
@@ -146,11 +227,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (corePoolSize As Integer, threadFactory As IThreadFactory)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; ScheduledThreadPoolExecutor(int corePoolSize, Java::Util::Concurrent::IThreadFactory ^ threadFactory);" />
       <MemberSignature Language="C#" Value="public ScheduledThreadPoolExecutor (int corePoolSize, Java.Util.Concurrent.IThreadFactory? threadFactory);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(int32 corePoolSize, class Java.Util.Concurrent.IThreadFactory threadFactory) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.#ctor(System.Int32,Java.Util.Concurrent.IThreadFactory)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (corePoolSize As Integer, threadFactory As IThreadFactory)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; ScheduledThreadPoolExecutor(int corePoolSize, Java::Util::Concurrent::IThreadFactory ^ threadFactory);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ScheduledThreadPoolExecutor : int * Java.Util.Concurrent.IThreadFactory -&gt; Java.Util.Concurrent.ScheduledThreadPoolExecutor" Usage="new Java.Util.Concurrent.ScheduledThreadPoolExecutor (corePoolSize, threadFactory)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -175,6 +256,8 @@
         <summary>Creates a new <c>ScheduledThreadPoolExecutor</c> with the
             given initial parameters.</summary>
         <remarks>
+          <para>Creates a new <c>ScheduledThreadPoolExecutor</c> with the
+            given initial parameters.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#ScheduledThreadPoolExecutor(int,%20java.util.concurrent.ThreadFactory)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.ScheduledThreadPoolExecutor(int, java.util.concurrent.ThreadFactory)</code>.</a>
@@ -193,11 +276,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; ScheduledThreadPoolExecutor(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected ScheduledThreadPoolExecutor (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; ScheduledThreadPoolExecutor(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ScheduledThreadPoolExecutor : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Concurrent.ScheduledThreadPoolExecutor" Usage="new Java.Util.Concurrent.ScheduledThreadPoolExecutor (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -218,11 +301,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New (corePoolSize As Integer, threadFactory As IThreadFactory, handler As IRejectedExecutionHandler)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; ScheduledThreadPoolExecutor(int corePoolSize, Java::Util::Concurrent::IThreadFactory ^ threadFactory, Java::Util::Concurrent::IRejectedExecutionHandler ^ handler);" />
       <MemberSignature Language="C#" Value="public ScheduledThreadPoolExecutor (int corePoolSize, Java.Util.Concurrent.IThreadFactory? threadFactory, Java.Util.Concurrent.IRejectedExecutionHandler? handler);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(int32 corePoolSize, class Java.Util.Concurrent.IThreadFactory threadFactory, class Java.Util.Concurrent.IRejectedExecutionHandler handler) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.#ctor(System.Int32,Java.Util.Concurrent.IThreadFactory,Java.Util.Concurrent.IRejectedExecutionHandler)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New (corePoolSize As Integer, threadFactory As IThreadFactory, handler As IRejectedExecutionHandler)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; ScheduledThreadPoolExecutor(int corePoolSize, Java::Util::Concurrent::IThreadFactory ^ threadFactory, Java::Util::Concurrent::IRejectedExecutionHandler ^ handler);" />
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ScheduledThreadPoolExecutor : int * Java.Util.Concurrent.IThreadFactory * Java.Util.Concurrent.IRejectedExecutionHandler -&gt; Java.Util.Concurrent.ScheduledThreadPoolExecutor" Usage="new Java.Util.Concurrent.ScheduledThreadPoolExecutor (corePoolSize, threadFactory, handler)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -250,6 +333,8 @@
         <summary>Creates a new <c>ScheduledThreadPoolExecutor</c> with the
             given initial parameters.</summary>
         <remarks>
+          <para>Creates a new <c>ScheduledThreadPoolExecutor</c> with the
+            given initial parameters.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#ScheduledThreadPoolExecutor(int,%20java.util.concurrent.ThreadFactory,%20java.util.concurrent.RejectedExecutionHandler)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.ScheduledThreadPoolExecutor(int, java.util.concurrent.ThreadFactory, java.util.concurrent.RejectedExecutionHandler)</code>.</a>
@@ -269,11 +354,11 @@
       </Docs>
     </Member>
     <Member MemberName="ContinueExistingPeriodicTasksAfterShutdownPolicy">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Property ContinueExistingPeriodicTasksAfterShutdownPolicy As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool ContinueExistingPeriodicTasksAfterShutdownPolicy { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public virtual bool ContinueExistingPeriodicTasksAfterShutdownPolicy { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool ContinueExistingPeriodicTasksAfterShutdownPolicy" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ScheduledThreadPoolExecutor.ContinueExistingPeriodicTasksAfterShutdownPolicy" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Property ContinueExistingPeriodicTasksAfterShutdownPolicy As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool ContinueExistingPeriodicTasksAfterShutdownPolicy { bool get(); void set(bool value); };" />
       <MemberSignature Language="F#" Value="member this.ContinueExistingPeriodicTasksAfterShutdownPolicy : bool with get, set" Usage="Java.Util.Concurrent.ScheduledThreadPoolExecutor.ContinueExistingPeriodicTasksAfterShutdownPolicy" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -294,6 +379,7 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
+        <param name="value">if <c>true</c>, continue after shutdown, else don't</param>
         <summary>Gets the policy on whether to continue executing existing
             periodic tasks even when this executor has been <c>shutdown</c>. -or- Sets the policy on whether to continue executing existing
             periodic tasks even when this executor has been <c>shutdown</c>.</summary>
@@ -301,12 +387,22 @@
           <c>true</c> if will continue after shutdown</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Gets the policy on whether to continue executing existing
+            periodic tasks even when this executor has been <c>shutdown</c>.
+            In this case, executions will continue until <c>shutdownNow</c>
+            or the policy is set to <c>false</c> when already shutdown.
+            This value is by default <c>false</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#getContinueExistingPeriodicTasksAfterShutdownPolicy()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.getContinueExistingPeriodicTasksAfterShutdownPolicy()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets the policy on whether to continue executing existing
+            periodic tasks even when this executor has been <c>shutdown</c>.
+            In this case, executions will continue until <c>shutdownNow</c>
+            or the policy is set to <c>false</c> when already shutdown.
+            This value is by default <c>false</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#setContinueExistingPeriodicTasksAfterShutdownPolicy(boolean)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.setContinueExistingPeriodicTasksAfterShutdownPolicy(boolean)</code>.</a>
@@ -323,11 +419,11 @@
       </Docs>
     </Member>
     <Member MemberName="DecorateTask">
+      <MemberSignature Language="VB.NET" Value="Protected Overridable Function DecorateTask (runnable As IRunnable, task As IRunnableScheduledFuture) As IRunnableScheduledFuture" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual Java::Util::Concurrent::IRunnableScheduledFuture ^ DecorateTask(Java::Lang::IRunnable ^ runnable, Java::Util::Concurrent::IRunnableScheduledFuture ^ task);" />
       <MemberSignature Language="C#" Value="protected virtual Java.Util.Concurrent.IRunnableScheduledFuture? DecorateTask (Java.Lang.IRunnable? runnable, Java.Util.Concurrent.IRunnableScheduledFuture? task);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig newslot virtual instance class Java.Util.Concurrent.IRunnableScheduledFuture DecorateTask(class Java.Lang.IRunnable runnable, class Java.Util.Concurrent.IRunnableScheduledFuture task) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.DecorateTask(Java.Lang.IRunnable,Java.Util.Concurrent.IRunnableScheduledFuture)" />
-      <MemberSignature Language="VB.NET" Value="Protected Overridable Function DecorateTask (runnable As IRunnable, task As IRunnableScheduledFuture) As IRunnableScheduledFuture" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual Java::Util::Concurrent::IRunnableScheduledFuture ^ DecorateTask(Java::Lang::IRunnable ^ runnable, Java::Util::Concurrent::IRunnableScheduledFuture ^ task);" />
       <MemberSignature Language="F#" Value="abstract member DecorateTask : Java.Lang.IRunnable * Java.Util.Concurrent.IRunnableScheduledFuture -&gt; Java.Util.Concurrent.IRunnableScheduledFuture&#xA;override this.DecorateTask : Java.Lang.IRunnable * Java.Util.Concurrent.IRunnableScheduledFuture -&gt; Java.Util.Concurrent.IRunnableScheduledFuture" Usage="scheduledThreadPoolExecutor.DecorateTask (runnable, task)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -354,9 +450,15 @@
       <Docs>
         <param name="runnable">the submitted Runnable</param>
         <param name="task">the task created to execute the runnable</param>
+        <param name="&lt;V&gt;&lt;V&gt;">the type of the task's result</param>
         <summary>Modifies or replaces the task used to execute a runnable.</summary>
         <returns>a task that can execute the runnable</returns>
         <remarks>
+          <para>Modifies or replaces the task used to execute a runnable.
+            This method can be used to override the concrete
+            class used for managing internal tasks.
+            The default implementation simply returns the given task.</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#decorateTask(java.lang.Runnable,%20java.util.concurrent.RunnableScheduledFuture%3CV%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.decorateTask(java.lang.Runnable, java.util.concurrent.RunnableScheduledFuture&lt;V&gt;)</code>.</a>
@@ -371,11 +473,11 @@
       </Docs>
     </Member>
     <Member MemberName="DecorateTask">
+      <MemberSignature Language="VB.NET" Value="Protected Overridable Function DecorateTask (callable As ICallable, task As IRunnableScheduledFuture) As IRunnableScheduledFuture" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual Java::Util::Concurrent::IRunnableScheduledFuture ^ DecorateTask(Java::Util::Concurrent::ICallable ^ callable, Java::Util::Concurrent::IRunnableScheduledFuture ^ task);" />
       <MemberSignature Language="C#" Value="protected virtual Java.Util.Concurrent.IRunnableScheduledFuture? DecorateTask (Java.Util.Concurrent.ICallable? callable, Java.Util.Concurrent.IRunnableScheduledFuture? task);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig newslot virtual instance class Java.Util.Concurrent.IRunnableScheduledFuture DecorateTask(class Java.Util.Concurrent.ICallable callable, class Java.Util.Concurrent.IRunnableScheduledFuture task) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.DecorateTask(Java.Util.Concurrent.ICallable,Java.Util.Concurrent.IRunnableScheduledFuture)" />
-      <MemberSignature Language="VB.NET" Value="Protected Overridable Function DecorateTask (callable As ICallable, task As IRunnableScheduledFuture) As IRunnableScheduledFuture" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual Java::Util::Concurrent::IRunnableScheduledFuture ^ DecorateTask(Java::Util::Concurrent::ICallable ^ callable, Java::Util::Concurrent::IRunnableScheduledFuture ^ task);" />
       <MemberSignature Language="F#" Value="abstract member DecorateTask : Java.Util.Concurrent.ICallable * Java.Util.Concurrent.IRunnableScheduledFuture -&gt; Java.Util.Concurrent.IRunnableScheduledFuture&#xA;override this.DecorateTask : Java.Util.Concurrent.ICallable * Java.Util.Concurrent.IRunnableScheduledFuture -&gt; Java.Util.Concurrent.IRunnableScheduledFuture" Usage="scheduledThreadPoolExecutor.DecorateTask (callable, task)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -402,9 +504,15 @@
       <Docs>
         <param name="callable">the submitted Callable</param>
         <param name="task">the task created to execute the callable</param>
+        <param name="&lt;V&gt;&lt;V&gt;">the type of the task's result</param>
         <summary>Modifies or replaces the task used to execute a callable.</summary>
         <returns>a task that can execute the callable</returns>
         <remarks>
+          <para>Modifies or replaces the task used to execute a callable.
+            This method can be used to override the concrete
+            class used for managing internal tasks.
+            The default implementation simply returns the given task.</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#decorateTask(java.util.concurrent.Callable%3CV%3E,%20java.util.concurrent.RunnableScheduledFuture%3CV%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.decorateTask(java.util.concurrent.Callable&lt;V&gt;, java.util.concurrent.RunnableScheduledFuture&lt;V&gt;)</code>.</a>
@@ -419,11 +527,11 @@
       </Docs>
     </Member>
     <Member MemberName="ExecuteExistingDelayedTasksAfterShutdownPolicy">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Property ExecuteExistingDelayedTasksAfterShutdownPolicy As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool ExecuteExistingDelayedTasksAfterShutdownPolicy { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public virtual bool ExecuteExistingDelayedTasksAfterShutdownPolicy { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool ExecuteExistingDelayedTasksAfterShutdownPolicy" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ScheduledThreadPoolExecutor.ExecuteExistingDelayedTasksAfterShutdownPolicy" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Property ExecuteExistingDelayedTasksAfterShutdownPolicy As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool ExecuteExistingDelayedTasksAfterShutdownPolicy { bool get(); void set(bool value); };" />
       <MemberSignature Language="F#" Value="member this.ExecuteExistingDelayedTasksAfterShutdownPolicy : bool with get, set" Usage="Java.Util.Concurrent.ScheduledThreadPoolExecutor.ExecuteExistingDelayedTasksAfterShutdownPolicy" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -444,6 +552,7 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
+        <param name="value">if <c>true</c>, execute after shutdown, else don't</param>
         <summary>Gets the policy on whether to execute existing delayed
             tasks even when this executor has been <c>shutdown</c>. -or- Sets the policy on whether to execute existing delayed
             tasks even when this executor has been <c>shutdown</c>.</summary>
@@ -451,12 +560,24 @@
           <c>true</c> if will execute after shutdown</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Gets the policy on whether to execute existing delayed
+            tasks even when this executor has been <c>shutdown</c>.
+            In this case, these tasks will only terminate upon
+            <c>shutdownNow</c>, or after setting the policy to
+            <c>false</c> when already shutdown.
+            This value is by default <c>true</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#getExecuteExistingDelayedTasksAfterShutdownPolicy()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.getExecuteExistingDelayedTasksAfterShutdownPolicy()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets the policy on whether to execute existing delayed
+            tasks even when this executor has been <c>shutdown</c>.
+            In this case, these tasks will only terminate upon
+            <c>shutdownNow</c>, or after setting the policy to
+            <c>false</c> when already shutdown.
+            This value is by default <c>true</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#setExecuteExistingDelayedTasksAfterShutdownPolicy(boolean)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.setExecuteExistingDelayedTasksAfterShutdownPolicy(boolean)</code>.</a>
@@ -473,11 +594,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ScheduledThreadPoolExecutor.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Java.Util.Concurrent.ScheduledThreadPoolExecutor.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -496,6 +617,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -509,11 +638,11 @@
       </Docs>
     </Member>
     <Member MemberName="RemoveOnCancelPolicy">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Property RemoveOnCancelPolicy As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool RemoveOnCancelPolicy { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public virtual bool RemoveOnCancelPolicy { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool RemoveOnCancelPolicy" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ScheduledThreadPoolExecutor.RemoveOnCancelPolicy" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Property RemoveOnCancelPolicy As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool RemoveOnCancelPolicy { bool get(); void set(bool value); };" />
       <MemberSignature Language="F#" Value="member this.RemoveOnCancelPolicy : bool with get, set" Usage="Java.Util.Concurrent.ScheduledThreadPoolExecutor.RemoveOnCancelPolicy" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -534,6 +663,7 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
+        <param name="value">if <c>true</c>, remove on cancellation, else don't</param>
         <summary>Gets the policy on whether cancelled tasks should be immediately
             removed from the work queue at time of cancellation. -or- Sets the policy on whether cancelled tasks should be immediately
             removed from the work queue at time of cancellation.</summary>
@@ -542,12 +672,20 @@
                     from the queue</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Gets the policy on whether cancelled tasks should be immediately
+            removed from the work queue at time of cancellation.  This value is
+            by default <c>false</c>.</para>
+          <para>Added in 1.7.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#getRemoveOnCancelPolicy()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.getRemoveOnCancelPolicy()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets the policy on whether cancelled tasks should be immediately
+            removed from the work queue at time of cancellation.  This value is
+            by default <c>false</c>.</para>
+          <para>Added in 1.7.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#setRemoveOnCancelPolicy(boolean)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.setRemoveOnCancelPolicy(boolean)</code>.</a>
@@ -564,11 +702,11 @@
       <since version="Added in API level 21" />
     </Member>
     <Member MemberName="Schedule">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function Schedule (command As IRunnable, delay As Long, unit As TimeUnit) As IScheduledFuture" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::IScheduledFuture ^ Schedule(Java::Lang::IRunnable ^ command, long delay, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public virtual Java.Util.Concurrent.IScheduledFuture? Schedule (Java.Lang.IRunnable? command, long delay, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Concurrent.IScheduledFuture Schedule(class Java.Lang.IRunnable command, int64 delay, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.Schedule(Java.Lang.IRunnable,System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function Schedule (command As IRunnable, delay As Long, unit As TimeUnit) As IScheduledFuture" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::IScheduledFuture ^ Schedule(Java::Lang::IRunnable ^ command, long delay, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member Schedule : Java.Lang.IRunnable * int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Util.Concurrent.IScheduledFuture&#xA;override this.Schedule : Java.Lang.IRunnable * int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Util.Concurrent.IScheduledFuture" Usage="scheduledThreadPoolExecutor.Schedule (command, delay, unit)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -617,11 +755,11 @@
       </Docs>
     </Member>
     <Member MemberName="Schedule">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function Schedule (callable As ICallable, delay As Long, unit As TimeUnit) As IScheduledFuture" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::IScheduledFuture ^ Schedule(Java::Util::Concurrent::ICallable ^ callable, long delay, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public virtual Java.Util.Concurrent.IScheduledFuture? Schedule (Java.Util.Concurrent.ICallable? callable, long delay, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Concurrent.IScheduledFuture Schedule(class Java.Util.Concurrent.ICallable callable, int64 delay, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.Schedule(Java.Util.Concurrent.ICallable,System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function Schedule (callable As ICallable, delay As Long, unit As TimeUnit) As IScheduledFuture" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::IScheduledFuture ^ Schedule(Java::Util::Concurrent::ICallable ^ callable, long delay, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member Schedule : Java.Util.Concurrent.ICallable * int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Util.Concurrent.IScheduledFuture&#xA;override this.Schedule : Java.Util.Concurrent.ICallable * int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Util.Concurrent.IScheduledFuture" Usage="scheduledThreadPoolExecutor.Schedule (callable, delay, unit)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -670,11 +808,11 @@
       </Docs>
     </Member>
     <Member MemberName="ScheduleAtFixedRate">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function ScheduleAtFixedRate (command As IRunnable, initialDelay As Long, period As Long, unit As TimeUnit) As IScheduledFuture" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::IScheduledFuture ^ ScheduleAtFixedRate(Java::Lang::IRunnable ^ command, long initialDelay, long period, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public virtual Java.Util.Concurrent.IScheduledFuture? ScheduleAtFixedRate (Java.Lang.IRunnable? command, long initialDelay, long period, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Concurrent.IScheduledFuture ScheduleAtFixedRate(class Java.Lang.IRunnable command, int64 initialDelay, int64 period, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.ScheduleAtFixedRate(Java.Lang.IRunnable,System.Int64,System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function ScheduleAtFixedRate (command As IRunnable, initialDelay As Long, period As Long, unit As TimeUnit) As IScheduledFuture" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::IScheduledFuture ^ ScheduleAtFixedRate(Java::Lang::IRunnable ^ command, long initialDelay, long period, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member ScheduleAtFixedRate : Java.Lang.IRunnable * int64 * int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Util.Concurrent.IScheduledFuture&#xA;override this.ScheduleAtFixedRate : Java.Lang.IRunnable * int64 * int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Util.Concurrent.IScheduledFuture" Usage="scheduledThreadPoolExecutor.ScheduleAtFixedRate (command, initialDelay, period, unit)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -711,6 +849,30 @@
             <c>initialDelay + 2 * period</c>, and so on.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Submits a periodic action that becomes enabled first after the
+            given initial delay, and subsequently with the given period;
+            that is, executions will commence after
+            <c>initialDelay</c>, then <c>initialDelay + period</c>, then
+            <c>initialDelay + 2 * period</c>, and so on.</para>
+          <para>The sequence of task executions continues indefinitely until
+            one of the following exceptional completions occur:
+            &lt;ul&gt;
+            &lt;li&gt;The task is Future#cancel explicitly cancelled
+            via the returned future.
+            &lt;li&gt;Method <c>#shutdown</c> is called and the #getContinueExistingPeriodicTasksAfterShutdownPolicy policy on
+            whether to continue after shutdown is not set true, or method
+            <c>#shutdownNow</c> is called; also resulting in task
+            cancellation.
+            &lt;li&gt;An execution of the task throws an exception.  In this case
+            calling <c>Future#get() get</c> on the returned future will throw
+            <c>ExecutionException</c>, holding the exception as its cause.
+            &lt;/ul&gt;
+            Subsequent executions are suppressed.  Subsequent calls to
+            <c>Future#isDone isDone()</c> on the returned future will
+            return <c>true</c>.</para>
+          <para>If any execution of this task takes longer than its period, then
+            subsequent executions may start late, but will not concurrently
+            execute.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#scheduleAtFixedRate(java.lang.Runnable,%20long,%20long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.scheduleAtFixedRate(java.lang.Runnable, long, long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -729,11 +891,11 @@
       </Docs>
     </Member>
     <Member MemberName="ScheduleWithFixedDelay">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function ScheduleWithFixedDelay (command As IRunnable, initialDelay As Long, delay As Long, unit As TimeUnit) As IScheduledFuture" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::IScheduledFuture ^ ScheduleWithFixedDelay(Java::Lang::IRunnable ^ command, long initialDelay, long delay, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="C#" Value="public virtual Java.Util.Concurrent.IScheduledFuture? ScheduleWithFixedDelay (Java.Lang.IRunnable? command, long initialDelay, long delay, Java.Util.Concurrent.TimeUnit? unit);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.Concurrent.IScheduledFuture ScheduleWithFixedDelay(class Java.Lang.IRunnable command, int64 initialDelay, int64 delay, class Java.Util.Concurrent.TimeUnit unit) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ScheduledThreadPoolExecutor.ScheduleWithFixedDelay(Java.Lang.IRunnable,System.Int64,System.Int64,Java.Util.Concurrent.TimeUnit)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function ScheduleWithFixedDelay (command As IRunnable, initialDelay As Long, delay As Long, unit As TimeUnit) As IScheduledFuture" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Java::Util::Concurrent::IScheduledFuture ^ ScheduleWithFixedDelay(Java::Lang::IRunnable ^ command, long initialDelay, long delay, Java::Util::Concurrent::TimeUnit ^ unit);" />
       <MemberSignature Language="F#" Value="abstract member ScheduleWithFixedDelay : Java.Lang.IRunnable * int64 * int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Util.Concurrent.IScheduledFuture&#xA;override this.ScheduleWithFixedDelay : Java.Lang.IRunnable * int64 * int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Util.Concurrent.IScheduledFuture" Usage="scheduledThreadPoolExecutor.ScheduleWithFixedDelay (command, initialDelay, delay, unit)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -770,6 +932,26 @@
             the next.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Submits a periodic action that becomes enabled first after the
+            given initial delay, and subsequently with the given delay
+            between the termination of one execution and the commencement of
+            the next.</para>
+          <para>The sequence of task executions continues indefinitely until
+            one of the following exceptional completions occur:
+            &lt;ul&gt;
+            &lt;li&gt;The task is Future#cancel explicitly cancelled
+            via the returned future.
+            &lt;li&gt;Method <c>#shutdown</c> is called and the #getContinueExistingPeriodicTasksAfterShutdownPolicy policy on
+            whether to continue after shutdown is not set true, or method
+            <c>#shutdownNow</c> is called; also resulting in task
+            cancellation.
+            &lt;li&gt;An execution of the task throws an exception.  In this case
+            calling <c>Future#get() get</c> on the returned future will throw
+            <c>ExecutionException</c>, holding the exception as its cause.
+            &lt;/ul&gt;
+            Subsequent executions are suppressed.  Subsequent calls to
+            <c>Future#isDone isDone()</c> on the returned future will
+            return <c>true</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ScheduledThreadPoolExecutor#scheduleWithFixedDelay(java.lang.Runnable,%20long,%20long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ScheduledThreadPoolExecutor.scheduleWithFixedDelay(java.lang.Runnable, long, long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -788,11 +970,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ScheduledThreadPoolExecutor.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.ScheduledThreadPoolExecutor.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -821,11 +1003,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Concurrent.ScheduledThreadPoolExecutor.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.ScheduledThreadPoolExecutor.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -840,6 +1022,14 @@
         <Attribute>
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>

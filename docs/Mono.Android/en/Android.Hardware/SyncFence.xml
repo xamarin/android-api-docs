@@ -1,9 +1,9 @@
 <Type Name="SyncFence" FullName="Android.Hardware.SyncFence">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class SyncFence&#xA;Inherits Object&#xA;Implements IAutoCloseable, IDisposable, IJavaPeerable, IParcelable" />
+  <TypeSignature Language="C++ CLI" Value="public ref class SyncFence sealed : Java::Lang::Object, Android::OS::IParcelable, IDisposable, Java::Interop::IJavaPeerable, Java::Lang::IAutoCloseable" />
   <TypeSignature Language="C#" Value="public sealed class SyncFence : Java.Lang.Object, Android.OS.IParcelable, IDisposable, Java.Interop.IJavaPeerable, Java.Lang.IAutoCloseable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit SyncFence extends Java.Lang.Object implements class Android.OS.IParcelable, class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.Lang.IAutoCloseable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Android.Hardware.SyncFence" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class SyncFence&#xA;Inherits Object&#xA;Implements IAutoCloseable, IDisposable, IJavaPeerable, IParcelable" />
-  <TypeSignature Language="C++ CLI" Value="public ref class SyncFence sealed : Java::Lang::Object, Android::OS::IParcelable, IDisposable, Java::Interop::IJavaPeerable, Java::Lang::IAutoCloseable" />
   <TypeSignature Language="F#" Value="type SyncFence = class&#xA;    inherit Object&#xA;    interface IParcelable&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable&#xA;    interface IAutoCloseable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -35,6 +35,14 @@
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/hardware/SyncFence", ApiSince=33, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
     <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
       <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
     </Attribute>
@@ -43,6 +51,26 @@
     <summary>A SyncFence represents a synchronization primitive which signals when hardware units have
             completed work on a particular resource.</summary>
     <remarks>
+      <para>A SyncFence represents a synchronization primitive which signals when hardware units have
+            completed work on a particular resource. They initially start in an unsignaled state and make
+            a one-time transition to either a signaled or error state. SyncFences are created by various
+            device APIs in response to submitting tasks to the device. They cannot be created nor signaled
+            by userspace. As a result, this means that a SyncFence will make always make forward progress.</para>
+      <para>SyncFence's generally come in one of two varieties. "Presentation fences" refer to
+             a SyncFence when the writing to a buffer has finished. "Release fences" then refer
+             to when the reading from a buffer has finished.</para>
+      <para>For example, a GPU rendering to a framebuffer may generate a synchronization fence,
+            e.g., an EGLSync or VkFence, which signals when rendering has completed. Once the fence signals,
+            then the backing storage for the framebuffer may be safely read from, such as for display or
+            for media encoding. This would be referred to as a "presentation fence."</para>
+      <para>Similarly when using an <c>android.media.ImageWriter</c> it is possible that an
+            <c>android.media.Image</c> returned by <c>ImageWriter#dequeueInputImage()</c> may already
+            have a <c>Image#getFence() fence</c> set on it. This would be what is referred to as either
+            a "release fence" or an "acqurie fence" and indicates the fence that the writer must wait
+            on before writing to the underlying buffer. In the case of ImageWriter this is done
+            automatically when eg <c>Image#getPlanes()</c> is called, however when using
+            <c>Image#getHardwareBuffer()</c> it is the caller's responsibility to ensure the
+            release fence has signaled before writing to the buffer.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/hardware/SyncFence" title="Reference documentation">Java documentation for <code>android.hardware.SyncFence</code>.</a>
@@ -57,11 +85,11 @@
   </Docs>
   <Members>
     <Member MemberName="Await">
+      <MemberSignature Language="VB.NET" Value="Public Function Await (timeout As Duration) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool Await(Java::Time::Duration ^ timeout);" />
       <MemberSignature Language="C#" Value="public bool Await (Java.Time.Duration timeout);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool Await(class Java.Time.Duration timeout) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Hardware.SyncFence.Await(Java.Time.Duration)" />
-      <MemberSignature Language="VB.NET" Value="Public Function Await (timeout As Duration) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool Await(Java::Time::Duration ^ timeout);" />
       <MemberSignature Language="F#" Value="member this.Await : Java.Time.Duration -&gt; bool" Usage="syncFence.Await timeout" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -85,18 +113,33 @@
         <Parameter Name="timeout" Type="Java.Time.Duration" />
       </Parameters>
       <Docs>
-        <param name="timeout">To be added.</param>
-        <summary>To be added.</summary>
-        <returns>To be added.</returns>
-        <remarks>To be added.</remarks>
+        <param name="timeout">The timeout duration. If the duration is negative, then this waits forever.</param>
+        <summary>Waits for a SyncFence to signal for up to the timeout duration.</summary>
+        <returns>true if the fence signaled or isn't valid, false otherwise.</returns>
+        <remarks>
+          <para>Waits for a SyncFence to signal for up to the timeout duration.
+            
+            An invalid SyncFence, that is if <c>#isValid()</c> is false, is treated equivalently
+            to a SyncFence that has already signaled. That is, wait() will immediately return true.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/hardware/SyncFence#await(java.time.Duration)" title="Reference documentation">Java documentation for <code>android.hardware.SyncFence.await(java.time.Duration)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="AwaitForever">
+      <MemberSignature Language="VB.NET" Value="Public Function AwaitForever () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool AwaitForever();" />
       <MemberSignature Language="C#" Value="public bool AwaitForever ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool AwaitForever() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Hardware.SyncFence.AwaitForever" />
-      <MemberSignature Language="VB.NET" Value="Public Function AwaitForever () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool AwaitForever();" />
       <MemberSignature Language="F#" Value="member this.AwaitForever : unit -&gt; bool" Usage="syncFence.AwaitForever " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -121,6 +164,10 @@
         <summary>Waits forever for a SyncFence to signal.</summary>
         <returns>true if the fence signaled or isn't valid, false otherwise.</returns>
         <remarks>
+          <para>Waits forever for a SyncFence to signal.
+            
+            An invalid SyncFence, that is if <c>#isValid()</c> is false, is treated equivalently
+            to a SyncFence that has already signaled. That is, wait() will immediately return true.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/hardware/SyncFence#awaitForever()" title="Reference documentation">Java documentation for <code>android.hardware.SyncFence.awaitForever()</code>.</a>
@@ -135,11 +182,11 @@
       </Docs>
     </Member>
     <Member MemberName="Close">
+      <MemberSignature Language="VB.NET" Value="Public Sub Close ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Close();" />
       <MemberSignature Language="C#" Value="public void Close ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Close() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Hardware.SyncFence.Close" />
-      <MemberSignature Language="VB.NET" Value="Public Sub Close ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void Close();" />
       <MemberSignature Language="F#" Value="abstract member Close : unit -&gt; unit&#xA;override this.Close : unit -&gt; unit" Usage="syncFence.Close " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -166,6 +213,8 @@
       <Docs>
         <summary>Close the SyncFence.</summary>
         <remarks>
+          <para>Close the SyncFence. This implementation closes the underlying OS resources allocated
+            this stream.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/hardware/SyncFence#close()" title="Reference documentation">Java documentation for <code>android.hardware.SyncFence.close()</code>.</a>
@@ -180,12 +229,12 @@
       </Docs>
     </Member>
     <Member MemberName="Creator">
+      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property Creator As IParcelableCreator" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Android::OS::IParcelableCreator ^ Creator { Android::OS::IParcelableCreator ^ get(); };" />
       <MemberSignature Language="C#" Value="public static Android.OS.IParcelableCreator Creator { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.OS.IParcelableCreator Creator" />
       <MemberSignature Language="DocId" Value="P:Android.Hardware.SyncFence.Creator" />
-      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property Creator As IParcelableCreator" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Android::OS::IParcelableCreator ^ Creator { Android::OS::IParcelableCreator ^ get(); };" />
-      <MemberSignature Language="F#" Value="static member Creator : Android.OS.IParcelableCreator" Usage="Android.Hardware.SyncFence.Creator" />
+      <MemberSignature Language="F#" Value="member this.Creator : Android.OS.IParcelableCreator" Usage="Android.Hardware.SyncFence.Creator" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -211,11 +260,11 @@
       </Docs>
     </Member>
     <Member MemberName="DescribeContents">
+      <MemberSignature Language="VB.NET" Value="Public Function DescribeContents () As Integer" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int DescribeContents();" />
       <MemberSignature Language="C#" Value="public int DescribeContents ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 DescribeContents() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Hardware.SyncFence.DescribeContents" />
-      <MemberSignature Language="VB.NET" Value="Public Function DescribeContents () As Integer" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual int DescribeContents();" />
       <MemberSignature Language="F#" Value="abstract member DescribeContents : unit -&gt; int&#xA;override this.DescribeContents : unit -&gt; int" Usage="syncFence.DescribeContents " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -246,11 +295,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsValid">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsValid As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsValid { bool get(); };" />
       <MemberSignature Language="C#" Value="public bool IsValid { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool IsValid" />
       <MemberSignature Language="DocId" Value="P:Android.Hardware.SyncFence.IsValid" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property IsValid As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property bool IsValid { bool get(); };" />
       <MemberSignature Language="F#" Value="member this.IsValid : bool" Usage="Android.Hardware.SyncFence.IsValid" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -276,6 +325,7 @@
           <c>true</c> if the file descriptor represents a valid, open file;
                     <c>false</c> otherwise.</value>
         <remarks>
+          <para>Checks if the SyncFile object is valid.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/hardware/SyncFence#isValid()" title="Reference documentation">Java documentation for <code>android.hardware.SyncFence.isValid()</code>.</a>
@@ -290,11 +340,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Hardware.SyncFence.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Hardware.SyncFence.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -324,11 +374,11 @@
       </Docs>
     </Member>
     <Member MemberName="SignalTime">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property SignalTime As Long" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property long SignalTime { long get(); };" />
       <MemberSignature Language="C#" Value="public long SignalTime { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int64 SignalTime" />
       <MemberSignature Language="DocId" Value="P:Android.Hardware.SyncFence.SignalTime" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property SignalTime As Long" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property long SignalTime { long get(); };" />
       <MemberSignature Language="F#" Value="member this.SignalTime : int64" Usage="Android.Hardware.SyncFence.SignalTime" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -353,6 +403,15 @@
         <value>The time the fence signaled, <c>#SIGNAL_TIME_INVALID</c> if there's an error,
                     or <c>#SIGNAL_TIME_PENDING</c> if the fence hasn't signaled yet.</value>
         <remarks>
+          <para>Returns the time in nanoseconds that the fence signaled in the CLOCK_MONOTONIC time domain.
+            This corresponds to <c>System#nanoTime()</c> but may also be compared to
+            <c>SystemClock#uptimeMillis()</c> after adjusting for milliseconds vs. nanoseconds.
+            
+            If the fence isn't valid, that is if <c>#isValid()</c> is false, then this returns
+            <c>#SIGNAL_TIME_INVALID</c>. Similarly, if an error occurs while trying to access the
+            signal time, then <c>#SIGNAL_TIME_INVALID</c> is also returned.
+            
+            If the fence hasn't yet signaled, then <c>#SIGNAL_TIME_PENDING</c> is returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/hardware/SyncFence#getSignalTime()" title="Reference documentation">Java documentation for <code>android.hardware.SyncFence.getSignalTime()</code>.</a>
@@ -367,11 +426,11 @@
       </Docs>
     </Member>
     <Member MemberName="SignalTimeInvalid">
+      <MemberSignature Language="VB.NET" Value="Public Const SignalTimeInvalid As Long  = -1" />
+      <MemberSignature Language="C++ CLI" Value="public: long SignalTimeInvalid = -1;" />
       <MemberSignature Language="C#" Value="public const long SignalTimeInvalid = -1;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal int64 SignalTimeInvalid = (-1)" />
       <MemberSignature Language="DocId" Value="F:Android.Hardware.SyncFence.SignalTimeInvalid" />
-      <MemberSignature Language="VB.NET" Value="Public Const SignalTimeInvalid As Long  = -1" />
-      <MemberSignature Language="C++ CLI" Value="public: long SignalTimeInvalid = -1;" />
       <MemberSignature Language="F#" Value="val mutable SignalTimeInvalid : int64" Usage="Android.Hardware.SyncFence.SignalTimeInvalid" />
       <MemberType>Field</MemberType>
       <Implements>
@@ -398,6 +457,9 @@
       <Docs>
         <summary>An invalid signal time.</summary>
         <remarks>
+          <para>An invalid signal time. Represents either the signal time for a SyncFence that isn't valid
+            (that is, <c>#isValid()</c> is false), or if an error occurred while attempting to retrieve
+            the signal time.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/hardware/SyncFence#SIGNAL_TIME_INVALID" title="Reference documentation">Java documentation for <code>android.hardware.SyncFence.SIGNAL_TIME_INVALID</code>.</a>
@@ -412,11 +474,11 @@
       </Docs>
     </Member>
     <Member MemberName="SignalTimePending">
+      <MemberSignature Language="VB.NET" Value="Public Const SignalTimePending As Long  = 9223372036854775807" />
+      <MemberSignature Language="C++ CLI" Value="public: long SignalTimePending = 9223372036854775807;" />
       <MemberSignature Language="C#" Value="public const long SignalTimePending = 9223372036854775807;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal int64 SignalTimePending = (9223372036854775807)" />
       <MemberSignature Language="DocId" Value="F:Android.Hardware.SyncFence.SignalTimePending" />
-      <MemberSignature Language="VB.NET" Value="Public Const SignalTimePending As Long  = 9223372036854775807" />
-      <MemberSignature Language="C++ CLI" Value="public: long SignalTimePending = 9223372036854775807;" />
       <MemberSignature Language="F#" Value="val mutable SignalTimePending : int64" Usage="Android.Hardware.SyncFence.SignalTimePending" />
       <MemberType>Field</MemberType>
       <Implements>
@@ -443,6 +505,8 @@
       <Docs>
         <summary>A pending signal time.</summary>
         <remarks>
+          <para>A pending signal time. This is equivalent to the max value of a long, representing an
+            infinitely far point in the future.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/hardware/SyncFence#SIGNAL_TIME_PENDING" title="Reference documentation">Java documentation for <code>android.hardware.SyncFence.SIGNAL_TIME_PENDING</code>.</a>
@@ -457,11 +521,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Hardware.SyncFence.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Hardware.SyncFence.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -488,11 +552,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Hardware.SyncFence.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Hardware.SyncFence.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -519,11 +583,11 @@
       </Docs>
     </Member>
     <Member MemberName="WriteToParcel">
+      <MemberSignature Language="VB.NET" Value="Public Sub WriteToParcel (out As Parcel, flags As ParcelableWriteFlags)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void WriteToParcel(Android::OS::Parcel ^ out, Android::OS::ParcelableWriteFlags flags);" />
       <MemberSignature Language="C#" Value="public void WriteToParcel (Android.OS.Parcel out, Android.OS.ParcelableWriteFlags flags);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void WriteToParcel(class Android.OS.Parcel out, valuetype Android.OS.ParcelableWriteFlags flags) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Hardware.SyncFence.WriteToParcel(Android.OS.Parcel,Android.OS.ParcelableWriteFlags)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub WriteToParcel (out As Parcel, flags As ParcelableWriteFlags)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void WriteToParcel(Android::OS::Parcel ^ out, Android::OS::ParcelableWriteFlags flags);" />
       <MemberSignature Language="F#" Value="abstract member WriteToParcel : Android.OS.Parcel * Android.OS.ParcelableWriteFlags -&gt; unit&#xA;override this.WriteToParcel : Android.OS.Parcel * Android.OS.ParcelableWriteFlags -&gt; unit" Usage="syncFence.WriteToParcel (out, flags)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -563,6 +627,7 @@
                          May be <c>0</c> or <c>#PARCELABLE_WRITE_RETURN_VALUE</c></param>
         <summary>Flatten this object into a Parcel.</summary>
         <remarks>
+          <para>Flatten this object into a Parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/hardware/SyncFence#writeToParcel(android.os.Parcel,%20int)" title="Reference documentation">Java documentation for <code>android.hardware.SyncFence.writeToParcel(android.os.Parcel, int)</code>.</a>

@@ -1,9 +1,9 @@
 <Type Name="UsageStatsManager" FullName="Android.App.Usage.UsageStatsManager">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class UsageStatsManager&#xA;Inherits Object" />
+  <TypeSignature Language="C++ CLI" Value="public ref class UsageStatsManager sealed : Java::Lang::Object" />
   <TypeSignature Language="C#" Value="public sealed class UsageStatsManager : Java.Lang.Object" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi sealed beforefieldinit UsageStatsManager extends Java.Lang.Object" />
   <TypeSignature Language="DocId" Value="T:Android.App.Usage.UsageStatsManager" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class UsageStatsManager&#xA;Inherits Object" />
-  <TypeSignature Language="C++ CLI" Value="public ref class UsageStatsManager sealed : Java::Lang::Object" />
   <TypeSignature Language="F#" Value="type UsageStatsManager = class&#xA;    inherit Object" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -18,10 +18,42 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/app/usage/UsageStatsManager", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/app/usage/UsageStatsManager", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="21">
     <summary>Provides access to device usage history and statistics.</summary>
     <remarks>
+      <para>Provides access to device usage history and statistics. Usage data is aggregated into
+            time intervals: days, weeks, months, and years.
+            &lt;p /&gt;
+            When requesting usage data since a particular time, the request might look something like this:</para>
+      <code lang="text/java">PAST                   REQUEST_TIME                    TODAY                   FUTURE
+            ————————————————————————————||———————————————————————————¦-----------------------|
+                                   YEAR ||                           ¦                       |
+            ————————————————————————————||———————————————————————————¦-----------------------|
+             MONTH            |         ||                MONTH      ¦                       |
+            ——————————————————|—————————||———————————————————————————¦-----------------------|
+              |      WEEK     |     WEEK||    |     WEEK     |     WE¦EK     |      WEEK     |
+            ————————————————————————————||———————————————————|———————¦-----------------------|
+                                        ||           |DAY|DAY|DAY|DAY¦DAY|DAY|DAY|DAY|DAY|DAY|
+            ————————————————————————————||———————————————————————————¦-----------------------|
+            </code>
+      <para>A request for data in the middle of a time interval will include that interval.
+            &lt;p/&gt;
+            &lt;b&gt;NOTE:&lt;/b&gt; Most methods on this API require the permission
+            android.permission.PACKAGE_USAGE_STATS. However, declaring the permission implies intention to
+            use the API and the user of the device still needs to grant permission through the Settings
+            application.
+            See <c>android.provider.Settings#ACTION_USAGE_ACCESS_SETTINGS</c>.
+            Methods which only return the information for the calling package do not require this permission.
+            E.g. <c>#getAppStandbyBucket()</c> and <c>#queryEventsForSelf(long, long)</c>.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager</code>.</a>
@@ -36,11 +68,11 @@
   </Docs>
   <Members>
     <Member MemberName="AppStandbyBucket">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property AppStandbyBucket As StandbyBucket" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::App::Usage::StandbyBucket AppStandbyBucket { Android::App::Usage::StandbyBucket get(); };" />
       <MemberSignature Language="C#" Value="public Android.App.Usage.StandbyBucket AppStandbyBucket { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance valuetype Android.App.Usage.StandbyBucket AppStandbyBucket" />
       <MemberSignature Language="DocId" Value="P:Android.App.Usage.UsageStatsManager.AppStandbyBucket" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property AppStandbyBucket As StandbyBucket" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property Android::App::Usage::StandbyBucket AppStandbyBucket { Android::App::Usage::StandbyBucket get(); };" />
       <MemberSignature Language="F#" Value="member this.AppStandbyBucket : Android.App.Usage.StandbyBucket" Usage="Android.App.Usage.UsageStatsManager.AppStandbyBucket" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -64,6 +96,21 @@
         <summary>Returns the current standby bucket of the calling app.</summary>
         <value>the current standby bucket of the calling app. One of STANDBY_BUCKET_* constants.</value>
         <remarks>
+          <para>Returns the current standby bucket of the calling app. The system determines the standby
+            state of the app based on app usage patterns. Standby buckets determine how much an app will
+            be restricted from running background tasks such as jobs and alarms.</para>
+          <para>Restrictions increase progressively from <c>#STANDBY_BUCKET_ACTIVE</c> to
+            <c>#STANDBY_BUCKET_RESTRICTED</c>, with <c>#STANDBY_BUCKET_ACTIVE</c> being the least
+            restrictive. The battery level of the device might also affect the restrictions.</para>
+          <para>Apps in buckets &amp;le; <c>#STANDBY_BUCKET_ACTIVE</c> have no standby restrictions imposed.
+            Apps in buckets &amp;gt; <c>#STANDBY_BUCKET_FREQUENT</c> may have network access restricted when
+            running in the background.</para>
+          <para>The standby state of an app can change at any time either due to a user interaction or a
+            system interaction or some algorithm determining that the app can be restricted for a period
+            of time before the user has a need for it.</para>
+          <para>You can also query the recent history of standby bucket changes by calling
+            <c>#queryEventsForSelf(long, long)</c> and searching for
+            <c>UsageEvents.Event#STANDBY_BUCKET_CHANGED</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#getAppStandbyBucket()" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.getAppStandbyBucket()</code>.</a>
@@ -78,11 +125,11 @@
       </Docs>
     </Member>
     <Member MemberName="IsAppInactive">
+      <MemberSignature Language="VB.NET" Value="Public Function IsAppInactive (packageName As String) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool IsAppInactive(System::String ^ packageName);" />
       <MemberSignature Language="C#" Value="public bool IsAppInactive (string? packageName);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance bool IsAppInactive(string packageName) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Usage.UsageStatsManager.IsAppInactive(System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Function IsAppInactive (packageName As String) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; bool IsAppInactive(System::String ^ packageName);" />
       <MemberSignature Language="F#" Value="member this.IsAppInactive : string -&gt; bool" Usage="usageStatsManager.IsAppInactive packageName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -93,6 +140,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("isAppInactive", "(Ljava/lang/String;)Z", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("isAppInactive", "(Ljava/lang/String;)Z", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
@@ -111,6 +162,12 @@
         <returns>whether the app is currently considered inactive or false if querying another app
             without <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></returns>
         <remarks>
+          <para>Returns whether the specified app is currently considered inactive. This will be true if the
+            app hasn't been used directly or indirectly for a period of time defined by the system. This
+            could be of the order of several hours or days. Apps are not considered inactive when the
+            device is charging.</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c> to query the
+            inactive state of other apps</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#isAppInactive(java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.isAppInactive(java.lang.String)</code>.</a>
@@ -125,11 +182,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.App.Usage.UsageStatsManager.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.App.Usage.UsageStatsManager.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -158,11 +215,11 @@
       </Docs>
     </Member>
     <Member MemberName="QueryAndAggregateUsageStats">
+      <MemberSignature Language="VB.NET" Value="Public Function QueryAndAggregateUsageStats (beginTime As Long, endTime As Long) As IDictionary(Of String, UsageStats)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IDictionary&lt;System::String ^, Android::App::Usage::UsageStats ^&gt; ^ QueryAndAggregateUsageStats(long beginTime, long endTime);" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IDictionary&lt;string,Android.App.Usage.UsageStats&gt;? QueryAndAggregateUsageStats (long beginTime, long endTime);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Collections.Generic.IDictionary`2&lt;string, class Android.App.Usage.UsageStats&gt; QueryAndAggregateUsageStats(int64 beginTime, int64 endTime) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Usage.UsageStatsManager.QueryAndAggregateUsageStats(System.Int64,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function QueryAndAggregateUsageStats (beginTime As Long, endTime As Long) As IDictionary(Of String, UsageStats)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IDictionary&lt;System::String ^, Android::App::Usage::UsageStats ^&gt; ^ QueryAndAggregateUsageStats(long beginTime, long endTime);" />
       <MemberSignature Language="F#" Value="member this.QueryAndAggregateUsageStats : int64 * int64 -&gt; System.Collections.Generic.IDictionary&lt;string, Android.App.Usage.UsageStats&gt;" Usage="usageStatsManager.QueryAndAggregateUsageStats (beginTime, endTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -177,6 +234,12 @@
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.Generic.IDictionary&lt;System.String,Android.App.Usage.UsageStats&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1, 1 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1, 1 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="beginTime" Type="System.Int64" />
@@ -192,6 +255,10 @@
             for that range), merges the resulting data, and keys it by package name.</summary>
         <returns>A <c>java.util.Map</c> keyed by package name</returns>
         <remarks>
+          <para>A convenience method that queries for all stats in the given range (using the best interval
+            for that range), merges the resulting data, and keys it by package name.
+            See <c>#queryUsageStats(int, long, long)</c>.</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryAndAggregateUsageStats(long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryAndAggregateUsageStats(long, long)</code>.</a>
@@ -206,11 +273,11 @@
       </Docs>
     </Member>
     <Member MemberName="QueryConfigurations">
+      <MemberSignature Language="VB.NET" Value="Public Function QueryConfigurations (intervalType As UsageStatsInterval, beginTime As Long, endTime As Long) As IList(Of ConfigurationStats)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IList&lt;Android::App::Usage::ConfigurationStats ^&gt; ^ QueryConfigurations(Android::App::Usage::UsageStatsInterval intervalType, long beginTime, long endTime);" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IList&lt;Android.App.Usage.ConfigurationStats&gt;? QueryConfigurations (Android.App.Usage.UsageStatsInterval intervalType, long beginTime, long endTime);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Collections.Generic.IList`1&lt;class Android.App.Usage.ConfigurationStats&gt; QueryConfigurations(valuetype Android.App.Usage.UsageStatsInterval intervalType, int64 beginTime, int64 endTime) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Usage.UsageStatsManager.QueryConfigurations(Android.App.Usage.UsageStatsInterval,System.Int64,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function QueryConfigurations (intervalType As UsageStatsInterval, beginTime As Long, endTime As Long) As IList(Of ConfigurationStats)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IList&lt;Android::App::Usage::ConfigurationStats ^&gt; ^ QueryConfigurations(Android::App::Usage::UsageStatsInterval intervalType, long beginTime, long endTime);" />
       <MemberSignature Language="F#" Value="member this.QueryConfigurations : Android.App.Usage.UsageStatsInterval * int64 * int64 -&gt; System.Collections.Generic.IList&lt;Android.App.Usage.ConfigurationStats&gt;" Usage="usageStatsManager.QueryConfigurations (intervalType, beginTime, endTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -225,6 +292,12 @@
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.Generic.IList&lt;Android.App.Usage.ConfigurationStats&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="intervalType" Type="Android.App.Usage.UsageStatsInterval">
@@ -249,6 +322,13 @@
             the specified interval.</summary>
         <returns>A list of <c>ConfigurationStats</c></returns>
         <remarks>
+          <para>Gets the hardware configurations the device was in for the given time range, aggregated by
+            the specified interval. The results are ordered as in
+            <c>#queryUsageStats(int, long, long)</c>.</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></para>
+          <para>&lt;em&gt;Note: Starting from <c>android.os.Build.VERSION_CODES#R Android R</c>, if the user's
+            device is not in an unlocked state (as defined by <c>UserManager#isUserUnlocked()</c>),
+            then <c>null</c> will be returned.&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryConfigurations(int,%20long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryConfigurations(int, long, long)</code>.</a>
@@ -263,11 +343,11 @@
       </Docs>
     </Member>
     <Member MemberName="QueryEvents">
+      <MemberSignature Language="VB.NET" Value="Public Function QueryEvents (beginTime As Long, endTime As Long) As UsageEvents" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::App::Usage::UsageEvents ^ QueryEvents(long beginTime, long endTime);" />
       <MemberSignature Language="C#" Value="public Android.App.Usage.UsageEvents? QueryEvents (long beginTime, long endTime);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.App.Usage.UsageEvents QueryEvents(int64 beginTime, int64 endTime) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Usage.UsageStatsManager.QueryEvents(System.Int64,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function QueryEvents (beginTime As Long, endTime As Long) As UsageEvents" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::App::Usage::UsageEvents ^ QueryEvents(long beginTime, long endTime);" />
       <MemberSignature Language="F#" Value="member this.QueryEvents : int64 * int64 -&gt; Android.App.Usage.UsageEvents" Usage="usageStatsManager.QueryEvents (beginTime, endTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -278,6 +358,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("queryEvents", "(JJ)Landroid/app/usage/UsageEvents;", "")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("queryEvents", "(JJ)Landroid/app/usage/UsageEvents;", "")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -296,6 +380,12 @@
         <summary>Query for events in the given time range.</summary>
         <returns>A <c>UsageEvents</c>.</returns>
         <remarks>
+          <para>Query for events in the given time range. Events are only kept by the system for a few
+            days.</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></para>
+          <para>&lt;em&gt;Note: Starting from <c>android.os.Build.VERSION_CODES#R Android R</c>, if the user's
+            device is not in an unlocked state (as defined by <c>UserManager#isUserUnlocked()</c>),
+            then <c>null</c> will be returned.&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryEvents(long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryEvents(long, long)</code>.</a>
@@ -310,11 +400,11 @@
       </Docs>
     </Member>
     <Member MemberName="QueryEventsForSelf">
+      <MemberSignature Language="VB.NET" Value="Public Function QueryEventsForSelf (beginTime As Long, endTime As Long) As UsageEvents" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::App::Usage::UsageEvents ^ QueryEventsForSelf(long beginTime, long endTime);" />
       <MemberSignature Language="C#" Value="public Android.App.Usage.UsageEvents? QueryEventsForSelf (long beginTime, long endTime);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Android.App.Usage.UsageEvents QueryEventsForSelf(int64 beginTime, int64 endTime) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Usage.UsageStatsManager.QueryEventsForSelf(System.Int64,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function QueryEventsForSelf (beginTime As Long, endTime As Long) As UsageEvents" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Android::App::Usage::UsageEvents ^ QueryEventsForSelf(long beginTime, long endTime);" />
       <MemberSignature Language="F#" Value="member this.QueryEventsForSelf : int64 * int64 -&gt; Android.App.Usage.UsageEvents" Usage="usageStatsManager.QueryEventsForSelf (beginTime, endTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -325,6 +415,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("queryEventsForSelf", "(JJ)Landroid/app/usage/UsageEvents;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("queryEventsForSelf", "(JJ)Landroid/app/usage/UsageEvents;", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
@@ -347,6 +441,10 @@
         <summary>Like <c>#queryEvents(long, long)</c>, but only returns events for the calling package.</summary>
         <returns>A <c>UsageEvents</c> object.</returns>
         <remarks>
+          <para>Like <c>#queryEvents(long, long)</c>, but only returns events for the calling package.
+            &lt;em&gt;Note: Starting from <c>android.os.Build.VERSION_CODES#R Android R</c>, if the user's
+            device is not in an unlocked state (as defined by <c>UserManager#isUserUnlocked()</c>),
+            then <c>null</c> will be returned.&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryEventsForSelf(long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryEventsForSelf(long, long)</code>.</a>
@@ -361,11 +459,11 @@
       </Docs>
     </Member>
     <Member MemberName="QueryEventStats">
+      <MemberSignature Language="VB.NET" Value="Public Function QueryEventStats (intervalType As UsageStatsInterval, beginTime As Long, endTime As Long) As IList(Of EventStats)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IList&lt;Android::App::Usage::EventStats ^&gt; ^ QueryEventStats(Android::App::Usage::UsageStatsInterval intervalType, long beginTime, long endTime);" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IList&lt;Android.App.Usage.EventStats&gt;? QueryEventStats (Android.App.Usage.UsageStatsInterval intervalType, long beginTime, long endTime);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Collections.Generic.IList`1&lt;class Android.App.Usage.EventStats&gt; QueryEventStats(valuetype Android.App.Usage.UsageStatsInterval intervalType, int64 beginTime, int64 endTime) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Usage.UsageStatsManager.QueryEventStats(Android.App.Usage.UsageStatsInterval,System.Int64,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function QueryEventStats (intervalType As UsageStatsInterval, beginTime As Long, endTime As Long) As IList(Of EventStats)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IList&lt;Android::App::Usage::EventStats ^&gt; ^ QueryEventStats(Android::App::Usage::UsageStatsInterval intervalType, long beginTime, long endTime);" />
       <MemberSignature Language="F#" Value="member this.QueryEventStats : Android.App.Usage.UsageStatsInterval * int64 * int64 -&gt; System.Collections.Generic.IList&lt;Android.App.Usage.EventStats&gt;" Usage="usageStatsManager.QueryEventStats (intervalType, beginTime, endTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -384,6 +482,12 @@
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.Generic.IList&lt;Android.App.Usage.EventStats&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="intervalType" Type="Android.App.Usage.UsageStatsInterval">
@@ -407,6 +511,20 @@
         <summary>Gets aggregated event stats for the given time range, aggregated by the specified interval.</summary>
         <returns>A list of <c>EventStats</c></returns>
         <remarks>
+          <para>Gets aggregated event stats for the given time range, aggregated by the specified interval.</para>
+          <para>The returned list will contain a <c>EventStats</c> object for each event type that
+            is being aggregated and has data for an interval that is a subset of the time range given.</para>
+          <para>The current event types that will be aggregated here are:</para>
+          <para>&lt;ul&gt;
+                &lt;li&gt;<c>UsageEvents.Event#SCREEN_INTERACTIVE</c>&lt;/li&gt;
+                &lt;li&gt;<c>UsageEvents.Event#SCREEN_NON_INTERACTIVE</c>&lt;/li&gt;
+                &lt;li&gt;<c>UsageEvents.Event#KEYGUARD_SHOWN</c>&lt;/li&gt;
+                &lt;li&gt;<c>UsageEvents.Event#KEYGUARD_HIDDEN</c>&lt;/li&gt;
+            &lt;/ul&gt;</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></para>
+          <para>&lt;em&gt;Note: Starting from <c>android.os.Build.VERSION_CODES#R Android R</c>, if the user's
+            device is not in an unlocked state (as defined by <c>UserManager#isUserUnlocked()</c>),
+            then <c>null</c> will be returned.&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryEventStats(int,%20long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryEventStats(int, long, long)</code>.</a>
@@ -421,11 +539,11 @@
       </Docs>
     </Member>
     <Member MemberName="QueryUsageStats">
+      <MemberSignature Language="VB.NET" Value="Public Function QueryUsageStats (intervalType As UsageStatsInterval, beginTime As Long, endTime As Long) As IList(Of UsageStats)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IList&lt;Android::App::Usage::UsageStats ^&gt; ^ QueryUsageStats(Android::App::Usage::UsageStatsInterval intervalType, long beginTime, long endTime);" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IList&lt;Android.App.Usage.UsageStats&gt;? QueryUsageStats (Android.App.Usage.UsageStatsInterval intervalType, long beginTime, long endTime);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class System.Collections.Generic.IList`1&lt;class Android.App.Usage.UsageStats&gt; QueryUsageStats(valuetype Android.App.Usage.UsageStatsInterval intervalType, int64 beginTime, int64 endTime) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.Usage.UsageStatsManager.QueryUsageStats(Android.App.Usage.UsageStatsInterval,System.Int64,System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Function QueryUsageStats (intervalType As UsageStatsInterval, beginTime As Long, endTime As Long) As IList(Of UsageStats)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::Collections::Generic::IList&lt;Android::App::Usage::UsageStats ^&gt; ^ QueryUsageStats(Android::App::Usage::UsageStatsInterval intervalType, long beginTime, long endTime);" />
       <MemberSignature Language="F#" Value="member this.QueryUsageStats : Android.App.Usage.UsageStatsInterval * int64 * int64 -&gt; System.Collections.Generic.IList&lt;Android.App.Usage.UsageStats&gt;" Usage="usageStatsManager.QueryUsageStats (intervalType, beginTime, endTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -440,6 +558,12 @@
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.Generic.IList&lt;Android.App.Usage.UsageStats&gt;</ReturnType>
+        <Attributes>
+          <Attribute>
+            <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+            <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+          </Attribute>
+        </Attributes>
       </ReturnValue>
       <Parameters>
         <Parameter Name="intervalType" Type="Android.App.Usage.UsageStatsInterval">
@@ -463,6 +587,15 @@
         <summary>Gets application usage stats for the given time range, aggregated by the specified interval.</summary>
         <returns>A list of <c>UsageStats</c></returns>
         <remarks>
+          <para>Gets application usage stats for the given time range, aggregated by the specified interval.</para>
+          <para>The returned list will contain one or more <c>UsageStats</c> objects for each package, with
+            usage data that covers at least the given time range.
+            Note: The begin and end times of the time range may be expanded to the nearest whole interval
+            period.</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></para>
+          <para>&lt;em&gt;Note: Starting from <c>android.os.Build.VERSION_CODES#R Android R</c>, if the user's
+            device is not in an unlocked state (as defined by <c>UserManager#isUserUnlocked()</c>),
+            then <c>null</c> will be returned.&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryUsageStats(int,%20long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryUsageStats(int, long, long)</code>.</a>
@@ -477,11 +610,11 @@
       </Docs>
     </Member>
     <Member MemberName="StandbyBucketActive">
+      <MemberSignature Language="VB.NET" Value="Public Const StandbyBucketActive As StandbyBucket  = 10" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::App::Usage::StandbyBucket StandbyBucketActive = 10;" />
       <MemberSignature Language="C#" Value="public const Android.App.Usage.StandbyBucket StandbyBucketActive = 10;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.App.Usage.StandbyBucket StandbyBucketActive = (10)" />
       <MemberSignature Language="DocId" Value="F:Android.App.Usage.UsageStatsManager.StandbyBucketActive" />
-      <MemberSignature Language="VB.NET" Value="Public Const StandbyBucketActive As StandbyBucket  = 10" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::App::Usage::StandbyBucket StandbyBucketActive = 10;" />
       <MemberSignature Language="F#" Value="val mutable StandbyBucketActive : Android.App.Usage.StandbyBucket" Usage="Android.App.Usage.UsageStatsManager.StandbyBucketActive" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -509,6 +642,10 @@
       <Docs>
         <summary>The app was used very recently, currently in use or likely to be used very soon.</summary>
         <remarks>
+          <para>The app was used very recently, currently in use or likely to be used very soon. Standby
+            bucket values that are &amp;le; <c>#STANDBY_BUCKET_ACTIVE</c> will not be throttled by the
+            system while they are in this bucket. Buckets &amp;gt; <c>#STANDBY_BUCKET_ACTIVE</c> will most
+            likely be restricted in some way. For instance, jobs and alarms may be deferred.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#STANDBY_BUCKET_ACTIVE" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.STANDBY_BUCKET_ACTIVE</code>.</a>
@@ -523,11 +660,11 @@
       </Docs>
     </Member>
     <Member MemberName="StandbyBucketFrequent">
+      <MemberSignature Language="VB.NET" Value="Public Const StandbyBucketFrequent As StandbyBucket  = 30" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::App::Usage::StandbyBucket StandbyBucketFrequent = 30;" />
       <MemberSignature Language="C#" Value="public const Android.App.Usage.StandbyBucket StandbyBucketFrequent = 30;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.App.Usage.StandbyBucket StandbyBucketFrequent = (30)" />
       <MemberSignature Language="DocId" Value="F:Android.App.Usage.UsageStatsManager.StandbyBucketFrequent" />
-      <MemberSignature Language="VB.NET" Value="Public Const StandbyBucketFrequent As StandbyBucket  = 30" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::App::Usage::StandbyBucket StandbyBucketFrequent = 30;" />
       <MemberSignature Language="F#" Value="val mutable StandbyBucketFrequent : Android.App.Usage.StandbyBucket" Usage="Android.App.Usage.UsageStatsManager.StandbyBucketFrequent" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -555,6 +692,10 @@
       <Docs>
         <summary>The app was used in the last few days and/or likely to be used in the next few days.</summary>
         <remarks>
+          <para>The app was used in the last few days and/or likely to be used in the next few days.
+            Restrictions will apply to these apps, such as deferral of jobs and alarms. The delays may be
+            greater than for apps in higher buckets (lower bucket value). Bucket values &amp;gt;
+            <c>#STANDBY_BUCKET_FREQUENT</c> may additionally have network access limited.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#STANDBY_BUCKET_FREQUENT" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.STANDBY_BUCKET_FREQUENT</code>.</a>
@@ -569,11 +710,11 @@
       </Docs>
     </Member>
     <Member MemberName="StandbyBucketRare">
+      <MemberSignature Language="VB.NET" Value="Public Const StandbyBucketRare As StandbyBucket  = 40" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::App::Usage::StandbyBucket StandbyBucketRare = 40;" />
       <MemberSignature Language="C#" Value="public const Android.App.Usage.StandbyBucket StandbyBucketRare = 40;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.App.Usage.StandbyBucket StandbyBucketRare = (40)" />
       <MemberSignature Language="DocId" Value="F:Android.App.Usage.UsageStatsManager.StandbyBucketRare" />
-      <MemberSignature Language="VB.NET" Value="Public Const StandbyBucketRare As StandbyBucket  = 40" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::App::Usage::StandbyBucket StandbyBucketRare = 40;" />
       <MemberSignature Language="F#" Value="val mutable StandbyBucketRare : Android.App.Usage.StandbyBucket" Usage="Android.App.Usage.UsageStatsManager.StandbyBucketRare" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -601,6 +742,10 @@
       <Docs>
         <summary>The app has not be used for several days and/or is unlikely to be used for several days.</summary>
         <remarks>
+          <para>The app has not be used for several days and/or is unlikely to be used for several days.
+            Apps in this bucket will have more restrictions, including network restrictions, except
+            during certain short periods (at a minimum, once a day) when they are allowed to execute
+            jobs, access the network, etc.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#STANDBY_BUCKET_RARE" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.STANDBY_BUCKET_RARE</code>.</a>
@@ -615,11 +760,11 @@
       </Docs>
     </Member>
     <Member MemberName="StandbyBucketRestricted">
+      <MemberSignature Language="VB.NET" Value="Public Const StandbyBucketRestricted As UsageStatsInterval  = 45" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::App::Usage::UsageStatsInterval StandbyBucketRestricted = 45;" />
       <MemberSignature Language="C#" Value="public const Android.App.Usage.UsageStatsInterval StandbyBucketRestricted = 45;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.App.Usage.UsageStatsInterval StandbyBucketRestricted = (45)" />
       <MemberSignature Language="DocId" Value="F:Android.App.Usage.UsageStatsManager.StandbyBucketRestricted" />
-      <MemberSignature Language="VB.NET" Value="Public Const StandbyBucketRestricted As UsageStatsInterval  = 45" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::App::Usage::UsageStatsInterval StandbyBucketRestricted = 45;" />
       <MemberSignature Language="F#" Value="val mutable StandbyBucketRestricted : Android.App.Usage.UsageStatsInterval" Usage="Android.App.Usage.UsageStatsManager.StandbyBucketRestricted" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -648,6 +793,11 @@
         <summary>The app has not be used for several days, is unlikely to be used for several days, and has
             been misbehaving in some manner.</summary>
         <remarks>
+          <para>The app has not be used for several days, is unlikely to be used for several days, and has
+            been misbehaving in some manner.
+            Apps in this bucket will have the most restrictions, including network restrictions and
+            additional restrictions on jobs.</para>
+          <para>Note: this bucket is not enabled in <c>Build.VERSION_CODES#R</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#STANDBY_BUCKET_RESTRICTED" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.STANDBY_BUCKET_RESTRICTED</code>.</a>
@@ -662,11 +812,11 @@
       </Docs>
     </Member>
     <Member MemberName="StandbyBucketWorkingSet">
+      <MemberSignature Language="VB.NET" Value="Public Const StandbyBucketWorkingSet As StandbyBucket  = 20" />
+      <MemberSignature Language="C++ CLI" Value="public: Android::App::Usage::StandbyBucket StandbyBucketWorkingSet = 20;" />
       <MemberSignature Language="C#" Value="public const Android.App.Usage.StandbyBucket StandbyBucketWorkingSet = 20;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.App.Usage.StandbyBucket StandbyBucketWorkingSet = (20)" />
       <MemberSignature Language="DocId" Value="F:Android.App.Usage.UsageStatsManager.StandbyBucketWorkingSet" />
-      <MemberSignature Language="VB.NET" Value="Public Const StandbyBucketWorkingSet As StandbyBucket  = 20" />
-      <MemberSignature Language="C++ CLI" Value="public: Android::App::Usage::StandbyBucket StandbyBucketWorkingSet = 20;" />
       <MemberSignature Language="F#" Value="val mutable StandbyBucketWorkingSet : Android.App.Usage.StandbyBucket" Usage="Android.App.Usage.UsageStatsManager.StandbyBucketWorkingSet" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -694,6 +844,8 @@
       <Docs>
         <summary>The app was used recently and/or likely to be used in the next few hours.</summary>
         <remarks>
+          <para>The app was used recently and/or likely to be used in the next few hours. Restrictions will
+            apply to these apps, such as deferral of jobs and alarms.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#STANDBY_BUCKET_WORKING_SET" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.STANDBY_BUCKET_WORKING_SET</code>.</a>
@@ -708,11 +860,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.App.Usage.UsageStatsManager.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.App.Usage.UsageStatsManager.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -741,11 +893,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.App.Usage.UsageStatsManager.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.App.Usage.UsageStatsManager.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>

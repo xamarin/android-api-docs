@@ -1,9 +1,9 @@
 <Type Name="ContactsContract+StreamItems" FullName="Android.Provider.ContactsContract+StreamItems">
+  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class ContactsContract.StreamItems&#xA;Inherits Object" />
+  <TypeSignature Language="C++ CLI" Value="public: ref class ContactsContract::StreamItems sealed : Java::Lang::Object" />
   <TypeSignature Language="C#" Value="public sealed class ContactsContract.StreamItems : Java.Lang.Object" />
   <TypeSignature Language="ILAsm" Value=".class nested public auto ansi sealed beforefieldinit ContactsContract/StreamItems extends Java.Lang.Object" />
   <TypeSignature Language="DocId" Value="T:Android.Provider.ContactsContract.StreamItems" />
-  <TypeSignature Language="VB.NET" Value="Public NotInheritable Class ContactsContract.StreamItems&#xA;Inherits Object" />
-  <TypeSignature Language="C++ CLI" Value="public: ref class ContactsContract::StreamItems sealed : Java::Lang::Object" />
   <TypeSignature Language="F#" Value="type ContactsContract.StreamItems = class&#xA;    inherit Object" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -22,11 +22,141 @@
       <AttributeName Language="C#">[System.Obsolete("This class is obsoleted in this android platform")]</AttributeName>
       <AttributeName Language="F#">[&lt;System.Obsolete("This class is obsoleted in this android platform")&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>Constants for the stream_items table, which contains social stream updates from
             the user's contact list.</summary>
     <remarks>
+      <para>Constants for the stream_items table, which contains social stream updates from
+            the user's contact list.</para>
+      <para>Only a certain number of stream items will ever be stored under a given raw contact.
+            Users of this API can query <c>ContactsContract.StreamItems#CONTENT_LIMIT_URI</c> to
+            determine this limit, and should restrict the number of items inserted in any given
+            transaction correspondingly.  Insertion of more items beyond the limit will
+            automatically lead to deletion of the oldest items, by <c>StreamItems#TIMESTAMP</c>.</para>
+      <para>Access to the social stream through these URIs requires additional permissions beyond the
+            read/write contact permissions required by the provider.  Querying for social stream data
+            requires android.permission.READ_SOCIAL_STREAM permission, and inserting or updating social
+            stream items requires android.permission.WRITE_SOCIAL_STREAM permission.</para>
+      <para>&lt;h3&gt;Account check&lt;/h3&gt;</para>
+      <para>The content URIs to the insert, update and delete operations are required to have the account
+            information matching that of the owning raw contact as query parameters, namely
+            <c>RawContacts#ACCOUNT_TYPE</c> and <c>RawContacts#ACCOUNT_NAME</c>.
+            <c>RawContacts#DATA_SET</c> isn't required.</para>
+      <para>&lt;h3&gt;Operations&lt;/h3&gt;
+            &lt;dl&gt;
+            &lt;dt&gt;&lt;b&gt;Insert&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <para>Social stream updates are always associated with a raw contact.  There are a couple
+            of ways to insert these entries.
+            &lt;dl&gt;
+            &lt;dt&gt;Via the <c>RawContacts.StreamItems#CONTENT_DIRECTORY</c> sub-path of a raw contact:&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <code lang="text/java">ContentValues values = new ContentValues();
+            values.put(StreamItems.TEXT, "Breakfasted at Tiffanys");
+            values.put(StreamItems.TIMESTAMP, timestamp);
+            values.put(StreamItems.COMMENTS, "3 people reshared this");
+            Uri.Builder builder = RawContacts.CONTENT_URI.buildUpon();
+            ContentUris.appendId(builder, rawContactId);
+            builder.appendEncodedPath(RawContacts.StreamItems.CONTENT_DIRECTORY);
+            builder.appendQueryParameter(RawContacts.ACCOUNT_NAME, accountName);
+            builder.appendQueryParameter(RawContacts.ACCOUNT_TYPE, accountType);
+            Uri streamItemUri = getContentResolver().insert(builder.build(), values);
+            long streamItemId = ContentUris.parseId(streamItemUri);
+            </code>
+      <para>&lt;/dd&gt;
+            &lt;dt&gt;Via <c>StreamItems#CONTENT_URI</c>:&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <code lang="text/java">ContentValues values = new ContentValues();
+            values.put(StreamItems.RAW_CONTACT_ID, rawContactId);
+            values.put(StreamItems.TEXT, "Breakfasted at Tiffanys");
+            values.put(StreamItems.TIMESTAMP, timestamp);
+            values.put(StreamItems.COMMENTS, "3 people reshared this");
+            Uri.Builder builder = StreamItems.CONTENT_URI.buildUpon();
+            builder.appendQueryParameter(RawContacts.ACCOUNT_NAME, accountName);
+            builder.appendQueryParameter(RawContacts.ACCOUNT_TYPE, accountType);
+            Uri streamItemUri = getContentResolver().insert(builder.build(), values);
+            long streamItemId = ContentUris.parseId(streamItemUri);
+            </code>
+      <para>&lt;/dd&gt;
+            &lt;/dl&gt;
+            &lt;/dd&gt;
+            &lt;/p&gt;</para>
+      <para>Once a <c>StreamItems</c> entry has been inserted, photos associated with that
+            social update can be inserted.  For example, after one of the insertions above,
+            photos could be added to the stream item in one of the following ways:
+            &lt;dl&gt;
+            &lt;dt&gt;Via a URI including the stream item ID:&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <code lang="text/java">values.clear();
+            values.put(StreamItemPhotos.SORT_INDEX, 1);
+            values.put(StreamItemPhotos.PHOTO, photoData);
+            getContentResolver().insert(Uri.withAppendedPath(
+                ContentUris.withAppendedId(StreamItems.CONTENT_URI, streamItemId),
+                StreamItems.StreamItemPhotos.CONTENT_DIRECTORY), values);
+            </code>
+      <para>&lt;/dd&gt;
+            &lt;dt&gt;Via <c>ContactsContract.StreamItems#CONTENT_PHOTO_URI</c>:&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <code lang="text/java">values.clear();
+            values.put(StreamItemPhotos.STREAM_ITEM_ID, streamItemId);
+            values.put(StreamItemPhotos.SORT_INDEX, 1);
+            values.put(StreamItemPhotos.PHOTO, photoData);
+            getContentResolver().insert(StreamItems.CONTENT_PHOTO_URI, values);
+            </code>
+      <para>Note that this latter form allows the insertion of a stream item and its
+            photos in a single transaction, by using <c>ContentProviderOperation</c> with
+            back references to populate the stream item ID in the <c>ContentValues</c>.
+            &lt;/dd&gt;
+            &lt;/dl&gt;</para>
+      <para>&lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Update&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;Updates can be performed by appending the stream item ID to the
+            <c>StreamItems#CONTENT_URI</c> URI.  Only social stream entries that were
+            created by the calling package can be updated.&lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Delete&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;Deletes can be performed by appending the stream item ID to the
+            <c>StreamItems#CONTENT_URI</c> URI.  Only social stream entries that were
+            created by the calling package can be deleted.&lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Query&lt;/b&gt;&lt;/dt&gt;
+            &lt;dl&gt;
+            &lt;dt&gt;Finding all social stream updates for a given contact&lt;/dt&gt;
+            &lt;dd&gt;By Contact ID:</para>
+      <code lang="text/java">Cursor c = getContentResolver().query(Uri.withAppendedPath(
+                     ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId),
+                     Contacts.StreamItems.CONTENT_DIRECTORY),
+                     null, null, null, null);
+            </code>
+      <para>&lt;/dd&gt;
+            &lt;dd&gt;By lookup key:</para>
+      <code lang="text/java">Cursor c = getContentResolver().query(Contacts.CONTENT_URI.buildUpon()
+                     .appendPath(lookupKey)
+                     .appendPath(Contacts.StreamItems.CONTENT_DIRECTORY).build(),
+                     null, null, null, null);
+            </code>
+      <para>&lt;/dd&gt;
+            &lt;dt&gt;Finding all social stream updates for a given raw contact&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <code lang="text/java">Cursor c = getContentResolver().query(Uri.withAppendedPath(
+                     ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId),
+                     RawContacts.StreamItems.CONTENT_DIRECTORY)),
+                     null, null, null, null);
+            </code>
+      <para>&lt;/dd&gt;
+            &lt;dt&gt;Querying for a specific stream item by ID&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <code lang="text/java">Cursor c = getContentResolver().query(ContentUris.withAppendedId(
+                     StreamItems.CONTENT_URI, streamItemId),
+                     null, null, null, null);
+            </code>
+      <para>&lt;/dd&gt;
+            &lt;/dl&gt;</para>
+      <para>This member is deprecated. - Do not use. This will not be supported in the future. In the future,
+            cursors returned from related queries will be empty.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/provider/ContactsContract.StreamItems" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.StreamItems</code>.</a>
@@ -42,11 +172,11 @@
   </Docs>
   <Members>
     <Member MemberName="ContentItemType">
+      <MemberSignature Language="VB.NET" Value="Public Const ContentItemType As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ContentItemType;" />
       <MemberSignature Language="C#" Value="public const string ContentItemType;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string ContentItemType" />
       <MemberSignature Language="DocId" Value="F:Android.Provider.ContactsContract.StreamItems.ContentItemType" />
-      <MemberSignature Language="VB.NET" Value="Public Const ContentItemType As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ContentItemType;" />
       <MemberSignature Language="F#" Value="val mutable ContentItemType : string" Usage="Android.Provider.ContactsContract.StreamItems.ContentItemType" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -69,6 +199,9 @@
       <Docs>
         <summary>The MIME type of a single stream item.</summary>
         <remarks>
+          <para>The MIME type of a single stream item.</para>
+          <para>This member is deprecated. - Do not use. This will not be supported in the future. In the future,
+            cursors returned from related queries will be empty.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.StreamItems#CONTENT_ITEM_TYPE" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.StreamItems.CONTENT_ITEM_TYPE</code>.</a>
@@ -84,12 +217,12 @@
       </Docs>
     </Member>
     <Member MemberName="ContentLimitUri">
+      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property ContentLimitUri As Uri" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Android::Net::Uri ^ ContentLimitUri { Android::Net::Uri ^ get(); };" />
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentLimitUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentLimitUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.StreamItems.ContentLimitUri" />
-      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property ContentLimitUri As Uri" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Android::Net::Uri ^ ContentLimitUri { Android::Net::Uri ^ get(); };" />
-      <MemberSignature Language="F#" Value="static member ContentLimitUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.StreamItems.ContentLimitUri" />
+      <MemberSignature Language="F#" Value="member this.ContentLimitUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.StreamItems.ContentLimitUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -104,6 +237,14 @@
           <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Net.Uri</ReturnType>
@@ -113,6 +254,10 @@
             that will be stored under any single raw contact.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>This URI allows the caller to query for the maximum number of stream items
+            that will be stored under any single raw contact.</para>
+          <para>This member is deprecated. - Do not use. This will not be supported in the future. In the future,
+            cursors returned from related queries will be empty.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.StreamItems#CONTENT_LIMIT_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.StreamItems.CONTENT_LIMIT_URI</code>.</a>
@@ -128,12 +273,12 @@
       </Docs>
     </Member>
     <Member MemberName="ContentPhotoUri">
+      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property ContentPhotoUri As Uri" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Android::Net::Uri ^ ContentPhotoUri { Android::Net::Uri ^ get(); };" />
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentPhotoUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentPhotoUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.StreamItems.ContentPhotoUri" />
-      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property ContentPhotoUri As Uri" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Android::Net::Uri ^ ContentPhotoUri { Android::Net::Uri ^ get(); };" />
-      <MemberSignature Language="F#" Value="static member ContentPhotoUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.StreamItems.ContentPhotoUri" />
+      <MemberSignature Language="F#" Value="member this.ContentPhotoUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.StreamItems.ContentPhotoUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -148,6 +293,14 @@
           <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Net.Uri</ReturnType>
@@ -157,6 +310,15 @@
             stream items.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>A content:// style URI for the photos stored in a sub-table underneath
+            stream items.  This is only used for inserts, and updates - queries and deletes
+            for photos should be performed by appending
+            <c>StreamItems.StreamItemPhotos#CONTENT_DIRECTORY</c> path to URIs for a
+            specific stream item.</para>
+          <para>When using this URI, the stream item ID for the photo(s) must be identified
+            in the <c>ContentValues</c> passed in.</para>
+          <para>This member is deprecated. - Do not use. This will not be supported in the future. In the future,
+            cursors returned from related queries will be empty.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.StreamItems#CONTENT_PHOTO_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.StreamItems.CONTENT_PHOTO_URI</code>.</a>
@@ -172,11 +334,11 @@
       </Docs>
     </Member>
     <Member MemberName="ContentType">
+      <MemberSignature Language="VB.NET" Value="Public Const ContentType As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ContentType;" />
       <MemberSignature Language="C#" Value="public const string ContentType;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string ContentType" />
       <MemberSignature Language="DocId" Value="F:Android.Provider.ContactsContract.StreamItems.ContentType" />
-      <MemberSignature Language="VB.NET" Value="Public Const ContentType As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ContentType;" />
       <MemberSignature Language="F#" Value="val mutable ContentType : string" Usage="Android.Provider.ContactsContract.StreamItems.ContentType" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -199,6 +361,9 @@
       <Docs>
         <summary>The MIME type of a directory of stream items.</summary>
         <remarks>
+          <para>The MIME type of a directory of stream items.</para>
+          <para>This member is deprecated. - Do not use. This will not be supported in the future. In the future,
+            cursors returned from related queries will be empty.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.StreamItems#CONTENT_TYPE" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.StreamItems.CONTENT_TYPE</code>.</a>
@@ -214,12 +379,12 @@
       </Docs>
     </Member>
     <Member MemberName="ContentUri">
+      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property ContentUri As Uri" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Android::Net::Uri ^ ContentUri { Android::Net::Uri ^ get(); };" />
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.StreamItems.ContentUri" />
-      <MemberSignature Language="VB.NET" Value="Public Shared ReadOnly Property ContentUri As Uri" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property Android::Net::Uri ^ ContentUri { Android::Net::Uri ^ get(); };" />
-      <MemberSignature Language="F#" Value="static member ContentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.StreamItems.ContentUri" />
+      <MemberSignature Language="F#" Value="member this.ContentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.StreamItems.ContentUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -234,6 +399,14 @@
           <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Net.Uri</ReturnType>
@@ -243,6 +416,10 @@
             updates for the user's contacts.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The content:// style URI for this table, which handles social network stream
+            updates for the user's contacts.</para>
+          <para>This member is deprecated. - Do not use. This will not be supported in the future. In the future,
+            cursors returned from related queries will be empty.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.StreamItems#CONTENT_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.StreamItems.CONTENT_URI</code>.</a>
@@ -258,11 +435,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.StreamItems.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Provider.ContactsContract.StreamItems.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -291,11 +468,11 @@
       </Docs>
     </Member>
     <Member MemberName="MaxItems">
+      <MemberSignature Language="VB.NET" Value="Public Const MaxItems As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ MaxItems;" />
       <MemberSignature Language="C#" Value="public const string MaxItems;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string MaxItems" />
       <MemberSignature Language="DocId" Value="F:Android.Provider.ContactsContract.StreamItems.MaxItems" />
-      <MemberSignature Language="VB.NET" Value="Public Const MaxItems As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ MaxItems;" />
       <MemberSignature Language="F#" Value="val mutable MaxItems : string" Usage="Android.Provider.ContactsContract.StreamItems.MaxItems" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -320,6 +497,11 @@
             contain this column, with the value indicating the maximum number of
             stream items that will be stored under any single raw contact.</summary>
         <remarks>
+          <para>Queries to <c>ContactsContract.StreamItems#CONTENT_LIMIT_URI</c> will
+            contain this column, with the value indicating the maximum number of
+            stream items that will be stored under any single raw contact.</para>
+          <para>This member is deprecated. - Do not use. This will not be supported in the future. In the future,
+            cursors returned from related queries will be empty.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.StreamItems#MAX_ITEMS" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.StreamItems.MAX_ITEMS</code>.</a>
@@ -335,11 +517,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.StreamItems.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Provider.ContactsContract.StreamItems.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -368,11 +550,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.StreamItems.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Provider.ContactsContract.StreamItems.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>

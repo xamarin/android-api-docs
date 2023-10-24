@@ -1,9 +1,9 @@
 <Type Name="HttpURLConnection" FullName="Java.Net.HttpURLConnection">
+  <TypeSignature Language="VB.NET" Value="Public MustInherit Class HttpURLConnection&#xA;Inherits URLConnection" />
+  <TypeSignature Language="C++ CLI" Value="public ref class HttpURLConnection abstract : Java::Net::URLConnection" />
   <TypeSignature Language="C#" Value="public abstract class HttpURLConnection : Java.Net.URLConnection" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi abstract beforefieldinit HttpURLConnection extends Java.Net.URLConnection" />
   <TypeSignature Language="DocId" Value="T:Java.Net.HttpURLConnection" />
-  <TypeSignature Language="VB.NET" Value="Public MustInherit Class HttpURLConnection&#xA;Inherits URLConnection" />
-  <TypeSignature Language="C++ CLI" Value="public ref class HttpURLConnection abstract : Java::Net::URLConnection" />
   <TypeSignature Language="F#" Value="type HttpURLConnection = class&#xA;    inherit URLConnection" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -18,10 +18,223 @@
       <AttributeName Language="C#">[Android.Runtime.Register("java/net/HttpURLConnection", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/net/HttpURLConnection", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="1">
     <summary>A URLConnection with support for HTTP-specific features.</summary>
     <remarks>
+      <para>A URLConnection with support for HTTP-specific features. See
+            <see href="http://www.w3.org/pub/WWW/Protocols/"> the spec </see> for
+            details.</para>
+      <para />
+      <para>Uses of this class follow a pattern:
+            &lt;ol&gt;
+              &lt;li&gt;Obtain a new <c>HttpURLConnection</c> by calling <c>URL#openConnection() URL.openConnection()</c> and casting the result to
+                  <c>HttpURLConnection</c>.
+              &lt;li&gt;Prepare the request. The primary property of a request is its URI.
+                  Request headers may also include metadata such as credentials, preferred
+                  content types, and session cookies.
+              &lt;li&gt;Optionally upload a request body. Instances must be configured with
+                  <c>#setDoOutput(boolean) setDoOutput(true)</c> if they include a
+                  request body. Transmit data by writing to the stream returned by <c>#getOutputStream()</c>.
+              &lt;li&gt;Read the response. Response headers typically include metadata such as
+                  the response body's content type and length, modified dates and session
+                  cookies. The response body may be read from the stream returned by <c>#getInputStream()</c>. If the response has no body, that method returns an
+                  empty stream.
+              &lt;li&gt;Disconnect. Once the response body has been read, the <c>HttpURLConnection</c> should be closed by calling <c>#disconnect()</c>.
+                  Disconnecting releases the resources held by a connection so they may
+                  be closed or reused.
+            &lt;/ol&gt;</para>
+      <para>For example, to retrieve the webpage at <c>http://www.android.com/</c>:</para>
+      <code lang="text/java">{@code
+              URL url = new URL("http://www.android.com/");
+              HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+              try {
+                InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+                readStream(in);
+              } finally {
+                urlConnection.disconnect();
+              }
+            }</code>
+      <para>&lt;h3&gt;Secure Communication with HTTPS&lt;/h3&gt;
+            Calling <c>URL#openConnection()</c> on a URL with the "https"
+            scheme will return an <c>HttpsURLConnection</c>, which allows for
+            overriding the default <c>javax.net.ssl.HostnameVerifier
+            HostnameVerifier</c> and <c>javax.net.ssl.SSLSocketFactory
+            SSLSocketFactory</c>. An application-supplied <c>SSLSocketFactory</c>
+            created from an <c>javax.net.ssl.SSLContext SSLContext</c> can
+            provide a custom <c>javax.net.ssl.X509TrustManager
+            X509TrustManager</c> for verifying certificate chains and a custom
+            <c>javax.net.ssl.X509KeyManager X509KeyManager</c> for supplying
+            client certificates. See <c>javax.net.ssl.HttpsURLConnection
+            HttpsURLConnection</c> for more details.
+            
+            &lt;h3&gt;Response Handling&lt;/h3&gt;
+            <c>HttpURLConnection</c> will follow up to five HTTP redirects. It will
+            follow redirects from one origin server to another. This implementation
+            doesn't follow redirects from HTTPS to HTTP or vice versa.</para>
+      <para>If the HTTP response indicates that an error occurred, <c>#getInputStream()</c> will throw an <c>IOException</c>. Use <c>#getErrorStream()</c> to read the error response. The headers can be read in
+            the normal way using <c>#getHeaderFields()</c>,
+            
+            &lt;h3&gt;Posting Content&lt;/h3&gt;
+            To upload data to a web server, configure the connection for output using
+            <c>#setDoOutput(boolean) setDoOutput(true)</c>.</para>
+      <para>For best performance, you should call either <c>#setFixedLengthStreamingMode(int)</c> when the body length is known in advance,
+            or <c>#setChunkedStreamingMode(int)</c> when it is not. Otherwise <c>HttpURLConnection</c> will be forced to buffer the complete request body in
+            memory before it is transmitted, wasting (and possibly exhausting) heap and
+            increasing latency.</para>
+      <para>For example, to perform an upload:</para>
+      <code lang="text/java">{@code
+              HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+              try {
+                urlConnection.setDoOutput(true);
+                urlConnection.setChunkedStreamingMode(0);
+            
+                OutputStream out = new BufferedOutputStream(urlConnection.getOutputStream());
+                writeStream(out);
+            
+                InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+                readStream(in);
+              } finally {
+                urlConnection.disconnect();
+              }
+            }</code>
+      <para>&lt;h3&gt;Performance&lt;/h3&gt;
+            The input and output streams returned by this class are &lt;strong&gt;not
+            buffered&lt;/strong&gt;. Most callers should wrap the returned streams with <c>java.io.BufferedInputStream BufferedInputStream</c> or <c>java.io.BufferedOutputStream BufferedOutputStream</c>. Callers that do only bulk
+            reads or writes may omit buffering.</para>
+      <para>When transferring large amounts of data to or from a server, use streams
+            to limit how much data is in memory at once. Unless you need the entire
+            body to be in memory at once, process it as a stream (rather than storing
+            the complete body as a single byte array or string).</para>
+      <para>To reduce latency, this class may reuse the same underlying <c>Socket</c>
+            for multiple request/response pairs. As a result, HTTP connections may be
+            held open longer than necessary. Calls to <c>#disconnect()</c> may return
+            the socket to a pool of connected sockets.</para>
+      <para>By default, this implementation of <c>HttpURLConnection</c> requests that
+            servers use gzip compression and it automatically decompresses the data for
+            callers of <c>#getInputStream()</c>. The Content-Encoding and Content-Length
+            response headers are cleared in this case. Gzip compression can be disabled by
+            setting the acceptable encodings in the request header:</para>
+      <code lang="text/java">{@code
+              urlConnection.setRequestProperty("Accept-Encoding", "identity");
+            }</code>
+      <para>Setting the Accept-Encoding request header explicitly disables automatic
+            decompression and leaves the response headers intact; callers must handle
+            decompression as needed, according to the Content-Encoding header of the
+            response.</para>
+      <para>
+        <c>#getContentLength()</c> returns the number of bytes transmitted and
+            cannot be used to predict how many bytes can be read from
+            <c>#getInputStream()</c> for compressed streams. Instead, read that stream
+            until it is exhausted, i.e. when <c>InputStream#read</c> returns -1.
+            
+            &lt;h3&gt;Handling Network Sign-On&lt;/h3&gt;
+            Some Wi-Fi networks block Internet access until the user clicks through a
+            sign-on page. Such sign-on pages are typically presented by using HTTP
+            redirects. You can use <c>#getURL()</c> to test if your connection has been
+            unexpectedly redirected. This check is not valid until &lt;strong&gt;after&lt;/strong&gt;
+            the response headers have been received, which you can trigger by calling
+            <c>#getHeaderFields()</c> or <c>#getInputStream()</c>. For example, to
+            check that a response was not redirected to an unexpected host:</para>
+      <code lang="text/java">{@code
+              HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+              try {
+                InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+                if (!url.getHost().equals(urlConnection.getURL().getHost())) {
+                  // we were redirected! Kick the user out to the browser to sign on?
+                }
+                ...
+              } finally {
+                urlConnection.disconnect();
+              }
+            }</code>
+      <para>&lt;h3&gt;HTTP Authentication&lt;/h3&gt;
+            <c>HttpURLConnection</c> supports <see href="http://www.ietf.org/rfc/rfc2617">HTTP basic authentication</see>. Use
+            <c>Authenticator</c> to set the VM-wide authentication handler:</para>
+      <code lang="text/java">{@code
+              Authenticator.setDefault(new Authenticator() {
+                protected PasswordAuthentication getPasswordAuthentication() {
+                  return new PasswordAuthentication(username, password.toCharArray());
+                }
+              });
+            }</code>
+      <para>Unless paired with HTTPS, this is &lt;strong&gt;not&lt;/strong&gt; a secure mechanism for
+            user authentication. In particular, the username, password, request and
+            response are all transmitted over the network without encryption.
+            
+            &lt;h3&gt;Sessions with Cookies&lt;/h3&gt;
+            To establish and maintain a potentially long-lived session between client
+            and server, <c>HttpURLConnection</c> includes an extensible cookie manager.
+            Enable VM-wide cookie management using <c>CookieHandler</c> and <c>CookieManager</c>:</para>
+      <code lang="text/java">{@code
+              CookieManager cookieManager = new CookieManager();
+              CookieHandler.setDefault(cookieManager);
+            }</code>
+      <para>By default, <c>CookieManager</c> accepts cookies from the <see href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec1.html">origin
+            server</see> only. Two other policies are included: <c>CookiePolicy#ACCEPT_ALL</c> and <c>CookiePolicy#ACCEPT_NONE</c>. Implement
+            <c>CookiePolicy</c> to define a custom policy.</para>
+      <para>The default <c>CookieManager</c> keeps all accepted cookies in memory. It
+            will forget these cookies when the VM exits. Implement <c>CookieStore</c> to
+            define a custom cookie store.</para>
+      <para>In addition to the cookies set by HTTP responses, you may set cookies
+            programmatically. To be included in HTTP request headers, cookies must have
+            the domain and path properties set.</para>
+      <para>By default, new instances of <c>HttpCookie</c> work only with servers
+            that support <see href="http://www.ietf.org/rfc/rfc2965.txt">RFC 2965</see>
+            cookies. Many web servers support only the older specification, <see href="http://www.ietf.org/rfc/rfc2109.txt">RFC 2109</see>. For compatibility
+            with the most web servers, set the cookie version to 0.</para>
+      <para>For example, to receive <c>www.twitter.com</c> in French:</para>
+      <code lang="text/java">{@code
+              HttpCookie cookie = new HttpCookie("lang", "fr");
+              cookie.setDomain("twitter.com");
+              cookie.setPath("/");
+              cookie.setVersion(0);
+              cookieManager.getCookieStore().add(new URI("http://twitter.com/"), cookie);
+            }</code>
+      <para>&lt;h3&gt;HTTP Methods&lt;/h3&gt;</para>
+      <para>
+        <c>HttpURLConnection</c> uses the <c>GET</c> method by default. It will
+            use <c>POST</c> if <c>#setDoOutput setDoOutput(true)</c> has been called.
+            Other HTTP methods (<c>OPTIONS</c>, <c>HEAD</c>, <c>PUT</c>, <c>DELETE</c> and <c>TRACE</c>) can be used with <c>#setRequestMethod</c>.
+            
+            &lt;h3&gt;Proxies&lt;/h3&gt;
+            By default, this class will connect directly to the <see href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec1.html">origin
+            server</see>. It can also connect via an <c>Proxy.Type#HTTP HTTP</c> or <c>Proxy.Type#SOCKS SOCKS</c> proxy. To use a proxy, use <c>URL#openConnection(Proxy) URL.openConnection(Proxy)</c> when creating the
+            connection.
+            
+            &lt;h3&gt;IPv6 Support&lt;/h3&gt;</para>
+      <para>This class includes transparent support for IPv6. For hosts with both IPv4
+            and IPv6 addresses, it will attempt to connect to each of a host's addresses
+            until a connection is established.
+            
+            &lt;h3&gt;Response Caching&lt;/h3&gt;
+            Android 4.0 (Ice Cream Sandwich, API level 15) includes a response cache. See
+            <c>android.net.http.HttpResponseCache</c> for instructions on enabling HTTP
+            caching in your application.
+            
+            &lt;h3&gt;Avoiding Bugs In Earlier Releases&lt;/h3&gt;
+            Prior to Android 2.2 (Froyo), this class had some frustrating bugs. In
+            particular, calling <c>close()</c> on a readable <c>InputStream</c> could
+            poison the
+            connection pool. Work around this by disabling connection pooling:</para>
+      <code lang="text/java">{@code
+            private void disableConnectionReuseIfNecessary() {
+              // Work around pre-Froyo bugs in HTTP connection reuse.
+              if (Integer.parseInt(Build.VERSION.SDK) &lt; Build.VERSION_CODES.FROYO) {
+                System.setProperty("http.keepAlive", "false");
+              }
+            }}</code>
+      <para>Each instance of <c>HttpURLConnection</c> may be used for one
+            request/response pair. Instances of this class are not thread safe.</para>
+      <para>Added in JDK1.1.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/net/HttpURLConnection" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection</code>.</a>
@@ -37,11 +250,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (u As URL)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; HttpURLConnection(Java::Net::URL ^ u);" />
       <MemberSignature Language="C#" Value="protected HttpURLConnection (Java.Net.URL? u);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(class Java.Net.URL u) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Net.HttpURLConnection.#ctor(Java.Net.URL)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (u As URL)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; HttpURLConnection(Java::Net::URL ^ u);" />
       <MemberSignature Language="F#" Value="new Java.Net.HttpURLConnection : Java.Net.URL -&gt; Java.Net.HttpURLConnection" Usage="new Java.Net.HttpURLConnection u" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -61,6 +274,7 @@
         <param name="u">the URL</param>
         <summary>Constructor for the HttpURLConnection.</summary>
         <remarks>
+          <para>Constructor for the HttpURLConnection.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HttpURLConnection(java.net.URL)" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HttpURLConnection(java.net.URL)</code>.</a>
@@ -78,11 +292,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; HttpURLConnection(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected HttpURLConnection (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Net.HttpURLConnection.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; HttpURLConnection(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Java.Net.HttpURLConnection : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Net.HttpURLConnection" Usage="new Java.Net.HttpURLConnection (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -103,11 +317,11 @@
       </Docs>
     </Member>
     <Member MemberName="ChunkLength">
+      <MemberSignature Language="VB.NET" Value="Protected Property ChunkLength As Integer" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; property int ChunkLength { int get(); void set(int value); };" />
       <MemberSignature Language="C#" Value="protected int ChunkLength { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 ChunkLength" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.ChunkLength" />
-      <MemberSignature Language="VB.NET" Value="Protected Property ChunkLength As Integer" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; property int ChunkLength { int get(); void set(int value); };" />
       <MemberSignature Language="F#" Value="member this.ChunkLength : int with get, set" Usage="Java.Net.HttpURLConnection.ChunkLength" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -127,6 +341,9 @@
         <summary>The chunk-length when using chunked encoding streaming mode for output.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The chunk-length when using chunked encoding streaming mode for output.
+            A value of <c>-1</c> means chunked encoding is disabled for output.</para>
+          <para>Added in 1.5.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#chunkLength" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.chunkLength</code>.</a>
@@ -142,11 +359,11 @@
       </Docs>
     </Member>
     <Member MemberName="Disconnect">
+      <MemberSignature Language="VB.NET" Value="Public MustOverride Sub Disconnect ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract void Disconnect();" />
       <MemberSignature Language="C#" Value="public abstract void Disconnect ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Disconnect() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Net.HttpURLConnection.Disconnect" />
-      <MemberSignature Language="VB.NET" Value="Public MustOverride Sub Disconnect ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract void Disconnect();" />
       <MemberSignature Language="F#" Value="abstract member Disconnect : unit -&gt; unit" Usage="httpURLConnection.Disconnect " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -167,6 +384,10 @@
         <summary>Indicates that other requests to the server
             are unlikely in the near future.</summary>
         <remarks>
+          <para>Indicates that other requests to the server
+            are unlikely in the near future. Calling disconnect()
+            should not imply that this HttpURLConnection
+            instance can be reused for other requests.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#disconnect()" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.disconnect()</code>.</a>
@@ -182,11 +403,11 @@
       </Docs>
     </Member>
     <Member MemberName="ErrorStream">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property ErrorStream As Stream" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property System::IO::Stream ^ ErrorStream { System::IO::Stream ^ get(); };" />
       <MemberSignature Language="C#" Value="public virtual System.IO.Stream? ErrorStream { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.IO.Stream ErrorStream" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.ErrorStream" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property ErrorStream As Stream" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property System::IO::Stream ^ ErrorStream { System::IO::Stream ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ErrorStream : System.IO.Stream" Usage="Java.Net.HttpURLConnection.ErrorStream" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -209,6 +430,17 @@
             errors, the connection is not connected or the server sent no
             useful data.</value>
         <remarks>
+          <para>Returns the error stream if the connection failed
+            but the server sent useful data nonetheless. The
+            typical example is when an HTTP server responds
+            with a 404, which will cause a FileNotFoundException
+            to be thrown in connect, but the server sent an HTML
+            help page with suggestions as to what to do.</para>
+          <para>This method will not cause a connection to be initiated.  If
+            the connection was not connected, or if the server did not have
+            an error while connecting or if the server had an error but
+            no error data was sent, this method will return null. This is
+            the default.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#getErrorStream()" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.getErrorStream()</code>.</a>
@@ -224,11 +456,11 @@
       </Docs>
     </Member>
     <Member MemberName="FixedContentLength">
+      <MemberSignature Language="VB.NET" Value="Protected Property FixedContentLength As Integer" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; property int FixedContentLength { int get(); void set(int value); };" />
       <MemberSignature Language="C#" Value="protected int FixedContentLength { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int32 FixedContentLength" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.FixedContentLength" />
-      <MemberSignature Language="VB.NET" Value="Protected Property FixedContentLength As Integer" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; property int FixedContentLength { int get(); void set(int value); };" />
       <MemberSignature Language="F#" Value="member this.FixedContentLength : int with get, set" Usage="Java.Net.HttpURLConnection.FixedContentLength" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -248,6 +480,12 @@
         <summary>The fixed content-length when using fixed-length streaming mode.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The fixed content-length when using fixed-length streaming mode.
+            A value of <c>-1</c> means fixed-length streaming mode is disabled
+            for output.</para>
+          <para>&lt;B&gt;NOTE:&lt;/B&gt; <c>#fixedContentLengthLong</c> is recommended instead
+            of this field, as it allows larger content lengths to be set.</para>
+          <para>Added in 1.5.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#fixedContentLength" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.fixedContentLength</code>.</a>
@@ -263,11 +501,11 @@
       </Docs>
     </Member>
     <Member MemberName="FixedContentLengthLong">
+      <MemberSignature Language="VB.NET" Value="Protected Property FixedContentLengthLong As Long" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; property long FixedContentLengthLong { long get(); void set(long value); };" />
       <MemberSignature Language="C#" Value="protected long FixedContentLengthLong { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance int64 FixedContentLengthLong" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.FixedContentLengthLong" />
-      <MemberSignature Language="VB.NET" Value="Protected Property FixedContentLengthLong As Long" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; property long FixedContentLengthLong { long get(); void set(long value); };" />
       <MemberSignature Language="F#" Value="member this.FixedContentLengthLong : int64 with get, set" Usage="Java.Net.HttpURLConnection.FixedContentLengthLong" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -287,6 +525,10 @@
         <summary>The fixed content-length when using fixed-length streaming mode.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The fixed content-length when using fixed-length streaming mode.
+            A value of <c>-1</c> means fixed-length streaming mode is disabled
+            for output.</para>
+          <para>Added in 1.7.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#fixedContentLengthLong" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.fixedContentLengthLong</code>.</a>
@@ -301,12 +543,12 @@
       </Docs>
     </Member>
     <Member MemberName="FollowRedirects">
+      <MemberSignature Language="VB.NET" Value="Public Shared Property FollowRedirects As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property bool FollowRedirects { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public static bool FollowRedirects { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property bool FollowRedirects" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.FollowRedirects" />
-      <MemberSignature Language="VB.NET" Value="Public Shared Property FollowRedirects As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; static property bool FollowRedirects { bool get(); void set(bool value); };" />
-      <MemberSignature Language="F#" Value="static member FollowRedirects : bool with get, set" Usage="Java.Net.HttpURLConnection.FollowRedirects" />
+      <MemberSignature Language="F#" Value="member this.FollowRedirects : bool with get, set" Usage="Java.Net.HttpURLConnection.FollowRedirects" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -326,6 +568,8 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
+        <param name="set">a <c>boolean</c> indicating whether or not
+            to follow HTTP redirects.</param>
         <summary>Returns a <c>boolean</c> indicating
             whether or not HTTP redirects (3xx) should
             be automatically followed. -or- Sets whether HTTP redirects  (requests with response code 3xx) should
@@ -335,12 +579,22 @@
             be automatically followed, <c>false</c> if not.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns a <c>boolean</c> indicating
+            whether or not HTTP redirects (3xx) should
+            be automatically followed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#getFollowRedirects()" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.getFollowRedirects()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets whether HTTP redirects  (requests with response code 3xx) should
+            be automatically followed by this class.  True by default.  Applets
+            cannot change this variable.</para>
+          <para>If there is a security manager, this method first calls
+            the security manager's <c>checkSetFactory</c> method
+            to ensure the operation is allowed.
+            This could result in a SecurityException.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#setFollowRedirects(boolean)" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.setFollowRedirects(boolean)</code>.</a>
@@ -357,11 +611,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpAccepted">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpAccepted As HttpStatus  = 202" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpAccepted = 202;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpAccepted = 202;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpAccepted = (202)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpAccepted" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpAccepted As HttpStatus  = 202" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpAccepted = 202;" />
       <MemberSignature Language="F#" Value="val mutable HttpAccepted : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpAccepted" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -385,6 +639,7 @@
       <Docs>
         <summary>HTTP Status-Code 202: Accepted.</summary>
         <remarks>
+          <para>HTTP Status-Code 202: Accepted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_ACCEPTED" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_ACCEPTED</code>.</a>
@@ -400,11 +655,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpBadGateway">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpBadGateway As HttpStatus  = 502" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpBadGateway = 502;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpBadGateway = 502;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpBadGateway = (502)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpBadGateway" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpBadGateway As HttpStatus  = 502" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpBadGateway = 502;" />
       <MemberSignature Language="F#" Value="val mutable HttpBadGateway : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpBadGateway" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -428,6 +683,7 @@
       <Docs>
         <summary>HTTP Status-Code 502: Bad Gateway.</summary>
         <remarks>
+          <para>HTTP Status-Code 502: Bad Gateway.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_BAD_GATEWAY" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_BAD_GATEWAY</code>.</a>
@@ -443,11 +699,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpBadMethod">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpBadMethod As HttpStatus  = 405" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpBadMethod = 405;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpBadMethod = 405;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpBadMethod = (405)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpBadMethod" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpBadMethod As HttpStatus  = 405" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpBadMethod = 405;" />
       <MemberSignature Language="F#" Value="val mutable HttpBadMethod : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpBadMethod" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -471,6 +727,7 @@
       <Docs>
         <summary>HTTP Status-Code 405: Method Not Allowed.</summary>
         <remarks>
+          <para>HTTP Status-Code 405: Method Not Allowed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_BAD_METHOD" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_BAD_METHOD</code>.</a>
@@ -486,11 +743,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpBadRequest">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpBadRequest As HttpStatus  = 400" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpBadRequest = 400;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpBadRequest = 400;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpBadRequest = (400)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpBadRequest" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpBadRequest As HttpStatus  = 400" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpBadRequest = 400;" />
       <MemberSignature Language="F#" Value="val mutable HttpBadRequest : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpBadRequest" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -514,6 +771,7 @@
       <Docs>
         <summary>HTTP Status-Code 400: Bad Request.</summary>
         <remarks>
+          <para>HTTP Status-Code 400: Bad Request.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_BAD_REQUEST" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_BAD_REQUEST</code>.</a>
@@ -529,11 +787,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpClientTimeout">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpClientTimeout As HttpStatus  = 408" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpClientTimeout = 408;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpClientTimeout = 408;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpClientTimeout = (408)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpClientTimeout" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpClientTimeout As HttpStatus  = 408" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpClientTimeout = 408;" />
       <MemberSignature Language="F#" Value="val mutable HttpClientTimeout : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpClientTimeout" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -557,6 +815,7 @@
       <Docs>
         <summary>HTTP Status-Code 408: Request Time-Out.</summary>
         <remarks>
+          <para>HTTP Status-Code 408: Request Time-Out.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_CLIENT_TIMEOUT" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_CLIENT_TIMEOUT</code>.</a>
@@ -572,11 +831,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpConflict">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpConflict As HttpStatus  = 409" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpConflict = 409;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpConflict = 409;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpConflict = (409)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpConflict" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpConflict As HttpStatus  = 409" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpConflict = 409;" />
       <MemberSignature Language="F#" Value="val mutable HttpConflict : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpConflict" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -600,6 +859,7 @@
       <Docs>
         <summary>HTTP Status-Code 409: Conflict.</summary>
         <remarks>
+          <para>HTTP Status-Code 409: Conflict.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_CONFLICT" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_CONFLICT</code>.</a>
@@ -615,11 +875,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpCreated">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpCreated As HttpStatus  = 201" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpCreated = 201;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpCreated = 201;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpCreated = (201)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpCreated" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpCreated As HttpStatus  = 201" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpCreated = 201;" />
       <MemberSignature Language="F#" Value="val mutable HttpCreated : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpCreated" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -643,6 +903,7 @@
       <Docs>
         <summary>HTTP Status-Code 201: Created.</summary>
         <remarks>
+          <para>HTTP Status-Code 201: Created.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_CREATED" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_CREATED</code>.</a>
@@ -658,11 +919,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpEntityTooLarge">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpEntityTooLarge As HttpStatus  = 413" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpEntityTooLarge = 413;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpEntityTooLarge = 413;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpEntityTooLarge = (413)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpEntityTooLarge" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpEntityTooLarge As HttpStatus  = 413" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpEntityTooLarge = 413;" />
       <MemberSignature Language="F#" Value="val mutable HttpEntityTooLarge : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpEntityTooLarge" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -686,6 +947,7 @@
       <Docs>
         <summary>HTTP Status-Code 413: Request Entity Too Large.</summary>
         <remarks>
+          <para>HTTP Status-Code 413: Request Entity Too Large.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_ENTITY_TOO_LARGE" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_ENTITY_TOO_LARGE</code>.</a>
@@ -701,11 +963,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpForbidden">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpForbidden As HttpStatus  = 403" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpForbidden = 403;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpForbidden = 403;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpForbidden = (403)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpForbidden" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpForbidden As HttpStatus  = 403" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpForbidden = 403;" />
       <MemberSignature Language="F#" Value="val mutable HttpForbidden : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpForbidden" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -729,6 +991,7 @@
       <Docs>
         <summary>HTTP Status-Code 403: Forbidden.</summary>
         <remarks>
+          <para>HTTP Status-Code 403: Forbidden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_FORBIDDEN" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_FORBIDDEN</code>.</a>
@@ -744,11 +1007,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpGatewayTimeout">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpGatewayTimeout As HttpStatus  = 504" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpGatewayTimeout = 504;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpGatewayTimeout = 504;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpGatewayTimeout = (504)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpGatewayTimeout" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpGatewayTimeout As HttpStatus  = 504" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpGatewayTimeout = 504;" />
       <MemberSignature Language="F#" Value="val mutable HttpGatewayTimeout : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpGatewayTimeout" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -772,6 +1035,7 @@
       <Docs>
         <summary>HTTP Status-Code 504: Gateway Timeout.</summary>
         <remarks>
+          <para>HTTP Status-Code 504: Gateway Timeout.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_GATEWAY_TIMEOUT" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_GATEWAY_TIMEOUT</code>.</a>
@@ -787,11 +1051,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpGone">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpGone As HttpStatus  = 410" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpGone = 410;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpGone = 410;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpGone = (410)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpGone" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpGone As HttpStatus  = 410" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpGone = 410;" />
       <MemberSignature Language="F#" Value="val mutable HttpGone : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpGone" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -815,6 +1079,7 @@
       <Docs>
         <summary>HTTP Status-Code 410: Gone.</summary>
         <remarks>
+          <para>HTTP Status-Code 410: Gone.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_GONE" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_GONE</code>.</a>
@@ -830,11 +1095,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpInternalError">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpInternalError As HttpStatus  = 500" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpInternalError = 500;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpInternalError = 500;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpInternalError = (500)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpInternalError" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpInternalError As HttpStatus  = 500" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpInternalError = 500;" />
       <MemberSignature Language="F#" Value="val mutable HttpInternalError : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpInternalError" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -858,6 +1123,7 @@
       <Docs>
         <summary>HTTP Status-Code 500: Internal Server Error.</summary>
         <remarks>
+          <para>HTTP Status-Code 500: Internal Server Error.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_INTERNAL_ERROR" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_INTERNAL_ERROR</code>.</a>
@@ -873,11 +1139,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpLengthRequired">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpLengthRequired As HttpStatus  = 411" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpLengthRequired = 411;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpLengthRequired = 411;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpLengthRequired = (411)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpLengthRequired" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpLengthRequired As HttpStatus  = 411" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpLengthRequired = 411;" />
       <MemberSignature Language="F#" Value="val mutable HttpLengthRequired : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpLengthRequired" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -901,6 +1167,7 @@
       <Docs>
         <summary>HTTP Status-Code 411: Length Required.</summary>
         <remarks>
+          <para>HTTP Status-Code 411: Length Required.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_LENGTH_REQUIRED" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_LENGTH_REQUIRED</code>.</a>
@@ -916,11 +1183,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpMovedPerm">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpMovedPerm As HttpStatus  = 301" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpMovedPerm = 301;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpMovedPerm = 301;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpMovedPerm = (301)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpMovedPerm" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpMovedPerm As HttpStatus  = 301" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpMovedPerm = 301;" />
       <MemberSignature Language="F#" Value="val mutable HttpMovedPerm : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpMovedPerm" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -944,6 +1211,7 @@
       <Docs>
         <summary>HTTP Status-Code 301: Moved Permanently.</summary>
         <remarks>
+          <para>HTTP Status-Code 301: Moved Permanently.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_MOVED_PERM" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_MOVED_PERM</code>.</a>
@@ -959,11 +1227,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpMovedTemp">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpMovedTemp As HttpStatus  = 302" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpMovedTemp = 302;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpMovedTemp = 302;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpMovedTemp = (302)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpMovedTemp" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpMovedTemp As HttpStatus  = 302" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpMovedTemp = 302;" />
       <MemberSignature Language="F#" Value="val mutable HttpMovedTemp : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpMovedTemp" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -987,6 +1255,7 @@
       <Docs>
         <summary>HTTP Status-Code 302: Temporary Redirect.</summary>
         <remarks>
+          <para>HTTP Status-Code 302: Temporary Redirect.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_MOVED_TEMP" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_MOVED_TEMP</code>.</a>
@@ -1002,11 +1271,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpMultChoice">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpMultChoice As HttpStatus  = 300" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpMultChoice = 300;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpMultChoice = 300;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpMultChoice = (300)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpMultChoice" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpMultChoice As HttpStatus  = 300" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpMultChoice = 300;" />
       <MemberSignature Language="F#" Value="val mutable HttpMultChoice : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpMultChoice" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1030,6 +1299,7 @@
       <Docs>
         <summary>HTTP Status-Code 300: Multiple Choices.</summary>
         <remarks>
+          <para>HTTP Status-Code 300: Multiple Choices.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_MULT_CHOICE" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_MULT_CHOICE</code>.</a>
@@ -1045,11 +1315,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpNoContent">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpNoContent As HttpStatus  = 204" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNoContent = 204;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpNoContent = 204;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpNoContent = (204)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpNoContent" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpNoContent As HttpStatus  = 204" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNoContent = 204;" />
       <MemberSignature Language="F#" Value="val mutable HttpNoContent : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpNoContent" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1073,6 +1343,7 @@
       <Docs>
         <summary>HTTP Status-Code 204: No Content.</summary>
         <remarks>
+          <para>HTTP Status-Code 204: No Content.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_NO_CONTENT" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_NO_CONTENT</code>.</a>
@@ -1088,11 +1359,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpNotAcceptable">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpNotAcceptable As HttpStatus  = 406" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNotAcceptable = 406;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpNotAcceptable = 406;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpNotAcceptable = (406)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpNotAcceptable" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpNotAcceptable As HttpStatus  = 406" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNotAcceptable = 406;" />
       <MemberSignature Language="F#" Value="val mutable HttpNotAcceptable : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpNotAcceptable" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1116,6 +1387,7 @@
       <Docs>
         <summary>HTTP Status-Code 406: Not Acceptable.</summary>
         <remarks>
+          <para>HTTP Status-Code 406: Not Acceptable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_NOT_ACCEPTABLE" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_NOT_ACCEPTABLE</code>.</a>
@@ -1131,11 +1403,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpNotAuthoritative">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpNotAuthoritative As HttpStatus  = 203" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNotAuthoritative = 203;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpNotAuthoritative = 203;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpNotAuthoritative = (203)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpNotAuthoritative" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpNotAuthoritative As HttpStatus  = 203" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNotAuthoritative = 203;" />
       <MemberSignature Language="F#" Value="val mutable HttpNotAuthoritative : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpNotAuthoritative" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1159,6 +1431,7 @@
       <Docs>
         <summary>HTTP Status-Code 203: Non-Authoritative Information.</summary>
         <remarks>
+          <para>HTTP Status-Code 203: Non-Authoritative Information.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_NOT_AUTHORITATIVE" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_NOT_AUTHORITATIVE</code>.</a>
@@ -1174,11 +1447,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpNotFound">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpNotFound As HttpStatus  = 404" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNotFound = 404;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpNotFound = 404;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpNotFound = (404)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpNotFound" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpNotFound As HttpStatus  = 404" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNotFound = 404;" />
       <MemberSignature Language="F#" Value="val mutable HttpNotFound : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpNotFound" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1202,6 +1475,7 @@
       <Docs>
         <summary>HTTP Status-Code 404: Not Found.</summary>
         <remarks>
+          <para>HTTP Status-Code 404: Not Found.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_NOT_FOUND" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_NOT_FOUND</code>.</a>
@@ -1217,11 +1491,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpNotImplemented">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpNotImplemented As HttpStatus  = 501" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNotImplemented = 501;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpNotImplemented = 501;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpNotImplemented = (501)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpNotImplemented" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpNotImplemented As HttpStatus  = 501" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNotImplemented = 501;" />
       <MemberSignature Language="F#" Value="val mutable HttpNotImplemented : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpNotImplemented" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1245,6 +1519,7 @@
       <Docs>
         <summary>HTTP Status-Code 501: Not Implemented.</summary>
         <remarks>
+          <para>HTTP Status-Code 501: Not Implemented.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_NOT_IMPLEMENTED" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED</code>.</a>
@@ -1260,11 +1535,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpNotModified">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpNotModified As HttpStatus  = 304" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNotModified = 304;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpNotModified = 304;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpNotModified = (304)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpNotModified" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpNotModified As HttpStatus  = 304" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpNotModified = 304;" />
       <MemberSignature Language="F#" Value="val mutable HttpNotModified : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpNotModified" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1288,6 +1563,7 @@
       <Docs>
         <summary>HTTP Status-Code 304: Not Modified.</summary>
         <remarks>
+          <para>HTTP Status-Code 304: Not Modified.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_NOT_MODIFIED" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_NOT_MODIFIED</code>.</a>
@@ -1303,11 +1579,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpOk">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpOk As HttpStatus  = 200" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpOk = 200;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpOk = 200;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpOk = (200)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpOk" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpOk As HttpStatus  = 200" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpOk = 200;" />
       <MemberSignature Language="F#" Value="val mutable HttpOk : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpOk" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1331,6 +1607,7 @@
       <Docs>
         <summary>HTTP Status-Code 200: OK.</summary>
         <remarks>
+          <para>HTTP Status-Code 200: OK.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_OK" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_OK</code>.</a>
@@ -1346,11 +1623,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpPartial">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpPartial As HttpStatus  = 206" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpPartial = 206;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpPartial = 206;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpPartial = (206)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpPartial" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpPartial As HttpStatus  = 206" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpPartial = 206;" />
       <MemberSignature Language="F#" Value="val mutable HttpPartial : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpPartial" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1374,6 +1651,7 @@
       <Docs>
         <summary>HTTP Status-Code 206: Partial Content.</summary>
         <remarks>
+          <para>HTTP Status-Code 206: Partial Content.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_PARTIAL" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_PARTIAL</code>.</a>
@@ -1389,11 +1667,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpPaymentRequired">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpPaymentRequired As HttpStatus  = 402" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpPaymentRequired = 402;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpPaymentRequired = 402;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpPaymentRequired = (402)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpPaymentRequired" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpPaymentRequired As HttpStatus  = 402" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpPaymentRequired = 402;" />
       <MemberSignature Language="F#" Value="val mutable HttpPaymentRequired : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpPaymentRequired" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1417,6 +1695,7 @@
       <Docs>
         <summary>HTTP Status-Code 402: Payment Required.</summary>
         <remarks>
+          <para>HTTP Status-Code 402: Payment Required.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_PAYMENT_REQUIRED" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_PAYMENT_REQUIRED</code>.</a>
@@ -1432,11 +1711,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpPreconFailed">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpPreconFailed As HttpStatus  = 412" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpPreconFailed = 412;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpPreconFailed = 412;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpPreconFailed = (412)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpPreconFailed" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpPreconFailed As HttpStatus  = 412" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpPreconFailed = 412;" />
       <MemberSignature Language="F#" Value="val mutable HttpPreconFailed : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpPreconFailed" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1460,6 +1739,7 @@
       <Docs>
         <summary>HTTP Status-Code 412: Precondition Failed.</summary>
         <remarks>
+          <para>HTTP Status-Code 412: Precondition Failed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_PRECON_FAILED" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_PRECON_FAILED</code>.</a>
@@ -1475,11 +1755,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpProxyAuth">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpProxyAuth As HttpStatus  = 407" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpProxyAuth = 407;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpProxyAuth = 407;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpProxyAuth = (407)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpProxyAuth" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpProxyAuth As HttpStatus  = 407" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpProxyAuth = 407;" />
       <MemberSignature Language="F#" Value="val mutable HttpProxyAuth : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpProxyAuth" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1503,6 +1783,7 @@
       <Docs>
         <summary>HTTP Status-Code 407: Proxy Authentication Required.</summary>
         <remarks>
+          <para>HTTP Status-Code 407: Proxy Authentication Required.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_PROXY_AUTH" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_PROXY_AUTH</code>.</a>
@@ -1518,11 +1799,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpReqTooLong">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpReqTooLong As HttpStatus  = 414" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpReqTooLong = 414;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpReqTooLong = 414;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpReqTooLong = (414)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpReqTooLong" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpReqTooLong As HttpStatus  = 414" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpReqTooLong = 414;" />
       <MemberSignature Language="F#" Value="val mutable HttpReqTooLong : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpReqTooLong" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1546,6 +1827,7 @@
       <Docs>
         <summary>HTTP Status-Code 414: Request-URI Too Large.</summary>
         <remarks>
+          <para>HTTP Status-Code 414: Request-URI Too Large.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_REQ_TOO_LONG" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_REQ_TOO_LONG</code>.</a>
@@ -1561,11 +1843,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpReset">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpReset As HttpStatus  = 205" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpReset = 205;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpReset = 205;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpReset = (205)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpReset" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpReset As HttpStatus  = 205" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpReset = 205;" />
       <MemberSignature Language="F#" Value="val mutable HttpReset : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpReset" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1589,6 +1871,7 @@
       <Docs>
         <summary>HTTP Status-Code 205: Reset Content.</summary>
         <remarks>
+          <para>HTTP Status-Code 205: Reset Content.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_RESET" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_RESET</code>.</a>
@@ -1604,11 +1887,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpSeeOther">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpSeeOther As HttpStatus  = 303" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpSeeOther = 303;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpSeeOther = 303;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpSeeOther = (303)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpSeeOther" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpSeeOther As HttpStatus  = 303" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpSeeOther = 303;" />
       <MemberSignature Language="F#" Value="val mutable HttpSeeOther : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpSeeOther" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1632,6 +1915,7 @@
       <Docs>
         <summary>HTTP Status-Code 303: See Other.</summary>
         <remarks>
+          <para>HTTP Status-Code 303: See Other.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_SEE_OTHER" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_SEE_OTHER</code>.</a>
@@ -1647,11 +1931,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpServerError">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpServerError As HttpStatus  = 500" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpServerError = 500;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpServerError = 500;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpServerError = (500)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpServerError" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpServerError As HttpStatus  = 500" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpServerError = 500;" />
       <MemberSignature Language="F#" Value="val mutable HttpServerError : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpServerError" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1675,6 +1959,8 @@
       <Docs>
         <summary>HTTP Status-Code 500: Internal Server Error.</summary>
         <remarks>
+          <para>HTTP Status-Code 500: Internal Server Error.</para>
+          <para>This member is deprecated. it is misplaced and shouldn't have existed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_SERVER_ERROR" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_SERVER_ERROR</code>.</a>
@@ -1690,11 +1976,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpUnauthorized">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpUnauthorized As HttpStatus  = 401" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpUnauthorized = 401;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpUnauthorized = 401;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpUnauthorized = (401)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpUnauthorized" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpUnauthorized As HttpStatus  = 401" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpUnauthorized = 401;" />
       <MemberSignature Language="F#" Value="val mutable HttpUnauthorized : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpUnauthorized" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1718,6 +2004,7 @@
       <Docs>
         <summary>HTTP Status-Code 401: Unauthorized.</summary>
         <remarks>
+          <para>HTTP Status-Code 401: Unauthorized.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_UNAUTHORIZED" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_UNAUTHORIZED</code>.</a>
@@ -1733,11 +2020,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpUnavailable">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpUnavailable As HttpStatus  = 503" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpUnavailable = 503;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpUnavailable = 503;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpUnavailable = (503)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpUnavailable" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpUnavailable As HttpStatus  = 503" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpUnavailable = 503;" />
       <MemberSignature Language="F#" Value="val mutable HttpUnavailable : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpUnavailable" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1761,6 +2048,7 @@
       <Docs>
         <summary>HTTP Status-Code 503: Service Unavailable.</summary>
         <remarks>
+          <para>HTTP Status-Code 503: Service Unavailable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_UNAVAILABLE" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_UNAVAILABLE</code>.</a>
@@ -1776,11 +2064,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpUnsupportedType">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpUnsupportedType As HttpStatus  = 415" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpUnsupportedType = 415;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpUnsupportedType = 415;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpUnsupportedType = (415)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpUnsupportedType" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpUnsupportedType As HttpStatus  = 415" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpUnsupportedType = 415;" />
       <MemberSignature Language="F#" Value="val mutable HttpUnsupportedType : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpUnsupportedType" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1804,6 +2092,7 @@
       <Docs>
         <summary>HTTP Status-Code 415: Unsupported Media Type.</summary>
         <remarks>
+          <para>HTTP Status-Code 415: Unsupported Media Type.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_UNSUPPORTED_TYPE" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_UNSUPPORTED_TYPE</code>.</a>
@@ -1819,11 +2108,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpUseProxy">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpUseProxy As HttpStatus  = 305" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpUseProxy = 305;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpUseProxy = 305;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpUseProxy = (305)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpUseProxy" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpUseProxy As HttpStatus  = 305" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpUseProxy = 305;" />
       <MemberSignature Language="F#" Value="val mutable HttpUseProxy : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpUseProxy" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1847,6 +2136,7 @@
       <Docs>
         <summary>HTTP Status-Code 305: Use Proxy.</summary>
         <remarks>
+          <para>HTTP Status-Code 305: Use Proxy.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_USE_PROXY" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_USE_PROXY</code>.</a>
@@ -1862,11 +2152,11 @@
       </Docs>
     </Member>
     <Member MemberName="HttpVersion">
+      <MemberSignature Language="VB.NET" Value="Public Const HttpVersion As HttpStatus  = 505" />
+      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpVersion = 505;" />
       <MemberSignature Language="C#" Value="public const Java.Net.HttpStatus HttpVersion = 505;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Java.Net.HttpStatus HttpVersion = (505)" />
       <MemberSignature Language="DocId" Value="F:Java.Net.HttpURLConnection.HttpVersion" />
-      <MemberSignature Language="VB.NET" Value="Public Const HttpVersion As HttpStatus  = 505" />
-      <MemberSignature Language="C++ CLI" Value="public: Java::Net::HttpStatus HttpVersion = 505;" />
       <MemberSignature Language="F#" Value="val mutable HttpVersion : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.HttpVersion" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
@@ -1890,6 +2180,7 @@
       <Docs>
         <summary>HTTP Status-Code 505: HTTP Version Not Supported.</summary>
         <remarks>
+          <para>HTTP Status-Code 505: HTTP Version Not Supported.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#HTTP_VERSION" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.HTTP_VERSION</code>.</a>
@@ -1905,11 +2196,11 @@
       </Docs>
     </Member>
     <Member MemberName="InstanceFollowRedirects">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Property InstanceFollowRedirects As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool InstanceFollowRedirects { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public virtual bool InstanceFollowRedirects { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool InstanceFollowRedirects" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.InstanceFollowRedirects" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Property InstanceFollowRedirects As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool InstanceFollowRedirects { bool get(); void set(bool value); };" />
       <MemberSignature Language="F#" Value="member this.InstanceFollowRedirects : bool with get, set" Usage="Java.Net.HttpURLConnection.InstanceFollowRedirects" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1930,6 +2221,8 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
+        <param name="followRedirects">a <c>boolean</c> indicating
+            whether or not to follow HTTP redirects.</param>
         <summary>Returns the value of this <c>HttpURLConnection</c>'s
             <c>instanceFollowRedirects</c> field. -or- Sets whether HTTP redirects (requests with response code 3xx) should
             be automatically followed by this <c>HttpURLConnection</c>
@@ -1938,12 +2231,21 @@
                      <c>instanceFollowRedirects</c> field.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns the value of this <c>HttpURLConnection</c>'s
+            <c>instanceFollowRedirects</c> field.</para>
+          <para>Added in 1.3.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#getInstanceFollowRedirects()" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.getInstanceFollowRedirects()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets whether HTTP redirects (requests with response code 3xx) should
+            be automatically followed by this <c>HttpURLConnection</c>
+            instance.</para>
+          <para>The default value comes from followRedirects, which defaults to
+            true.</para>
+          <para>Added in 1.3.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#setInstanceFollowRedirects(boolean)" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.setInstanceFollowRedirects(boolean)</code>.</a>
@@ -1959,11 +2261,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Java.Net.HttpURLConnection.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1979,6 +2281,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -1992,11 +2302,11 @@
       </Docs>
     </Member>
     <Member MemberName="Method">
+      <MemberSignature Language="VB.NET" Value="Protected Property Method As String" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; property System::String ^ Method { System::String ^ get(); void set(System::String ^ value); };" />
       <MemberSignature Language="C#" Value="protected string? Method { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance string Method" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.Method" />
-      <MemberSignature Language="VB.NET" Value="Protected Property Method As String" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; property System::String ^ Method { System::String ^ get(); void set(System::String ^ value); };" />
       <MemberSignature Language="F#" Value="member this.Method : string with get, set" Usage="Java.Net.HttpURLConnection.Method" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2016,6 +2326,7 @@
         <summary>The HTTP method (GET,POST,PUT,etc.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The HTTP method (GET,POST,PUT,etc.).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#method" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.method</code>.</a>
@@ -2031,11 +2342,11 @@
       </Docs>
     </Member>
     <Member MemberName="RequestMethod">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Property RequestMethod As String" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property System::String ^ RequestMethod { System::String ^ get(); void set(System::String ^ value); };" />
       <MemberSignature Language="C#" Value="public virtual string? RequestMethod { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance string RequestMethod" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.RequestMethod" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Property RequestMethod As String" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property System::String ^ RequestMethod { System::String ^ get(); void set(System::String ^ value); };" />
       <MemberSignature Language="F#" Value="member this.RequestMethod : string with get, set" Usage="Java.Net.HttpURLConnection.RequestMethod" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2056,6 +2367,7 @@
         <ReturnType>System.String</ReturnType>
       </ReturnValue>
       <Docs>
+        <param name="method">the HTTP method</param>
         <summary>Get the request method. -or- Set the method for the URL request, one of:
             &lt;UL&gt;
              &lt;LI&gt;GET
@@ -2069,12 +2381,24 @@
         <value>the HTTP request method</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Get the request method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#getRequestMethod()" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.getRequestMethod()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the method for the URL request, one of:
+            &lt;UL&gt;
+             &lt;LI&gt;GET
+             &lt;LI&gt;POST
+             &lt;LI&gt;HEAD
+             &lt;LI&gt;OPTIONS
+             &lt;LI&gt;PUT
+             &lt;LI&gt;DELETE
+             &lt;LI&gt;TRACE
+            &lt;/UL&gt; are legal, subject to protocol restrictions.  The default
+            method is GET.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#setRequestMethod(java.lang.String)" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.setRequestMethod(java.lang.String)</code>.</a>
@@ -2094,11 +2418,11 @@
       </Docs>
     </Member>
     <Member MemberName="ResponseCode">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property ResponseCode As HttpStatus" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Net::HttpStatus ResponseCode { Java::Net::HttpStatus get(); };" />
       <MemberSignature Language="C#" Value="public virtual Java.Net.HttpStatus ResponseCode { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance valuetype Java.Net.HttpStatus ResponseCode" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.ResponseCode" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property ResponseCode As HttpStatus" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Net::HttpStatus ResponseCode { Java::Net::HttpStatus get(); };" />
       <MemberSignature Language="F#" Value="member this.ResponseCode : Java.Net.HttpStatus" Usage="Java.Net.HttpURLConnection.ResponseCode" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2118,6 +2442,14 @@
         <summary>Gets the status code from an HTTP response message.</summary>
         <value>the HTTP Status-Code, or -1</value>
         <remarks>
+          <para>Gets the status code from an HTTP response message.
+            For example, in the case of the following status lines:</para>
+          <code lang="text/java">HTTP/1.0 200 OK
+            HTTP/1.0 401 Unauthorized
+            </code>
+          <para>It will return 200 and 401 respectively.
+            Returns -1 if no code can be discerned
+            from the response (i.e., the response is not valid HTTP).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#getResponseCode()" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.getResponseCode()</code>.</a>
@@ -2135,11 +2467,11 @@
       </Docs>
     </Member>
     <Member MemberName="ResponseMessage">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property ResponseMessage As String" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property System::String ^ ResponseMessage { System::String ^ get(); };" />
       <MemberSignature Language="C#" Value="public virtual string? ResponseMessage { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance string ResponseMessage" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.ResponseMessage" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property ResponseMessage As String" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property System::String ^ ResponseMessage { System::String ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ResponseMessage : string" Usage="Java.Net.HttpURLConnection.ResponseMessage" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2160,6 +2492,14 @@
             response code from a server.</summary>
         <value>the HTTP response message, or <c>null</c></value>
         <remarks>
+          <para>Gets the HTTP response message, if any, returned along with the
+            response code from a server.  From responses like:</para>
+          <code lang="text/java">HTTP/1.0 200 OK
+            HTTP/1.0 404 Not Found
+            </code>
+          <para>Extracts the Strings "OK" and "Not Found" respectively.
+            Returns null if none could be discerned from the responses
+            (the result was not valid HTTP).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#getResponseMessage()" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.getResponseMessage()</code>.</a>
@@ -2177,11 +2517,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetChunkedStreamingMode">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetChunkedStreamingMode (chunklen As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetChunkedStreamingMode(int chunklen);" />
       <MemberSignature Language="C#" Value="public virtual void SetChunkedStreamingMode (int chunklen);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SetChunkedStreamingMode(int32 chunklen) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Net.HttpURLConnection.SetChunkedStreamingMode(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetChunkedStreamingMode (chunklen As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetChunkedStreamingMode(int chunklen);" />
       <MemberSignature Language="F#" Value="abstract member SetChunkedStreamingMode : int -&gt; unit&#xA;override this.SetChunkedStreamingMode : int -&gt; unit" Usage="httpURLConnection.SetChunkedStreamingMode chunklen" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2208,6 +2548,18 @@
             without internal buffering, when the content length is &lt;b&gt;not&lt;/b&gt;
             known in advance.</summary>
         <remarks>
+          <para>This method is used to enable streaming of a HTTP request body
+            without internal buffering, when the content length is &lt;b&gt;not&lt;/b&gt;
+            known in advance. In this mode, chunked transfer encoding
+            is used to send the request body. Note, not all HTTP servers
+            support this mode.</para>
+          <para>When output streaming is enabled, authentication
+            and redirection cannot be handled automatically.
+            A HttpRetryException will be thrown when reading
+            the response if authentication or redirection are required.
+            This exception can be queried for the details of the error.</para>
+          <para>This method must be called before the URLConnection is connected.</para>
+          <para>Added in 1.5.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#setChunkedStreamingMode(int)" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.setChunkedStreamingMode(int)</code>.</a>
@@ -2227,11 +2579,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetFixedLengthStreamingMode">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetFixedLengthStreamingMode (contentLength As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetFixedLengthStreamingMode(int contentLength);" />
       <MemberSignature Language="C#" Value="public virtual void SetFixedLengthStreamingMode (int contentLength);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SetFixedLengthStreamingMode(int32 contentLength) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Net.HttpURLConnection.SetFixedLengthStreamingMode(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetFixedLengthStreamingMode (contentLength As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetFixedLengthStreamingMode(int contentLength);" />
       <MemberSignature Language="F#" Value="abstract member SetFixedLengthStreamingMode : int -&gt; unit&#xA;override this.SetFixedLengthStreamingMode : int -&gt; unit" Usage="httpURLConnection.SetFixedLengthStreamingMode contentLength" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2257,6 +2609,22 @@
             without internal buffering, when the content length is known in
             advance.</summary>
         <remarks>
+          <para>This method is used to enable streaming of a HTTP request body
+            without internal buffering, when the content length is known in
+            advance.</para>
+          <para>An exception will be thrown if the application
+            attempts to write more data than the indicated
+            content-length, or if the application closes the OutputStream
+            before writing the indicated amount.</para>
+          <para>When output streaming is enabled, authentication
+            and redirection cannot be handled automatically.
+            A HttpRetryException will be thrown when reading
+            the response if authentication or redirection are required.
+            This exception can be queried for the details of the error.</para>
+          <para>This method must be called before the URLConnection is connected.</para>
+          <para>&lt;B&gt;NOTE:&lt;/B&gt; <c>#setFixedLengthStreamingMode(long)</c> is recommended
+            instead of this method as it allows larger content lengths to be set.</para>
+          <para>Added in 1.5.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#setFixedLengthStreamingMode(int)" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.setFixedLengthStreamingMode(int)</code>.</a>
@@ -2275,11 +2643,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetFixedLengthStreamingMode">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetFixedLengthStreamingMode (contentLength As Long)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetFixedLengthStreamingMode(long contentLength);" />
       <MemberSignature Language="C#" Value="public virtual void SetFixedLengthStreamingMode (long contentLength);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SetFixedLengthStreamingMode(int64 contentLength) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Net.HttpURLConnection.SetFixedLengthStreamingMode(System.Int64)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetFixedLengthStreamingMode (contentLength As Long)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetFixedLengthStreamingMode(long contentLength);" />
       <MemberSignature Language="F#" Value="abstract member SetFixedLengthStreamingMode : int64 -&gt; unit&#xA;override this.SetFixedLengthStreamingMode : int64 -&gt; unit" Usage="httpURLConnection.SetFixedLengthStreamingMode contentLength" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2304,6 +2672,21 @@
             without internal buffering, when the content length is known in
             advance.</summary>
         <remarks>
+          <para>This method is used to enable streaming of a HTTP request body
+            without internal buffering, when the content length is known in
+            advance.</para>
+          <para>An exception will be thrown if the application attempts to write
+            more data than the indicated content-length, or if the application
+            closes the OutputStream before writing the indicated amount.</para>
+          <para>When output streaming is enabled, authentication and redirection
+            cannot be handled automatically. A HttpRetryException will
+            be thrown when reading the response if authentication or redirection
+            are required. This exception can be queried for the details of the
+            error.</para>
+          <para>This method must be called before the URLConnection is connected.</para>
+          <para>The content length set by invoking this method takes precedence
+            over any value set by <c>#setFixedLengthStreamingMode(int)</c>.</para>
+          <para>Added in 1.7.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#setFixedLengthStreamingMode(long)" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.setFixedLengthStreamingMode(long)</code>.</a>
@@ -2321,11 +2704,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Net.HttpURLConnection.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2354,11 +2737,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Java.Net.HttpURLConnection.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Net.HttpURLConnection.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2374,6 +2757,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Type</ReturnType>
@@ -2387,11 +2778,11 @@
       </Docs>
     </Member>
     <Member MemberName="UsingProxy">
+      <MemberSignature Language="VB.NET" Value="Public MustOverride Function UsingProxy () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract bool UsingProxy();" />
       <MemberSignature Language="C#" Value="public abstract bool UsingProxy ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool UsingProxy() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Net.HttpURLConnection.UsingProxy" />
-      <MemberSignature Language="VB.NET" Value="Public MustOverride Function UsingProxy () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; abstract bool UsingProxy();" />
       <MemberSignature Language="F#" Value="abstract member UsingProxy : unit -&gt; bool" Usage="httpURLConnection.UsingProxy " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2413,6 +2804,7 @@
         <returns>a boolean indicating if the connection is
             using a proxy.</returns>
         <remarks>
+          <para>Indicates if the connection is going through a proxy.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/HttpURLConnection#usingProxy()" title="Reference documentation">Java documentation for <code>java.net.HttpURLConnection.usingProxy()</code>.</a>

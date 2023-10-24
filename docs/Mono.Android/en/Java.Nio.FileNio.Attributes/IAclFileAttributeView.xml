@@ -1,9 +1,9 @@
 <Type Name="IAclFileAttributeView" FullName="Java.Nio.FileNio.Attributes.IAclFileAttributeView">
+  <TypeSignature Language="VB.NET" Value="Public Interface IAclFileAttributeView&#xA;Implements IDisposable, IFileOwnerAttributeView, IJavaPeerable" />
+  <TypeSignature Language="C++ CLI" Value="public interface class IAclFileAttributeView : IDisposable, Java::Interop::IJavaPeerable, Java::Nio::FileNio::Attributes::IFileOwnerAttributeView" />
   <TypeSignature Language="C#" Value="public interface IAclFileAttributeView : IDisposable, Java.Interop.IJavaPeerable, Java.Nio.FileNio.Attributes.IFileOwnerAttributeView" />
   <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract beforefieldinit IAclFileAttributeView implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.Nio.FileNio.Attributes.IAttributeView, class Java.Nio.FileNio.Attributes.IFileAttributeView, class Java.Nio.FileNio.Attributes.IFileOwnerAttributeView, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Nio.FileNio.Attributes.IAclFileAttributeView" />
-  <TypeSignature Language="VB.NET" Value="Public Interface IAclFileAttributeView&#xA;Implements IDisposable, IFileOwnerAttributeView, IJavaPeerable" />
-  <TypeSignature Language="C++ CLI" Value="public interface class IAclFileAttributeView : IDisposable, Java::Interop::IJavaPeerable, Java::Nio::FileNio::Attributes::IFileOwnerAttributeView" />
   <TypeSignature Language="F#" Value="type IAclFileAttributeView = interface&#xA;    interface IFileOwnerAttributeView&#xA;    interface IFileAttributeView&#xA;    interface IAttributeView&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -39,6 +39,99 @@
     <summary>A file attribute view that supports reading or updating a file's Access
             Control Lists (ACL) or file owner attributes.</summary>
     <remarks>
+      <para>A file attribute view that supports reading or updating a file's Access
+            Control Lists (ACL) or file owner attributes.</para>
+      <para>ACLs are used to specify access rights to file system objects. An ACL is
+            an ordered list of <c>AclEntry access-control-entries</c>, each specifying a
+            <c>UserPrincipal</c> and the level of access for that user principal. This
+            file attribute view defines the <c>#getAcl() getAcl</c>, and <c>#setAcl(List) setAcl</c> methods to read and write ACLs based on the ACL
+            model specified in <see href="http://www.ietf.org/rfc/rfc3530.txt"><i>RFC&amp;nbsp;3530:
+            Network File System (NFS) version 4 Protocol</i></see>. This file attribute view
+            is intended for file system implementations that support the NFSv4 ACL model
+            or have a &lt;em&gt;well-defined&lt;/em&gt; mapping between the NFSv4 ACL model and the ACL
+            model used by the file system. The details of such mapping are implementation
+            dependent and are therefore unspecified.</para>
+      <para>This class also extends <c>FileOwnerAttributeView</c> so as to define
+            methods to get and set the file owner.</para>
+      <para>When a file system provides access to a set of <c>FileStore
+            file-systems</c> that are not homogeneous then only some of the file systems may
+            support ACLs. The <c>FileStore#supportsFileAttributeView
+            supportsFileAttributeView</c> method can be used to test if a file system
+            supports ACLs.
+            
+            &lt;h2&gt;Interoperability&lt;/h2&gt;
+            
+            RFC&amp;nbsp;3530 allows for special user identities to be used on platforms that
+            support the POSIX defined access permissions. The special user identities
+            are "<c>OWNER@</c>", "<c>GROUP@</c>", and "<c>EVERYONE@</c>". When both
+            the <c>AclFileAttributeView</c> and the <c>PosixFileAttributeView</c>
+            are supported then these special user identities may be included in ACL <c>AclEntry entries</c> that are read or written. The file system's <c>UserPrincipalLookupService</c> may be used to obtain a <c>UserPrincipal</c>
+            to represent these special identities by invoking the <c>UserPrincipalLookupService#lookupPrincipalByName lookupPrincipalByName</c>
+            method.</para>
+      <para>&lt;b&gt;Usage Example:&lt;/b&gt;
+            Suppose we wish to add an entry to an existing ACL to grant "joe" access:</para>
+      <code lang="text/java">// lookup "joe"
+                UserPrincipal joe = file.getFileSystem().getUserPrincipalLookupService()
+                    .lookupPrincipalByName("joe");
+            
+                // get view
+                AclFileAttributeView view = Files.getFileAttributeView(file, AclFileAttributeView.class);
+            
+                // create ACE to give "joe" read access
+                AclEntry entry = AclEntry.newBuilder()
+                    .setType(AclEntryType.ALLOW)
+                    .setPrincipal(joe)
+                    .setPermissions(AclEntryPermission.READ_DATA, AclEntryPermission.READ_ATTRIBUTES)
+                    .build();
+            
+                // read ACL, insert ACE, re-write ACL
+                List&amp;lt;AclEntry&amp;gt; acl = view.getAcl();
+                acl.add(0, entry);   // insert before any DENY entries
+                view.setAcl(acl);
+            </code>
+      <para>&lt;h2&gt; Dynamic Access &lt;/h2&gt;</para>
+      <para>Where dynamic access to file attributes is required, the attributes
+            supported by this attribute view are as follows:
+            &lt;blockquote&gt;
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;Supported attributes&lt;/caption&gt;
+            &lt;thead&gt;
+              &lt;tr&gt;
+                &lt;th scope="col"&gt; Name &lt;/th&gt;
+                &lt;th scope="col"&gt; Type &lt;/th&gt;
+              &lt;/tr&gt;
+            &lt;/thead&gt;
+            &lt;tbody&gt;
+              &lt;tr&gt;
+                &lt;th scope="row"&gt; "acl" &lt;/th&gt;
+                &lt;td&gt; <c>List</c>&amp;lt;<c>AclEntry</c>&amp;gt; &lt;/td&gt;
+              &lt;/tr&gt;
+              &lt;tr&gt;
+                &lt;th scope="row"&gt; "owner" &lt;/th&gt;
+                &lt;td&gt; <c>UserPrincipal</c>&lt;/td&gt;
+              &lt;/tr&gt;
+            &lt;/tbody&gt;
+            &lt;/table&gt;
+            &lt;/blockquote&gt;</para>
+      <para>The <c>Files#getAttribute getAttribute</c> method may be used to read
+            the ACL or owner attributes as if by invoking the <c>#getAcl getAcl</c> or
+            <c>#getOwner getOwner</c> methods.</para>
+      <para>The <c>Files#setAttribute setAttribute</c> method may be used to
+            update the ACL or owner attributes as if by invoking the <c>#setAcl setAcl</c>
+            or <c>#setOwner setOwner</c> methods.
+            
+            &lt;h2&gt; Setting the ACL when creating a file &lt;/h2&gt;</para>
+      <para>Implementations supporting this attribute view may also support setting
+            the initial ACL when creating a file or directory. The initial ACL
+            may be provided to methods such as <c>Files#createFile createFile</c> or <c>Files#createDirectory createDirectory</c> as an <c>FileAttribute</c> with <c>FileAttribute#name name</c><c>"acl:acl"</c> and a <c>FileAttribute#value
+            value</c> that is the list of <c>AclEntry</c> objects.</para>
+      <para>Where an implementation supports an ACL model that differs from the NFSv4
+            defined ACL model then setting the initial ACL when creating the file must
+            translate the ACL to the model supported by the file system. Methods that
+            create a file should reject (by throwing <c>IOException IOException</c>)
+            any attempt to create a file that would be less secure as a result of the
+            translation.</para>
+      <para>Added in 1.7.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/nio/file/attribute/AclFileAttributeView" title="Reference documentation">Java documentation for <code>java.nio.file.attribute.AclFileAttributeView</code>.</a>
@@ -53,11 +146,11 @@
   </Docs>
   <Members>
     <Member MemberName="Acl">
+      <MemberSignature Language="VB.NET" Value="Public Property Acl As IList(Of AclEntry)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::IList&lt;Java::Nio::FileNio::Attributes::AclEntry ^&gt; ^ Acl { System::Collections::Generic::IList&lt;Java::Nio::FileNio::Attributes::AclEntry ^&gt; ^ get(); void set(System::Collections::Generic::IList&lt;Java::Nio::FileNio::Attributes::AclEntry ^&gt; ^ value); };" />
       <MemberSignature Language="C#" Value="public System.Collections.Generic.IList&lt;Java.Nio.FileNio.Attributes.AclEntry&gt;? Acl { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Collections.Generic.IList`1&lt;class Java.Nio.FileNio.Attributes.AclEntry&gt; Acl" />
       <MemberSignature Language="DocId" Value="P:Java.Nio.FileNio.Attributes.IAclFileAttributeView.Acl" />
-      <MemberSignature Language="VB.NET" Value="Public Property Acl As IList(Of AclEntry)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::Collections::Generic::IList&lt;Java::Nio::FileNio::Attributes::AclEntry ^&gt; ^ Acl { System::Collections::Generic::IList&lt;Java::Nio::FileNio::Attributes::AclEntry ^&gt; ^ get(); void set(System::Collections::Generic::IList&lt;Java::Nio::FileNio::Attributes::AclEntry ^&gt; ^ value); };" />
       <MemberSignature Language="F#" Value="member this.Acl : System.Collections.Generic.IList&lt;Java.Nio.FileNio.Attributes.AclEntry&gt; with get, set" Usage="Java.Nio.FileNio.Attributes.IAclFileAttributeView.Acl" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -65,6 +158,10 @@
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(new System.Byte[] { 2, 1 })&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getAcl", "()Ljava/util/List;", "GetGetAclHandler:Java.Nio.FileNio.Attributes.IAclFileAttributeViewInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getAcl", "()Ljava/util/List;", "GetGetAclHandler:Java.Nio.FileNio.Attributes.IAclFileAttributeViewInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
@@ -94,11 +191,11 @@
       </Docs>
     </Member>
     <Member MemberName="Name">
+      <MemberSignature Language="VB.NET" Value="Public Function Name () As String" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::String ^ Name();" />
       <MemberSignature Language="C#" Value="public string? Name ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance string Name() cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Nio.FileNio.Attributes.IAclFileAttributeView.Name" />
-      <MemberSignature Language="VB.NET" Value="Public Function Name () As String" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; System::String ^ Name();" />
       <MemberSignature Language="F#" Value="abstract member Name : unit -&gt; string" Usage="iAclFileAttributeView.Name " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -114,6 +211,10 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("name", "()Ljava/lang/String;", "GetNameHandler:Java.Nio.FileNio.Attributes.IAclFileAttributeViewInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
@@ -126,6 +227,8 @@
         <summary>Returns the name of the attribute view.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the name of the attribute view. Attribute views of this type
+            have the name <c>"acl"</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/nio/file/attribute/AclFileAttributeView#name()" title="Reference documentation">Java documentation for <code>java.nio.file.attribute.AclFileAttributeView.name()</code>.</a>

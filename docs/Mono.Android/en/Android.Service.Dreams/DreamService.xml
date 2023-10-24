@@ -1,9 +1,9 @@
 <Type Name="DreamService" FullName="Android.Service.Dreams.DreamService">
+  <TypeSignature Language="VB.NET" Value="Public Class DreamService&#xA;Inherits Service&#xA;Implements IDisposable, IJavaPeerable, Window.ICallback" />
+  <TypeSignature Language="C++ CLI" Value="public ref class DreamService : Android::App::Service, Android::Views::Window::ICallback, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="C#" Value="public class DreamService : Android.App.Service, Android.Views.Window.ICallback, IDisposable, Java.Interop.IJavaPeerable" />
   <TypeSignature Language="ILAsm" Value=".class public auto ansi beforefieldinit DreamService extends Android.App.Service implements class Android.Runtime.IJavaObject, class Android.Views.Window/ICallback, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Android.Service.Dreams.DreamService" />
-  <TypeSignature Language="VB.NET" Value="Public Class DreamService&#xA;Inherits Service&#xA;Implements IDisposable, IJavaPeerable, Window.ICallback" />
-  <TypeSignature Language="C++ CLI" Value="public ref class DreamService : Android::App::Service, Android::Views::Window::ICallback, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="F#" Value="type DreamService = class&#xA;    inherit Service&#xA;    interface Window.ICallback&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -31,10 +31,98 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/service/dreams/DreamService", DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/service/dreams/DreamService", DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(0)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(0)&gt;]</AttributeName>
+    </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="17">
     <summary>Extend this class to implement a custom dream (available to the user as a "Daydream").</summary>
     <remarks>
+      <para>Extend this class to implement a custom dream (available to the user as a "Daydream").</para>
+      <para>Dreams are interactive screensavers launched when a charging device is idle, or docked in a
+            desk dock. Dreams provide another modality for apps to express themselves, tailored for
+            an exhibition/lean-back experience.</para>
+      <para>The <c>DreamService</c> lifecycle is as follows:</para>
+      <para>&lt;ol&gt;
+              &lt;li&gt;<c>#onAttachedToWindow</c></para>
+      <para>Use this for initial setup, such as calling <c>#setContentView setContentView()</c>.&lt;/li&gt;
+              &lt;li&gt;<c>#onDreamingStarted</c></para>
+      <para>Your dream has started, so you should begin animations or other behaviors here.&lt;/li&gt;
+              &lt;li&gt;<c>#onDreamingStopped</c></para>
+      <para>Use this to stop the things you started in <c>#onDreamingStarted</c>.&lt;/li&gt;
+              &lt;li&gt;<c>#onDetachedFromWindow</c></para>
+      <para>Use this to dismantle resources (for example, detach from handlers
+                   and listeners).&lt;/li&gt;
+            &lt;/ol&gt;</para>
+      <para>In addition, onCreate and onDestroy (from the Service interface) will also be called, but
+            initialization and teardown should be done by overriding the hooks above.</para>
+      <para>To be available to the system, your <c>DreamService</c> should be declared in the
+            manifest as follows:</para>
+      <code lang="text/java">&amp;lt;service
+                android:name=".MyDream"
+                android:exported="true"
+                android:icon="@drawable/my_icon"
+                android:label="@string/my_dream_label" &gt;
+            
+                &amp;lt;intent-filter&gt;
+                    &amp;lt;action android:name="android.service.dreams.DreamService" /&gt;
+                    &amp;lt;category android:name="android.intent.category.DEFAULT" /&gt;
+                &amp;lt;/intent-filter&gt;
+            
+                &amp;lt;!-- Point to additional information for this dream (optional) --&gt;
+                &amp;lt;meta-data
+                    android:name="android.service.dream"
+                    android:resource="@xml/my_dream" /&gt;
+            &amp;lt;/service&gt;
+            </code>
+      <para>If specified with the <c>&lt;meta-data&gt;</c> element,
+            additional information for the dream is defined using the
+            <c>android.R.styleable#Dream &amp;lt;dream&amp;gt;</c> element in a separate XML file.
+            Currently, the only additional
+            information you can provide is for a settings activity that allows the user to configure
+            the dream behavior. For example:</para>
+      <para>&lt;p class="code-caption"&gt;res/xml/my_dream.xml&lt;/p&gt;</para>
+      <code lang="text/java">&amp;lt;dream xmlns:android="http://schemas.android.com/apk/res/android"
+                android:settingsActivity="com.example.app/.MyDreamSettingsActivity" /&gt;
+            </code>
+      <para>This makes a Settings button available alongside your dream's listing in the
+            system settings, which when pressed opens the specified activity.</para>
+      <para>To specify your dream layout, call <c>#setContentView</c>, typically during the
+            <c>#onAttachedToWindow</c> callback. For example:</para>
+      <code lang="text/java">public class MyDream extends DreamService {
+            
+                &amp;#64;Override
+                public void onAttachedToWindow() {
+                    super.onAttachedToWindow();
+            
+                    // Exit dream upon user touch
+                    setInteractive(false);
+                    // Hide system UI
+                    setFullscreen(true);
+                    // Set the dream layout
+                    setContentView(R.layout.dream);
+                }
+            }
+            </code>
+      <para>When targeting api level 21 and above, you must declare the service in your manifest file
+            with the <c>android.Manifest.permission#BIND_DREAM_SERVICE</c> permission. For example:</para>
+      <code lang="text/java">&amp;lt;service
+                android:name=".MyDream"
+                android:exported="true"
+                android:icon="@drawable/my_icon"
+                android:label="@string/my_dream_label"
+                android:permission="android.permission.BIND_DREAM_SERVICE"&gt;
+              &amp;lt;intent-filter&gt;
+                &amp;lt;action android:name=”android.service.dreams.DreamService” /&gt;
+                &amp;lt;category android:name=”android.intent.category.DEFAULT” /&gt;
+              &amp;lt;/intent-filter&gt;
+            &amp;lt;/service&gt;
+            </code>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/service/dreams/DreamService" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService</code>.</a>
@@ -50,11 +138,11 @@
   </Docs>
   <Members>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Public Sub New ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; DreamService();" />
       <MemberSignature Language="C#" Value="public DreamService ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.#ctor" />
-      <MemberSignature Language="VB.NET" Value="Public Sub New ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; DreamService();" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
@@ -77,11 +165,11 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; DreamService(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="C#" Value="protected DreamService (IntPtr javaReference, Android.Runtime.JniHandleOwnership transfer);" />
       <MemberSignature Language="ILAsm" Value=".method familyhidebysig specialname rtspecialname instance void .ctor(native int javaReference, valuetype Android.Runtime.JniHandleOwnership transfer) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.#ctor(System.IntPtr,Android.Runtime.JniHandleOwnership)" />
-      <MemberSignature Language="VB.NET" Value="Protected Sub New (javaReference As IntPtr, transfer As JniHandleOwnership)" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; DreamService(IntPtr javaReference, Android::Runtime::JniHandleOwnership transfer);" />
       <MemberSignature Language="F#" Value="new Android.Service.Dreams.DreamService : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Service.Dreams.DreamService" Usage="new Android.Service.Dreams.DreamService (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
@@ -102,11 +190,11 @@
       </Docs>
     </Member>
     <Member MemberName="AddContentView">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AddContentView (view As View, params As ViewGroup.LayoutParams)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AddContentView(Android::Views::View ^ view, Android::Views::ViewGroup::LayoutParams ^ params);" />
       <MemberSignature Language="C#" Value="public virtual void AddContentView (Android.Views.View? view, Android.Views.ViewGroup.LayoutParams? params);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void AddContentView(class Android.Views.View view, class Android.Views.ViewGroup/LayoutParams params) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.AddContentView(Android.Views.View,Android.Views.ViewGroup.LayoutParams)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub AddContentView (view As View, params As ViewGroup.LayoutParams)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void AddContentView(Android::Views::View ^ view, Android::Views::ViewGroup::LayoutParams ^ params);" />
       <MemberSignature Language="F#" Value="abstract member AddContentView : Android.Views.View * Android.Views.ViewGroup.LayoutParams -&gt; unit&#xA;override this.AddContentView : Android.Views.View * Android.Views.ViewGroup.LayoutParams -&gt; unit" Usage="dreamService.AddContentView (view, params)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -146,11 +234,11 @@
       </Docs>
     </Member>
     <Member MemberName="DispatchGenericMotionEvent">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchGenericMotionEvent (e As MotionEvent) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchGenericMotionEvent(Android::Views::MotionEvent ^ e);" />
       <MemberSignature Language="C#" Value="public virtual bool DispatchGenericMotionEvent (Android.Views.MotionEvent? e);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool DispatchGenericMotionEvent(class Android.Views.MotionEvent e) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.DispatchGenericMotionEvent(Android.Views.MotionEvent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchGenericMotionEvent (e As MotionEvent) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchGenericMotionEvent(Android::Views::MotionEvent ^ e);" />
       <MemberSignature Language="F#" Value="abstract member DispatchGenericMotionEvent : Android.Views.MotionEvent -&gt; bool&#xA;override this.DispatchGenericMotionEvent : Android.Views.MotionEvent -&gt; bool" Usage="dreamService.DispatchGenericMotionEvent e" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -177,6 +265,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#dispatchGenericMotionEvent(android.view.MotionEvent)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.dispatchGenericMotionEvent(android.view.MotionEvent)</code>.</a>
@@ -192,11 +281,11 @@
       </Docs>
     </Member>
     <Member MemberName="DispatchKeyEvent">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchKeyEvent (e As KeyEvent) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchKeyEvent(Android::Views::KeyEvent ^ e);" />
       <MemberSignature Language="C#" Value="public virtual bool DispatchKeyEvent (Android.Views.KeyEvent? e);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool DispatchKeyEvent(class Android.Views.KeyEvent e) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.DispatchKeyEvent(Android.Views.KeyEvent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchKeyEvent (e As KeyEvent) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchKeyEvent(Android::Views::KeyEvent ^ e);" />
       <MemberSignature Language="F#" Value="abstract member DispatchKeyEvent : Android.Views.KeyEvent -&gt; bool&#xA;override this.DispatchKeyEvent : Android.Views.KeyEvent -&gt; bool" Usage="dreamService.DispatchKeyEvent e" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -223,6 +312,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#dispatchKeyEvent(android.view.KeyEvent)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.dispatchKeyEvent(android.view.KeyEvent)</code>.</a>
@@ -238,11 +328,11 @@
       </Docs>
     </Member>
     <Member MemberName="DispatchKeyShortcutEvent">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchKeyShortcutEvent (e As KeyEvent) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchKeyShortcutEvent(Android::Views::KeyEvent ^ e);" />
       <MemberSignature Language="C#" Value="public virtual bool DispatchKeyShortcutEvent (Android.Views.KeyEvent? e);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool DispatchKeyShortcutEvent(class Android.Views.KeyEvent e) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.DispatchKeyShortcutEvent(Android.Views.KeyEvent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchKeyShortcutEvent (e As KeyEvent) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchKeyShortcutEvent(Android::Views::KeyEvent ^ e);" />
       <MemberSignature Language="F#" Value="abstract member DispatchKeyShortcutEvent : Android.Views.KeyEvent -&gt; bool&#xA;override this.DispatchKeyShortcutEvent : Android.Views.KeyEvent -&gt; bool" Usage="dreamService.DispatchKeyShortcutEvent e" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -269,6 +359,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#dispatchKeyShortcutEvent(android.view.KeyEvent)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.dispatchKeyShortcutEvent(android.view.KeyEvent)</code>.</a>
@@ -284,11 +375,11 @@
       </Docs>
     </Member>
     <Member MemberName="DispatchPopulateAccessibilityEvent">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchPopulateAccessibilityEvent (e As AccessibilityEvent) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchPopulateAccessibilityEvent(Android::Views::Accessibility::AccessibilityEvent ^ e);" />
       <MemberSignature Language="C#" Value="public virtual bool DispatchPopulateAccessibilityEvent (Android.Views.Accessibility.AccessibilityEvent? e);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool DispatchPopulateAccessibilityEvent(class Android.Views.Accessibility.AccessibilityEvent e) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.DispatchPopulateAccessibilityEvent(Android.Views.Accessibility.AccessibilityEvent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchPopulateAccessibilityEvent (e As AccessibilityEvent) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchPopulateAccessibilityEvent(Android::Views::Accessibility::AccessibilityEvent ^ e);" />
       <MemberSignature Language="F#" Value="abstract member DispatchPopulateAccessibilityEvent : Android.Views.Accessibility.AccessibilityEvent -&gt; bool&#xA;override this.DispatchPopulateAccessibilityEvent : Android.Views.Accessibility.AccessibilityEvent -&gt; bool" Usage="dreamService.DispatchPopulateAccessibilityEvent e" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -315,6 +406,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#dispatchPopulateAccessibilityEvent(android.view.accessibility.AccessibilityEvent)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.dispatchPopulateAccessibilityEvent(android.view.accessibility.AccessibilityEvent)</code>.</a>
@@ -330,11 +422,11 @@
       </Docs>
     </Member>
     <Member MemberName="DispatchTouchEvent">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchTouchEvent (e As MotionEvent) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchTouchEvent(Android::Views::MotionEvent ^ e);" />
       <MemberSignature Language="C#" Value="public virtual bool DispatchTouchEvent (Android.Views.MotionEvent? e);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool DispatchTouchEvent(class Android.Views.MotionEvent e) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.DispatchTouchEvent(Android.Views.MotionEvent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchTouchEvent (e As MotionEvent) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchTouchEvent(Android::Views::MotionEvent ^ e);" />
       <MemberSignature Language="F#" Value="abstract member DispatchTouchEvent : Android.Views.MotionEvent -&gt; bool&#xA;override this.DispatchTouchEvent : Android.Views.MotionEvent -&gt; bool" Usage="dreamService.DispatchTouchEvent e" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -361,6 +453,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#dispatchTouchEvent(android.view.MotionEvent)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.dispatchTouchEvent(android.view.MotionEvent)</code>.</a>
@@ -376,11 +469,11 @@
       </Docs>
     </Member>
     <Member MemberName="DispatchTrackballEvent">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchTrackballEvent (e As MotionEvent) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchTrackballEvent(Android::Views::MotionEvent ^ e);" />
       <MemberSignature Language="C#" Value="public virtual bool DispatchTrackballEvent (Android.Views.MotionEvent? e);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool DispatchTrackballEvent(class Android.Views.MotionEvent e) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.DispatchTrackballEvent(Android.Views.MotionEvent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function DispatchTrackballEvent (e As MotionEvent) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool DispatchTrackballEvent(Android::Views::MotionEvent ^ e);" />
       <MemberSignature Language="F#" Value="abstract member DispatchTrackballEvent : Android.Views.MotionEvent -&gt; bool&#xA;override this.DispatchTrackballEvent : Android.Views.MotionEvent -&gt; bool" Usage="dreamService.DispatchTrackballEvent e" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -407,6 +500,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#dispatchTrackballEvent(android.view.MotionEvent)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.dispatchTrackballEvent(android.view.MotionEvent)</code>.</a>
@@ -422,11 +516,11 @@
       </Docs>
     </Member>
     <Member MemberName="DreamMetaData">
+      <MemberSignature Language="VB.NET" Value="Public Const DreamMetaData As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ DreamMetaData;" />
       <MemberSignature Language="C#" Value="public const string DreamMetaData;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string DreamMetaData" />
       <MemberSignature Language="DocId" Value="F:Android.Service.Dreams.DreamService.DreamMetaData" />
-      <MemberSignature Language="VB.NET" Value="Public Const DreamMetaData As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ DreamMetaData;" />
       <MemberSignature Language="F#" Value="val mutable DreamMetaData : string" Usage="Android.Service.Dreams.DreamService.DreamMetaData" />
       <MemberType>Field</MemberType>
       <Implements>
@@ -443,6 +537,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("DREAM_META_DATA")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("DREAM_META_DATA")&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -450,6 +548,10 @@
       <Docs>
         <summary>Name under which a Dream publishes information about itself.</summary>
         <remarks>
+          <para>Name under which a Dream publishes information about itself.
+            This meta-data must reference an XML resource containing
+            a <c>&amp;lt;{@link android.R.styleable#Dream dream}&amp;gt;</c>
+            tag.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#DREAM_META_DATA" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.DREAM_META_DATA</code>.</a>
@@ -465,11 +567,11 @@
       </Docs>
     </Member>
     <Member MemberName="FindViewById">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function FindViewById (id As Integer) As View" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::Views::View ^ FindViewById(int id);" />
       <MemberSignature Language="C#" Value="public virtual Android.Views.View? FindViewById (int id);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Android.Views.View FindViewById(int32 id) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.FindViewById(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function FindViewById (id As Integer) As View" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::Views::View ^ FindViewById(int id);" />
       <MemberSignature Language="F#" Value="abstract member FindViewById : int -&gt; Android.Views.View&#xA;override this.FindViewById : int -&gt; Android.Views.View" Usage="dreamService.FindViewById id" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -494,6 +596,13 @@
             was processed in <c>#onCreate</c>.</summary>
         <returns>The view if found or null otherwise.</returns>
         <remarks>
+          <para>Finds a view that was identified by the id attribute from the XML that
+            was processed in <c>#onCreate</c>.</para>
+          <para>Note: Requires a window, do not call before <c>#onAttachedToWindow()</c></para>
+          <para>&lt;strong&gt;Note:&lt;/strong&gt; In most cases -- depending on compiler support --
+            the resulting view is automatically cast to the target class type. If
+            the target class type is unconstrained, an explicit cast may be
+            necessary.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#findViewById(int)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.findViewById(int)</code>.</a>
@@ -509,11 +618,11 @@
       </Docs>
     </Member>
     <Member MemberName="Finish">
+      <MemberSignature Language="VB.NET" Value="Public Sub Finish ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Finish();" />
       <MemberSignature Language="C#" Value="public void Finish ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void Finish() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.Finish" />
-      <MemberSignature Language="VB.NET" Value="Public Sub Finish ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void Finish();" />
       <MemberSignature Language="F#" Value="member this.Finish : unit -&gt; unit" Usage="dreamService.Finish " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -533,6 +642,9 @@
       <Docs>
         <summary>Stops the dream and detaches from the window.</summary>
         <remarks>
+          <para>Stops the dream and detaches from the window.</para>
+          <para>When the dream ends, the system will be allowed to go to sleep fully unless there
+            is a reason for it to be awake such as recent user activity or wake locks being held.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#finish()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.finish()</code>.</a>
@@ -548,11 +660,11 @@
       </Docs>
     </Member>
     <Member MemberName="Fullscreen">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Property Fullscreen As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool Fullscreen { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public virtual bool Fullscreen { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool Fullscreen" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Dreams.DreamService.Fullscreen" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Property Fullscreen As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool Fullscreen { bool get(); void set(bool value); };" />
       <MemberSignature Language="F#" Value="member this.Fullscreen : bool with get, set" Usage="Android.Service.Dreams.DreamService.Fullscreen" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -573,17 +685,22 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
+        <param name="fullscreen">If true, the fullscreen flag will be set; else it
+            will be cleared.</param>
         <summary>Returns whether this dream is in fullscreen mode. -or- Controls <c>android.view.WindowManager.LayoutParams#FLAG_FULLSCREEN</c>
             on the dream's window.</summary>
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns whether this dream is in fullscreen mode. Defaults to false.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#isFullscreen()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.isFullscreen()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Controls <c>android.view.WindowManager.LayoutParams#FLAG_FULLSCREEN</c>
+            on the dream's window.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#setFullscreen(boolean)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.setFullscreen(boolean)</code>.</a>
@@ -600,11 +717,11 @@
       </Docs>
     </Member>
     <Member MemberName="Interactive">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Property Interactive As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool Interactive { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public virtual bool Interactive { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool Interactive" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Dreams.DreamService.Interactive" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Property Interactive As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool Interactive { bool get(); void set(bool value); };" />
       <MemberSignature Language="F#" Value="member this.Interactive : bool with get, set" Usage="Android.Service.Dreams.DreamService.Interactive" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -625,16 +742,21 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
+        <param name="interactive">True if this dream will handle input events.</param>
         <summary>Returns whether this dream is interactive. -or- Marks this dream as interactive to receive input events.</summary>
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns whether this dream is interactive. Defaults to false.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#isInteractive()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.isInteractive()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Marks this dream as interactive to receive input events.</para>
+          <para>Non-interactive dreams (default) will dismiss on the first input event.</para>
+          <para>Interactive dreams should call <c>#finish()</c> to dismiss themselves.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#setInteractive(boolean)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.setInteractive(boolean)</code>.</a>
@@ -651,11 +773,11 @@
       </Docs>
     </Member>
     <Member MemberName="JniPeerMembers">
+      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="C#" Value="public override Java.Interop.JniPeerMembers JniPeerMembers { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Java.Interop.JniPeerMembers JniPeerMembers" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Dreams.DreamService.JniPeerMembers" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides ReadOnly Property JniPeerMembers As JniPeerMembers" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Java::Interop::JniPeerMembers ^ JniPeerMembers { Java::Interop::JniPeerMembers ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.JniPeerMembers : Java.Interop.JniPeerMembers" Usage="Android.Service.Dreams.DreamService.JniPeerMembers" />
       <MemberType>Property</MemberType>
       <Implements>
@@ -674,6 +796,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Interop.JniPeerMembers</ReturnType>
@@ -687,11 +817,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnActionModeFinished">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnActionModeFinished (mode As ActionMode)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnActionModeFinished(Android::Views::ActionMode ^ mode);" />
       <MemberSignature Language="C#" Value="public virtual void OnActionModeFinished (Android.Views.ActionMode? mode);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnActionModeFinished(class Android.Views.ActionMode mode) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnActionModeFinished(Android.Views.ActionMode)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnActionModeFinished (mode As ActionMode)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnActionModeFinished(Android::Views::ActionMode ^ mode);" />
       <MemberSignature Language="F#" Value="abstract member OnActionModeFinished : Android.Views.ActionMode -&gt; unit&#xA;override this.OnActionModeFinished : Android.Views.ActionMode -&gt; unit" Usage="dreamService.OnActionModeFinished mode" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -718,6 +848,7 @@
 </param>
         <summary>To be added</summary>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onActionModeFinished(android.view.ActionMode)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onActionModeFinished(android.view.ActionMode)</code>.</a>
@@ -733,11 +864,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnActionModeStarted">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnActionModeStarted (mode As ActionMode)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnActionModeStarted(Android::Views::ActionMode ^ mode);" />
       <MemberSignature Language="C#" Value="public virtual void OnActionModeStarted (Android.Views.ActionMode? mode);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnActionModeStarted(class Android.Views.ActionMode mode) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnActionModeStarted(Android.Views.ActionMode)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnActionModeStarted (mode As ActionMode)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnActionModeStarted(Android::Views::ActionMode ^ mode);" />
       <MemberSignature Language="F#" Value="abstract member OnActionModeStarted : Android.Views.ActionMode -&gt; unit&#xA;override this.OnActionModeStarted : Android.Views.ActionMode -&gt; unit" Usage="dreamService.OnActionModeStarted mode" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -764,6 +895,7 @@
 </param>
         <summary>To be added</summary>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onActionModeStarted(android.view.ActionMode)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onActionModeStarted(android.view.ActionMode)</code>.</a>
@@ -779,11 +911,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnAttachedToWindow">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnAttachedToWindow ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnAttachedToWindow();" />
       <MemberSignature Language="C#" Value="public virtual void OnAttachedToWindow ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnAttachedToWindow() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnAttachedToWindow" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnAttachedToWindow ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnAttachedToWindow();" />
       <MemberSignature Language="F#" Value="abstract member OnAttachedToWindow : unit -&gt; unit&#xA;override this.OnAttachedToWindow : unit -&gt; unit" Usage="dreamService.OnAttachedToWindow " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -806,6 +938,7 @@
       <Docs>
         <summary>To be added</summary>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onAttachedToWindow()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onAttachedToWindow()</code>.</a>
@@ -821,11 +954,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnBind">
+      <MemberSignature Language="VB.NET" Value="Public Overrides NotOverridable Function OnBind (intent As Intent) As IBinder" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; override Android::OS::IBinder ^ OnBind(Android::Content::Intent ^ intent);" />
       <MemberSignature Language="C#" Value="public override sealed Android.OS.IBinder? OnBind (Android.Content.Intent? intent);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance class Android.OS.IBinder OnBind(class Android.Content.Intent intent) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnBind(Android.Content.Intent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overrides NotOverridable Function OnBind (intent As Intent) As IBinder" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; override Android::OS::IBinder ^ OnBind(Android::Content::Intent ^ intent);" />
       <MemberSignature Language="F#" Value="override this.OnBind : Android.Content.Intent -&gt; Android.OS.IBinder" Usage="dreamService.OnBind intent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -851,6 +984,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onBind(android.content.Intent)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onBind(android.content.Intent)</code>.</a>
@@ -866,11 +1000,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnContentChanged">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnContentChanged ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnContentChanged();" />
       <MemberSignature Language="C#" Value="public virtual void OnContentChanged ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnContentChanged() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnContentChanged" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnContentChanged ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnContentChanged();" />
       <MemberSignature Language="F#" Value="abstract member OnContentChanged : unit -&gt; unit&#xA;override this.OnContentChanged : unit -&gt; unit" Usage="dreamService.OnContentChanged " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -893,6 +1027,7 @@
       <Docs>
         <summary>To be added</summary>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onContentChanged()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onContentChanged()</code>.</a>
@@ -908,11 +1043,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnCreatePanelMenu">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnCreatePanelMenu (featureId As Integer, menu As IMenu) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnCreatePanelMenu(int featureId, Android::Views::IMenu ^ menu);" />
       <MemberSignature Language="C#" Value="public virtual bool OnCreatePanelMenu (int featureId, Android.Views.IMenu? menu);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnCreatePanelMenu(int32 featureId, class Android.Views.IMenu menu) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnCreatePanelMenu(System.Int32,Android.Views.IMenu)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnCreatePanelMenu (featureId As Integer, menu As IMenu) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnCreatePanelMenu(int featureId, Android::Views::IMenu ^ menu);" />
       <MemberSignature Language="F#" Value="abstract member OnCreatePanelMenu : int * Android.Views.IMenu -&gt; bool&#xA;override this.OnCreatePanelMenu : int * Android.Views.IMenu -&gt; bool" Usage="dreamService.OnCreatePanelMenu (featureId, menu)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -941,6 +1076,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onCreatePanelMenu(int,%20android.view.Menu)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onCreatePanelMenu(int, android.view.Menu)</code>.</a>
@@ -956,11 +1092,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnCreatePanelView">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnCreatePanelView (featureId As Integer) As View" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::Views::View ^ OnCreatePanelView(int featureId);" />
       <MemberSignature Language="C#" Value="public virtual Android.Views.View? OnCreatePanelView (int featureId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Android.Views.View OnCreatePanelView(int32 featureId) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnCreatePanelView(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnCreatePanelView (featureId As Integer) As View" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::Views::View ^ OnCreatePanelView(int featureId);" />
       <MemberSignature Language="F#" Value="abstract member OnCreatePanelView : int -&gt; Android.Views.View&#xA;override this.OnCreatePanelView : int -&gt; Android.Views.View" Usage="dreamService.OnCreatePanelView featureId" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -987,6 +1123,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onCreatePanelView(int)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onCreatePanelView(int)</code>.</a>
@@ -1002,11 +1139,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnDetachedFromWindow">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnDetachedFromWindow ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnDetachedFromWindow();" />
       <MemberSignature Language="C#" Value="public virtual void OnDetachedFromWindow ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnDetachedFromWindow() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnDetachedFromWindow" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnDetachedFromWindow ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnDetachedFromWindow();" />
       <MemberSignature Language="F#" Value="abstract member OnDetachedFromWindow : unit -&gt; unit&#xA;override this.OnDetachedFromWindow : unit -&gt; unit" Usage="dreamService.OnDetachedFromWindow " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1029,6 +1166,7 @@
       <Docs>
         <summary>To be added</summary>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onDetachedFromWindow()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onDetachedFromWindow()</code>.</a>
@@ -1044,11 +1182,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnDreamingStarted">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnDreamingStarted ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnDreamingStarted();" />
       <MemberSignature Language="C#" Value="public virtual void OnDreamingStarted ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnDreamingStarted() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnDreamingStarted" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnDreamingStarted ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnDreamingStarted();" />
       <MemberSignature Language="F#" Value="abstract member OnDreamingStarted : unit -&gt; unit&#xA;override this.OnDreamingStarted : unit -&gt; unit" Usage="dreamService.OnDreamingStarted " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1068,6 +1206,7 @@
       <Docs>
         <summary>Called when the dream's window has been created and is visible and animation may now begin.</summary>
         <remarks>
+          <para>Called when the dream's window has been created and is visible and animation may now begin.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onDreamingStarted()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onDreamingStarted()</code>.</a>
@@ -1083,11 +1222,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnDreamingStopped">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnDreamingStopped ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnDreamingStopped();" />
       <MemberSignature Language="C#" Value="public virtual void OnDreamingStopped ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnDreamingStopped() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnDreamingStopped" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnDreamingStopped ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnDreamingStopped();" />
       <MemberSignature Language="F#" Value="abstract member OnDreamingStopped : unit -&gt; unit&#xA;override this.OnDreamingStopped : unit -&gt; unit" Usage="dreamService.OnDreamingStopped " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1108,6 +1247,8 @@
         <summary>Called when this Dream is stopped, either by external request or by calling finish(),
             before the window has been removed.</summary>
         <remarks>
+          <para>Called when this Dream is stopped, either by external request or by calling finish(),
+            before the window has been removed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onDreamingStopped()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onDreamingStopped()</code>.</a>
@@ -1123,11 +1264,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnMenuItemSelected">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnMenuItemSelected (featureId As Integer, item As IMenuItem) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnMenuItemSelected(int featureId, Android::Views::IMenuItem ^ item);" />
       <MemberSignature Language="C#" Value="public virtual bool OnMenuItemSelected (int featureId, Android.Views.IMenuItem? item);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnMenuItemSelected(int32 featureId, class Android.Views.IMenuItem item) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnMenuItemSelected(System.Int32,Android.Views.IMenuItem)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnMenuItemSelected (featureId As Integer, item As IMenuItem) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnMenuItemSelected(int featureId, Android::Views::IMenuItem ^ item);" />
       <MemberSignature Language="F#" Value="abstract member OnMenuItemSelected : int * Android.Views.IMenuItem -&gt; bool&#xA;override this.OnMenuItemSelected : int * Android.Views.IMenuItem -&gt; bool" Usage="dreamService.OnMenuItemSelected (featureId, item)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1156,6 +1297,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onMenuItemSelected(int,%20android.view.MenuItem)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onMenuItemSelected(int, android.view.MenuItem)</code>.</a>
@@ -1171,11 +1313,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnMenuOpened">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnMenuOpened (featureId As Integer, menu As IMenu) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnMenuOpened(int featureId, Android::Views::IMenu ^ menu);" />
       <MemberSignature Language="C#" Value="public virtual bool OnMenuOpened (int featureId, Android.Views.IMenu? menu);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnMenuOpened(int32 featureId, class Android.Views.IMenu menu) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnMenuOpened(System.Int32,Android.Views.IMenu)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnMenuOpened (featureId As Integer, menu As IMenu) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnMenuOpened(int featureId, Android::Views::IMenu ^ menu);" />
       <MemberSignature Language="F#" Value="abstract member OnMenuOpened : int * Android.Views.IMenu -&gt; bool&#xA;override this.OnMenuOpened : int * Android.Views.IMenu -&gt; bool" Usage="dreamService.OnMenuOpened (featureId, menu)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1204,6 +1346,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onMenuOpened(int,%20android.view.Menu)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onMenuOpened(int, android.view.Menu)</code>.</a>
@@ -1219,11 +1362,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnPanelClosed">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnPanelClosed (featureId As Integer, menu As IMenu)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnPanelClosed(int featureId, Android::Views::IMenu ^ menu);" />
       <MemberSignature Language="C#" Value="public virtual void OnPanelClosed (int featureId, Android.Views.IMenu? menu);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnPanelClosed(int32 featureId, class Android.Views.IMenu menu) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnPanelClosed(System.Int32,Android.Views.IMenu)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnPanelClosed (featureId As Integer, menu As IMenu)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnPanelClosed(int featureId, Android::Views::IMenu ^ menu);" />
       <MemberSignature Language="F#" Value="abstract member OnPanelClosed : int * Android.Views.IMenu -&gt; unit&#xA;override this.OnPanelClosed : int * Android.Views.IMenu -&gt; unit" Usage="dreamService.OnPanelClosed (featureId, menu)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1253,6 +1396,7 @@
 </param>
         <summary>To be added</summary>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onPanelClosed(int,%20android.view.Menu)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onPanelClosed(int, android.view.Menu)</code>.</a>
@@ -1268,11 +1412,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnPreparePanel">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnPreparePanel (featureId As Integer, view As View, menu As IMenu) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnPreparePanel(int featureId, Android::Views::View ^ view, Android::Views::IMenu ^ menu);" />
       <MemberSignature Language="C#" Value="public virtual bool OnPreparePanel (int featureId, Android.Views.View? view, Android.Views.IMenu? menu);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnPreparePanel(int32 featureId, class Android.Views.View view, class Android.Views.IMenu menu) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnPreparePanel(System.Int32,Android.Views.View,Android.Views.IMenu)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnPreparePanel (featureId As Integer, view As View, menu As IMenu) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnPreparePanel(int featureId, Android::Views::View ^ view, Android::Views::IMenu ^ menu);" />
       <MemberSignature Language="F#" Value="abstract member OnPreparePanel : int * Android.Views.View * Android.Views.IMenu -&gt; bool&#xA;override this.OnPreparePanel : int * Android.Views.View * Android.Views.IMenu -&gt; bool" Usage="dreamService.OnPreparePanel (featureId, view, menu)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1304,6 +1448,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onPreparePanel(int,%20android.view.View,%20android.view.Menu)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onPreparePanel(int, android.view.View, android.view.Menu)</code>.</a>
@@ -1319,11 +1464,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnSearchRequested">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnSearchRequested () As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnSearchRequested();" />
       <MemberSignature Language="C#" Value="public virtual bool OnSearchRequested ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnSearchRequested() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnSearchRequested" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnSearchRequested () As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnSearchRequested();" />
       <MemberSignature Language="F#" Value="abstract member OnSearchRequested : unit -&gt; bool&#xA;override this.OnSearchRequested : unit -&gt; bool" Usage="dreamService.OnSearchRequested " />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1347,6 +1492,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onSearchRequested()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onSearchRequested()</code>.</a>
@@ -1362,11 +1508,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnSearchRequested">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnSearchRequested (e As SearchEvent) As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnSearchRequested(Android::Views::SearchEvent ^ e);" />
       <MemberSignature Language="C#" Value="public virtual bool OnSearchRequested (Android.Views.SearchEvent? e);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance bool OnSearchRequested(class Android.Views.SearchEvent e) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnSearchRequested(Android.Views.SearchEvent)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnSearchRequested (e As SearchEvent) As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual bool OnSearchRequested(Android::Views::SearchEvent ^ e);" />
       <MemberSignature Language="F#" Value="abstract member OnSearchRequested : Android.Views.SearchEvent -&gt; bool&#xA;override this.OnSearchRequested : Android.Views.SearchEvent -&gt; bool" Usage="dreamService.OnSearchRequested e" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1397,6 +1543,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onSearchRequested(android.view.SearchEvent)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onSearchRequested(android.view.SearchEvent)</code>.</a>
@@ -1411,11 +1558,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnWakeUp">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnWakeUp ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnWakeUp();" />
       <MemberSignature Language="C#" Value="public virtual void OnWakeUp ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnWakeUp() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnWakeUp" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnWakeUp ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnWakeUp();" />
       <MemberSignature Language="F#" Value="abstract member OnWakeUp : unit -&gt; unit&#xA;override this.OnWakeUp : unit -&gt; unit" Usage="dreamService.OnWakeUp " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1435,6 +1582,13 @@
       <Docs>
         <summary>Called when the dream is being asked to stop itself and wake.</summary>
         <remarks>
+          <para>Called when the dream is being asked to stop itself and wake.</para>
+          <para>The default implementation simply calls <c>#finish</c> which ends the dream
+            immediately. Subclasses may override this function to perform a smooth exit
+            transition then call <c>#finish</c> afterwards.</para>
+          <para>Note that the dream will only be given a short period of time (currently about
+            five seconds) to wake up. If the dream does not finish itself in a timely manner
+            then the system will forcibly finish it once the time allowance is up.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onWakeUp()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onWakeUp()</code>.</a>
@@ -1449,11 +1603,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnWindowAttributesChanged">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnWindowAttributesChanged (attrs As WindowManagerLayoutParams)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnWindowAttributesChanged(Android::Views::WindowManagerLayoutParams ^ attrs);" />
       <MemberSignature Language="C#" Value="public virtual void OnWindowAttributesChanged (Android.Views.WindowManagerLayoutParams? attrs);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnWindowAttributesChanged(class Android.Views.WindowManagerLayoutParams attrs) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnWindowAttributesChanged(Android.Views.WindowManagerLayoutParams)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnWindowAttributesChanged (attrs As WindowManagerLayoutParams)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnWindowAttributesChanged(Android::Views::WindowManagerLayoutParams ^ attrs);" />
       <MemberSignature Language="F#" Value="abstract member OnWindowAttributesChanged : Android.Views.WindowManagerLayoutParams -&gt; unit&#xA;override this.OnWindowAttributesChanged : Android.Views.WindowManagerLayoutParams -&gt; unit" Usage="dreamService.OnWindowAttributesChanged attrs" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1494,11 +1648,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnWindowFocusChanged">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnWindowFocusChanged (hasFocus As Boolean)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnWindowFocusChanged(bool hasFocus);" />
       <MemberSignature Language="C#" Value="public virtual void OnWindowFocusChanged (bool hasFocus);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnWindowFocusChanged(bool hasFocus) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnWindowFocusChanged(System.Boolean)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub OnWindowFocusChanged (hasFocus As Boolean)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void OnWindowFocusChanged(bool hasFocus);" />
       <MemberSignature Language="F#" Value="abstract member OnWindowFocusChanged : bool -&gt; unit&#xA;override this.OnWindowFocusChanged : bool -&gt; unit" Usage="dreamService.OnWindowFocusChanged hasFocus" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1525,6 +1679,7 @@
 </param>
         <summary>To be added</summary>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#onWindowFocusChanged(boolean)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.onWindowFocusChanged(boolean)</code>.</a>
@@ -1540,11 +1695,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnWindowStartingActionMode">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnWindowStartingActionMode (callback As ActionMode.ICallback) As ActionMode" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::Views::ActionMode ^ OnWindowStartingActionMode(Android::Views::ActionMode::ICallback ^ callback);" />
       <MemberSignature Language="C#" Value="public virtual Android.Views.ActionMode? OnWindowStartingActionMode (Android.Views.ActionMode.ICallback? callback);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Android.Views.ActionMode OnWindowStartingActionMode(class Android.Views.ActionMode/ICallback callback) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnWindowStartingActionMode(Android.Views.ActionMode.ICallback)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnWindowStartingActionMode (callback As ActionMode.ICallback) As ActionMode" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::Views::ActionMode ^ OnWindowStartingActionMode(Android::Views::ActionMode::ICallback ^ callback);" />
       <MemberSignature Language="F#" Value="abstract member OnWindowStartingActionMode : Android.Views.ActionMode.ICallback -&gt; Android.Views.ActionMode&#xA;override this.OnWindowStartingActionMode : Android.Views.ActionMode.ICallback -&gt; Android.Views.ActionMode" Usage="dreamService.OnWindowStartingActionMode callback" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1586,11 +1741,11 @@
       </Docs>
     </Member>
     <Member MemberName="OnWindowStartingActionMode">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnWindowStartingActionMode (callback As ActionMode.ICallback, type As ActionModeType) As ActionMode" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::Views::ActionMode ^ OnWindowStartingActionMode(Android::Views::ActionMode::ICallback ^ callback, Android::Views::ActionModeType type);" />
       <MemberSignature Language="C#" Value="public virtual Android.Views.ActionMode? OnWindowStartingActionMode (Android.Views.ActionMode.ICallback? callback, Android.Views.ActionModeType type);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Android.Views.ActionMode OnWindowStartingActionMode(class Android.Views.ActionMode/ICallback callback, valuetype Android.Views.ActionModeType type) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.OnWindowStartingActionMode(Android.Views.ActionMode.ICallback,Android.Views.ActionModeType)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Function OnWindowStartingActionMode (callback As ActionMode.ICallback, type As ActionModeType) As ActionMode" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual Android::Views::ActionMode ^ OnWindowStartingActionMode(Android::Views::ActionMode::ICallback ^ callback, Android::Views::ActionModeType type);" />
       <MemberSignature Language="F#" Value="abstract member OnWindowStartingActionMode : Android.Views.ActionMode.ICallback * Android.Views.ActionModeType -&gt; Android.Views.ActionMode&#xA;override this.OnWindowStartingActionMode : Android.Views.ActionMode.ICallback * Android.Views.ActionModeType -&gt; Android.Views.ActionMode" Usage="dreamService.OnWindowStartingActionMode (callback, type)" />
       <MemberType>Method</MemberType>
       <Implements>
@@ -1644,11 +1799,11 @@
       </Docs>
     </Member>
     <Member MemberName="RequireViewById">
+      <MemberSignature Language="VB.NET" Value="Public Function RequireViewById (id As Integer) As Object" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ RequireViewById(int id);" />
       <MemberSignature Language="C#" Value="public Java.Lang.Object RequireViewById (int id);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Lang.Object RequireViewById(int32 id) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.RequireViewById(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Function RequireViewById (id As Integer) As Object" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; Java::Lang::Object ^ RequireViewById(int id);" />
       <MemberSignature Language="F#" Value="member this.RequireViewById : int -&gt; Java.Lang.Object" Usage="dreamService.RequireViewById id" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1663,6 +1818,10 @@
         <Attribute>
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.view.View" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.view.View" })&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
@@ -1682,6 +1841,14 @@
             matching view in the hierarchy.</summary>
         <returns>a view with given ID</returns>
         <remarks>
+          <para>Finds a view that was identified by the id attribute from the XML that was processed in
+            <c>#onCreate</c>, or throws an IllegalArgumentException if the ID is invalid or there is no
+            matching view in the hierarchy.</para>
+          <para>Note: Requires a window, do not call before <c>#onAttachedToWindow()</c></para>
+          <para>&lt;strong&gt;Note:&lt;/strong&gt; In most cases -- depending on compiler support --
+            the resulting view is automatically cast to the target class type. If
+            the target class type is unconstrained, an explicit cast may be
+            necessary.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#requireViewById(int)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.requireViewById(int)</code>.</a>
@@ -1696,11 +1863,11 @@
       </Docs>
     </Member>
     <Member MemberName="ScreenBright">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Property ScreenBright As Boolean" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool ScreenBright { bool get(); void set(bool value); };" />
       <MemberSignature Language="C#" Value="public virtual bool ScreenBright { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance bool ScreenBright" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Dreams.DreamService.ScreenBright" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Property ScreenBright As Boolean" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property bool ScreenBright { bool get(); void set(bool value); };" />
       <MemberSignature Language="F#" Value="member this.ScreenBright : bool with get, set" Usage="Android.Service.Dreams.DreamService.ScreenBright" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1721,16 +1888,20 @@
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>
       <Docs>
+        <param name="screenBright">True to keep the screen bright while dreaming.</param>
         <summary>Returns whether this dream keeps the screen bright while dreaming. -or- Marks this dream as keeping the screen bright while dreaming.</summary>
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns whether this dream keeps the screen bright while dreaming.
+            Defaults to false, allowing the screen to dim if necessary.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#isScreenBright()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.isScreenBright()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Marks this dream as keeping the screen bright while dreaming.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#setScreenBright(boolean)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.setScreenBright(boolean)</code>.</a>
@@ -1747,11 +1918,11 @@
       </Docs>
     </Member>
     <Member MemberName="ServiceInterface">
+      <MemberSignature Language="VB.NET" Value="Public Const ServiceInterface As String " />
+      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ServiceInterface;" />
       <MemberSignature Language="C#" Value="public const string ServiceInterface;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string ServiceInterface" />
       <MemberSignature Language="DocId" Value="F:Android.Service.Dreams.DreamService.ServiceInterface" />
-      <MemberSignature Language="VB.NET" Value="Public Const ServiceInterface As String " />
-      <MemberSignature Language="C++ CLI" Value="public: System::String ^ ServiceInterface;" />
       <MemberSignature Language="F#" Value="val mutable ServiceInterface : string" Usage="Android.Service.Dreams.DreamService.ServiceInterface" />
       <MemberType>Field</MemberType>
       <Implements>
@@ -1768,6 +1939,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("SERVICE_INTERFACE")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("SERVICE_INTERFACE")&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1775,6 +1950,7 @@
       <Docs>
         <summary>The <c>Intent</c> that must be declared as handled by the service.</summary>
         <remarks>
+          <para>The <c>Intent</c> that must be declared as handled by the service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#SERVICE_INTERFACE" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.SERVICE_INTERFACE</code>.</a>
@@ -1790,11 +1966,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetContentView">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetContentView (view As View)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetContentView(Android::Views::View ^ view);" />
       <MemberSignature Language="C#" Value="public virtual void SetContentView (Android.Views.View? view);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SetContentView(class Android.Views.View view) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.SetContentView(Android.Views.View)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetContentView (view As View)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetContentView(Android::Views::View ^ view);" />
       <MemberSignature Language="F#" Value="abstract member SetContentView : Android.Views.View -&gt; unit&#xA;override this.SetContentView : Android.Views.View -&gt; unit" Usage="dreamService.SetContentView view" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1817,6 +1993,12 @@
         <param name="view">To be added.</param>
         <summary>Sets a view to be the content view for this Dream.</summary>
         <remarks>
+          <para>Sets a view to be the content view for this Dream.
+            Behaves similarly to <c>android.app.Activity#setContentView(android.view.View)</c> in an activity,
+            including using <c>ViewGroup.LayoutParams#MATCH_PARENT</c> as the layout height and width of the view.</para>
+          <para>Note: This requires a window, so you should usually call it during
+            <c>#onAttachedToWindow()</c> and never earlier (you &lt;strong&gt;cannot&lt;/strong&gt; call it
+            during <c>#onCreate</c>).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#setContentView(android.view.View)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.setContentView(android.view.View)</code>.</a>
@@ -1834,11 +2016,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetContentView">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetContentView (layoutResID As Integer)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetContentView(int layoutResID);" />
       <MemberSignature Language="C#" Value="public virtual void SetContentView (int layoutResID);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SetContentView(int32 layoutResID) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.SetContentView(System.Int32)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetContentView (layoutResID As Integer)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetContentView(int layoutResID);" />
       <MemberSignature Language="F#" Value="abstract member SetContentView : int -&gt; unit&#xA;override this.SetContentView : int -&gt; unit" Usage="dreamService.SetContentView layoutResID" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1861,6 +2043,9 @@
         <param name="layoutResID">Resource ID to be inflated.</param>
         <summary>Inflates a layout resource and set it to be the content view for this Dream.</summary>
         <remarks>
+          <para>Inflates a layout resource and set it to be the content view for this Dream.
+            Behaves similarly to <c>android.app.Activity#setContentView(int)</c>.</para>
+          <para>Note: Requires a window, do not call before <c>#onAttachedToWindow()</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#setContentView(int)" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.setContentView(int)</code>.</a>
@@ -1878,11 +2063,11 @@
       </Docs>
     </Member>
     <Member MemberName="SetContentView">
+      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetContentView (view As View, params As ViewGroup.LayoutParams)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetContentView(Android::Views::View ^ view, Android::Views::ViewGroup::LayoutParams ^ params);" />
       <MemberSignature Language="C#" Value="public virtual void SetContentView (Android.Views.View? view, Android.Views.ViewGroup.LayoutParams? params);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void SetContentView(class Android.Views.View view, class Android.Views.ViewGroup/LayoutParams params) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.SetContentView(Android.Views.View,Android.Views.ViewGroup.LayoutParams)" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable Sub SetContentView (view As View, params As ViewGroup.LayoutParams)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual void SetContentView(Android::Views::View ^ view, Android::Views::ViewGroup::LayoutParams ^ params);" />
       <MemberSignature Language="F#" Value="abstract member SetContentView : Android.Views.View * Android.Views.ViewGroup.LayoutParams -&gt; unit&#xA;override this.SetContentView : Android.Views.View * Android.Views.ViewGroup.LayoutParams -&gt; unit" Usage="dreamService.SetContentView (view, params)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -1924,11 +2109,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdClass">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="C#" Value="protected override IntPtr ThresholdClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance native int ThresholdClass" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Dreams.DreamService.ThresholdClass" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdClass As IntPtr" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property IntPtr ThresholdClass { IntPtr get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Service.Dreams.DreamService.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1957,11 +2142,11 @@
       </Docs>
     </Member>
     <Member MemberName="ThresholdType">
+      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
+      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="C#" Value="protected override Type ThresholdType { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Type ThresholdType" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Dreams.DreamService.ThresholdType" />
-      <MemberSignature Language="VB.NET" Value="Protected Overrides ReadOnly Property ThresholdType As Type" />
-      <MemberSignature Language="C++ CLI" Value="protected:&#xA; virtual property Type ^ ThresholdType { Type ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Service.Dreams.DreamService.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -1977,6 +2162,14 @@
           <AttributeName Language="C#">[System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.CompilerServices.Nullable(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.Nullable(1)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.CompilerServices.NullableContext(1)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.CompilerServices.NullableContext(1)&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Type</ReturnType>
@@ -1990,11 +2183,11 @@
       </Docs>
     </Member>
     <Member MemberName="WakeUp">
+      <MemberSignature Language="VB.NET" Value="Public Sub WakeUp ()" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void WakeUp();" />
       <MemberSignature Language="C#" Value="public void WakeUp ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void WakeUp() cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.Service.Dreams.DreamService.WakeUp" />
-      <MemberSignature Language="VB.NET" Value="Public Sub WakeUp ()" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void WakeUp();" />
       <MemberSignature Language="F#" Value="member this.WakeUp : unit -&gt; unit" Usage="dreamService.WakeUp " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -2014,6 +2207,9 @@
       <Docs>
         <summary>Wakes the dream up gently.</summary>
         <remarks>
+          <para>Wakes the dream up gently.</para>
+          <para>Calls <c>#onWakeUp</c> to give the dream a chance to perform an exit transition.
+            When the transition is over, the dream should call <c>#finish</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#wakeUp()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.wakeUp()</code>.</a>
@@ -2028,11 +2224,11 @@
       </Docs>
     </Member>
     <Member MemberName="Window">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property Window As Window" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Android::Views::Window ^ Window { Android::Views::Window ^ get(); };" />
       <MemberSignature Language="C#" Value="public virtual Android.Views.Window? Window { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Android.Views.Window Window" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Dreams.DreamService.Window" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property Window As Window" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Android::Views::Window ^ Window { Android::Views::Window ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.Window : Android.Views.Window" Usage="Android.Service.Dreams.DreamService.Window" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2052,6 +2248,8 @@
         <summary>Retrieves the current <c>android.view.Window</c> for the dream.</summary>
         <value>The current window, or null if the dream is not started.</value>
         <remarks>
+          <para>Retrieves the current <c>android.view.Window</c> for the dream.
+            Behaves similarly to <c>android.app.Activity#getWindow()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#getWindow()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.getWindow()</code>.</a>
@@ -2067,11 +2265,11 @@
       </Docs>
     </Member>
     <Member MemberName="WindowManager">
+      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property WindowManager As IWindowManager" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Android::Views::IWindowManager ^ WindowManager { Android::Views::IWindowManager ^ get(); };" />
       <MemberSignature Language="C#" Value="public virtual Android.Views.IWindowManager? WindowManager { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Android.Views.IWindowManager WindowManager" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Dreams.DreamService.WindowManager" />
-      <MemberSignature Language="VB.NET" Value="Public Overridable ReadOnly Property WindowManager As IWindowManager" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; virtual property Android::Views::IWindowManager ^ WindowManager { Android::Views::IWindowManager ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.WindowManager : Android.Views.IWindowManager" Usage="Android.Service.Dreams.DreamService.WindowManager" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -2091,6 +2289,8 @@
         <summary>Retrieves the current <c>android.view.WindowManager</c> for the dream.</summary>
         <value>The current window manager, or null if the dream is not started.</value>
         <remarks>
+          <para>Retrieves the current <c>android.view.WindowManager</c> for the dream.
+            Behaves similarly to <c>android.app.Activity#getWindowManager()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/dreams/DreamService#getWindowManager()" title="Reference documentation">Java documentation for <code>android.service.dreams.DreamService.getWindowManager()</code>.</a>

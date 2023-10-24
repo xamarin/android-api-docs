@@ -1,9 +1,9 @@
 <Type Name="ISQLData" FullName="Java.Sql.ISQLData">
+  <TypeSignature Language="VB.NET" Value="Public Interface ISQLData&#xA;Implements IDisposable, IJavaObject, IJavaPeerable" />
+  <TypeSignature Language="C++ CLI" Value="public interface class ISQLData : Android::Runtime::IJavaObject, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="C#" Value="public interface ISQLData : Android.Runtime.IJavaObject, IDisposable, Java.Interop.IJavaPeerable" />
   <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract beforefieldinit ISQLData implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Sql.ISQLData" />
-  <TypeSignature Language="VB.NET" Value="Public Interface ISQLData&#xA;Implements IDisposable, IJavaObject, IJavaPeerable" />
-  <TypeSignature Language="C++ CLI" Value="public interface class ISQLData : Android::Runtime::IJavaObject, IDisposable, Java::Interop::IJavaPeerable" />
   <TypeSignature Language="F#" Value="type ISQLData = interface&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
     <AssemblyName>Mono.Android</AssemblyName>
@@ -25,11 +25,45 @@
       <AttributeName Language="C#">[Android.Runtime.Register("java/sql/SQLData", "", "Java.Sql.ISQLDataInvoker")]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/sql/SQLData", "", "Java.Sql.ISQLDataInvoker")&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.CompilerServices.NullableContext(2)]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.CompilerServices.NullableContext(2)&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs since="1">
     <summary>The interface used for the custom mapping of an SQL user-defined type (UDT) to
             a class in the Java programming language.</summary>
     <remarks>
+      <para>The interface used for the custom mapping of an SQL user-defined type (UDT) to
+            a class in the Java programming language. The class object for a class
+            implementing the <c>SQLData</c> interface will be entered in the
+            appropriate <c>Connection</c> object's type map along with the SQL
+            name of the UDT for which it is a custom mapping.</para>
+      <para>Typically, a <c>SQLData</c> implementation
+            will define a field for each attribute of an SQL structured type or a
+            single field for an SQL <c>DISTINCT</c> type. When the UDT is
+            retrieved from a data source with the <c>ResultSet.getObject</c>
+            method, it will be mapped as an instance of this class.  A programmer
+            can operate on this class instance just as on any other object in the
+            Java programming language and then store any changes made to it by
+            calling the <c>PreparedStatement.setObject</c> method,
+            which will map it back to the SQL type.</para>
+      <para>It is expected that the implementation of the class for a custom
+            mapping will be done by a tool.  In a typical implementation, the
+            programmer would simply supply the name of the SQL UDT, the name of
+            the class to which it is being mapped, and the names of the fields to
+            which each of the attributes of the UDT is to be mapped.  The tool will use
+            this information to implement the <c>SQLData.readSQL</c> and
+            <c>SQLData.writeSQL</c> methods.  The <c>readSQL</c> method
+            calls the appropriate <c>SQLInput</c> methods to read
+            each attribute from an <c>SQLInput</c> object, and the
+            <c>writeSQL</c> method calls <c>SQLOutput</c> methods
+            to write each attribute back to the data source via an
+            <c>SQLOutput</c> object.</para>
+      <para>An application programmer will not normally call <c>SQLData</c> methods
+            directly, and the <c>SQLInput</c> and <c>SQLOutput</c> methods
+            are called internally by <c>SQLData</c> methods, not by application code.</para>
+      <para>Added in 1.2.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/sql/SQLData" title="Reference documentation">Java documentation for <code>java.sql.SQLData</code>.</a>
@@ -45,11 +79,11 @@
   </Docs>
   <Members>
     <Member MemberName="ReadSQL">
+      <MemberSignature Language="VB.NET" Value="Public Sub ReadSQL (stream As ISQLInput, typeName As String)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ReadSQL(Java::Sql::ISQLInput ^ stream, System::String ^ typeName);" />
       <MemberSignature Language="C#" Value="public void ReadSQL (Java.Sql.ISQLInput? stream, string? typeName);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void ReadSQL(class Java.Sql.ISQLInput stream, string typeName) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Sql.ISQLData.ReadSQL(Java.Sql.ISQLInput,System.String)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub ReadSQL (stream As ISQLInput, typeName As String)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void ReadSQL(Java::Sql::ISQLInput ^ stream, System::String ^ typeName);" />
       <MemberSignature Language="F#" Value="abstract member ReadSQL : Java.Sql.ISQLInput * string -&gt; unit" Usage="iSQLData.ReadSQL (stream, typeName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -75,6 +109,27 @@
         <param name="typeName">the SQL type name of the value on the data stream</param>
         <summary>Populates this object with data read from the database.</summary>
         <remarks>
+          <para>Populates this object with data read from the database.
+            The implementation of the method must follow this protocol:
+            &lt;UL&gt;
+            &lt;LI&gt;It must read each of the attributes or elements of the SQL
+            type  from the given input stream.  This is done
+            by calling a method of the input stream to read each
+            item, in the order that they appear in the SQL definition
+            of the type.
+            &lt;LI&gt;The method <c>readSQL</c> then
+            assigns the data to appropriate fields or
+            elements (of this or other objects).
+            Specifically, it must call the appropriate <i>reader</i> method
+            (<c>SQLInput.readString</c>, <c>SQLInput.readBigDecimal</c>,
+            and so on) method(s) to do the following:
+            for a distinct type, read its single data element;
+            for a structured type, read a value for each attribute of the SQL type.
+            &lt;/UL&gt;
+            The JDBC driver initializes the input stream with a type map
+            before calling this method, which is used by the appropriate
+            <c>SQLInput</c> reader method on the stream.</para>
+          <para>Added in 1.2.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/sql/SQLData#readSQL(java.sql.SQLInput,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.sql.SQLData.readSQL(java.sql.SQLInput, java.lang.String)</code>.</a>
@@ -92,11 +147,11 @@
       </Docs>
     </Member>
     <Member MemberName="SQLTypeName">
+      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property SQLTypeName As String" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::String ^ SQLTypeName { System::String ^ get(); };" />
       <MemberSignature Language="C#" Value="public string? SQLTypeName { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance string SQLTypeName" />
       <MemberSignature Language="DocId" Value="P:Java.Sql.ISQLData.SQLTypeName" />
-      <MemberSignature Language="VB.NET" Value="Public ReadOnly Property SQLTypeName As String" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; property System::String ^ SQLTypeName { System::String ^ get(); };" />
       <MemberSignature Language="F#" Value="member this.SQLTypeName : string" Usage="Java.Sql.ISQLData.SQLTypeName" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
@@ -125,11 +180,11 @@
       </Docs>
     </Member>
     <Member MemberName="WriteSQL">
+      <MemberSignature Language="VB.NET" Value="Public Sub WriteSQL (stream As ISQLOutput)" />
+      <MemberSignature Language="C++ CLI" Value="public:&#xA; void WriteSQL(Java::Sql::ISQLOutput ^ stream);" />
       <MemberSignature Language="C#" Value="public void WriteSQL (Java.Sql.ISQLOutput? stream);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void WriteSQL(class Java.Sql.ISQLOutput stream) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Sql.ISQLData.WriteSQL(Java.Sql.ISQLOutput)" />
-      <MemberSignature Language="VB.NET" Value="Public Sub WriteSQL (stream As ISQLOutput)" />
-      <MemberSignature Language="C++ CLI" Value="public:&#xA; void WriteSQL(Java::Sql::ISQLOutput ^ stream);" />
       <MemberSignature Language="F#" Value="abstract member WriteSQL : Java.Sql.ISQLOutput -&gt; unit" Usage="iSQLData.WriteSQL stream" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
@@ -154,6 +209,18 @@
         <summary>Writes this object to the given SQL data stream, converting it back to
             its SQL value in the data source.</summary>
         <remarks>
+          <para>Writes this object to the given SQL data stream, converting it back to
+            its SQL value in the data source.
+            The implementation of the method must follow this protocol:&lt;BR&gt;
+            It must write each of the attributes of the SQL type
+            to the given output stream.  This is done by calling a
+            method of the output stream to write each item, in the order that
+            they appear in the SQL definition of the type.
+            Specifically, it must call the appropriate <c>SQLOutput</c> writer
+            method(s) (<c>writeInt</c>, <c>writeString</c>, and so on)
+            to do the following: for a Distinct Type, write its single data element;
+            for a Structured Type, write a value for each attribute of the SQL type.</para>
+          <para>Added in 1.2.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/sql/SQLData#writeSQL(java.sql.SQLOutput)" title="Reference documentation">Java documentation for <code>java.sql.SQLData.writeSQL(java.sql.SQLOutput)</code>.</a>
