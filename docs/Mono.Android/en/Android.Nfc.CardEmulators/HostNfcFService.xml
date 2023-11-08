@@ -16,11 +16,73 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/nfc/cardemulation/HostNfcFService", ApiSince=24, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/nfc/cardemulation/HostNfcFService", ApiSince=24, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>HostNfcFService is a convenience <c>Service</c> class that can be
             extended to emulate an NFC-F card inside an Android service component.</summary>
     <remarks>
+      <para>HostNfcFService is a convenience <c>Service</c> class that can be
+            extended to emulate an NFC-F card inside an Android service component.
+            
+            &lt;h3&gt;NFC Protocols&lt;/h3&gt;</para>
+      <para>Cards emulated by this class are based on the NFC-Forum NFC-F
+            protocol (based on the JIS-X 6319-4 specification.)</para>
+      <para>&lt;h3&gt;System Code and NFCID2 registration&lt;/h3&gt;</para>
+      <para>A <c>HostNfcFService HostNfcFService service</c> can register
+            exactly one System Code and one NFCID2. For details about the use of
+            System Code and NFCID2, see the NFC Forum Digital specification.</para>
+      <para>To statically register a System Code and NFCID2 with the service, a <c>#SERVICE_META_DATA</c>
+            entry must be included in the declaration of the service.</para>
+      <para>All <c>HostNfcFService HostNfcFService</c> declarations in the manifest must require the
+            <c>android.Manifest.permission#BIND_NFC_SERVICE</c> permission
+            in their &amp;lt;service&amp;gt; tag, to ensure that only the platform can bind to your service.</para>
+      <para>An example of a HostNfcFService manifest declaration is shown below:</para>
+      <code lang="text/java">&amp;lt;service android:name=".MyHostNfcFService" android:exported="true" android:permission="android.permission.BIND_NFC_SERVICE"&amp;gt;
+                &amp;lt;intent-filter&amp;gt;
+                    &amp;lt;action android:name="android.nfc.cardemulation.action.HOST_NFCF_SERVICE"/&amp;gt;
+                &amp;lt;/intent-filter&amp;gt;
+                &amp;lt;meta-data android:name="android.nfc.cardemulation.host_nfcf_service" android:resource="@xml/nfcfservice"/&amp;gt;
+            &amp;lt;/service&amp;gt;</code>
+      <para>This meta-data tag points to an nfcfservice.xml file.
+            An example of this file with a System Code and NFCID2 declaration is shown below:</para>
+      <code lang="text/java">&amp;lt;host-nfcf-service xmlns:android="http://schemas.android.com/apk/res/android"
+                      android:description="@string/servicedesc"&amp;gt;
+                  &amp;lt;system-code-filter android:name="4000"/&amp;gt;
+                  &amp;lt;nfcid2-filter android:name="02FE000000000000"/&amp;gt;
+                     &amp;lt;t3tPmm-filter android:name="FFFFFFFFFFFFFFFF"/&amp;gt;
+            &amp;lt;/host-nfcf-service&amp;gt;
+            </code>
+      <para>The <c>android.R.styleable#HostNfcFService &amp;lt;host-nfcf-service&amp;gt;</c> is required
+            to contain a
+            <c>android.R.styleable#HostApduService_description &amp;lt;android:description&amp;gt;</c>
+            attribute that contains a user-friendly description of the service that may be shown in UI.</para>
+      <para>The <c>android.R.styleable#HostNfcFService &amp;lt;host-nfcf-service&amp;gt;</c> must
+            contain:
+            &lt;ul&gt;
+            &lt;li&gt;Exactly one <c>android.R.styleable#SystemCodeFilter &amp;lt;system-code-filter&amp;gt;</c> tag.&lt;/li&gt;
+            &lt;li&gt;Exactly one <c>android.R.styleable#Nfcid2Filter &amp;lt;nfcid2-filter&amp;gt;</c> tag.&lt;/li&gt;
+            &lt;li&gt;Zero or one <c>android.R.styleable#T3tPmmFilter &amp;lt;t3tPmm-filter&amp;gt;</c> tag.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>Alternatively, the System Code and NFCID2 can be dynamically registererd for a service
+            by using the <c>NfcFCardEmulation#registerSystemCodeForService(ComponentName, String)</c> and
+            <c>NfcFCardEmulation#setNfcid2ForService(ComponentName, String)</c> methods.</para>
+      <para>&lt;h3&gt;Service selection&lt;/h3&gt;</para>
+      <para>When a remote NFC devices wants to communicate with your service, it
+            sends a SENSF_REQ command to the NFC controller, requesting a System Code.
+            If a <c>NfcFCardEmulation NfcFCardEmulation service</c> has registered
+            this system code and has been enabled by the foreground application, the
+            NFC controller will respond with the NFCID2 that is registered for this service.
+            The reader can then continue data exchange with this service by using the NFCID2.</para>
+      <para>&lt;h3&gt;Data exchange&lt;/h3&gt;</para>
+      <para>After service selection, all frames addressed to the NFCID2 of this service will
+            be sent through <c>#processNfcFPacket(byte[], Bundle)</c>, until the NFC link is
+            broken.</para>
+      <para />
+      <para>When the NFC link is broken, <c>#onDeactivated(int)</c> will be called.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostNfcFService" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostNfcFService</code>.</a>
@@ -47,6 +109,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "()V", "", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "()V", "", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <Parameters />
@@ -99,6 +165,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Nfc.CardEmulators.DeactivationReasonF enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Nfc.CardEmulators.DeactivationReasonF enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Nfc.CardEmulators.DeactivationReasonF</ReturnType>
@@ -107,6 +177,9 @@
       <Docs>
         <summary>Reason for <c>#onDeactivated(int)</c>.</summary>
         <remarks>
+          <para>Reason for <c>#onDeactivated(int)</c>.
+            Indicates deactivation was due to the NFC link
+            being lost.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostNfcFService#DEACTIVATION_LINK_LOSS" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostNfcFService.DEACTIVATION_LINK_LOSS</code>.</a>
@@ -166,6 +239,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onBind", "(Landroid/content/Intent;)Landroid/os/IBinder;", "", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onBind", "(Landroid/content/Intent;)Landroid/os/IBinder;", "", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.OS.IBinder</ReturnType>
@@ -197,6 +274,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onDeactivated", "(I)V", "GetOnDeactivated_IHandler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onDeactivated", "(I)V", "GetOnDeactivated_IHandler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -218,6 +299,8 @@
         <summary>This method will be called in following possible scenarios:
             &lt;li&gt;The NFC link has been lost</summary>
         <remarks>
+          <para>This method will be called in following possible scenarios:
+            &lt;li&gt;The NFC link has been lost</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostNfcFService#onDeactivated(int)" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostNfcFService.onDeactivated(int)</code>.</a>
@@ -246,6 +329,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("processNfcFPacket", "([BLandroid/os/Bundle;)[B", "GetProcessNfcFPacket_arrayBLandroid_os_Bundle_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("processNfcFPacket", "([BLandroid/os/Bundle;)[B", "GetProcessNfcFPacket_arrayBLandroid_os_Bundle_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Byte[]</ReturnType>
@@ -262,6 +349,16 @@
         <returns>a byte-array containing the response packet, or null if no
                     response packet can be sent at this point.</returns>
         <remarks>
+          <para>This method will be called when a NFC-F packet has been received
+            from a remote device. A response packet can be provided directly
+            by returning a byte-array in this method. Note that in general
+            response packets must be sent as quickly as possible, given the fact
+            that the user is likely holding their device over an NFC reader
+            when this method is called.
+            
+            &lt;p class="note"&gt;This method is running on the main thread of your application.
+            If you cannot return a response packet immediately, return null
+            and use the <c>#sendResponsePacket(byte[])</c> method later.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostNfcFService#processNfcFPacket(byte[],%20android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostNfcFService.processNfcFPacket(byte[], android.os.Bundle)</code>.</a>
@@ -290,6 +387,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("sendResponsePacket", "([B)V", "", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("sendResponsePacket", "([B)V", "", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -301,6 +402,8 @@
         <param name="responsePacket">A byte-array containing the response packet.</param>
         <summary>Sends a response packet back to the remote device.</summary>
         <remarks>
+          <para>Sends a response packet back to the remote device.</para>
+          <para>Note: this method may be called from any thread and will not block.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostNfcFService#sendResponsePacket(byte[])" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostNfcFService.sendResponsePacket(byte[])</code>.</a>
@@ -329,6 +432,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("SERVICE_INTERFACE", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("SERVICE_INTERFACE", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -336,6 +443,7 @@
       <Docs>
         <summary>The <c>Intent</c> action that must be declared as handled by the service.</summary>
         <remarks>
+          <para>The <c>Intent</c> action that must be declared as handled by the service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostNfcFService#SERVICE_INTERFACE" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostNfcFService.SERVICE_INTERFACE</code>.</a>
@@ -364,6 +472,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("SERVICE_META_DATA", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("SERVICE_META_DATA", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -372,6 +484,8 @@
         <summary>The name of the meta-data element that contains
             more information about this service.</summary>
         <remarks>
+          <para>The name of the meta-data element that contains
+            more information about this service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostNfcFService#SERVICE_META_DATA" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostNfcFService.SERVICE_META_DATA</code>.</a>

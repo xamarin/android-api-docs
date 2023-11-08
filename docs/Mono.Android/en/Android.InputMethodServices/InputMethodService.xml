@@ -21,6 +21,130 @@
     <summary>InputMethodService provides a standard implementation of an InputMethod,
             which final implementations can derive from and customize.</summary>
     <remarks>
+      <para>InputMethodService provides a standard implementation of an InputMethod,
+            which final implementations can derive from and customize.  See the
+            base class <c>AbstractInputMethodService</c> and the <c>InputMethod</c>
+            interface for more information on the basics of writing input methods.</para>
+      <para>In addition to the normal Service lifecycle methods, this class
+            introduces some new specific callbacks that most subclasses will want
+            to make use of:</para>
+      <para>&lt;ul&gt;
+            &lt;li&gt; <c>#onInitializeInterface()</c> for user-interface initialization,
+            in particular to deal with configuration changes while the service is
+            running.
+            &lt;li&gt; <c>#onBindInput</c> to find out about switching to a new client.
+            &lt;li&gt; <c>#onStartInput</c> to deal with an input session starting with
+            the client.
+            &lt;li&gt; <c>#onCreateInputView()</c>, <c>#onCreateCandidatesView()</c>,
+            and <c>#onCreateExtractTextView()</c> for non-demand generation of the UI.
+            &lt;li&gt; <c>#onStartInputView(EditorInfo, boolean)</c> to deal with input
+            starting within the input area of the IME.
+            &lt;/ul&gt;</para>
+      <para>An input method has significant discretion in how it goes about its
+            work: the <c>android.inputmethodservice.InputMethodService</c> provides
+            a basic framework for standard UI elements (input view, candidates view,
+            and running in fullscreen mode), but it is up to a particular implementor
+            to decide how to use them.  For example, one input method could implement
+            an input area with a keyboard, another could allow the user to draw text,
+            while a third could have no input area (and thus not be visible to the
+            user) but instead listen to audio and perform text to speech conversion.</para>
+      <para>In the implementation provided here, all of these elements are placed
+            together in a single window managed by the InputMethodService.  It will
+            execute callbacks as it needs information about them, and provides APIs for
+            programmatic control over them.  They layout of these elements is explicitly
+            defined:</para>
+      <para>&lt;ul&gt;
+            &lt;li&gt;The soft input view, if available, is placed at the bottom of the
+            screen.
+            &lt;li&gt;The candidates view, if currently shown, is placed above the soft
+            input view.
+            &lt;li&gt;If not running fullscreen, the application is moved or resized to be
+            above these views; if running fullscreen, the window will completely cover
+            the application and its top part will contain the extract text of what is
+            currently being edited by the application.
+            &lt;/ul&gt;
+            
+            
+            "SoftInputView"&gt;&lt;h3&gt;Soft Input View&lt;/h3&gt;</para>
+      <para>Central to most input methods is the soft input view.  This is where most
+            user interaction occurs: pressing on soft keys, drawing characters, or
+            however else your input method wants to generate text.  Most implementations
+            will simply have their own view doing all of this work, and return a new
+            instance of it when <c>#onCreateInputView()</c> is called.  At that point,
+            as long as the input view is visible, you will see user interaction in
+            that view and can call back on the InputMethodService to interact with the
+            application as appropriate.</para>
+      <para>There are some situations where you want to decide whether or not your
+            soft input view should be shown to the user.  This is done by implementing
+            the <c>#onEvaluateInputViewShown()</c> to return true or false based on
+            whether it should be shown in the current environment.  If any of your
+            state has changed that may impact this, call
+            <c>#updateInputViewShown()</c> to have it re-evaluated.  The default
+            implementation always shows the input view unless there is a hard
+            keyboard available, which is the appropriate behavior for most input
+            methods.</para>
+      <para>"CandidatesView"&gt;&lt;h3&gt;Candidates View&lt;/h3&gt;</para>
+      <para>Often while the user is generating raw text, an input method wants to
+            provide them with a list of possible interpretations of that text that can
+            be selected for use.  This is accomplished with the candidates view, and
+            like the soft input view you implement <c>#onCreateCandidatesView()</c>
+            to instantiate your own view implementing your candidates UI.</para>
+      <para>Management of the candidates view is a little different than the input
+            view, because the candidates view tends to be more transient, being shown
+            only when there are possible candidates for the current text being entered
+            by the user.  To control whether the candidates view is shown, you use
+            <c>#setCandidatesViewShown(boolean)</c>.  Note that because the candidate
+            view tends to be shown and hidden a lot, it does not impact the application
+            UI in the same way as the soft input view: it will never cause application
+            windows to resize, only cause them to be panned if needed for the user to
+            see the current focus.</para>
+      <para>"FullscreenMode"&gt;&lt;h3&gt;Fullscreen Mode&lt;/h3&gt;</para>
+      <para>Sometimes your input method UI is too large to integrate with the
+            application UI, so you just want to take over the screen.  This is
+            accomplished by switching to full-screen mode, causing the input method
+            window to fill the entire screen and add its own "extracted text" editor
+            showing the user the text that is being typed.  Unlike the other UI elements,
+            there is a standard implementation for the extract editor that you should
+            not need to change.  The editor is placed at the top of the IME, above the
+            input and candidates views.</para>
+      <para>Similar to the input view, you control whether the IME is running in
+            fullscreen mode by implementing <c>#onEvaluateFullscreenMode()</c>
+            to return true or false based on
+            whether it should be fullscreen in the current environment.  If any of your
+            state has changed that may impact this, call
+            <c>#updateFullscreenMode()</c> to have it re-evaluated.  The default
+            implementation selects fullscreen mode when the screen is in a landscape
+            orientation, which is appropriate behavior for most input methods that have
+            a significant input area.</para>
+      <para>When in fullscreen mode, you have some special requirements because the
+            user can not see the application UI.  In particular, you should implement
+            <c>#onDisplayCompletions(CompletionInfo[])</c> to show completions
+            generated by your application, typically in your candidates view like you
+            would normally show candidates.
+            
+            
+            "GeneratingText"&gt;&lt;h3&gt;Generating Text&lt;/h3&gt;</para>
+      <para>The key part of an IME is of course generating text for the application.
+            This is done through calls to the
+            <c>android.view.inputmethod.InputConnection</c> interface to the
+            application, which can be retrieved from <c>#getCurrentInputConnection()</c>.
+            This interface allows you to generate raw key events or, if the target
+            supports it, directly edit in strings of candidates and committed text.</para>
+      <para>Information about what the target is expected and supports can be found
+            through the <c>android.view.inputmethod.EditorInfo</c> class, which is
+            retrieved with <c>#getCurrentInputEditorInfo()</c> method.  The most
+            important part of this is <c>android.view.inputmethod.EditorInfo#inputType
+            EditorInfo.inputType</c>; in particular, if this is
+            <c>android.view.inputmethod.EditorInfo#TYPE_NULL EditorInfo.TYPE_NULL</c>,
+            then the target does not support complex edits and you need to only deliver
+            raw key events to it.  An input method will also want to look at other
+            values here, to for example detect password mode, auto complete text views,
+            phone number entry, etc.</para>
+      <para>When the user switches between input targets, you will receive calls to
+            <c>#onFinishInput()</c> and <c>#onStartInput(EditorInfo, boolean)</c>.
+            You can use these to reset and initialize your input state for the current
+            target.  For example, you will often want to clear any input state, and
+            update a soft keyboard to be appropriate for the new inputType.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService</code>.</a>
@@ -41,8 +165,8 @@
       <MemberSignature Language="DocId" Value="M:Android.InputMethodServices.InputMethodService.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -67,8 +191,8 @@
       <MemberSignature Language="F#" Value="new Android.InputMethodServices.InputMethodService : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.InputMethodServices.InputMethodService" Usage="new Android.InputMethodServices.InputMethodService (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -90,8 +214,8 @@
       <MemberSignature Language="F#" Value="member this.BackDisposition : Android.InputMethodServices.BackDisposition with get, set" Usage="Android.InputMethodServices.InputMethodService.BackDisposition" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -112,12 +236,18 @@
         <value>currently selected disposition mode</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Retrieves the current disposition mode that indicates the expected back button affordance.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getBackDisposition()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getBackDisposition()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets the disposition mode that indicates the expected affordance for the back button.</para>
+          <para>Keep in mind that specifying this flag does not change the the default behavior of
+            <c>#onKeyDown(int, KeyEvent)</c>.  It is IME developers' responsibility for making sure that
+            their custom implementation of <c>#onKeyDown(int, KeyEvent)</c> is consistent with the mode
+            specified to this API.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#setBackDisposition(int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.setBackDisposition(int)</code>.</a>
@@ -139,8 +269,8 @@
       <MemberSignature Language="F#" Value="member this.CandidatesHiddenVisibility : Android.Views.ViewStates" Usage="Android.InputMethodServices.InputMethodService.CandidatesHiddenVisibility" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -157,6 +287,14 @@
             shown.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the visibility mode (either <c>View#INVISIBLE View.INVISIBLE</c>
+            or <c>View#GONE View.GONE</c>) of the candidates view when it is not
+            shown.  The default implementation returns GONE when
+            <c>#isExtractViewShown</c> returns true,
+            otherwise INVISIBLE.  Be careful if you change this to return GONE in
+            other situations -- if showing or hiding the candidates view causes
+            your window to resize, this can cause temporary drawing artifacts as
+            the resize takes place.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getCandidatesHiddenVisibility()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getCandidatesHiddenVisibility()</code>.</a>
@@ -178,8 +316,8 @@
       <MemberSignature Language="F#" Value="member this.CurrentInputBinding : Android.Views.InputMethods.InputBinding" Usage="Android.InputMethodServices.InputMethodService.CurrentInputBinding" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -195,6 +333,8 @@
             null if there is none.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Return the currently active InputBinding for the input method, or
+            null if there is none.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getCurrentInputBinding()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getCurrentInputBinding()</code>.</a>
@@ -216,8 +356,8 @@
       <MemberSignature Language="F#" Value="member this.CurrentInputConnection : Android.Views.InputMethods.IInputConnection" Usage="Android.InputMethodServices.InputMethodService.CurrentInputConnection" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -233,6 +373,8 @@
             the input method, or null if there is none.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Retrieve the currently active InputConnection that is bound to
+            the input method, or null if there is none.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getCurrentInputConnection()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getCurrentInputConnection()</code>.</a>
@@ -254,8 +396,8 @@
       <MemberSignature Language="F#" Value="member this.CurrentInputEditorInfo : Android.Views.InputMethods.EditorInfo" Usage="Android.InputMethodServices.InputMethodService.CurrentInputEditorInfo" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -283,8 +425,8 @@
       <MemberSignature Language="F#" Value="member this.CurrentInputStarted : bool" Usage="Android.InputMethodServices.InputMethodService.CurrentInputStarted" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -312,8 +454,8 @@
       <MemberSignature Language="F#" Value="abstract member EnableHardwareAcceleration : unit -&gt; bool&#xA;override this.EnableHardwareAcceleration : unit -&gt; bool" Usage="inputMethodService.EnableHardwareAcceleration " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -336,6 +478,15 @@
                     On API 21 and later devices the return value is basically just a hint and your IME
                     does not need to change the behavior based on the it</returns>
         <remarks>
+          <para>You can call this to try to enable accelerated drawing for your IME. This must be set before
+            <c>#onCreate()</c>, so you will typically call it in your constructor.  It is not always
+            possible to use hardware accelerated drawing in an IME (for example on low-end devices that
+            do not have the resources to support this), so the call <c>true</c> if it succeeds otherwise
+            <c>false</c> if you will need to draw in software.  You must be able to handle either case.</para>
+          <para>In API 21 and later, system may automatically enable hardware accelerated drawing for your
+            IME on capable devices even if this method is not explicitly called. Make sure that your IME
+            is able to handle either case.</para>
+          <para>This member is deprecated. Starting in API 21, hardware acceleration is always enabled on capable devices</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#enableHardwareAcceleration()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.enableHardwareAcceleration()</code>.</a>
@@ -357,8 +508,8 @@
       <MemberSignature Language="F#" Value="member this.ExtractViewShown : bool with get, set" Usage="Android.InputMethodServices.InputMethodService.ExtractViewShown" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -378,12 +529,27 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Return whether the fullscreen extract view is shown.  This will only
+            return true if <c>#isFullscreenMode()</c> returns true, and in that
+            case its value depends on the last call to
+            <c>#setExtractViewShown(boolean)</c>.  This effectively lets you
+            determine if the application window is entirely covered (when this
+            returns true) or if some part of it may be shown (if this returns
+            false, though if <c>#isFullscreenMode()</c> returns true in that case
+            then it is probably only a sliver of the application).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#isExtractViewShown()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.isExtractViewShown()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Controls the visibility of the extracted text area.  This only applies
+            when the input method is in fullscreen mode, and thus showing extracted
+            text.  When false, the extracted text will not be shown, allowing some
+            of the application to be seen behind.  This is normally set for you
+            by <c>#onUpdateExtractingVisibility</c>.  This controls the visibility
+            of both the extracted text and candidate view; the latter since it is
+            not useful if there is no text to see.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#setExtractViewShown(boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.setExtractViewShown(boolean)</code>.</a>
@@ -413,6 +579,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("finishStylusHandwriting", "()V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("finishStylusHandwriting", "()V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -421,6 +591,17 @@
       <Docs>
         <summary>Finish the current stylus handwriting session.</summary>
         <remarks>
+          <para>Finish the current stylus handwriting session.
+            
+            This dismisses the <c>#getStylusHandwritingWindow ink window</c> and stops intercepting
+            stylus <c>MotionEvent</c>s.
+            
+            Note for IME developers: Call this method at any time to finish current handwriting session.
+            Generally, this should be invoked after a short timeout, giving the user enough time
+            to start the next stylus stroke, if any. By default, system will time-out after few seconds.
+            To override default timeout, use <c>#setStylusHandwritingSessionTimeout(Duration)</c>.
+            
+            Handwriting session will be finished by framework on next <c>#onFinishInput()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#finishStylusHandwriting()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.finishStylusHandwriting()</code>.</a>
@@ -441,8 +622,8 @@
       <MemberSignature Language="F#" Value="member this.GetTextForImeAction : Android.Views.InputMethods.ImeAction -&gt; string" Usage="inputMethodService.GetTextForImeAction imeOptions" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -463,6 +644,11 @@
             <c>EditorInfo#imeOptions EditorInfo.imeOptions</c>.</summary>
         <returns>Returns a label to use, or null if there is no action.</returns>
         <remarks>
+          <para>Return text that can be used as a button label for the given
+            <c>EditorInfo#imeOptions EditorInfo.imeOptions</c>.  Returns null
+            if there is no action requested.  Note that there is no guarantee that
+            the returned text will be relatively short, so you probably do not
+            want to use it as text on a soft keyboard key label.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getTextForImeAction(int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getTextForImeAction(int)</code>.</a>
@@ -483,8 +669,8 @@
       <MemberSignature Language="F#" Value="abstract member GetTextForImeActionFormatted : Android.Views.InputMethods.ImeAction -&gt; Java.Lang.ICharSequence&#xA;override this.GetTextForImeActionFormatted : Android.Views.InputMethods.ImeAction -&gt; Java.Lang.ICharSequence" Usage="inputMethodService.GetTextForImeActionFormatted imeOptions" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -511,6 +697,11 @@
             <c>EditorInfo#imeOptions EditorInfo.imeOptions</c>.</summary>
         <returns>Returns a label to use, or null if there is no action.</returns>
         <remarks>
+          <para>Return text that can be used as a button label for the given
+            <c>EditorInfo#imeOptions EditorInfo.imeOptions</c>.  Returns null
+            if there is no action requested.  Note that there is no guarantee that
+            the returned text will be relatively short, so you probably do not
+            want to use it as text on a soft keyboard key label.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getTextForImeAction(int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getTextForImeAction(int)</code>.</a>
@@ -532,8 +723,8 @@
       <MemberSignature Language="F#" Value="abstract member HideStatusIcon : unit -&gt; unit&#xA;override this.HideStatusIcon : unit -&gt; unit" Usage="inputMethodService.HideStatusIcon " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -561,8 +752,8 @@
       <MemberSignature Language="F#" Value="abstract member HideWindow : unit -&gt; unit&#xA;override this.HideWindow : unit -&gt; unit" Usage="inputMethodService.HideWindow " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -590,13 +781,13 @@
       <MemberSignature Language="F#" Value="member this.InputMethodWindowRecommendedHeight : int" Usage="Android.InputMethodServices.InputMethodService.InputMethodWindowRecommendedHeight" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getInputMethodWindowRecommendedHeight", "()I", "GetGetInputMethodWindowRecommendedHeightHandler")]</AttributeName>
@@ -612,6 +803,12 @@
         <value>on Android <c>android.os.Build.VERSION_CODES#Q</c> and later devices this method
                     always returns <c>0</c></value>
         <remarks>
+          <para>Aimed to return the previous input method's <c>Insets#contentTopInsets</c>, but its actual
+            semantics has never been well defined.</para>
+          <para>Note that the previous document clearly mentioned that this method could return <c>0</c>
+            at any time for whatever reason.  Now this method is just always returning <c>0</c>.</para>
+          <para>This member is deprecated. the actual behavior of this method has never been well defined.  You cannot use
+                        this method in a reliable and predictable way</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getInputMethodWindowRecommendedHeight()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getInputMethodWindowRecommendedHeight()</code>.</a>
@@ -632,8 +829,8 @@
       <MemberSignature Language="F#" Value="member this.IsFullscreenMode : bool" Usage="Android.InputMethodServices.InputMethodService.IsFullscreenMode" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -649,6 +846,9 @@
             fullscreen mode.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Return whether the input method is &lt;em&gt;currently&lt;/em&gt; running in
+            fullscreen mode.  This is the mode that was last determined and
+            applied by <c>#updateFullscreenMode()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#isFullscreenMode()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.isFullscreenMode()</code>.</a>
@@ -670,8 +870,8 @@
       <MemberSignature Language="F#" Value="member this.IsInputViewShown : bool" Usage="Android.InputMethodServices.InputMethodService.IsInputViewShown" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -687,6 +887,9 @@
             user.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Return whether the soft input view is &lt;em&gt;currently&lt;/em&gt; shown to the
+            user.  This is the state that was last determined and
+            applied by <c>#updateInputViewShown()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#isInputViewShown()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.isInputViewShown()</code>.</a>
@@ -708,8 +911,8 @@
       <MemberSignature Language="F#" Value="member this.IsShowInputRequested : bool" Usage="Android.InputMethodServices.InputMethodService.IsShowInputRequested" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -724,6 +927,7 @@
         <summary>Returns true if we have been asked to show our input view.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns true if we have been asked to show our input view.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#isShowInputRequested()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.isShowInputRequested()</code>.</a>
@@ -776,8 +980,8 @@
       <MemberSignature Language="F#" Value="member this.LayoutInflater : Android.Views.LayoutInflater" Usage="Android.InputMethodServices.InputMethodService.LayoutInflater" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -805,8 +1009,8 @@
       <MemberSignature Language="F#" Value="member this.MaxWidth : int" Usage="Android.InputMethodServices.InputMethodService.MaxWidth" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -821,6 +1025,18 @@
         <summary>Return the maximum width, in pixels, available the input method.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Return the maximum width, in pixels, available the input method.
+            Input methods are positioned at the bottom of the screen and, unless
+            running in fullscreen, will generally want to be as short as possible
+            so should compute their height based on their contents.  However, they
+            can stretch as much as needed horizontally.  The function returns to
+            you the maximum amount of space available horizontally, which you can
+            use if needed for UI placement.</para>
+          <para>In many cases this is not needed, you can just rely on the normal
+            view layout mechanisms to position your views within the full horizontal
+            space given to the input method.</para>
+          <para>Note that this value can change dynamically, in particular when the
+            screen orientation changes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getMaxWidth()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getMaxWidth()</code>.</a>
@@ -842,8 +1058,8 @@
       <MemberSignature Language="F#" Value="abstract member OnAppPrivateCommand : string * Android.OS.Bundle -&gt; unit&#xA;override this.OnAppPrivateCommand : string * Android.OS.Bundle -&gt; unit" Usage="inputMethodService.OnAppPrivateCommand (action, data)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -876,8 +1092,8 @@
       <MemberSignature Language="F#" Value="abstract member OnBindInput : unit -&gt; unit&#xA;override this.OnBindInput : unit -&gt; unit" Usage="inputMethodService.OnBindInput " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -892,6 +1108,11 @@
       <Docs>
         <summary>Called when a new client has bound to the input method.</summary>
         <remarks>
+          <para>Called when a new client has bound to the input method.  This
+            may be followed by a series of <c>#onStartInput(EditorInfo, boolean)</c>
+            and <c>#onFinishInput()</c> calls as the user navigates through its
+            UI.  Upon this call you know that <c>#getCurrentInputBinding</c>
+            and <c>#getCurrentInputConnection</c> return valid objects.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onBindInput()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onBindInput()</code>.</a>
@@ -913,8 +1134,8 @@
       <MemberSignature Language="F#" Value="abstract member OnComputeInsets : Android.InputMethodServices.InputMethodService.Insets -&gt; unit&#xA;override this.OnComputeInsets : Android.InputMethodServices.InputMethodService.Insets -&gt; unit" Usage="inputMethodService.OnComputeInsets outInsets" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -953,8 +1174,8 @@
       <MemberSignature Language="F#" Value="abstract member OnConfigureWindow : Android.Views.Window * bool * bool -&gt; unit&#xA;override this.OnConfigureWindow : Android.Views.Window * bool * bool -&gt; unit" Usage="inputMethodService.OnConfigureWindow (win, isFullscreen, isCandidatesOnly)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -979,6 +1200,12 @@
             exclusive with fullscreen mode.</param>
         <summary>Update the given window's parameters for the given mode.</summary>
         <remarks>
+          <para>Update the given window's parameters for the given mode.  This is called
+            when the window is first displayed and each time the fullscreen or
+            candidates only mode changes.</para>
+          <para>The default implementation makes the layout for the window
+            MATCH_PARENT x MATCH_PARENT when in fullscreen mode, and
+            MATCH_PARENT x WRAP_CONTENT when in non-fullscreen mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onConfigureWindow(android.view.Window,%20boolean,%20boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onConfigureWindow(android.view.Window, boolean, boolean)</code>.</a>
@@ -1000,8 +1227,8 @@
       <MemberSignature Language="F#" Value="abstract member OnCreateCandidatesView : unit -&gt; Android.Views.View&#xA;override this.OnCreateCandidatesView : unit -&gt; Android.Views.View" Usage="inputMethodService.OnCreateCandidatesView " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1017,6 +1244,13 @@
         <summary>Create and return the view hierarchy used to show candidates.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create and return the view hierarchy used to show candidates.  This will
+            be called once, when the candidates are first displayed.  You can return
+            null to have no candidates view; the default implementation returns null.</para>
+          <para>To control when the candidates view is displayed, use
+            <c>#setCandidatesViewShown(boolean)</c>.
+            To change the candidates view after the first one is created by this
+            function, use <c>#setCandidatesView(View)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onCreateCandidatesView()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onCreateCandidatesView()</code>.</a>
@@ -1038,8 +1272,8 @@
       <MemberSignature Language="F#" Value="abstract member OnCreateExtractTextView : unit -&gt; Android.Views.View&#xA;override this.OnCreateExtractTextView : unit -&gt; Android.Views.View" Usage="inputMethodService.OnCreateExtractTextView " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1055,6 +1289,12 @@
         <summary>Called by the framework to create the layout for showing extracted text.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Called by the framework to create the layout for showing extracted text.
+            Only called when in fullscreen mode.  The returned view hierarchy must
+            have an <c>ExtractEditText</c> whose ID is 
+            <c>android.R.id#inputExtractEditText</c>, with action ID
+            <c>android.R.id#inputExtractAction</c> and accessories ID
+            <c>android.R.id#inputExtractAccessories</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onCreateExtractTextView()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onCreateExtractTextView()</code>.</a>
@@ -1084,6 +1324,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateInlineSuggestionsRequest", "(Landroid/os/Bundle;)Landroid/view/inputmethod/InlineSuggestionsRequest;", "GetOnCreateInlineSuggestionsRequest_Landroid_os_Bundle_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateInlineSuggestionsRequest", "(Landroid/os/Bundle;)Landroid/view/inputmethod/InlineSuggestionsRequest;", "GetOnCreateInlineSuggestionsRequest_Landroid_os_Bundle_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.InputMethods.InlineSuggestionsRequest</ReturnType>
@@ -1096,6 +1340,15 @@
         <summary>Called when Autofill is requesting an <c>InlineSuggestionsRequest</c> from the IME.</summary>
         <returns>an <c>InlineSuggestionsRequest</c> to be sent to Autofill.</returns>
         <remarks>
+          <para>Called when Autofill is requesting an <c>InlineSuggestionsRequest</c> from the IME.</para>
+          <para>The Autofill Framework will first request the IME to create and send an
+            <c>InlineSuggestionsRequest</c> back. Once Autofill Framework receives a valid request and
+            also receives valid inline suggestions, they will be returned via
+            <c>#onInlineSuggestionsResponse(InlineSuggestionsResponse)</c>.</para>
+          <para>IME Lifecycle - The request will wait to be created after inputStarted</para>
+          <para>If the IME wants to support displaying inline suggestions, they must set
+            supportsInlineSuggestions in its XML and implement this method to return a valid
+            <c>InlineSuggestionsRequest</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onCreateInlineSuggestionsRequest(android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onCreateInlineSuggestionsRequest(android.os.Bundle)</code>.</a>
@@ -1116,13 +1369,17 @@
       <MemberSignature Language="F#" Value="override this.OnCreateInputMethodInterface : unit -&gt; Android.InputMethodServices.AbstractInputMethodService.AbstractInputMethodImpl" Usage="inputMethodService.OnCreateInputMethodInterface " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateInputMethodInterface", "()Landroid/inputmethodservice/AbstractInputMethodService$AbstractInputMethodImpl;", "GetOnCreateInputMethodInterfaceHandler")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateInputMethodInterface", "()Landroid/inputmethodservice/AbstractInputMethodService$AbstractInputMethodImpl;", "GetOnCreateInputMethodInterfaceHandler")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1154,13 +1411,17 @@
       <MemberSignature Language="F#" Value="override this.OnCreateInputMethodSessionInterface : unit -&gt; Android.InputMethodServices.AbstractInputMethodService.AbstractInputMethodSessionImpl" Usage="inputMethodService.OnCreateInputMethodSessionInterface " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateInputMethodSessionInterface", "()Landroid/inputmethodservice/AbstractInputMethodService$AbstractInputMethodSessionImpl;", "GetOnCreateInputMethodSessionInterfaceHandler")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateInputMethodSessionInterface", "()Landroid/inputmethodservice/AbstractInputMethodService$AbstractInputMethodSessionImpl;", "GetOnCreateInputMethodSessionInterfaceHandler")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1192,8 +1453,8 @@
       <MemberSignature Language="F#" Value="abstract member OnCreateInputView : unit -&gt; Android.Views.View&#xA;override this.OnCreateInputView : unit -&gt; Android.Views.View" Usage="inputMethodService.OnCreateInputView " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1210,6 +1471,14 @@
             a soft keyboard).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create and return the view hierarchy used for the input area (such as
+            a soft keyboard).  This will be called once, when the input area is
+            first displayed.  You can return null to have no input area; the default
+            implementation returns null.</para>
+          <para>To control when the input view is displayed, implement
+            <c>#onEvaluateInputViewShown()</c>.
+            To change the input view after the first one is created by this
+            function, use <c>#setInputView(View)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onCreateInputView()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onCreateInputView()</code>.</a>
@@ -1231,8 +1500,8 @@
       <MemberSignature Language="F#" Value="abstract member OnCurrentInputMethodSubtypeChanged : Android.Views.InputMethods.InputMethodSubtype -&gt; unit&#xA;override this.OnCurrentInputMethodSubtypeChanged : Android.Views.InputMethods.InputMethodSubtype -&gt; unit" Usage="inputMethodService.OnCurrentInputMethodSubtypeChanged newSubtype" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1250,6 +1519,7 @@
         <param name="newSubtype">the subtype which is being changed to.</param>
         <summary>Called when the subtype was changed.</summary>
         <remarks>
+          <para>Called when the subtype was changed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onCurrentInputMethodSubtypeChanged(android.view.inputmethod.InputMethodSubtype)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onCurrentInputMethodSubtypeChanged(android.view.inputmethod.InputMethodSubtype)</code>.</a>
@@ -1271,8 +1541,8 @@
       <MemberSignature Language="F#" Value="abstract member OnDisplayCompletions : Android.Views.InputMethods.CompletionInfo[] -&gt; unit&#xA;override this.OnDisplayCompletions : Android.Views.InputMethods.CompletionInfo[] -&gt; unit" Usage="inputMethodService.OnDisplayCompletions completions" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1291,6 +1561,12 @@
         <summary>Called when the application has reported auto-completion candidates that
             it would like to have the input method displayed.</summary>
         <remarks>
+          <para>Called when the application has reported auto-completion candidates that
+            it would like to have the input method displayed.  Typically these are
+            only used when an input method is running in full-screen mode, since
+            otherwise the user can see and interact with the pop-up window of
+            completions shown by the application.</para>
+          <para>The default implementation here does nothing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onDisplayCompletions(android.view.inputmethod.CompletionInfo[])" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onDisplayCompletions(android.view.inputmethod.CompletionInfo[])</code>.</a>
@@ -1312,8 +1588,8 @@
       <MemberSignature Language="F#" Value="abstract member OnEvaluateFullscreenMode : unit -&gt; bool&#xA;override this.OnEvaluateFullscreenMode : unit -&gt; bool" Usage="inputMethodService.OnEvaluateFullscreenMode " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1330,6 +1606,12 @@
             fullscreen mode.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Override this to control when the input method should run in
+            fullscreen mode.  The default implementation runs in fullsceen only
+            when the screen is in landscape mode.  If you change what
+            this returns, you will need to call <c>#updateFullscreenMode()</c>
+            yourself whenever the returned value may have changed to have it
+            re-evaluated and applied.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onEvaluateFullscreenMode()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onEvaluateFullscreenMode()</code>.</a>
@@ -1351,8 +1633,8 @@
       <MemberSignature Language="F#" Value="abstract member OnEvaluateInputViewShown : unit -&gt; bool&#xA;override this.OnEvaluateInputViewShown : unit -&gt; bool" Usage="inputMethodService.OnEvaluateInputViewShown " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1368,6 +1650,14 @@
         <summary>Override this to control when the soft input area should be shown to the user.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Override this to control when the soft input area should be shown to the user.  The default
+            implementation returns <c>false</c> when there is no hard keyboard or the keyboard is hidden
+            unless the user shows an intention to use software keyboard.  If you change what this
+            returns, you will need to call <c>#updateInputViewShown()</c> yourself whenever the returned
+            value may have changed to have it re-evaluated and applied.</para>
+          <para>When you override this method, it is recommended to call
+            <c>super.onEvaluateInputViewShown()</c> and return <c>true</c> when <c>true</c> is
+            returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onEvaluateInputViewShown()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onEvaluateInputViewShown()</code>.</a>
@@ -1389,8 +1679,8 @@
       <MemberSignature Language="F#" Value="abstract member OnExtractedCursorMovement : int * int -&gt; unit&#xA;override this.OnExtractedCursorMovement : int * int -&gt; unit" Usage="inputMethodService.OnExtractedCursorMovement (dx, dy)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1411,6 +1701,12 @@
         <summary>This is called when the user has performed a cursor movement in the
             extracted text view, when it is running in fullscreen mode.</summary>
         <remarks>
+          <para>This is called when the user has performed a cursor movement in the
+            extracted text view, when it is running in fullscreen mode.  The default
+            implementation hides the candidates view when a vertical movement
+            happens, but only if the extracted text editor has a vertical scroll bar
+            because its text doesn't fit.
+            Re-implement this to provide whatever behavior you want.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onExtractedCursorMovement(int,%20int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onExtractedCursorMovement(int, int)</code>.</a>
@@ -1432,8 +1728,8 @@
       <MemberSignature Language="F#" Value="abstract member OnExtractedSelectionChanged : int * int -&gt; unit&#xA;override this.OnExtractedSelectionChanged : int * int -&gt; unit" Usage="inputMethodService.OnExtractedSelectionChanged (start, end)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1454,6 +1750,10 @@
         <summary>This is called when the user has moved the cursor in the extracted
             text view, when running in fullsreen mode.</summary>
         <remarks>
+          <para>This is called when the user has moved the cursor in the extracted
+            text view, when running in fullsreen mode.  The default implementation
+            performs the corresponding selection change on the underlying text
+            editor.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onExtractedSelectionChanged(int,%20int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onExtractedSelectionChanged(int, int)</code>.</a>
@@ -1475,8 +1775,8 @@
       <MemberSignature Language="F#" Value="abstract member OnExtractedTextClicked : unit -&gt; unit&#xA;override this.OnExtractedTextClicked : unit -&gt; unit" Usage="inputMethodService.OnExtractedTextClicked " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1492,6 +1792,11 @@
         <summary>This is called when the user has clicked on the extracted text view,
             when running in fullscreen mode.</summary>
         <remarks>
+          <para>This is called when the user has clicked on the extracted text view,
+            when running in fullscreen mode.  The default implementation hides
+            the candidates view when this happens, but only if the extracted text
+            editor has a vertical scroll bar because its text doesn't fit.
+            Re-implement this to provide whatever behavior you want.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onExtractedTextClicked()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onExtractedTextClicked()</code>.</a>
@@ -1513,8 +1818,8 @@
       <MemberSignature Language="F#" Value="abstract member OnExtractingInputChanged : Android.Views.InputMethods.EditorInfo -&gt; unit&#xA;override this.OnExtractingInputChanged : Android.Views.InputMethods.EditorInfo -&gt; unit" Usage="inputMethodService.OnExtractingInputChanged ei" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1533,6 +1838,10 @@
         <summary>This is called when, while currently displayed in extract mode, the
             current input target changes.</summary>
         <remarks>
+          <para>This is called when, while currently displayed in extract mode, the
+            current input target changes.  The default implementation will
+            auto-hide the IME if the new target is not a full editor, since this
+            can be a confusing experience for the user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onExtractingInputChanged(android.view.inputmethod.EditorInfo)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onExtractingInputChanged(android.view.inputmethod.EditorInfo)</code>.</a>
@@ -1554,8 +1863,8 @@
       <MemberSignature Language="F#" Value="abstract member OnExtractTextContextMenuItem : int -&gt; bool&#xA;override this.OnExtractTextContextMenuItem : int -&gt; bool" Usage="inputMethodService.OnExtractTextContextMenuItem id" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1575,6 +1884,12 @@
             extracted text view, when running in fullscreen mode.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This is called when the user has selected a context menu item from the
+            extracted text view, when running in fullscreen mode.  The default
+            implementation sends this action to the current InputConnection's
+            <c>InputConnection#performContextMenuAction(int)</c>, for it
+            to be processed in underlying "real" editor.  Re-implement this to
+            provide whatever behavior you want.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onExtractTextContextMenuItem(int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onExtractTextContextMenuItem(int)</code>.</a>
@@ -1596,8 +1911,8 @@
       <MemberSignature Language="F#" Value="abstract member OnFinishCandidatesView : bool -&gt; unit&#xA;override this.OnFinishCandidatesView : bool -&gt; unit" Usage="inputMethodService.OnFinishCandidatesView finishingInput" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1616,6 +1931,13 @@
             called immediately after.</param>
         <summary>Called when the candidates view is being hidden from the user.</summary>
         <remarks>
+          <para>Called when the candidates view is being hidden from the user.  This will
+            be called either prior to hiding the window, or prior to switching to
+            another target for editing.</para>
+          <para>The default
+            implementation uses the InputConnection to clear any active composing
+            text; you can override this (not calling the base class implementation)
+            to perform whatever behavior you would like.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onFinishCandidatesView(boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onFinishCandidatesView(boolean)</code>.</a>
@@ -1637,8 +1959,8 @@
       <MemberSignature Language="F#" Value="abstract member OnFinishInput : unit -&gt; unit&#xA;override this.OnFinishInput : unit -&gt; unit" Usage="inputMethodService.OnFinishInput " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1654,6 +1976,15 @@
         <summary>Called to inform the input method that text input has finished in
             the last editor.</summary>
         <remarks>
+          <para>Called to inform the input method that text input has finished in
+            the last editor.  At this point there may be a call to
+            <c>#onStartInput(EditorInfo, boolean)</c> to perform input in a
+            new editor, or the input method may be left idle.  This method is
+            &lt;em&gt;not&lt;/em&gt; called when input restarts in the same editor.</para>
+          <para>The default
+            implementation uses the InputConnection to clear any active composing
+            text; you can override this (not calling the base class implementation)
+            to perform whatever behavior you would like.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onFinishInput()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onFinishInput()</code>.</a>
@@ -1675,8 +2006,8 @@
       <MemberSignature Language="F#" Value="abstract member OnFinishInputView : bool -&gt; unit&#xA;override this.OnFinishInputView : bool -&gt; unit" Usage="inputMethodService.OnFinishInputView finishingInput" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1695,6 +2026,13 @@
             called immediately after.</param>
         <summary>Called when the input view is being hidden from the user.</summary>
         <remarks>
+          <para>Called when the input view is being hidden from the user.  This will
+            be called either prior to hiding the window, or prior to switching to
+            another target for editing.</para>
+          <para>The default
+            implementation uses the InputConnection to clear any active composing
+            text; you can override this (not calling the base class implementation)
+            to perform whatever behavior you would like.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onFinishInputView(boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onFinishInputView(boolean)</code>.</a>
@@ -1724,6 +2062,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onFinishStylusHandwriting", "()V", "GetOnFinishStylusHandwritingHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onFinishStylusHandwriting", "()V", "GetOnFinishStylusHandwritingHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1733,6 +2075,11 @@
         <summary>Called when the current stylus handwriting session was finished (either by the system or
             via <c>#finishStylusHandwriting()</c>.</summary>
         <remarks>
+          <para>Called when the current stylus handwriting session was finished (either by the system or
+            via <c>#finishStylusHandwriting()</c>.
+            
+            When this is called, the ink window has been made invisible, and the IME no longer
+            intercepts handwriting-related <c>MotionEvent</c>s.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onFinishStylusHandwriting()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onFinishStylusHandwriting()</code>.</a>
@@ -1753,8 +2100,8 @@
       <MemberSignature Language="F#" Value="abstract member OnInitializeInterface : unit -&gt; unit&#xA;override this.OnInitializeInterface : unit -&gt; unit" Usage="inputMethodService.OnInitializeInterface " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1770,6 +2117,10 @@
         <summary>This is a hook that subclasses can use to perform initialization of
             their interface.</summary>
         <remarks>
+          <para>This is a hook that subclasses can use to perform initialization of
+            their interface.  It is called for you prior to any of your UI objects
+            being created, both after the service is first created and after a
+            configuration change happens.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onInitializeInterface()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onInitializeInterface()</code>.</a>
@@ -1799,6 +2150,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onInlineSuggestionsResponse", "(Landroid/view/inputmethod/InlineSuggestionsResponse;)Z", "GetOnInlineSuggestionsResponse_Landroid_view_inputmethod_InlineSuggestionsResponse_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onInlineSuggestionsResponse", "(Landroid/view/inputmethod/InlineSuggestionsResponse;)Z", "GetOnInlineSuggestionsResponse_Landroid_view_inputmethod_InlineSuggestionsResponse_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1813,6 +2168,9 @@
             inline suggestions.</summary>
         <returns>Whether the IME will use and render  the inline suggestions.</returns>
         <remarks>
+          <para>Called when Autofill responds back with <c>InlineSuggestionsResponse</c> containing
+            inline suggestions.</para>
+          <para>Should be implemented by subclasses.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onInlineSuggestionsResponse(android.view.inputmethod.InlineSuggestionsResponse)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onInlineSuggestionsResponse(android.view.inputmethod.InlineSuggestionsResponse)</code>.</a>
@@ -1833,8 +2191,8 @@
       <MemberSignature Language="F#" Value="override this.OnKeyDown : Android.Views.Keycode * Android.Views.KeyEvent -&gt; bool" Usage="inputMethodService.OnKeyDown (keyCode, e)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1866,6 +2224,17 @@
                     to consume it.  Return <c>false</c> when the event should be handled as if the IME
                     had not seen the event at all.</returns>
         <remarks>
+          <para>Called back when a <c>KeyEvent</c> is forwarded from the target application.</para>
+          <para>The default implementation intercepts <c>KeyEvent#KEYCODE_BACK</c> if the IME is
+            currently shown , to possibly hide it when the key goes up (if not canceled or long pressed).
+            In addition, in fullscreen mode only, it will consume DPAD movement events to move the cursor
+            in the extracted text view, not allowing them to perform navigation in the underlying
+            application.</para>
+          <para>The default implementation does not take flags specified to
+            <c>#setBackDisposition(int)</c> into account, even on API version
+            <c>android.os.Build.VERSION_CODES#P</c> and later devices.  IME developers are responsible
+            for making sure that their special handling for <c>KeyEvent#KEYCODE_BACK</c> are consistent
+            with the flag they specified to <c>#setBackDisposition(int)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onKeyDown(int,%20android.view.KeyEvent)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onKeyDown(int, android.view.KeyEvent)</code>.</a>
@@ -1887,8 +2256,8 @@
       <MemberSignature Language="F#" Value="override this.OnKeyLongPress : Android.Views.Keycode * Android.Views.KeyEvent -&gt; bool" Usage="inputMethodService.OnKeyLongPress (keyCode, e)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1918,6 +2287,9 @@
             the event).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Default implementation of <c>KeyEvent.Callback#onKeyLongPress(int, KeyEvent)
+            KeyEvent.Callback.onKeyLongPress()</c>: always returns false (doesn't handle
+            the event).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onKeyLongPress(int,%20android.view.KeyEvent)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onKeyLongPress(int, android.view.KeyEvent)</code>.</a>
@@ -1939,8 +2311,8 @@
       <MemberSignature Language="F#" Value="override this.OnKeyMultiple : Android.Views.Keycode * int * Android.Views.KeyEvent -&gt; bool" Usage="inputMethodService.OnKeyMultiple (keyCode, count, e)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1972,6 +2344,15 @@
             application.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Override this to intercept special key multiple events before they are
+            processed by the
+            application.  If you return true, the application will not itself
+            process the event.  If you return false, the normal application processing
+            will occur as if the IME had not seen the event at all.</para>
+          <para>The default implementation always returns false, except when
+            in fullscreen mode, where it will consume DPAD movement
+            events to move the cursor in the extracted text view, not allowing
+            them to perform navigation in the underlying application.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onKeyMultiple(int,%20int,%20android.view.KeyEvent)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onKeyMultiple(int, int, android.view.KeyEvent)</code>.</a>
@@ -1993,8 +2374,8 @@
       <MemberSignature Language="F#" Value="override this.OnKeyUp : Android.Views.Keycode * Android.Views.KeyEvent -&gt; bool" Usage="inputMethodService.OnKeyUp (keyCode, e)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2023,6 +2404,15 @@
             application.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Override this to intercept key up events before they are processed by the
+            application.  If you return true, the application will not itself
+            process the event.  If you return false, the normal application processing
+            will occur as if the IME had not seen the event at all.</para>
+          <para>The default implementation intercepts <c>KeyEvent#KEYCODE_BACK
+            KeyEvent.KEYCODE_BACK</c> to hide the current IME UI if it is shown.  In
+            addition, in fullscreen mode only, it will consume DPAD movement
+            events to move the cursor in the extracted text view, not allowing
+            them to perform navigation in the underlying application.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onKeyUp(int,%20android.view.KeyEvent)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onKeyUp(int, android.view.KeyEvent)</code>.</a>
@@ -2052,6 +2442,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onPrepareStylusHandwriting", "()V", "GetOnPrepareStylusHandwritingHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onPrepareStylusHandwriting", "()V", "GetOnPrepareStylusHandwritingHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2060,6 +2454,11 @@
       <Docs>
         <summary>Called to prepare stylus handwriting.</summary>
         <remarks>
+          <para>Called to prepare stylus handwriting.
+            The system calls this before the <c>#onStartStylusHandwriting</c> request.</para>
+          <para>Note: The system tries to call this as early as possible, when it detects that
+            handwriting stylus input is imminent. However, that a subsequent call to
+            <c>#onStartStylusHandwriting</c> actually happens is not guaranteed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onPrepareStylusHandwriting()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onPrepareStylusHandwriting()</code>.</a>
@@ -2080,8 +2479,8 @@
       <MemberSignature Language="F#" Value="abstract member OnShowInputRequested : Android.Views.InputMethods.ShowFlags * bool -&gt; bool&#xA;override this.OnShowInputRequested : Android.Views.InputMethods.ShowFlags * bool -&gt; bool" Usage="inputMethodService.OnShowInputRequested (flags, configChange)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2111,6 +2510,13 @@
         <summary>The system has decided that it may be time to show your input method.</summary>
         <returns>Returns true to indicate that the window should be shown.</returns>
         <remarks>
+          <para>The system has decided that it may be time to show your input method.
+            This is called due to a corresponding call to your
+            <c>InputMethod#showSoftInput InputMethod.showSoftInput()</c>
+            method.  The default implementation uses
+            <c>#onEvaluateInputViewShown()</c>, <c>#onEvaluateFullscreenMode()</c>,
+            and the current configuration to decide whether the input view should
+            be shown at this point.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onShowInputRequested(int,%20boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onShowInputRequested(int, boolean)</code>.</a>
@@ -2126,14 +2532,14 @@
       </Docs>
     </Member>
     <Member MemberName="OnStartCandidatesView">
-      <MemberSignature Language="C#" Value="public virtual void OnStartCandidatesView (Android.Views.InputMethods.EditorInfo? info, bool restarting);" />
-      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnStartCandidatesView(class Android.Views.InputMethods.EditorInfo info, bool restarting) cil managed" />
+      <MemberSignature Language="C#" Value="public virtual void OnStartCandidatesView (Android.Views.InputMethods.EditorInfo? editorInfo, bool restarting);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnStartCandidatesView(class Android.Views.InputMethods.EditorInfo editorInfo, bool restarting) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.InputMethodServices.InputMethodService.OnStartCandidatesView(Android.Views.InputMethods.EditorInfo,System.Boolean)" />
-      <MemberSignature Language="F#" Value="abstract member OnStartCandidatesView : Android.Views.InputMethods.EditorInfo * bool -&gt; unit&#xA;override this.OnStartCandidatesView : Android.Views.InputMethods.EditorInfo * bool -&gt; unit" Usage="inputMethodService.OnStartCandidatesView (info, restarting)" />
+      <MemberSignature Language="F#" Value="abstract member OnStartCandidatesView : Android.Views.InputMethods.EditorInfo * bool -&gt; unit&#xA;override this.OnStartCandidatesView : Android.Views.InputMethods.EditorInfo * bool -&gt; unit" Usage="inputMethodService.OnStartCandidatesView (editorInfo, restarting)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2145,16 +2551,28 @@
         <ReturnType>System.Void</ReturnType>
       </ReturnValue>
       <Parameters>
-        <Parameter Name="info" Type="Android.Views.InputMethods.EditorInfo" />
+        <Parameter Name="editorInfo" Type="Android.Views.InputMethods.EditorInfo" />
         <Parameter Name="restarting" Type="System.Boolean" />
       </Parameters>
       <Docs>
-        <param name="info">Description of the type of text being edited.</param>
+        <param name="editorInfo">Description of the type of text being edited.</param>
         <param name="restarting">Set to true if we are restarting input on the
             same text field as before.</param>
         <summary>Called when only the candidates view has been shown for showing
             processing as the user enters text through a hard keyboard.</summary>
         <remarks>
+          <para>Called when only the candidates view has been shown for showing
+            processing as the user enters text through a hard keyboard.
+            This will always be called after <c>#onStartInput</c>,
+            allowing you to do your general setup there and just view-specific
+            setup here.  You are guaranteed that <c>#onCreateCandidatesView()</c>
+            will have been called some time before this function is called.</para>
+          <para>Note that this will &lt;em&gt;not&lt;/em&gt; be called when the input method
+            is running in full editing mode, and thus receiving
+            <c>#onStartInputView</c> to initiate that operation.  This is only
+            for the case when candidates are being shown while the input method
+            editor is hidden but wants to show its candidates UI as text is
+            entered through some other mechanism.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onStartCandidatesView(android.view.inputmethod.EditorInfo,%20boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onStartCandidatesView(android.view.inputmethod.EditorInfo, boolean)</code>.</a>
@@ -2176,8 +2594,8 @@
       <MemberSignature Language="F#" Value="abstract member OnStartInput : Android.Views.InputMethods.EditorInfo * bool -&gt; unit&#xA;override this.OnStartInput : Android.Views.InputMethods.EditorInfo * bool -&gt; unit" Usage="inputMethodService.OnStartInput (attribute, restarting)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2202,6 +2620,9 @@
         <summary>Called to inform the input method that text input has started in an
             editor.</summary>
         <remarks>
+          <para>Called to inform the input method that text input has started in an
+            editor.  You should use this callback to initialize the state of your
+            input to match the state of the editor given to it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onStartInput(android.view.inputmethod.EditorInfo,%20boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onStartInput(android.view.inputmethod.EditorInfo, boolean)</code>.</a>
@@ -2217,14 +2638,14 @@
       </Docs>
     </Member>
     <Member MemberName="OnStartInputView">
-      <MemberSignature Language="C#" Value="public virtual void OnStartInputView (Android.Views.InputMethods.EditorInfo? info, bool restarting);" />
-      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnStartInputView(class Android.Views.InputMethods.EditorInfo info, bool restarting) cil managed" />
+      <MemberSignature Language="C#" Value="public virtual void OnStartInputView (Android.Views.InputMethods.EditorInfo? editorInfo, bool restarting);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnStartInputView(class Android.Views.InputMethods.EditorInfo editorInfo, bool restarting) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.InputMethodServices.InputMethodService.OnStartInputView(Android.Views.InputMethods.EditorInfo,System.Boolean)" />
-      <MemberSignature Language="F#" Value="abstract member OnStartInputView : Android.Views.InputMethods.EditorInfo * bool -&gt; unit&#xA;override this.OnStartInputView : Android.Views.InputMethods.EditorInfo * bool -&gt; unit" Usage="inputMethodService.OnStartInputView (info, restarting)" />
+      <MemberSignature Language="F#" Value="abstract member OnStartInputView : Android.Views.InputMethods.EditorInfo * bool -&gt; unit&#xA;override this.OnStartInputView : Android.Views.InputMethods.EditorInfo * bool -&gt; unit" Usage="inputMethodService.OnStartInputView (editorInfo, restarting)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2236,16 +2657,21 @@
         <ReturnType>System.Void</ReturnType>
       </ReturnValue>
       <Parameters>
-        <Parameter Name="info" Type="Android.Views.InputMethods.EditorInfo" />
+        <Parameter Name="editorInfo" Type="Android.Views.InputMethods.EditorInfo" />
         <Parameter Name="restarting" Type="System.Boolean" />
       </Parameters>
       <Docs>
-        <param name="info">Description of the type of text being edited.</param>
+        <param name="editorInfo">Description of the type of text being edited.</param>
         <param name="restarting">Set to true if we are restarting input on the
             same text field as before.</param>
         <summary>Called when the input view is being shown and input has started on
             a new editor.</summary>
         <remarks>
+          <para>Called when the input view is being shown and input has started on
+            a new editor.  This will always be called after <c>#onStartInput</c>,
+            allowing you to do your general setup there and just view-specific
+            setup here.  You are guaranteed that <c>#onCreateInputView()</c> will
+            have been called some time before this function is called.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onStartInputView(android.view.inputmethod.EditorInfo,%20boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onStartInputView(android.view.inputmethod.EditorInfo, boolean)</code>.</a>
@@ -2275,6 +2701,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onStartStylusHandwriting", "()Z", "GetOnStartStylusHandwritingHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onStartStylusHandwriting", "()Z", "GetOnStartStylusHandwritingHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2286,6 +2716,17 @@
         <returns>
           <c>true</c> if IME can honor the request, <c>false</c> if IME cannot at this time.</returns>
         <remarks>
+          <para>Called when an app requests stylus handwriting
+            <c>InputMethodManager#startStylusHandwriting(View)</c>.
+            
+            This will always be preceded by <c>#onStartInput(EditorInfo, boolean)</c> for the
+            <c>EditorInfo</c> and <c>InputConnection</c> for which stylus handwriting is being
+            requested.
+            
+            If the IME supports handwriting for the current input, it should return <c>true</c>,
+            ensure its inking views are attached to the <c>#getStylusHandwritingWindow()</c>, and handle
+            stylus input received from <c>#onStylusHandwritingMotionEvent(MotionEvent)</c> on the
+            <c>#getStylusHandwritingWindow()</c> via <c>#getCurrentInputConnection()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onStartStylusHandwriting()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onStartStylusHandwriting()</code>.</a>
@@ -2314,6 +2755,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onStylusHandwritingMotionEvent", "(Landroid/view/MotionEvent;)V", "GetOnStylusHandwritingMotionEvent_Landroid_view_MotionEvent_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onStylusHandwritingMotionEvent", "(Landroid/view/MotionEvent;)V", "GetOnStylusHandwritingMotionEvent_Landroid_view_MotionEvent_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2327,6 +2772,11 @@
         <summary>Called after <c>#onStartStylusHandwriting()</c> returns <c>true</c> for every Stylus
             <c>MotionEvent</c>.</summary>
         <remarks>
+          <para>Called after <c>#onStartStylusHandwriting()</c> returns <c>true</c> for every Stylus
+            <c>MotionEvent</c>.
+            By default, this method forwards all <c>MotionEvent</c>s to the
+            <c>#getStylusHandwritingWindow()</c> once its visible, however IME can override it to
+            receive them sooner.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onStylusHandwritingMotionEvent(android.view.MotionEvent)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onStylusHandwritingMotionEvent(android.view.MotionEvent)</code>.</a>
@@ -2347,8 +2797,8 @@
       <MemberSignature Language="F#" Value="abstract member OnUnbindInput : unit -&gt; unit&#xA;override this.OnUnbindInput : unit -&gt; unit" Usage="inputMethodService.OnUnbindInput " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2364,6 +2814,10 @@
         <summary>Called when the previous bound client is no longer associated
             with the input method.</summary>
         <remarks>
+          <para>Called when the previous bound client is no longer associated
+            with the input method.  After returning <c>#getCurrentInputBinding</c>
+            and <c>#getCurrentInputConnection</c> will no longer return
+            valid objects.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onUnbindInput()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onUnbindInput()</code>.</a>
@@ -2385,8 +2839,8 @@
       <MemberSignature Language="F#" Value="abstract member OnUpdateCursor : Android.Graphics.Rect -&gt; unit&#xA;override this.OnUpdateCursor : Android.Graphics.Rect -&gt; unit" Usage="inputMethodService.OnUpdateCursor newCursor" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2409,6 +2863,10 @@
         <summary>Called when the application has reported a new location of its text
             cursor.</summary>
         <remarks>
+          <para>Called when the application has reported a new location of its text
+            cursor.  This is only called if explicitly requested by the input method.
+            The default implementation does nothing.</para>
+          <para>This member is deprecated. Use <c>#onUpdateCursorAnchorInfo(CursorAnchorInfo)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onUpdateCursor(android.graphics.Rect)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onUpdateCursor(android.graphics.Rect)</code>.</a>
@@ -2430,8 +2888,8 @@
       <MemberSignature Language="F#" Value="abstract member OnUpdateCursorAnchorInfo : Android.Views.InputMethods.CursorAnchorInfo -&gt; unit&#xA;override this.OnUpdateCursorAnchorInfo : Android.Views.InputMethods.CursorAnchorInfo -&gt; unit" Usage="inputMethodService.OnUpdateCursorAnchorInfo cursorAnchorInfo" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2451,9 +2909,71 @@
         <summary>Called when the application has reported a new location of its text insertion point and
             characters in the composition string.</summary>
         <remarks>
+          <para>Called when the application has reported a new location of its text insertion point and
+            characters in the composition string.  This is only called if explicitly requested by the
+            input method. The default implementation does nothing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onUpdateCursorAnchorInfo(android.view.inputmethod.CursorAnchorInfo)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onUpdateCursorAnchorInfo(android.view.inputmethod.CursorAnchorInfo)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="OnUpdateEditorToolType">
+      <MemberSignature Language="C#" Value="public virtual void OnUpdateEditorToolType (Android.Views.MotionEventToolType toolType);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnUpdateEditorToolType(valuetype Android.Views.MotionEventToolType toolType) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.InputMethodServices.InputMethodService.OnUpdateEditorToolType(Android.Views.MotionEventToolType)" />
+      <MemberSignature Language="F#" Value="abstract member OnUpdateEditorToolType : Android.Views.MotionEventToolType -&gt; unit&#xA;override this.OnUpdateEditorToolType : Android.Views.MotionEventToolType -&gt; unit" Usage="inputMethodService.OnUpdateEditorToolType toolType" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("onUpdateEditorToolType", "(I)V", "GetOnUpdateEditorToolType_IHandler", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("onUpdateEditorToolType", "(I)V", "GetOnUpdateEditorToolType_IHandler", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="toolType" Type="Android.Views.MotionEventToolType">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[Android.Runtime.GeneratedEnum]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.GeneratedEnum&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+      </Parameters>
+      <Docs>
+        <param name="toolType">what <c>MotionEvent#getToolType(int)</c> was used to click on editor.</param>
+        <summary>Called when the user tapped or clicked an <c>android.widget.Editor</c>.</summary>
+        <remarks>
+          <para>Called when the user tapped or clicked an <c>android.widget.Editor</c>.
+            This can be useful when IME makes a decision of showing Virtual keyboard based on what
+            <c>MotionEvent#getToolType(int)</c> was used to click the editor.
+            e.g. when toolType is <c>MotionEvent#TOOL_TYPE_STYLUS</c>, IME may choose to show a
+            companion widget instead of normal virtual keyboard.</para>
+          <para>This method is called after <c>#onStartInput(EditorInfo, boolean)</c> and before
+            <c>#onStartInputView(EditorInfo, boolean)</c> when editor was clicked with a known tool
+            type.</para>
+          <para>Default implementation does nothing.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onUpdateEditorToolType(int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onUpdateEditorToolType(int)</code>.</a>
             </format>
           </para>
           <para>
@@ -2471,8 +2991,8 @@
       <MemberSignature Language="F#" Value="abstract member OnUpdateExtractedText : int * Android.Views.InputMethods.ExtractedText -&gt; unit&#xA;override this.OnUpdateExtractedText : int * Android.Views.InputMethods.ExtractedText -&gt; unit" Usage="inputMethodService.OnUpdateExtractedText (token, text)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2493,6 +3013,10 @@
         <summary>Called when the application has reported new extracted text to be shown
             due to changes in its current text state.</summary>
         <remarks>
+          <para>Called when the application has reported new extracted text to be shown
+            due to changes in its current text state.  The default implementation
+            here places the new text in the extract edit text, when the input
+            method is running in fullscreen mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onUpdateExtractedText(int,%20android.view.inputmethod.ExtractedText)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onUpdateExtractedText(int, android.view.inputmethod.ExtractedText)</code>.</a>
@@ -2514,8 +3038,8 @@
       <MemberSignature Language="F#" Value="abstract member OnUpdateExtractingViews : Android.Views.InputMethods.EditorInfo -&gt; unit&#xA;override this.OnUpdateExtractingViews : Android.Views.InputMethods.EditorInfo -&gt; unit" Usage="inputMethodService.OnUpdateExtractingViews ei" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2534,6 +3058,18 @@
         <summary>Called when the fullscreen-mode extracting editor info has changed,
             to update the state of its UI such as the action buttons shown.</summary>
         <remarks>
+          <para>Called when the fullscreen-mode extracting editor info has changed,
+            to update the state of its UI such as the action buttons shown.
+            You do not need to deal with this if you are using the standard
+            full screen extract UI.  If replacing it, you will need to re-implement
+            this to put the appropriate action button in your own UI and handle it,
+            and perform any other changes.</para>
+          <para>The standard implementation turns on or off its accessory area
+            depending on whether there is an action button, and hides or shows
+            the entire extract area depending on whether it makes sense for the
+            current editor.  In particular, a <c>InputType#TYPE_NULL</c> or 
+            <c>InputType#TYPE_TEXT_VARIATION_FILTER</c> input type will turn off the
+            extract area since there is no text to be shown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onUpdateExtractingViews(android.view.inputmethod.EditorInfo)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onUpdateExtractingViews(android.view.inputmethod.EditorInfo)</code>.</a>
@@ -2555,8 +3091,8 @@
       <MemberSignature Language="F#" Value="abstract member OnUpdateExtractingVisibility : Android.Views.InputMethods.EditorInfo -&gt; unit&#xA;override this.OnUpdateExtractingVisibility : Android.Views.InputMethods.EditorInfo -&gt; unit" Usage="inputMethodService.OnUpdateExtractingVisibility ei" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2576,6 +3112,13 @@
             to determine whether the extracting (extract text and candidates) portion
             of the UI should be shown.</summary>
         <remarks>
+          <para>Called when the fullscreen-mode extracting editor info has changed,
+            to determine whether the extracting (extract text and candidates) portion
+            of the UI should be shown.  The standard implementation hides or shows
+            the extract area depending on whether it makes sense for the
+            current editor.  In particular, a <c>InputType#TYPE_NULL</c>
+            input type or <c>EditorInfo#IME_FLAG_NO_EXTRACT_UI</c> flag will
+            turn off the extract area since there is no text to be shown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onUpdateExtractingVisibility(android.view.inputmethod.EditorInfo)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onUpdateExtractingVisibility(android.view.inputmethod.EditorInfo)</code>.</a>
@@ -2597,8 +3140,8 @@
       <MemberSignature Language="F#" Value="abstract member OnUpdateSelection : int * int * int * int * int * int -&gt; unit&#xA;override this.OnUpdateSelection : int * int * int * int * int * int -&gt; unit" Usage="inputMethodService.OnUpdateSelection (oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2627,6 +3170,12 @@
         <summary>Called when the application has reported a new selection region of
             the text.</summary>
         <remarks>
+          <para>Called when the application has reported a new selection region of
+            the text.  This is called whether or not the input method has requested
+            extracted text updates, although if so it will not receive this call
+            if the extracted text has changed as well.</para>
+          <para>The default implementation takes care of updating the cursor in
+            the extract text, if it is being shown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onUpdateSelection(int,%20int,%20int,%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onUpdateSelection(int, int, int, int, int, int)</code>.</a>
@@ -2648,8 +3197,8 @@
       <MemberSignature Language="F#" Value="abstract member OnViewClicked : bool -&gt; unit&#xA;override this.OnViewClicked : bool -&gt; unit" Usage="inputMethodService.OnViewClicked focusChanged" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2657,8 +3206,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onViewClicked", "(Z)V", "GetOnViewClicked_ZHandler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2671,6 +3220,17 @@
         <param name="focusChanged">true if the user changed the focused view by this click.</param>
         <summary>Called when the user tapped or clicked a text view.</summary>
         <remarks>
+          <para>Called when the user tapped or clicked a text view.
+            IMEs can't rely on this method being called because this was not part of the original IME
+            protocol, so applications with custom text editing written before this method appeared will
+            not call to inform the IME of this interaction.</para>
+          <para>This member is deprecated. The method may not be called for composite <c>View</c> that works as a giant
+                        "Canvas", which can host its own UI hierarchy and sub focus state.
+                        <c>android.webkit.WebView</c> is a good example. Application / IME developers
+                        should not rely on this method. If your goal is just being notified when an
+                        on-going input is interrupted, simply monitor <c>#onFinishInput()</c>.
+                        If your goal is to know what <c>MotionEvent#getToolType(int)</c> clicked on
+                        editor, use <c>#onUpdateEditorToolType(int)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onViewClicked(boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onViewClicked(boolean)</code>.</a>
@@ -2692,8 +3252,8 @@
       <MemberSignature Language="F#" Value="abstract member OnWindowHidden : unit -&gt; unit&#xA;override this.OnWindowHidden : unit -&gt; unit" Usage="inputMethodService.OnWindowHidden " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2709,6 +3269,8 @@
         <summary>Called when the input method window has been hidden from the user,
             after previously being visible.</summary>
         <remarks>
+          <para>Called when the input method window has been hidden from the user,
+            after previously being visible.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onWindowHidden()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onWindowHidden()</code>.</a>
@@ -2730,8 +3292,8 @@
       <MemberSignature Language="F#" Value="abstract member OnWindowShown : unit -&gt; unit&#xA;override this.OnWindowShown : unit -&gt; unit" Usage="inputMethodService.OnWindowShown " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2746,6 +3308,9 @@
       <Docs>
         <summary>Called immediately before the input method window is shown to the user.</summary>
         <remarks>
+          <para>Called immediately before the input method window is shown to the user.
+            You could override this to prepare for the window to be shown
+            (update view structure etc).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#onWindowShown()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.onWindowShown()</code>.</a>
@@ -2767,8 +3332,8 @@
       <MemberSignature Language="F#" Value="abstract member RequestHideSelf : Android.Views.InputMethods.HideSoftInputFlags -&gt; unit&#xA;override this.RequestHideSelf : Android.Views.InputMethods.HideSoftInputFlags -&gt; unit" Usage="inputMethodService.RequestHideSelf flags" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2793,6 +3358,9 @@
         <param name="flags">Provides additional operating flags.</param>
         <summary>Close this input method's soft input area, removing it from the display.</summary>
         <remarks>
+          <para>Close this input method's soft input area, removing it from the display.</para>
+          <para>The input method will continue running, but the user can no longer use it to generate input
+            by touching the screen.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#requestHideSelf(int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.requestHideSelf(int)</code>.</a>
@@ -2822,6 +3390,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("requestShowSelf", "(I)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("requestShowSelf", "(I)V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2841,6 +3413,8 @@
         <summary>Show the input method's soft input area, so the user sees the input method window and can
             interact with it.</summary>
         <remarks>
+          <para>Show the input method's soft input area, so the user sees the input method window and can
+            interact with it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#requestShowSelf(int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.requestShowSelf(int)</code>.</a>
@@ -2861,8 +3435,8 @@
       <MemberSignature Language="F#" Value="abstract member SendDefaultEditorAction : bool -&gt; bool&#xA;override this.SendDefaultEditorAction : bool -&gt; bool" Usage="inputMethodService.SendDefaultEditorAction fromEnterKey" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2890,6 +3464,12 @@
             does not want an action from the enter key.  If true, the action was
             sent (or there was no input connection at all).</returns>
         <remarks>
+          <para>Ask the input target to execute its default action via
+            <c>InputConnection#performEditorAction
+            InputConnection.performEditorAction()</c>.</para>
+          <para>For compatibility, this method does not execute a custom action even if <c>EditorInfo#actionLabel EditorInfo.actionLabel</c> is set. The implementor should directly call
+            <c>InputConnection#performEditorAction InputConnection.performEditorAction()</c> with
+            <c>EditorInfo#actionId EditorInfo.actionId</c> if they want to execute a custom action.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#sendDefaultEditorAction(boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.sendDefaultEditorAction(boolean)</code>.</a>
@@ -2911,8 +3491,8 @@
       <MemberSignature Language="F#" Value="abstract member SendDownUpKeyEvents : Android.Views.Keycode -&gt; unit&#xA;override this.SendDownUpKeyEvents : Android.Views.Keycode -&gt; unit" Usage="inputMethodService.SendDownUpKeyEvents keyEventCode" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2939,6 +3519,19 @@
         <summary>Send the given key event code (as defined by <c>KeyEvent</c>) to the
             current input connection is a key down + key up event pair.</summary>
         <remarks>
+          <para>Send the given key event code (as defined by <c>KeyEvent</c>) to the
+            current input connection is a key down + key up event pair.  The sent
+            events have <c>KeyEvent#FLAG_SOFT_KEYBOARD KeyEvent.FLAG_SOFT_KEYBOARD</c>
+            set, so that the recipient can identify them as coming from a software
+            input method, and
+            <c>KeyEvent#FLAG_KEEP_TOUCH_MODE KeyEvent.FLAG_KEEP_TOUCH_MODE</c>, so
+            that they don't impact the current touch mode of the UI.</para>
+          <para>Note that it's discouraged to send such key events in normal operation;
+            this is mainly for use with <c>android.text.InputType#TYPE_NULL</c> type
+            text fields, or for non-rich input methods. A reasonably capable software
+            input method should use the
+            <c>android.view.inputmethod.InputConnection#commitText</c> family of methods
+            to send text to an application, rather than sending key events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#sendDownUpKeyEvents(int)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.sendDownUpKeyEvents(int)</code>.</a>
@@ -2960,8 +3553,8 @@
       <MemberSignature Language="F#" Value="abstract member SendKeyChar : char -&gt; unit&#xA;override this.SendKeyChar : char -&gt; unit" Usage="inputMethodService.SendKeyChar charCode" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2979,6 +3572,16 @@
         <param name="charCode">The UTF-16 character code to send.</param>
         <summary>Send the given UTF-16 character to the current input connection.</summary>
         <remarks>
+          <para>Send the given UTF-16 character to the current input connection.  Most
+            characters will be delivered simply by calling
+            <c>InputConnection#commitText InputConnection.commitText()</c> with
+            the character; some, however, may be handled different.  In particular,
+            the enter character ('\n') will either be delivered as an action code
+            or a raw key event, as appropriate.  Consider this as a convenience
+            method for IMEs that do not have a full implementation of actions; a
+            fully complying IME will decide of the right action for each event and
+            will likely never call this method except maybe to handle events coming
+            from an actual hardware keyboard.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#sendKeyChar(char)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.sendKeyChar(char)</code>.</a>
@@ -3000,8 +3603,8 @@
       <MemberSignature Language="F#" Value="abstract member SetCandidatesView : Android.Views.View -&gt; unit&#xA;override this.SetCandidatesView : Android.Views.View -&gt; unit" Usage="inputMethodService.SetCandidatesView view" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3019,6 +3622,10 @@
         <param name="view">To be added.</param>
         <summary>Replaces the current candidates view with a new one.</summary>
         <remarks>
+          <para>Replaces the current candidates view with a new one.  You only need to
+            call this when dynamically changing the view; normally, you should
+            implement <c>#onCreateCandidatesView()</c> and create your view when
+            first needed by the input method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#setCandidatesView(android.view.View)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.setCandidatesView(android.view.View)</code>.</a>
@@ -3040,8 +3647,8 @@
       <MemberSignature Language="F#" Value="abstract member SetCandidatesViewShown : bool -&gt; unit&#xA;override this.SetCandidatesViewShown : bool -&gt; unit" Usage="inputMethodService.SetCandidatesViewShown shown" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3059,6 +3666,8 @@
         <param name="shown">To be added.</param>
         <summary>Controls the visibility of the candidates display area.</summary>
         <remarks>
+          <para>Controls the visibility of the candidates display area.  By default
+            it is hidden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#setCandidatesViewShown(boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.setCandidatesViewShown(boolean)</code>.</a>
@@ -3080,8 +3689,8 @@
       <MemberSignature Language="F#" Value="abstract member SetExtractView : Android.Views.View -&gt; unit&#xA;override this.SetExtractView : Android.Views.View -&gt; unit" Usage="inputMethodService.SetExtractView view" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3112,8 +3721,8 @@
       <MemberSignature Language="F#" Value="abstract member SetInputView : Android.Views.View -&gt; unit&#xA;override this.SetInputView : Android.Views.View -&gt; unit" Usage="inputMethodService.SetInputView view" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3131,6 +3740,10 @@
         <param name="view">To be added.</param>
         <summary>Replaces the current input view with a new one.</summary>
         <remarks>
+          <para>Replaces the current input view with a new one.  You only need to
+            call this when dynamically changing the view; normally, you should
+            implement <c>#onCreateInputView()</c> and create your view when
+            first needed by the input method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#setInputView(android.view.View)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.setInputView(android.view.View)</code>.</a>
@@ -3160,6 +3773,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("shouldOfferSwitchingToNextInputMethod", "()Z", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("shouldOfferSwitchingToNextInputMethod", "()Z", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -3170,6 +3787,13 @@
             method (e.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns true if the current IME needs to offer the users ways to switch to a next input
+            method (e.g. a globe key.).
+            When an IME sets supportsSwitchingToNextInputMethod and this method returns true,
+            the IME has to offer ways to to invoke <c>#switchToNextInputMethod</c> accordingly.</para>
+          <para>Note that the system determines the most appropriate next input method
+            and subtype in order to provide the consistent user experience in switching
+            between IMEs and subtypes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#shouldOfferSwitchingToNextInputMethod()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.shouldOfferSwitchingToNextInputMethod()</code>.</a>
@@ -3190,8 +3814,8 @@
       <MemberSignature Language="F#" Value="abstract member ShowStatusIcon : int -&gt; unit&#xA;override this.ShowStatusIcon : int -&gt; unit" Usage="inputMethodService.ShowStatusIcon iconResId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3222,8 +3846,8 @@
       <MemberSignature Language="F#" Value="abstract member ShowWindow : bool -&gt; unit&#xA;override this.ShowWindow : bool -&gt; unit" Usage="inputMethodService.ShowWindow showInput" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3247,6 +3871,119 @@
         <since version="Added in API level 3" />
       </Docs>
     </Member>
+    <Member MemberName="StylusHandwritingIdleTimeoutMax">
+      <MemberSignature Language="C#" Value="public static Java.Time.Duration StylusHandwritingIdleTimeoutMax { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property class Java.Time.Duration StylusHandwritingIdleTimeoutMax" />
+      <MemberSignature Language="DocId" Value="P:Android.InputMethodServices.InputMethodService.StylusHandwritingIdleTimeoutMax" />
+      <MemberSignature Language="F#" Value="static member StylusHandwritingIdleTimeoutMax : Java.Time.Duration" Usage="Android.InputMethodServices.InputMethodService.StylusHandwritingIdleTimeoutMax" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: Android.Runtime.Register("getStylusHandwritingIdleTimeoutMax", "()Ljava/time/Duration;", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getStylusHandwritingIdleTimeoutMax", "()Ljava/time/Duration;", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Time.Duration</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Returns the maximum stylus handwriting session idle-timeout for use with
+            <c>#setStylusHandwritingSessionTimeout(Duration)</c>.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para>Returns the maximum stylus handwriting session idle-timeout for use with
+            <c>#setStylusHandwritingSessionTimeout(Duration)</c>.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getStylusHandwritingIdleTimeoutMax()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getStylusHandwritingIdleTimeoutMax()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="StylusHandwritingSessionTimeout">
+      <MemberSignature Language="C#" Value="public Java.Time.Duration StylusHandwritingSessionTimeout { get; set; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance class Java.Time.Duration StylusHandwritingSessionTimeout" />
+      <MemberSignature Language="DocId" Value="P:Android.InputMethodServices.InputMethodService.StylusHandwritingSessionTimeout" />
+      <MemberSignature Language="F#" Value="member this.StylusHandwritingSessionTimeout : Java.Time.Duration with get, set" Usage="Android.InputMethodServices.InputMethodService.StylusHandwritingSessionTimeout" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: Android.Runtime.Register("getStylusHandwritingSessionTimeout", "()Ljava/time/Duration;", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getStylusHandwritingSessionTimeout", "()Ljava/time/Duration;", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: Android.Runtime.Register("setStylusHandwritingSessionTimeout", "(Ljava/time/Duration;)V", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setStylusHandwritingSessionTimeout", "(Ljava/time/Duration;)V", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Time.Duration</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <param name="duration">timeout to set.</param>
+        <summary>Returns the duration after which an ongoing stylus handwriting session that hasn't received
+            new <c>MotionEvent</c>s will time out and <c>#finishStylusHandwriting()</c> will be called. -or- Sets the duration after which an ongoing stylus handwriting session that hasn't received new
+            <c>MotionEvent</c>s will time out and <c>#finishStylusHandwriting()</c> will be called.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para>Property getter documentation:</para>
+          <para>Returns the duration after which an ongoing stylus handwriting session that hasn't received
+            new <c>MotionEvent</c>s will time out and <c>#finishStylusHandwriting()</c> will be called.
+            The current timeout can be changed using
+            <c>#setStylusHandwritingSessionTimeout(Duration)</c>.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getStylusHandwritingSessionTimeout()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getStylusHandwritingSessionTimeout()</code>.</a>
+            </format>
+          </para>
+          <para>Property setter documentation:</para>
+          <para>Sets the duration after which an ongoing stylus handwriting session that hasn't received new
+            <c>MotionEvent</c>s will time out and <c>#finishStylusHandwriting()</c> will be called.
+            
+            The maximum allowed duration is returned by
+            <c>#getStylusHandwritingIdleTimeoutMax()</c>, larger values will be clamped.
+            
+            Note: this value is bound to the <c>InputMethodService</c> instance and resets to the
+            default whenever a new instance is constructed.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#setStylusHandwritingSessionTimeout(java.time.Duration)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.setStylusHandwritingSessionTimeout(java.time.Duration)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
     <Member MemberName="StylusHandwritingWindow">
       <MemberSignature Language="C#" Value="public Android.Views.Window? StylusHandwritingWindow { get; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class Android.Views.Window StylusHandwritingWindow" />
@@ -3259,6 +3996,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getStylusHandwritingWindow", "()Landroid/view/Window;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getStylusHandwritingWindow", "()Landroid/view/Window;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -3270,6 +4011,14 @@
         <summary>Returns the stylus handwriting inking window.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the stylus handwriting inking window.
+            IMEs supporting stylus input are expected to attach their inking views to this
+            window (e.g. with <c>Window#setContentView(View)</c> )). Handwriting-related
+            <c>MotionEvent</c>s are dispatched to the attached view hierarchy.
+            
+            Note: This returns <c>null</c> if IME doesn't support stylus handwriting
+              i.e. if <c>InputMethodInfo#supportsStylusHandwriting()</c> is false.
+              This method should be called after <c>#onStartStylusHandwriting()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#getStylusHandwritingWindow()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.getStylusHandwritingWindow()</code>.</a>
@@ -3290,8 +4039,8 @@
       <MemberSignature Language="F#" Value="abstract member SwitchInputMethod : string -&gt; unit&#xA;override this.SwitchInputMethod : string -&gt; unit" Usage="inputMethodService.SwitchInputMethod id" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3309,6 +4058,9 @@
         <param name="id">Unique identifier of the new input method to start.</param>
         <summary>Force switch to a new input method, as identified by &lt;var&gt;id&lt;/var&gt;.</summary>
         <remarks>
+          <para>Force switch to a new input method, as identified by &lt;var&gt;id&lt;/var&gt;.  This
+            input method will be destroyed, and the requested one started on the
+            current input field.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#switchInputMethod(java.lang.String)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.switchInputMethod(java.lang.String)</code>.</a>
@@ -3338,6 +4090,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("switchInputMethod", "(Ljava/lang/String;Landroid/view/inputmethod/InputMethodSubtype;)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("switchInputMethod", "(Ljava/lang/String;Landroid/view/inputmethod/InputMethodSubtype;)V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -3351,6 +4107,9 @@
         <param name="subtype">The new subtype of the new input method to be switched to.</param>
         <summary>Force switch to a new input method, as identified by <c>id</c>.</summary>
         <remarks>
+          <para>Force switch to a new input method, as identified by <c>id</c>.  This
+            input method will be destroyed, and the requested one started on the
+            current input field.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#switchInputMethod(java.lang.String,%20android.view.inputmethod.InputMethodSubtype)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.switchInputMethod(java.lang.String, android.view.inputmethod.InputMethodSubtype)</code>.</a>
@@ -3379,6 +4138,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("switchToNextInputMethod", "(Z)Z", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("switchToNextInputMethod", "(Z)Z", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -3393,6 +4156,8 @@
         <returns>true if the current input method and subtype was successfully switched to the next
             input method and subtype.</returns>
         <remarks>
+          <para>Force switch to the next input method and subtype. If there is no IME enabled except
+            current IME and subtype, do nothing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#switchToNextInputMethod(boolean)" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.switchToNextInputMethod(boolean)</code>.</a>
@@ -3421,6 +4186,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("switchToPreviousInputMethod", "()Z", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("switchToPreviousInputMethod", "()Z", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -3431,6 +4200,9 @@
         <returns>true if the current input method and subtype was successfully switched to the last
             used input method and subtype.</returns>
         <remarks>
+          <para>Force switch to the last used input method and subtype. If the last input method didn't have
+            any subtypes, the framework will simply switch to the last input method with no subtype
+            specified.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#switchToPreviousInputMethod()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.switchToPreviousInputMethod()</code>.</a>
@@ -3451,8 +4223,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.InputMethodServices.InputMethodService.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3482,8 +4254,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.InputMethodServices.InputMethodService.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3513,8 +4285,8 @@
       <MemberSignature Language="F#" Value="abstract member UpdateFullscreenMode : unit -&gt; unit&#xA;override this.UpdateFullscreenMode : unit -&gt; unit" Usage="inputMethodService.UpdateFullscreenMode " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3531,6 +4303,12 @@
             mode, and update its UI if this has changed since the last time it
             was evaluated.</summary>
         <remarks>
+          <para>Re-evaluate whether the input method should be running in fullscreen
+            mode, and update its UI if this has changed since the last time it
+            was evaluated.  This will call <c>#onEvaluateFullscreenMode()</c> to
+            determine whether it should currently run in fullscreen mode.  You
+            can use <c>#isFullscreenMode()</c> to determine if the input method
+            is currently running in fullscreen mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#updateFullscreenMode()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.updateFullscreenMode()</code>.</a>
@@ -3552,8 +4330,8 @@
       <MemberSignature Language="F#" Value="abstract member UpdateInputViewShown : unit -&gt; unit&#xA;override this.UpdateInputViewShown : unit -&gt; unit" Usage="inputMethodService.UpdateInputViewShown " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3570,6 +4348,12 @@
             update its UI if this has changed since the last time it
             was evaluated.</summary>
         <remarks>
+          <para>Re-evaluate whether the soft input area should currently be shown, and
+            update its UI if this has changed since the last time it
+            was evaluated.  This will call <c>#onEvaluateInputViewShown()</c> to
+            determine whether the input view should currently be shown.  You
+            can use <c>#isInputViewShown()</c> to determine if the input view
+            is currently shown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/inputmethodservice/InputMethodService#updateInputViewShown()" title="Reference documentation">Java documentation for <code>android.inputmethodservice.InputMethodService.updateInputViewShown()</code>.</a>
@@ -3591,8 +4375,8 @@
       <MemberSignature Language="F#" Value="member this.Window : Android.App.Dialog" Usage="Android.InputMethodServices.InputMethodService.Window" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

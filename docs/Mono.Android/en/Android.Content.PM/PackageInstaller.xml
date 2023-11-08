@@ -21,6 +21,33 @@
     <summary>Offers the ability to install, upgrade, and remove applications on the
             device.</summary>
     <remarks>
+      <para>Offers the ability to install, upgrade, and remove applications on the
+            device. This includes support for apps packaged either as a single
+            "monolithic" APK, or apps packaged as multiple "split" APKs.</para>
+      <para>An app is delivered for installation through a
+            <c>PackageInstaller.Session</c>, which any app can create. Once the session
+            is created, the installer can stream one or more APKs into place until it
+            decides to either commit or destroy the session. Committing may require user
+            intervention to complete the installation, unless the caller falls into one of the
+            following categories, in which case the installation will complete automatically.
+            &lt;ul&gt;
+            &lt;li&gt;the device owner
+            &lt;li&gt;the affiliated profile owner
+            &lt;/ul&gt;</para>
+      <para>Sessions can install brand new apps, upgrade existing apps, or add new splits
+            into an existing app.</para>
+      <para>Apps packaged as multiple split APKs always consist of a single "base" APK
+            (with a <c>null</c> split name) and zero or more "split" APKs (with unique
+            split names). Any subset of these APKs can be installed together, as long as
+            the following constraints are met:
+            &lt;ul&gt;
+            &lt;li&gt;All APKs must have the exact same package name, version code, and signing
+            certificates.
+            &lt;li&gt;All APKs must have unique split names.
+            &lt;li&gt;All installations must contain a single base APK.
+            &lt;/ul&gt;</para>
+      <para>The ApiDemos project contains examples of using this API:
+            <c>ApiDemos/src/com/example/android/apis/content/InstallApk*.java</c>.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller</code>.</a>
@@ -41,8 +68,8 @@
       <MemberSignature Language="F#" Value="new Android.Content.PM.PackageInstaller : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Content.PM.PackageInstaller" Usage="new Android.Content.PM.PackageInstaller (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -64,8 +91,8 @@
       <MemberSignature Language="F#" Value="abstract member AbandonSession : int -&gt; unit&#xA;override this.AbandonSession : int -&gt; unit" Usage="packageInstaller.AbandonSession sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -84,6 +111,10 @@
         <summary>Completely abandon the given session, destroying all staged data and
             rendering it invalid.</summary>
         <remarks>
+          <para>Completely abandon the given session, destroying all staged data and
+            rendering it invalid. Abandoned sessions will be reported to
+            <c>SessionCallback</c> listeners as failures. This is equivalent to
+            opening the session and calling <c>Session#abandon()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#abandonSession(int)" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.abandonSession(int)</code>.</a>
@@ -115,6 +146,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("ACTION_SESSION_COMMITTED", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("ACTION_SESSION_COMMITTED", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -123,6 +158,11 @@
         <summary>Broadcast Action: Explicit broadcast sent to the last known default launcher when a session
             for a new install is committed.</summary>
         <remarks>
+          <para>Broadcast Action: Explicit broadcast sent to the last known default launcher when a session
+            for a new install is committed. For managed profile, this is sent to the default launcher
+            of the primary profile.</para>
+          <para>The associated session is defined in <c>#EXTRA_SESSION</c> and the user for which this
+            session was created in <c>Intent#EXTRA_USER</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#ACTION_SESSION_COMMITTED" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.ACTION_SESSION_COMMITTED</code>.</a>
@@ -143,8 +183,8 @@
       <MemberSignature Language="F#" Value="val mutable ActionSessionDetails : string" Usage="Android.Content.PM.PackageInstaller.ActionSessionDetails" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -158,6 +198,14 @@
       <Docs>
         <summary>Activity Action: Show details about a particular install session.</summary>
         <remarks>
+          <para>Activity Action: Show details about a particular install session. This
+            may surface actions such as pause, resume, or cancel.</para>
+          <para>This should always be scoped to the installer package that owns the
+            session. Clients should use <c>SessionInfo#createDetailsIntent()</c> to
+            build this intent correctly.</para>
+          <para>In some cases, a matching Activity may not exist, so ensure you safeguard
+            against this.</para>
+          <para>The session to show details for is defined in <c>#EXTRA_SESSION_ID</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#ACTION_SESSION_DETAILS" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.ACTION_SESSION_DETAILS</code>.</a>
@@ -186,6 +234,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("ACTION_SESSION_UPDATED", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("ACTION_SESSION_UPDATED", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -193,6 +245,8 @@
       <Docs>
         <summary>Broadcast Action: Send information about a staged install session when its state is updated.</summary>
         <remarks>
+          <para>Broadcast Action: Send information about a staged install session when its state is updated.</para>
+          <para>The associated session information is defined in <c>#EXTRA_SESSION</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#ACTION_SESSION_UPDATED" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.ACTION_SESSION_UPDATED</code>.</a>
@@ -218,8 +272,12 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getActiveStagedSession", "()Landroid/content/pm/PackageInstaller$SessionInfo;", "GetGetActiveStagedSessionHandler", ApiSince=29)]</AttributeName>
@@ -258,6 +316,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getActiveStagedSessions", "()Ljava/util/List;", "GetGetActiveStagedSessionsHandler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getActiveStagedSessions", "()Ljava/util/List;", "GetGetActiveStagedSessionsHandler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
@@ -269,6 +331,9 @@
         <summary>Returns list of active staged sessions.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns list of active staged sessions. Returns empty list if there is none.</para>
+          <para>For more information on what sessions are considered active see
+                 * <c>SessionInfo#isStagedSessionActive()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#getActiveStagedSessions()" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.getActiveStagedSessions()</code>.</a>
@@ -289,8 +354,8 @@
       <MemberSignature Language="F#" Value="member this.AllSessions : System.Collections.Generic.IList&lt;Android.Content.PM.PackageInstaller.SessionInfo&gt;" Usage="Android.Content.PM.PackageInstaller.AllSessions" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -305,6 +370,10 @@
         <summary>Return list of all known install sessions, regardless of the installer.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Return list of all known install sessions, regardless of the installer. Callers need to
+            either declare &amp;lt;queries&amp;gt; element with the specific  package name in the app's manifest,
+            have the android.permission.QUERY_ALL_PACKAGES, or be the session owner to retrieve these
+            details.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#getAllSessions()" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.getAllSessions()</code>.</a>
@@ -318,6 +387,82 @@
         </remarks>
       </Docs>
     </Member>
+    <Member MemberName="CheckInstallConstraints">
+      <MemberSignature Language="C#" Value="public virtual void CheckInstallConstraints (System.Collections.Generic.IList&lt;string&gt; packageNames, Android.Content.PM.PackageInstaller.InstallConstraints constraints, Java.Util.Concurrent.IExecutor executor, Java.Util.Functions.IConsumer callback);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void CheckInstallConstraints(class System.Collections.Generic.IList`1&lt;string&gt; packageNames, class Android.Content.PM.PackageInstaller/InstallConstraints constraints, class Java.Util.Concurrent.IExecutor executor, class Java.Util.Functions.IConsumer callback) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Content.PM.PackageInstaller.CheckInstallConstraints(System.Collections.Generic.IList{System.String},Android.Content.PM.PackageInstaller.InstallConstraints,Java.Util.Concurrent.IExecutor,Java.Util.Functions.IConsumer)" />
+      <MemberSignature Language="F#" Value="abstract member CheckInstallConstraints : System.Collections.Generic.IList&lt;string&gt; * Android.Content.PM.PackageInstaller.InstallConstraints * Java.Util.Concurrent.IExecutor * Java.Util.Functions.IConsumer -&gt; unit&#xA;override this.CheckInstallConstraints : System.Collections.Generic.IList&lt;string&gt; * Android.Content.PM.PackageInstaller.InstallConstraints * Java.Util.Concurrent.IExecutor * Java.Util.Functions.IConsumer -&gt; unit" Usage="packageInstaller.CheckInstallConstraints (packageNames, constraints, executor, callback)" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("checkInstallConstraints", "(Ljava/util/List;Landroid/content/pm/PackageInstaller$InstallConstraints;Ljava/util/concurrent/Executor;Ljava/util/function/Consumer;)V", "GetCheckInstallConstraints_Ljava_util_List_Landroid_content_pm_PackageInstaller_InstallConstraints_Ljava_util_concurrent_Executor_Ljava_util_function_Consumer_Handler", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("checkInstallConstraints", "(Ljava/util/List;Landroid/content/pm/PackageInstaller$InstallConstraints;Ljava/util/concurrent/Executor;Ljava/util/function/Consumer;)V", "GetCheckInstallConstraints_Ljava_util_List_Landroid_content_pm_PackageInstaller_InstallConstraints_Ljava_util_concurrent_Executor_Ljava_util_function_Consumer_Handler", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="packageNames" Type="System.Collections.Generic.IList&lt;System.String&gt;" />
+        <Parameter Name="constraints" Type="Android.Content.PM.PackageInstaller+InstallConstraints" />
+        <Parameter Name="executor" Type="Java.Util.Concurrent.IExecutor" />
+        <Parameter Name="callback" Type="Java.Util.Functions.IConsumer" />
+      </Parameters>
+      <Docs>
+        <param name="packageNames">To be added.</param>
+        <param name="constraints">To be added.</param>
+        <param name="executor">To be added.</param>
+        <param name="callback">To be added.</param>
+        <summary>To be added.</summary>
+        <remarks>To be added.</remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="CommitSessionAfterInstallConstraintsAreMet">
+      <MemberSignature Language="C#" Value="public virtual void CommitSessionAfterInstallConstraintsAreMet (int sessionId, Android.Content.IntentSender statusReceiver, Android.Content.PM.PackageInstaller.InstallConstraints constraints, long timeoutMillis);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void CommitSessionAfterInstallConstraintsAreMet(int32 sessionId, class Android.Content.IntentSender statusReceiver, class Android.Content.PM.PackageInstaller/InstallConstraints constraints, int64 timeoutMillis) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Content.PM.PackageInstaller.CommitSessionAfterInstallConstraintsAreMet(System.Int32,Android.Content.IntentSender,Android.Content.PM.PackageInstaller.InstallConstraints,System.Int64)" />
+      <MemberSignature Language="F#" Value="abstract member CommitSessionAfterInstallConstraintsAreMet : int * Android.Content.IntentSender * Android.Content.PM.PackageInstaller.InstallConstraints * int64 -&gt; unit&#xA;override this.CommitSessionAfterInstallConstraintsAreMet : int * Android.Content.IntentSender * Android.Content.PM.PackageInstaller.InstallConstraints * int64 -&gt; unit" Usage="packageInstaller.CommitSessionAfterInstallConstraintsAreMet (sessionId, statusReceiver, constraints, timeoutMillis)" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("commitSessionAfterInstallConstraintsAreMet", "(ILandroid/content/IntentSender;Landroid/content/pm/PackageInstaller$InstallConstraints;J)V", "GetCommitSessionAfterInstallConstraintsAreMet_ILandroid_content_IntentSender_Landroid_content_pm_PackageInstaller_InstallConstraints_JHandler", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("commitSessionAfterInstallConstraintsAreMet", "(ILandroid/content/IntentSender;Landroid/content/pm/PackageInstaller$InstallConstraints;J)V", "GetCommitSessionAfterInstallConstraintsAreMet_ILandroid_content_IntentSender_Landroid_content_pm_PackageInstaller_InstallConstraints_JHandler", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="sessionId" Type="System.Int32" />
+        <Parameter Name="statusReceiver" Type="Android.Content.IntentSender" />
+        <Parameter Name="constraints" Type="Android.Content.PM.PackageInstaller+InstallConstraints" />
+        <Parameter Name="timeoutMillis" Type="System.Int64" />
+      </Parameters>
+      <Docs>
+        <param name="sessionId">To be added.</param>
+        <param name="statusReceiver">To be added.</param>
+        <param name="constraints">To be added.</param>
+        <param name="timeoutMillis">To be added.</param>
+        <summary>To be added.</summary>
+        <remarks>To be added.</remarks>
+      </Docs>
+    </Member>
     <Member MemberName="CreateSession">
       <MemberSignature Language="C#" Value="public virtual int CreateSession (Android.Content.PM.PackageInstaller.SessionParams params);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance int32 CreateSession(class Android.Content.PM.PackageInstaller/SessionParams params) cil managed" />
@@ -325,8 +470,8 @@
       <MemberSignature Language="F#" Value="abstract member CreateSession : Android.Content.PM.PackageInstaller.SessionParams -&gt; int&#xA;override this.CreateSession : Android.Content.PM.PackageInstaller.SessionParams -&gt; int" Usage="packageInstaller.CreateSession params" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -366,6 +511,86 @@
         <exception cref="T:Java.Lang.IllegalArgumentException">when <see cref="T:Android.Content.PM.PackageInstaller.SessionParams" /> is invalid.</exception>
       </Docs>
     </Member>
+    <Member MemberName="ExtraInstallConstraints">
+      <MemberSignature Language="C#" Value="public const string ExtraInstallConstraints;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal string ExtraInstallConstraints" />
+      <MemberSignature Language="DocId" Value="F:Android.Content.PM.PackageInstaller.ExtraInstallConstraints" />
+      <MemberSignature Language="F#" Value="val mutable ExtraInstallConstraints : string" Usage="Android.Content.PM.PackageInstaller.ExtraInstallConstraints" />
+      <MemberType>Field</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("EXTRA_INSTALL_CONSTRAINTS", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("EXTRA_INSTALL_CONSTRAINTS", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.String</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>The <c>InstallConstraints</c> object.</summary>
+        <remarks>
+          <para>The <c>InstallConstraints</c> object.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#EXTRA_INSTALL_CONSTRAINTS" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.EXTRA_INSTALL_CONSTRAINTS</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="ExtraInstallConstraintsResult">
+      <MemberSignature Language="C#" Value="public const string ExtraInstallConstraintsResult;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal string ExtraInstallConstraintsResult" />
+      <MemberSignature Language="DocId" Value="F:Android.Content.PM.PackageInstaller.ExtraInstallConstraintsResult" />
+      <MemberSignature Language="F#" Value="val mutable ExtraInstallConstraintsResult : string" Usage="Android.Content.PM.PackageInstaller.ExtraInstallConstraintsResult" />
+      <MemberType>Field</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("EXTRA_INSTALL_CONSTRAINTS_RESULT", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("EXTRA_INSTALL_CONSTRAINTS_RESULT", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.String</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>The <c>InstallConstraintsResult</c> object.</summary>
+        <remarks>
+          <para>The <c>InstallConstraintsResult</c> object.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#EXTRA_INSTALL_CONSTRAINTS_RESULT" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.EXTRA_INSTALL_CONSTRAINTS_RESULT</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
     <Member MemberName="ExtraOtherPackageName">
       <MemberSignature Language="C#" Value="public const string ExtraOtherPackageName;" />
       <MemberSignature Language="ILAsm" Value=".field public static literal string ExtraOtherPackageName" />
@@ -373,8 +598,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraOtherPackageName : string" Usage="Android.Content.PM.PackageInstaller.ExtraOtherPackageName" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -388,6 +613,8 @@
       <Docs>
         <summary>Another package name relevant to a status.</summary>
         <remarks>
+          <para>Another package name relevant to a status. This is typically the package
+            responsible for causing an operation failure.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#EXTRA_OTHER_PACKAGE_NAME" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.EXTRA_OTHER_PACKAGE_NAME</code>.</a>
@@ -409,8 +636,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraPackageName : string" Usage="Android.Content.PM.PackageInstaller.ExtraPackageName" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -424,6 +651,7 @@
       <Docs>
         <summary>Package name that an operation is working with.</summary>
         <remarks>
+          <para>Package name that an operation is working with.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#EXTRA_PACKAGE_NAME" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.EXTRA_PACKAGE_NAME</code>.</a>
@@ -436,6 +664,50 @@
                     <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <altmember cref="M:Android.Content.Intent.GetStringExtra(System.String)" />
+      </Docs>
+    </Member>
+    <Member MemberName="ExtraPreApproval">
+      <MemberSignature Language="C#" Value="public const string ExtraPreApproval;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal string ExtraPreApproval" />
+      <MemberSignature Language="DocId" Value="F:Android.Content.PM.PackageInstaller.ExtraPreApproval" />
+      <MemberSignature Language="F#" Value="val mutable ExtraPreApproval : string" Usage="Android.Content.PM.PackageInstaller.ExtraPreApproval" />
+      <MemberType>Field</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("EXTRA_PRE_APPROVAL", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("EXTRA_PRE_APPROVAL", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.String</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Indicate if the status is for a pre-approval request.</summary>
+        <remarks>
+          <para>Indicate if the status is for a pre-approval request.
+            
+            If callers use the same <c>IntentSender</c> for both
+            <c>Session#requestUserPreapproval(PreapprovalDetails, IntentSender)</c> and
+            <c>Session#commit(IntentSender)</c>, they can use this to differentiate between them.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#EXTRA_PRE_APPROVAL" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.EXTRA_PRE_APPROVAL</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="ExtraSession">
@@ -453,6 +725,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("EXTRA_SESSION", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EXTRA_SESSION", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -461,6 +737,8 @@
         <summary>
           <c>SessionInfo</c> that an operation is working with.</summary>
         <remarks>
+          <para>
+            <c>SessionInfo</c> that an operation is working with.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#EXTRA_SESSION" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.EXTRA_SESSION</code>.</a>
@@ -481,8 +759,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraSessionId : string" Usage="Android.Content.PM.PackageInstaller.ExtraSessionId" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -496,6 +774,7 @@
       <Docs>
         <summary>An integer session ID that an operation is working with.</summary>
         <remarks>
+          <para>An integer session ID that an operation is working with.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#EXTRA_SESSION_ID" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.EXTRA_SESSION_ID</code>.</a>
@@ -517,8 +796,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraStatus : string" Usage="Android.Content.PM.PackageInstaller.ExtraStatus" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -532,6 +811,14 @@
       <Docs>
         <summary>Current status of an operation.</summary>
         <remarks>
+          <para>Current status of an operation. Will be one of
+            <c>#STATUS_PENDING_USER_ACTION</c>, <c>#STATUS_SUCCESS</c>,
+            <c>#STATUS_FAILURE</c>, <c>#STATUS_FAILURE_ABORTED</c>,
+            <c>#STATUS_FAILURE_BLOCKED</c>, <c>#STATUS_FAILURE_CONFLICT</c>,
+            <c>#STATUS_FAILURE_INCOMPATIBLE</c>, <c>#STATUS_FAILURE_INVALID</c>,
+            <c>#STATUS_FAILURE_STORAGE</c>, or <c>#STATUS_FAILURE_TIMEOUT</c>.</para>
+          <para>More information about a status may be available through additional
+            extras; see the individual status documentation for details.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#EXTRA_STATUS" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.EXTRA_STATUS</code>.</a>
@@ -553,8 +840,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraStatusMessage : string" Usage="Android.Content.PM.PackageInstaller.ExtraStatusMessage" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -569,6 +856,8 @@
         <summary>Detailed string representation of the status, including raw details that
             are useful for debugging.</summary>
         <remarks>
+          <para>Detailed string representation of the status, including raw details that
+            are useful for debugging.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#EXTRA_STATUS_MESSAGE" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.EXTRA_STATUS_MESSAGE</code>.</a>
@@ -590,8 +879,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraStoragePath : string" Usage="Android.Content.PM.PackageInstaller.ExtraStoragePath" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -605,6 +894,7 @@
       <Docs>
         <summary>Storage path relevant to a status.</summary>
         <remarks>
+          <para>Storage path relevant to a status.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#EXTRA_STORAGE_PATH" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.EXTRA_STORAGE_PATH</code>.</a>
@@ -626,8 +916,8 @@
       <MemberSignature Language="F#" Value="abstract member GetSessionInfo : int -&gt; Android.Content.PM.PackageInstaller.SessionInfo&#xA;override this.GetSessionInfo : int -&gt; Android.Content.PM.PackageInstaller.SessionInfo" Usage="packageInstaller.GetSessionInfo sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -675,6 +965,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("installExistingPackage", "(Ljava/lang/String;ILandroid/content/IntentSender;)V", "GetInstallExistingPackage_Ljava_lang_String_ILandroid_content_IntentSender_Handler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("installExistingPackage", "(Ljava/lang/String;ILandroid/content/IntentSender;)V", "GetInstallExistingPackage_Ljava_lang_String_ILandroid_content_IntentSender_Handler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -694,10 +988,17 @@
       <Docs>
         <param name="packageName">The package to install.</param>
         <param name="installReason">Reason for install.</param>
-        <param name="statusReceiver">Where to deliver the result.</param>
+        <param name="statusReceiver">Where to deliver the result of the operation indicated by the extra
+                                  <c>#EXTRA_STATUS</c>. Refer to the individual status codes
+                                  on how to handle them.</param>
         <summary>Install the given package, which already exists on the device, for the user for which this
             installer was created.</summary>
         <remarks>
+          <para>Install the given package, which already exists on the device, for the user for which this
+            installer was created.</para>
+          <para>This will
+            <c>PackageInstaller.SessionParams#setWhitelistedRestrictedPermissions(Set) allowlist
+            all restricted permissions</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#installExistingPackage(java.lang.String,%20int,%20android.content.IntentSender)" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.installExistingPackage(java.lang.String, int, android.content.IntentSender)</code>.</a>
@@ -749,8 +1050,8 @@
       <MemberSignature Language="F#" Value="member this.MySessions : System.Collections.Generic.IList&lt;Android.Content.PM.PackageInstaller.SessionInfo&gt;" Usage="Android.Content.PM.PackageInstaller.MySessions" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -765,6 +1066,7 @@
         <summary>Return list of all known install sessions owned by the calling app.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Return list of all known install sessions owned by the calling app.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#getMySessions()" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.getMySessions()</code>.</a>
@@ -785,8 +1087,8 @@
       <MemberSignature Language="F#" Value="abstract member OpenSession : int -&gt; Android.Content.PM.PackageInstaller.Session&#xA;override this.OpenSession : int -&gt; Android.Content.PM.PackageInstaller.Session" Usage="packageInstaller.OpenSession sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -842,6 +1144,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageSource enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageSource enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Content.PM.PackageSource</ReturnType>
@@ -851,6 +1157,9 @@
         <summary>Code indicating that the package being installed comes from a file that was downloaded to
             the device by the user.</summary>
         <remarks>
+          <para>Code indicating that the package being installed comes from a file that was downloaded to
+            the device by the user. For use in place of <c>#PACKAGE_SOURCE_LOCAL_FILE</c> when the
+            installer knows the package was downloaded.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#PACKAGE_SOURCE_DOWNLOADED_FILE" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE</code>.</a>
@@ -883,6 +1192,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageSource enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageSource enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Content.PM.PackageSource</ReturnType>
@@ -891,6 +1204,8 @@
       <Docs>
         <summary>Code indicating that the package being installed comes from a local file on the device.</summary>
         <remarks>
+          <para>Code indicating that the package being installed comes from a local file on the device. A
+            file manager that is facilitating the installation of an APK file would use this.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#PACKAGE_SOURCE_LOCAL_FILE" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.PACKAGE_SOURCE_LOCAL_FILE</code>.</a>
@@ -923,6 +1238,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageSource enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageSource enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Content.PM.PackageSource</ReturnType>
@@ -932,6 +1251,8 @@
         <summary>Code indicating that the package being installed is from a source not reflected by any
             other package source constant.</summary>
         <remarks>
+          <para>Code indicating that the package being installed is from a source not reflected by any
+            other package source constant.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#PACKAGE_SOURCE_OTHER" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.PACKAGE_SOURCE_OTHER</code>.</a>
@@ -964,6 +1285,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageSource enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageSource enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Content.PM.PackageSource</ReturnType>
@@ -972,6 +1297,8 @@
       <Docs>
         <summary>Code indicating that the package being installed is from a store.</summary>
         <remarks>
+          <para>Code indicating that the package being installed is from a store. An app store that
+            installs an app for the user would use this.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#PACKAGE_SOURCE_STORE" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.PACKAGE_SOURCE_STORE</code>.</a>
@@ -1004,6 +1331,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageSource enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageSource enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Content.PM.PackageSource</ReturnType>
@@ -1013,6 +1344,8 @@
         <summary>The installer did not call <c>PackageInstaller.SessionParams#setPackageSource(int)</c> to
             specify the package source.</summary>
         <remarks>
+          <para>The installer did not call <c>PackageInstaller.SessionParams#setPackageSource(int)</c> to
+            specify the package source.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#PACKAGE_SOURCE_UNSPECIFIED" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.PACKAGE_SOURCE_UNSPECIFIED</code>.</a>
@@ -1033,8 +1366,8 @@
       <MemberSignature Language="F#" Value="abstract member RegisterSessionCallback : Android.Content.PM.PackageInstaller.SessionCallback -&gt; unit&#xA;override this.RegisterSessionCallback : Android.Content.PM.PackageInstaller.SessionCallback -&gt; unit" Usage="packageInstaller.RegisterSessionCallback callback" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1072,8 +1405,8 @@
       <MemberSignature Language="F#" Value="abstract member RegisterSessionCallback : Android.Content.PM.PackageInstaller.SessionCallback * Android.OS.Handler -&gt; unit&#xA;override this.RegisterSessionCallback : Android.Content.PM.PackageInstaller.SessionCallback * Android.OS.Handler -&gt; unit" Usage="packageInstaller.RegisterSessionCallback (callback, handler)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1120,6 +1453,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getStagedSessions", "()Ljava/util/List;", "GetGetStagedSessionsHandler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getStagedSessions", "()Ljava/util/List;", "GetGetStagedSessionsHandler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1131,9 +1468,57 @@
         <summary>Return list of all staged install sessions.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Return list of all staged install sessions. Callers need to either declare &amp;lt;queries&amp;gt;
+            element with the specific package name in the app's manifest, have the
+            android.permission.QUERY_ALL_PACKAGES, or be the session owner to retrieve these details.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#getStagedSessions()" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.getStagedSessions()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="StatusFailureTimeout">
+      <MemberSignature Language="C#" Value="public const Android.Content.PM.PackageInstallStatus StatusFailureTimeout = 8;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Content.PM.PackageInstallStatus StatusFailureTimeout = (8)" />
+      <MemberSignature Language="DocId" Value="F:Android.Content.PM.PackageInstaller.StatusFailureTimeout" />
+      <MemberSignature Language="F#" Value="val mutable StatusFailureTimeout : Android.Content.PM.PackageInstallStatus" Usage="Android.Content.PM.PackageInstaller.StatusFailureTimeout" />
+      <MemberType>Field</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("STATUS_FAILURE_TIMEOUT", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("STATUS_FAILURE_TIMEOUT", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageInstallStatus enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Content.PM.PackageInstallStatus enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Content.PM.PackageInstallStatus</ReturnType>
+      </ReturnValue>
+      <MemberValue>8</MemberValue>
+      <Docs>
+        <summary>The operation failed because it didn't complete within the specified timeout.</summary>
+        <remarks>
+          <para>The operation failed because it didn't complete within the specified timeout.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#STATUS_FAILURE_TIMEOUT" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.STATUS_FAILURE_TIMEOUT</code>.</a>
             </format>
           </para>
           <para>
@@ -1151,8 +1536,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Content.PM.PackageInstaller.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1182,8 +1567,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Content.PM.PackageInstaller.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1221,6 +1606,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("uninstall", "(Landroid/content/pm/VersionedPackage;Landroid/content/IntentSender;)V", "GetUninstall_Landroid_content_pm_VersionedPackage_Landroid_content_IntentSender_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("uninstall", "(Landroid/content/pm/VersionedPackage;Landroid/content/IntentSender;)V", "GetUninstall_Landroid_content_pm_VersionedPackage_Landroid_content_IntentSender_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1231,10 +1620,23 @@
       </Parameters>
       <Docs>
         <param name="versionedPackage">The versioned package to uninstall.</param>
-        <param name="statusReceiver">Where to deliver the result.</param>
+        <param name="statusReceiver">Where to deliver the result of the operation indicated by the extra
+                                  <c>#EXTRA_STATUS</c>. Refer to the individual status codes
+                                  on how to handle them.</param>
         <summary>Uninstall the given package with a specific version code, removing it
             completely from the device.</summary>
         <remarks>
+          <para>Uninstall the given package with a specific version code, removing it
+            completely from the device. If the version code of the package
+            does not match the one passed in the versioned package argument this
+            method is a no-op. Use <c>PackageManager#VERSION_CODE_HIGHEST</c> to
+            uninstall the latest version of the package.</para>
+          <para>This method is available to:
+            &lt;ul&gt;
+            &lt;li&gt;the current "installer of record" for the package
+            &lt;li&gt;the device owner
+            &lt;li&gt;the affiliated profile owner
+            &lt;/ul&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#uninstall(android.content.pm.VersionedPackage,%20android.content.IntentSender)" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.uninstall(android.content.pm.VersionedPackage, android.content.IntentSender)</code>.</a>
@@ -1255,8 +1657,8 @@
       <MemberSignature Language="F#" Value="abstract member Uninstall : string * Android.Content.IntentSender -&gt; unit&#xA;override this.Uninstall : string * Android.Content.IntentSender -&gt; unit" Usage="packageInstaller.Uninstall (packageName, statusReceiver)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1273,12 +1675,77 @@
       </Parameters>
       <Docs>
         <param name="packageName">The package to uninstall.</param>
-        <param name="statusReceiver">Where to deliver the result.</param>
+        <param name="statusReceiver">Where to deliver the result of the operation indicated by the extra
+                                  <c>#EXTRA_STATUS</c>. Refer to the individual status codes
+                                  on how to handle them.</param>
         <summary>Uninstall the given package, removing it completely from the device.</summary>
         <remarks>
+          <para>Uninstall the given package, removing it completely from the device. This
+            method is available to:
+            &lt;ul&gt;
+            &lt;li&gt;the current "installer of record" for the package
+            &lt;li&gt;the device owner
+            &lt;li&gt;the affiliated profile owner
+            &lt;/ul&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#uninstall(java.lang.String,%20android.content.IntentSender)" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.uninstall(java.lang.String, android.content.IntentSender)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Uninstall">
+      <MemberSignature Language="C#" Value="public virtual void Uninstall (Android.Content.PM.VersionedPackage versionedPackage, int flags, Android.Content.IntentSender statusReceiver);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void Uninstall(class Android.Content.PM.VersionedPackage versionedPackage, int32 flags, class Android.Content.IntentSender statusReceiver) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Content.PM.PackageInstaller.Uninstall(Android.Content.PM.VersionedPackage,System.Int32,Android.Content.IntentSender)" />
+      <MemberSignature Language="F#" Value="abstract member Uninstall : Android.Content.PM.VersionedPackage * int * Android.Content.IntentSender -&gt; unit&#xA;override this.Uninstall : Android.Content.PM.VersionedPackage * int * Android.Content.IntentSender -&gt; unit" Usage="packageInstaller.Uninstall (versionedPackage, flags, statusReceiver)" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("uninstall", "(Landroid/content/pm/VersionedPackage;ILandroid/content/IntentSender;)V", "GetUninstall_Landroid_content_pm_VersionedPackage_ILandroid_content_IntentSender_Handler", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("uninstall", "(Landroid/content/pm/VersionedPackage;ILandroid/content/IntentSender;)V", "GetUninstall_Landroid_content_pm_VersionedPackage_ILandroid_content_IntentSender_Handler", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="versionedPackage" Type="Android.Content.PM.VersionedPackage" />
+        <Parameter Name="flags" Type="System.Int32" />
+        <Parameter Name="statusReceiver" Type="Android.Content.IntentSender" />
+      </Parameters>
+      <Docs>
+        <param name="versionedPackage">The versioned package to uninstall.</param>
+        <param name="flags">Flags for uninstall.</param>
+        <param name="statusReceiver">Where to deliver the result of the operation indicated by the extra
+                                  <c>#EXTRA_STATUS</c>. Refer to the individual status codes
+                                  on how to handle them.</param>
+        <summary>Uninstall the given package with a specific version code, removing it
+            completely from the device.</summary>
+        <remarks>
+          <para>Uninstall the given package with a specific version code, removing it
+            completely from the device. This method is only available to the current
+            "installer of record" for the package. If the version code of the package
+            does not match the one passed in the versioned package argument this
+            method is a no-op. Use <c>PackageManager#VERSION_CODE_HIGHEST</c> to
+            uninstall the latest version of the package.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#uninstall(android.content.pm.VersionedPackage,%20int,%20android.content.IntentSender)" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.uninstall(android.content.pm.VersionedPackage, int, android.content.IntentSender)</code>.</a>
             </format>
           </para>
           <para>
@@ -1308,6 +1775,10 @@
           <AttributeName Language="C#">[Android.Runtime.RequiresPermission("android.permission.DELETE_PACKAGES")]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.RequiresPermission("android.permission.DELETE_PACKAGES")&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1317,11 +1788,15 @@
         <Parameter Name="statusReceiver" Type="Android.Content.IntentSender" />
       </Parameters>
       <Docs>
-        <param name="packageName">The package to install.</param>
-        <param name="statusReceiver">Where to deliver the result.</param>
+        <param name="packageName">The package to uninstall.</param>
+        <param name="statusReceiver">Where to deliver the result of the operation indicated by the extra
+                                  <c>#EXTRA_STATUS</c>. Refer to the individual status codes
+                                  on how to handle them.</param>
         <summary>Uninstall the given package for the user for which this installer was created if the package
             will still exist for other users on the device.</summary>
         <remarks>
+          <para>Uninstall the given package for the user for which this installer was created if the package
+            will still exist for other users on the device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#uninstallExistingPackage(java.lang.String,%20android.content.IntentSender)" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.uninstallExistingPackage(java.lang.String, android.content.IntentSender)</code>.</a>
@@ -1342,8 +1817,8 @@
       <MemberSignature Language="F#" Value="abstract member UnregisterSessionCallback : Android.Content.PM.PackageInstaller.SessionCallback -&gt; unit&#xA;override this.UnregisterSessionCallback : Android.Content.PM.PackageInstaller.SessionCallback -&gt; unit" Usage="packageInstaller.UnregisterSessionCallback callback" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1381,8 +1856,8 @@
       <MemberSignature Language="F#" Value="abstract member UpdateSessionAppIcon : int * Android.Graphics.Bitmap -&gt; unit&#xA;override this.UpdateSessionAppIcon : int * Android.Graphics.Bitmap -&gt; unit" Usage="packageInstaller.UpdateSessionAppIcon (sessionId, appIcon)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1403,6 +1878,9 @@
         <summary>Update the icon representing the app being installed in a specific
             session.</summary>
         <remarks>
+          <para>Update the icon representing the app being installed in a specific
+            session. This should be roughly
+            <c>ActivityManager#getLauncherLargeIconSize()</c> in both dimensions.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#updateSessionAppIcon(int,%20android.graphics.Bitmap)" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.updateSessionAppIcon(int, android.graphics.Bitmap)</code>.</a>
@@ -1426,8 +1904,8 @@
       <MemberSignature Language="F#" Value="abstract member UpdateSessionAppLabel : int * Java.Lang.ICharSequence -&gt; unit&#xA;override this.UpdateSessionAppLabel : int * Java.Lang.ICharSequence -&gt; unit" Usage="packageInstaller.UpdateSessionAppLabel (sessionId, appLabel)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1448,6 +1926,8 @@
         <summary>Update the label representing the app being installed in a specific
             session.</summary>
         <remarks>
+          <para>Update the label representing the app being installed in a specific
+            session.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#updateSessionAppLabel(int,%20java.lang.CharSequence)" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.updateSessionAppLabel(int, java.lang.CharSequence)</code>.</a>
@@ -1471,8 +1951,8 @@
       <MemberSignature Language="F#" Value="member this.UpdateSessionAppLabel : int * string -&gt; unit" Usage="packageInstaller.UpdateSessionAppLabel (sessionId, appLabel)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1487,6 +1967,8 @@
         <summary>Update the label representing the app being installed in a specific
             session.</summary>
         <remarks>
+          <para>Update the label representing the app being installed in a specific
+            session.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/pm/PackageInstaller#updateSessionAppLabel(int,%20java.lang.CharSequence)" title="Reference documentation">Java documentation for <code>android.content.pm.PackageInstaller.updateSessionAppLabel(int, java.lang.CharSequence)</code>.</a>
@@ -1498,6 +1980,44 @@
                      and used according to terms described in the 
                     <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="WaitForInstallConstraints">
+      <MemberSignature Language="C#" Value="public virtual void WaitForInstallConstraints (System.Collections.Generic.IList&lt;string&gt; packageNames, Android.Content.PM.PackageInstaller.InstallConstraints constraints, Android.Content.IntentSender callback, long timeoutMillis);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void WaitForInstallConstraints(class System.Collections.Generic.IList`1&lt;string&gt; packageNames, class Android.Content.PM.PackageInstaller/InstallConstraints constraints, class Android.Content.IntentSender callback, int64 timeoutMillis) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Content.PM.PackageInstaller.WaitForInstallConstraints(System.Collections.Generic.IList{System.String},Android.Content.PM.PackageInstaller.InstallConstraints,Android.Content.IntentSender,System.Int64)" />
+      <MemberSignature Language="F#" Value="abstract member WaitForInstallConstraints : System.Collections.Generic.IList&lt;string&gt; * Android.Content.PM.PackageInstaller.InstallConstraints * Android.Content.IntentSender * int64 -&gt; unit&#xA;override this.WaitForInstallConstraints : System.Collections.Generic.IList&lt;string&gt; * Android.Content.PM.PackageInstaller.InstallConstraints * Android.Content.IntentSender * int64 -&gt; unit" Usage="packageInstaller.WaitForInstallConstraints (packageNames, constraints, callback, timeoutMillis)" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("waitForInstallConstraints", "(Ljava/util/List;Landroid/content/pm/PackageInstaller$InstallConstraints;Landroid/content/IntentSender;J)V", "GetWaitForInstallConstraints_Ljava_util_List_Landroid_content_pm_PackageInstaller_InstallConstraints_Landroid_content_IntentSender_JHandler", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("waitForInstallConstraints", "(Ljava/util/List;Landroid/content/pm/PackageInstaller$InstallConstraints;Landroid/content/IntentSender;J)V", "GetWaitForInstallConstraints_Ljava_util_List_Landroid_content_pm_PackageInstaller_InstallConstraints_Landroid_content_IntentSender_JHandler", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="packageNames" Type="System.Collections.Generic.IList&lt;System.String&gt;" />
+        <Parameter Name="constraints" Type="Android.Content.PM.PackageInstaller+InstallConstraints" />
+        <Parameter Name="callback" Type="Android.Content.IntentSender" />
+        <Parameter Name="timeoutMillis" Type="System.Int64" />
+      </Parameters>
+      <Docs>
+        <param name="packageNames">To be added.</param>
+        <param name="constraints">To be added.</param>
+        <param name="callback">To be added.</param>
+        <param name="timeoutMillis">To be added.</param>
+        <summary>To be added.</summary>
+        <remarks>To be added.</remarks>
       </Docs>
     </Member>
   </Members>

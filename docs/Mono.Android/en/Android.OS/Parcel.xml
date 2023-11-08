@@ -21,6 +21,138 @@
     <summary>Container for a message (data and object references) that can
             be sent through an IBinder.</summary>
     <remarks>
+      <para>Container for a message (data and object references) that can
+            be sent through an IBinder.  A Parcel can contain both flattened data
+            that will be unflattened on the other side of the IPC (using the various
+            methods here for writing specific types, or the general
+            <c>Parcelable</c> interface), and references to live <c>IBinder</c>
+            objects that will result in the other side receiving a proxy IBinder
+            connected with the original IBinder in the Parcel.
+            
+            &lt;p class="note"&gt;Parcel is &lt;strong&gt;not&lt;/strong&gt; a general-purpose
+            serialization mechanism.  This class (and the corresponding
+            <c>Parcelable</c> API for placing arbitrary objects into a Parcel) is
+            designed as a high-performance IPC transport.  As such, it is not
+            appropriate to place any Parcel data in to persistent storage: changes
+            in the underlying implementation of any of the data in the Parcel can
+            render older data unreadable.&lt;/p&gt;</para>
+      <para>The bulk of the Parcel API revolves around reading and writing data
+            of various types.  There are six major classes of such functions available.</para>
+      <para>&lt;h3&gt;Primitives&lt;/h3&gt;</para>
+      <para>The most basic data functions are for writing and reading primitive
+            data types: <c>#writeByte</c>, <c>#readByte</c>, <c>#writeDouble</c>,
+            <c>#readDouble</c>, <c>#writeFloat</c>, <c>#readFloat</c>, <c>#writeInt</c>,
+            <c>#readInt</c>, <c>#writeLong</c>, <c>#readLong</c>,
+            <c>#writeString</c>, <c>#readString</c>.  Most other
+            data operations are built on top of these.  The given data is written and
+            read using the endianess of the host CPU.</para>
+      <para>&lt;h3&gt;Primitive Arrays&lt;/h3&gt;</para>
+      <para>There are a variety of methods for reading and writing raw arrays
+            of primitive objects, which generally result in writing a 4-byte length
+            followed by the primitive data items.  The methods for reading can either
+            read the data into an existing array, or create and return a new array.
+            These available types are:</para>
+      <para>&lt;ul&gt;
+            &lt;li&gt; <c>#writeBooleanArray(boolean[])</c>,
+            <c>#readBooleanArray(boolean[])</c>, <c>#createBooleanArray()</c>&lt;li&gt; <c>#writeByteArray(byte[])</c>,
+            <c>#writeByteArray(byte[], int, int)</c>, <c>#readByteArray(byte[])</c>,
+            <c>#createByteArray()</c>&lt;li&gt; <c>#writeCharArray(char[])</c>, <c>#readCharArray(char[])</c>,
+            <c>#createCharArray()</c>&lt;li&gt; <c>#writeDoubleArray(double[])</c>, <c>#readDoubleArray(double[])</c>,
+            <c>#createDoubleArray()</c>&lt;li&gt; <c>#writeFloatArray(float[])</c>, <c>#readFloatArray(float[])</c>,
+            <c>#createFloatArray()</c>&lt;li&gt; <c>#writeIntArray(int[])</c>, <c>#readIntArray(int[])</c>,
+            <c>#createIntArray()</c>&lt;li&gt; <c>#writeLongArray(long[])</c>, <c>#readLongArray(long[])</c>,
+            <c>#createLongArray()</c>&lt;li&gt; <c>#writeStringArray(String[])</c>, <c>#readStringArray(String[])</c>,
+            <c>#createStringArray()</c>.
+            &lt;li&gt; <c>#writeSparseBooleanArray(SparseBooleanArray)</c>,
+            <c>#readSparseBooleanArray()</c>.
+            &lt;/ul&gt;
+            
+            &lt;h3&gt;Parcelables&lt;/h3&gt;</para>
+      <para>The <c>Parcelable</c> protocol provides an extremely efficient (but
+            low-level) protocol for objects to write and read themselves from Parcels.
+            You can use the direct methods <c>#writeParcelable(Parcelable, int)</c>
+            and <c>#readParcelable(ClassLoader)</c> or
+            <c>#writeParcelableArray</c> and
+            <c>#readParcelableArray(ClassLoader)</c> to write or read.  These
+            methods write both the class type and its data to the Parcel, allowing
+            that class to be reconstructed from the appropriate class loader when
+            later reading.</para>
+      <para>There are also some methods that provide a more efficient way to work
+            with Parcelables: <c>#writeTypedObject</c>, <c>#writeTypedArray</c>,
+            <c>#writeTypedList</c>, <c>#readTypedObject</c>,
+            <c>#createTypedArray</c> and <c>#createTypedArrayList</c>.  These methods
+            do not write the class information of the original object: instead, the
+            caller of the read function must know what type to expect and pass in the
+            appropriate <c>Parcelable.Creator Parcelable.Creator</c> instead to
+            properly construct the new object and read its data.  (To more efficient
+            write and read a single Parcelable object that is not null, you can directly
+            call <c>Parcelable#writeToParcel Parcelable.writeToParcel</c> and
+            <c>Parcelable.Creator#createFromParcel Parcelable.Creator.createFromParcel</c>
+            yourself.)</para>
+      <para>&lt;h3&gt;Bundles&lt;/h3&gt;</para>
+      <para>A special type-safe container, called <c>Bundle</c>, is available
+            for key/value maps of heterogeneous values.  This has many optimizations
+            for improved performance when reading and writing data, and its type-safe
+            API avoids difficult to debug type errors when finally marshalling the
+            data contents into a Parcel.  The methods to use are
+            <c>#writeBundle(Bundle)</c>, <c>#readBundle()</c>, and
+            <c>#readBundle(ClassLoader)</c>.
+            
+            &lt;h3&gt;Active Objects&lt;/h3&gt;</para>
+      <para>An unusual feature of Parcel is the ability to read and write active
+            objects.  For these objects the actual contents of the object is not
+            written, rather a special token referencing the object is written.  When
+            reading the object back from the Parcel, you do not get a new instance of
+            the object, but rather a handle that operates on the exact same object that
+            was originally written.  There are two forms of active objects available.</para>
+      <para>
+        <c>Binder</c> objects are a core facility of Android's general cross-process
+            communication system.  The <c>IBinder</c> interface describes an abstract
+            protocol with a Binder object.  Any such interface can be written in to
+            a Parcel, and upon reading you will receive either the original object
+            implementing that interface or a special proxy implementation
+            that communicates calls back to the original object.  The methods to use are
+            <c>#writeStrongBinder(IBinder)</c>,
+            <c>#writeStrongInterface(IInterface)</c>, <c>#readStrongBinder()</c>,
+            <c>#writeBinderArray(IBinder[])</c>, <c>#readBinderArray(IBinder[])</c>,
+            <c>#createBinderArray()</c>,
+            <c>#writeInterfaceArray(T[])</c>, <c>#readInterfaceArray(T[], Function)</c>,
+            <c>#createInterfaceArray(IntFunction, Function)</c>,
+            <c>#writeBinderList(List)</c>, <c>#readBinderList(List)</c>,
+            <c>#createBinderArrayList()</c>,
+            <c>#writeInterfaceList(List)</c>, <c>#readInterfaceList(List, Function)</c>,
+            <c>#createInterfaceArrayList(Function)</c>.</para>
+      <para>FileDescriptor objects, representing raw Linux file descriptor identifiers,
+            can be written and <c>ParcelFileDescriptor</c> objects returned to operate
+            on the original file descriptor.  The returned file descriptor is a dup
+            of the original file descriptor: the object and fd is different, but
+            operating on the same underlying file stream, with the same position, etc.
+            The methods to use are <c>#writeFileDescriptor(FileDescriptor)</c>,
+            <c>#readFileDescriptor()</c>.
+            
+            &lt;h3&gt;Parcelable Containers&lt;/h3&gt;</para>
+      <para>A final class of methods are for writing and reading standard Java
+            containers of arbitrary types.  These all revolve around the
+            <c>#writeValue(Object)</c> and <c>#readValue(ClassLoader)</c> methods
+            which define the types of objects allowed.  The container methods are
+            <c>#writeArray(Object[])</c>, <c>#readArray(ClassLoader)</c>,
+            <c>#writeList(List)</c>, <c>#readList(List, ClassLoader)</c>,
+            <c>#readArrayList(ClassLoader)</c>,
+            <c>#writeMap(Map)</c>, <c>#readMap(Map, ClassLoader)</c>,
+            <c>#writeSparseArray(SparseArray)</c>,
+            <c>#readSparseArray(ClassLoader)</c>.
+            
+            &lt;h3&gt;Restricted Parcelable Containers&lt;/h3&gt;</para>
+      <para>A final class of methods are for reading standard Java containers of restricted types.
+            These methods replace methods for reading containers of arbitrary types from previous section
+            starting from Android <c>Build.VERSION_CODES#TIRAMISU</c>. The pairing writing methods are
+            still the same from previous section.
+            These methods accepts additional <c>clazz</c> parameters as the required types.
+            The Restricted Parcelable container methods are <c>#readArray(ClassLoader, Class)</c>,
+            <c>#readList(List, ClassLoader, Class)</c>,
+            <c>#readArrayList(ClassLoader, Class)</c>,
+            <c>#readMap(Map, ClassLoader, Class, Class)</c>,
+            <c>#readSparseArray(ClassLoader, Class)</c>.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/os/Parcel" title="Reference documentation">Java documentation for <code>android.os.Parcel</code>.</a>
@@ -42,8 +174,8 @@
       <MemberSignature Language="F#" Value="member this.AppendFrom : Android.OS.Parcel * int * int -&gt; unit" Usage="parcel.AppendFrom (parcel, offset, length)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -78,8 +210,8 @@
       <MemberSignature Language="F#" Value="member this.CreateBinderArray : unit -&gt; Android.OS.IBinder[]" Usage="parcel.CreateBinderArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -108,8 +240,8 @@
       <MemberSignature Language="F#" Value="member this.CreateBinderArrayList : unit -&gt; System.Collections.Generic.IList&lt;Android.OS.IBinder&gt;" Usage="parcel.CreateBinderArrayList " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -128,6 +260,10 @@
         <returns>A newly created ArrayList containing strings with the same data
                     as those that were previously written.</returns>
         <remarks>
+          <para>Read and return a new ArrayList containing IBinder objects from
+            the parcel that was written with <c>#writeBinderList</c> at the
+            current dataPosition().  Returns null if the
+            previously written list object was null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#createBinderArrayList()" title="Reference documentation">Java documentation for <code>android.os.Parcel.createBinderArrayList()</code>.</a>
@@ -149,8 +285,8 @@
       <MemberSignature Language="F#" Value="member this.CreateBooleanArray : unit -&gt; bool[]" Usage="parcel.CreateBooleanArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -179,8 +315,8 @@
       <MemberSignature Language="F#" Value="member this.CreateByteArray : unit -&gt; byte[]" Usage="parcel.CreateByteArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -196,6 +332,7 @@
         <summary>Read and return a byte[] object from the parcel.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a byte[] object from the parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#createByteArray()" title="Reference documentation">Java documentation for <code>android.os.Parcel.createByteArray()</code>.</a>
@@ -217,8 +354,8 @@
       <MemberSignature Language="F#" Value="member this.CreateCharArray : unit -&gt; char[]" Usage="parcel.CreateCharArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -247,8 +384,8 @@
       <MemberSignature Language="F#" Value="member this.CreateDoubleArray : unit -&gt; double[]" Usage="parcel.CreateDoubleArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -289,6 +426,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -310,6 +451,10 @@
         <summary>Read and return a new multi-dimensional array from a parcel.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a new multi-dimensional array from a parcel.  Returns null if the
+            previously written array object is null.  If you want to read Parcelable or
+            IInterface values, use <c>#createFixedArray(Class, Parcelable.Creator, int[])</c> or
+            <c>#createFixedArray(Class, Function, int[])</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#createFixedArray(java.lang.Class%3CT%3E,%20int...)" title="Reference documentation">Java documentation for <code>android.os.Parcel.createFixedArray(java.lang.Class&lt;T&gt;, int...)</code>.</a>
@@ -341,6 +486,10 @@
         <Attribute>
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T", "S extends android.os.Parcelable" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T", "S extends android.os.Parcelable" })&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -386,6 +535,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T", "S extends android.os.IInterface" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T", "S extends android.os.IInterface" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -409,6 +562,10 @@
         <summary>Read and return a new multi-dimensional array of typed interfaces from a parcel.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a new multi-dimensional array of typed interfaces from a parcel.
+            Returns null if the previously written array object is null.  If you want to read
+            Parcelable values, use <c>#createFixedArray(Class, Parcelable.Creator, int[])</c>.
+            For values of other types use <c>#createFixedArray(Class, int[])</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#createFixedArray(java.lang.Class%3CT%3E,%20java.util.function.Function%3Candroid.os.IBinder,%20S%3E,%20int...)" title="Reference documentation">Java documentation for <code>android.os.Parcel.createFixedArray(java.lang.Class&lt;T&gt;, java.util.function.Function&lt;android.os.IBinder, S&gt;, int...)</code>.</a>
@@ -429,8 +586,8 @@
       <MemberSignature Language="F#" Value="member this.CreateFloatArray : unit -&gt; single[]" Usage="parcel.CreateFloatArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -459,8 +616,8 @@
       <MemberSignature Language="F#" Value="member this.CreateIntArray : unit -&gt; int[]" Usage="parcel.CreateIntArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -501,6 +658,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object[]</ReturnType>
@@ -515,6 +676,7 @@
         <summary>Read and return a new array of T (IInterface) from the parcel.</summary>
         <returns>the IInterface array of type T</returns>
         <remarks>
+          <para>Read and return a new array of T (IInterface) from the parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#createInterfaceArray(java.util.function.IntFunction%3CT[]%3E,%20java.util.function.Function%3Candroid.os.IBinder,%20T%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.createInterfaceArray(java.util.function.IntFunction&lt;T[]&gt;, java.util.function.Function&lt;android.os.IBinder, T&gt;)</code>.</a>
@@ -547,6 +709,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.IList</ReturnType>
@@ -561,6 +727,10 @@
             current dataPosition().</summary>
         <returns>A newly created ArrayList containing T (IInterface)</returns>
         <remarks>
+          <para>Read and return a new ArrayList containing T (IInterface) objects from
+            the parcel that was written with <c>#writeInterfaceList</c> at the
+            current dataPosition().  Returns null if the
+            previously written list object was null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#createInterfaceArrayList(java.util.function.Function%3Candroid.os.IBinder,%20T%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.createInterfaceArrayList(java.util.function.Function&lt;android.os.IBinder, T&gt;)</code>.</a>
@@ -581,8 +751,8 @@
       <MemberSignature Language="F#" Value="member this.CreateLongArray : unit -&gt; int64[]" Usage="parcel.CreateLongArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -611,8 +781,8 @@
       <MemberSignature Language="F#" Value="member this.CreateStringArray : unit -&gt; string[]" Usage="parcel.CreateStringArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -641,8 +811,8 @@
       <MemberSignature Language="F#" Value="member this.CreateStringArrayList : unit -&gt; System.Collections.Generic.IList&lt;string&gt;" Usage="parcel.CreateStringArrayList " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -661,6 +831,10 @@
         <returns>A newly created ArrayList containing strings with the same data
                     as those that were previously written.</returns>
         <remarks>
+          <para>Read and return a new ArrayList containing String objects from
+            the parcel that was written with <c>#writeStringList</c> at the
+            current dataPosition().  Returns null if the
+            previously written list object was null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#createStringArrayList()" title="Reference documentation">Java documentation for <code>android.os.Parcel.createStringArrayList()</code>.</a>
@@ -682,8 +856,8 @@
       <MemberSignature Language="F#" Value="member this.CreateTypedArray : Android.OS.IParcelableCreator -&gt; Java.Lang.Object[]" Usage="parcel.CreateTypedArray c" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -728,8 +902,8 @@
       <MemberSignature Language="F#" Value="member this.CreateTypedArrayList : Android.OS.IParcelableCreator -&gt; System.Collections.IList" Usage="parcel.CreateTypedArrayList c" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -787,6 +961,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Util.ArrayMap</ReturnType>
@@ -834,6 +1012,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Util.SparseArray</ReturnType>
@@ -869,8 +1051,8 @@
       <MemberSignature Language="F#" Value="member this.DataAvail : unit -&gt; int" Usage="parcel.DataAvail " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -887,6 +1069,8 @@
             parcel.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the amount of data remaining to be read from the
+            parcel.  That is, <c>#dataSize</c>-<c>#dataPosition</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#dataAvail()" title="Reference documentation">Java documentation for <code>android.os.Parcel.dataAvail()</code>.</a>
@@ -908,8 +1092,8 @@
       <MemberSignature Language="F#" Value="member this.DataCapacity : unit -&gt; int" Usage="parcel.DataCapacity " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -925,6 +1109,10 @@
         <summary>Returns the total amount of space in the parcel.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the total amount of space in the parcel.  This is always
+            &gt;= <c>#dataSize</c>.  The difference between it and dataSize() is the
+            amount of room left until the parcel needs to re-allocate its
+            data buffer.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#dataCapacity()" title="Reference documentation">Java documentation for <code>android.os.Parcel.dataCapacity()</code>.</a>
@@ -946,8 +1134,8 @@
       <MemberSignature Language="F#" Value="member this.DataPosition : unit -&gt; int" Usage="parcel.DataPosition " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -963,6 +1151,8 @@
         <summary>Returns the current position in the parcel data.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the current position in the parcel data.  Never
+            more than <c>#dataSize</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#dataPosition()" title="Reference documentation">Java documentation for <code>android.os.Parcel.dataPosition()</code>.</a>
@@ -984,8 +1174,8 @@
       <MemberSignature Language="F#" Value="member this.DataSize : unit -&gt; int" Usage="parcel.DataSize " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1001,6 +1191,7 @@
         <summary>Returns the total amount of data contained in the parcel.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the total amount of data contained in the parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#dataSize()" title="Reference documentation">Java documentation for <code>android.os.Parcel.dataSize()</code>.</a>
@@ -1022,8 +1213,8 @@
       <MemberSignature Language="F#" Value="member this.EnforceInterface : string -&gt; unit" Usage="parcel.EnforceInterface interfaceName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1042,6 +1233,10 @@
         <summary>Read the header written by writeInterfaceToken and verify it matches
             the interface name in question.</summary>
         <remarks>
+          <para>Read the header written by writeInterfaceToken and verify it matches
+            the interface name in question. If the wrong interface type is present,
+            <c>SecurityException</c> is thrown. When used over binder, this exception
+            should propagate to the caller.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#enforceInterface(java.lang.String)" title="Reference documentation">Java documentation for <code>android.os.Parcel.enforceInterface(java.lang.String)</code>.</a>
@@ -1071,6 +1266,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("enforceNoDataAvail", "()V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("enforceNoDataAvail", "()V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1079,6 +1278,7 @@
       <Docs>
         <summary>Verify there are no bytes left to be read on the Parcel.</summary>
         <remarks>
+          <para>Verify there are no bytes left to be read on the Parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#enforceNoDataAvail()" title="Reference documentation">Java documentation for <code>android.os.Parcel.enforceNoDataAvail()</code>.</a>
@@ -1099,8 +1299,8 @@
       <MemberSignature Language="F#" Value="member this.HasFileDescriptors : bool" Usage="Android.OS.Parcel.HasFileDescriptors" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1115,6 +1315,7 @@
         <summary>Report whether the parcel contains any marshalled file descriptors.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Report whether the parcel contains any marshalled file descriptors.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#hasFileDescriptors()" title="Reference documentation">Java documentation for <code>android.os.Parcel.hasFileDescriptors()</code>.</a>
@@ -1144,6 +1345,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("hasFileDescriptors", "(II)Z", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("hasFileDescriptors", "(II)Z", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1160,6 +1365,8 @@
             <c>offset</c> and <c>length</c>.</summary>
         <returns>whether there are file descriptors or not.</returns>
         <remarks>
+          <para>Report whether the parcel contains any marshalled file descriptors in the range defined by
+            <c>offset</c> and <c>length</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#hasFileDescriptors(int,%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.hasFileDescriptors(int, int)</code>.</a>
@@ -1211,8 +1418,8 @@
       <MemberSignature Language="F#" Value="member this.Marshall : unit -&gt; byte[]" Usage="parcel.Marshall " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1228,6 +1435,15 @@
         <summary>Returns the raw bytes of the parcel.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the raw bytes of the parcel.
+            
+            &lt;p class="note"&gt;The data you retrieve here &lt;strong&gt;must not&lt;/strong&gt;
+            be placed in any kind of persistent storage (on local disk, across
+            a network, etc).  For that, you should use standard serialization
+            or another kind of general serialization mechanism.  The Parcel
+            marshalled representation is highly optimized for local IPC, and as
+            such does not attempt to maintain compatibility with data created
+            in different versions of the platform.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#marshall()" title="Reference documentation">Java documentation for <code>android.os.Parcel.marshall()</code>.</a>
@@ -1249,8 +1465,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : unit -&gt; Android.OS.Parcel" Usage="Android.OS.Parcel.Obtain " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1266,6 +1482,7 @@
         <summary>Retrieve a new Parcel object from the pool.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Retrieve a new Parcel object from the pool.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#obtain()" title="Reference documentation">Java documentation for <code>android.os.Parcel.obtain()</code>.</a>
@@ -1295,6 +1512,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("obtain", "(Landroid/os/IBinder;)Landroid/os/Parcel;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("obtain", "(Landroid/os/IBinder;)Landroid/os/Parcel;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.OS.Parcel</ReturnType>
@@ -1307,6 +1528,11 @@
         <summary>Retrieve a new Parcel object from the pool for use with a specific binder.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Retrieve a new Parcel object from the pool for use with a specific binder.</para>
+          <para>Associate this parcel with a binder object. This marks the parcel as being prepared for a
+            transaction on this specific binder object. Based on this, the format of the wire binder
+            protocol may change. For future compatibility, it is recommended to use this for all
+            Parcels.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#obtain(android.os.IBinder)" title="Reference documentation">Java documentation for <code>android.os.Parcel.obtain(android.os.IBinder)</code>.</a>
@@ -1327,8 +1553,8 @@
       <MemberSignature Language="F#" Value="member this.ReadArray : Java.Lang.ClassLoader -&gt; Java.Lang.Object[]" Usage="parcel.ReadArray loader" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1336,8 +1562,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("readArray", "(Ljava/lang/ClassLoader;)[Ljava/lang/Object;", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1352,6 +1578,15 @@
             dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a new Object array from the parcel at the current
+            dataPosition().  Returns null if the previously written array was
+            null.  The given class loader will be used to load any enclosed
+            Parcelables.</para>
+          <para>This member is deprecated. Use the type-safer version <c>#readArray(ClassLoader, Class)</c> starting from
+                 Android <c>Build.VERSION_CODES#TIRAMISU</c>. Also consider changing the format to use
+                 <c>#createTypedArray(Parcelable.Creator)</c> if possible (eg. if the items' class is
+                 final) since this is also more performant. Note that changing to the latter also
+                 requires changing the writes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readArray(java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readArray(java.lang.ClassLoader)</code>.</a>
@@ -1385,6 +1620,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object[]</ReturnType>
@@ -1400,6 +1639,14 @@
             the type required for each item.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Same as <c>#readArray(ClassLoader)</c> but accepts <c>clazz</c> parameter as
+            the type required for each item.</para>
+          <para>&lt;b&gt;Warning: &lt;/b&gt; if the list contains items implementing the <c>Parcelable</c> interface,
+            the class that implements <c>Parcelable</c> has to be the immediately
+            enclosing class of the runtime type of its CREATOR field (that is,
+            <c>Class#getEnclosingClass()</c> has to return the parcelable implementing class),
+            otherwise this method might throw an exception. If the Parcelable class does not enclose the
+            CREATOR, use the deprecated <c>#readArray(ClassLoader)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readArray(java.lang.ClassLoader,%20java.lang.Class%3CT%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readArray(java.lang.ClassLoader, java.lang.Class&lt;T&gt;)</code>.</a>
@@ -1420,8 +1667,8 @@
       <MemberSignature Language="F#" Value="member this.ReadArrayList : Java.Lang.ClassLoader -&gt; System.Collections.IList" Usage="parcel.ReadArrayList loader" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1429,8 +1676,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("readArrayList", "(Ljava/lang/ClassLoader;)Ljava/util/ArrayList;", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1445,6 +1692,15 @@
             dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a new ArrayList object from the parcel at the current
+            dataPosition().  Returns null if the previously written list object was
+            null.  The given class loader will be used to load any enclosed
+            Parcelables.</para>
+          <para>This member is deprecated. Use the type-safer version <c>#readArrayList(ClassLoader, Class)</c> starting
+                 from Android <c>Build.VERSION_CODES#TIRAMISU</c>. Also consider changing the format to
+                 use <c>#createTypedArrayList(Parcelable.Creator)</c> if possible (eg. if the items'
+                 class is final) since this is also more performant. Note that changing to the latter
+                 also requires changing the writes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readArrayList(java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readArrayList(java.lang.ClassLoader)</code>.</a>
@@ -1478,6 +1734,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.IList</ReturnType>
@@ -1493,6 +1753,14 @@
             the type required for each item.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Same as <c>#readArrayList(ClassLoader)</c> but accepts <c>clazz</c> parameter as
+            the type required for each item.</para>
+          <para>&lt;b&gt;Warning: &lt;/b&gt; if the list contains items implementing the <c>Parcelable</c> interface,
+            the class that implements <c>Parcelable</c> has to be the immediately
+            enclosing class of the runtime type of its CREATOR field (that is,
+            <c>Class#getEnclosingClass()</c> has to return the parcelable implementing class),
+            otherwise this method might throw an exception. If the Parcelable class does not enclose the
+            CREATOR, use the deprecated <c>#readArrayList(ClassLoader)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readArrayList(java.lang.ClassLoader,%20java.lang.Class%3C?%20extends%20T%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readArrayList(java.lang.ClassLoader, java.lang.Class&lt;? extends T&gt;)</code>.</a>
@@ -1513,8 +1781,8 @@
       <MemberSignature Language="F#" Value="member this.ReadBinderArray : Android.OS.IBinder[] -&gt; unit" Usage="parcel.ReadBinderArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1545,8 +1813,8 @@
       <MemberSignature Language="F#" Value="member this.ReadBinderList : System.Collections.Generic.IList&lt;Android.OS.IBinder&gt; -&gt; unit" Usage="parcel.ReadBinderList list" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1565,6 +1833,8 @@
         <summary>Read into the given List items IBinder objects that were written with
             <c>#writeBinderList</c> at the current dataPosition().</summary>
         <remarks>
+          <para>Read into the given List items IBinder objects that were written with
+            <c>#writeBinderList</c> at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readBinderList(java.util.List%3Candroid.os.IBinder%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readBinderList(java.util.List&lt;android.os.IBinder&gt;)</code>.</a>
@@ -1593,6 +1863,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("readBlob", "()[B", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("readBlob", "()[B", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Byte[]</ReturnType>
@@ -1602,6 +1876,7 @@
         <summary>Read a blob of data from the parcel and return it as a byte array.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a blob of data from the parcel and return it as a byte array.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readBlob()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readBlob()</code>.</a>
@@ -1630,6 +1905,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("readBoolean", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("readBoolean", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1639,6 +1918,7 @@
         <summary>Read a boolean value from the parcel at the current dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a boolean value from the parcel at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readBoolean()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readBoolean()</code>.</a>
@@ -1659,8 +1939,8 @@
       <MemberSignature Language="F#" Value="member this.ReadBooleanArray : bool[] -&gt; unit" Usage="parcel.ReadBooleanArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1691,8 +1971,8 @@
       <MemberSignature Language="F#" Value="member this.ReadBundle : unit -&gt; Android.OS.Bundle" Usage="parcel.ReadBundle " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1709,6 +1989,9 @@
             dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a new Bundle object from the parcel at the current
+            dataPosition().  Returns null if the previously written Bundle object was
+            null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readBundle()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readBundle()</code>.</a>
@@ -1730,8 +2013,8 @@
       <MemberSignature Language="F#" Value="member this.ReadBundle : Java.Lang.ClassLoader -&gt; Android.OS.Bundle" Usage="parcel.ReadBundle loader" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1752,6 +2035,10 @@
             loader of the Bundle for later retrieval of Parcelable objects.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a new Bundle object from the parcel at the current
+            dataPosition(), using the given class loader to initialize the class
+            loader of the Bundle for later retrieval of Parcelable objects.
+            Returns null if the previously written Bundle object was null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readBundle(java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readBundle(java.lang.ClassLoader)</code>.</a>
@@ -1773,8 +2060,8 @@
       <MemberSignature Language="F#" Value="member this.ReadByte : unit -&gt; sbyte" Usage="parcel.ReadByte " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1790,6 +2077,7 @@
         <summary>Read a byte value from the parcel at the current dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a byte value from the parcel at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readByte()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readByte()</code>.</a>
@@ -1811,8 +2099,8 @@
       <MemberSignature Language="F#" Value="member this.ReadByteArray : byte[] -&gt; unit" Usage="parcel.ReadByteArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1831,6 +2119,8 @@
         <summary>Read a byte[] object from the parcel and copy it into the
             given byte array.</summary>
         <remarks>
+          <para>Read a byte[] object from the parcel and copy it into the
+            given byte array.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readByteArray(byte[])" title="Reference documentation">Java documentation for <code>android.os.Parcel.readByteArray(byte[])</code>.</a>
@@ -1852,8 +2142,8 @@
       <MemberSignature Language="F#" Value="member this.ReadCharArray : char[] -&gt; unit" Usage="parcel.ReadCharArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1884,8 +2174,8 @@
       <MemberSignature Language="F#" Value="member this.ReadDouble : unit -&gt; double" Usage="parcel.ReadDouble " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1902,6 +2192,8 @@
             current dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a double precision floating point value from the parcel at the
+            current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readDouble()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readDouble()</code>.</a>
@@ -1923,8 +2215,8 @@
       <MemberSignature Language="F#" Value="member this.ReadDoubleArray : double[] -&gt; unit" Usage="parcel.ReadDoubleArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1955,8 +2247,8 @@
       <MemberSignature Language="F#" Value="member this.ReadException : unit -&gt; unit" Usage="parcel.ReadException " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1972,6 +2264,10 @@
         <summary>Special function for reading an exception result from the header of
             a parcel, to be used after receiving the result of a transaction.</summary>
         <remarks>
+          <para>Special function for reading an exception result from the header of
+            a parcel, to be used after receiving the result of a transaction.  This
+            will throw the exception for you if it had been written to the Parcel,
+            otherwise return and let you read the normal result data from the Parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readException()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readException()</code>.</a>
@@ -1995,8 +2291,8 @@
       <MemberSignature Language="F#" Value="member this.ReadException : int * string -&gt; unit" Usage="parcel.ReadException (code, msg)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2016,6 +2312,8 @@
         <param name="msg">The exception message.</param>
         <summary>Throw an exception with the given message.</summary>
         <remarks>
+          <para>Throw an exception with the given message. Not intended for use
+            outside the Parcel class.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readException(int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readException(int, java.lang.String)</code>.</a>
@@ -2037,8 +2335,8 @@
       <MemberSignature Language="F#" Value="member this.ReadFileDescriptor : unit -&gt; Android.OS.ParcelFileDescriptor" Usage="parcel.ReadFileDescriptor " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2054,6 +2352,7 @@
         <summary>Read a FileDescriptor from the parcel at the current dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a FileDescriptor from the parcel at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readFileDescriptor()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readFileDescriptor()</code>.</a>
@@ -2087,6 +2386,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2098,6 +2401,9 @@
         <param name="val">the destination array to hold the read values.</param>
         <summary>Read a new multi-dimensional array from a parcel.</summary>
         <remarks>
+          <para>Read a new multi-dimensional array from a parcel.  If you want to read Parcelable or
+            IInterface values, use <c>#readFixedArray(Object, Parcelable.Creator)</c> or
+            <c>#readFixedArray(Object, Function)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readFixedArray(T)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readFixedArray(T)</code>.</a>
@@ -2129,6 +2435,10 @@
         <Attribute>
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T", "S extends android.os.Parcelable" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T", "S extends android.os.Parcelable" })&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2164,6 +2474,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T", "S extends android.os.IInterface" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T", "S extends android.os.IInterface" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2177,6 +2491,10 @@
         <param name="val">the destination array to hold the read values.</param>
         <summary>Read a new multi-dimensional array of typed interfaces from a parcel.</summary>
         <remarks>
+          <para>Read a new multi-dimensional array of typed interfaces from a parcel.
+            If you want to read Parcelable values, use
+            <c>#readFixedArray(Object, Parcelable.Creator)</c>. For values of other types, use
+            <c>#readFixedArray(Object)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readFixedArray(T,%20java.util.function.Function%3Candroid.os.IBinder,%20S%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readFixedArray(T, java.util.function.Function&lt;android.os.IBinder, S&gt;)</code>.</a>
@@ -2197,8 +2515,8 @@
       <MemberSignature Language="F#" Value="member this.ReadFloat : unit -&gt; single" Usage="parcel.ReadFloat " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2215,6 +2533,8 @@
             dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a floating point value from the parcel at the current
+            dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readFloat()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readFloat()</code>.</a>
@@ -2236,8 +2556,8 @@
       <MemberSignature Language="F#" Value="member this.ReadFloatArray : single[] -&gt; unit" Usage="parcel.ReadFloatArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2268,8 +2588,8 @@
       <MemberSignature Language="F#" Value="member this.ReadHashMap : Java.Lang.ClassLoader -&gt; System.Collections.IDictionary" Usage="parcel.ReadHashMap loader" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2277,8 +2597,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("readHashMap", "(Ljava/lang/ClassLoader;)Ljava/util/HashMap;", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2293,6 +2613,14 @@
             been written with <c>#writeBundle</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Please use <c>#readBundle(ClassLoader)</c> instead (whose data must have
+            been written with <c>#writeBundle</c>.  Read and return a new HashMap
+            object from the parcel at the current dataPosition(), using the given
+            class loader to load any enclosed Parcelables.  Returns null if
+            the previously written map object was null.</para>
+          <para>This member is deprecated. Consider using <c>#readBundle(ClassLoader)</c> as stated above, in case this
+                 method is still preferred use the type-safer version <c>#readHashMap(ClassLoader,
+                 Class, Class)</c> starting from Android <c>Build.VERSION_CODES#TIRAMISU</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readHashMap(java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readHashMap(java.lang.ClassLoader)</code>.</a>
@@ -2326,6 +2654,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "K", "V" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "K", "V" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.IDictionary</ReturnType>
@@ -2343,6 +2675,8 @@
             <c>clazzValue</c> parameter as the types required for each key and value pair.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Same as <c>#readHashMap(ClassLoader)</c> but accepts <c>clazzKey</c> and
+            <c>clazzValue</c> parameter as the types required for each key and value pair.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readHashMap(java.lang.ClassLoader,%20java.lang.Class%3C?%20extends%20K%3E,%20java.lang.Class%3C?%20extends%20V%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readHashMap(java.lang.ClassLoader, java.lang.Class&lt;? extends K&gt;, java.lang.Class&lt;? extends V&gt;)</code>.</a>
@@ -2363,8 +2697,8 @@
       <MemberSignature Language="F#" Value="member this.ReadInt : unit -&gt; int" Usage="parcel.ReadInt " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2380,6 +2714,7 @@
         <summary>Read an integer value from the parcel at the current dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read an integer value from the parcel at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readInt()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readInt()</code>.</a>
@@ -2401,8 +2736,8 @@
       <MemberSignature Language="F#" Value="member this.ReadIntArray : int[] -&gt; unit" Usage="parcel.ReadIntArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2445,6 +2780,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2458,6 +2797,7 @@
         <param name="asInterface">a function to convert IBinder object into T (IInterface)</param>
         <summary>Read an array of T (IInterface) from a parcel.</summary>
         <remarks>
+          <para>Read an array of T (IInterface) from a parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readInterfaceArray(T[],%20java.util.function.Function%3Candroid.os.IBinder,%20T%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readInterfaceArray(T[], java.util.function.Function&lt;android.os.IBinder, T&gt;)</code>.</a>
@@ -2490,6 +2830,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2504,6 +2848,8 @@
         <summary>Read into the given List items IInterface objects that were written with
             <c>#writeInterfaceList</c> at the current dataPosition().</summary>
         <remarks>
+          <para>Read into the given List items IInterface objects that were written with
+            <c>#writeInterfaceList</c> at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readInterfaceList(java.util.List%3CT%3E,%20java.util.function.Function%3Candroid.os.IBinder,%20T%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readInterfaceList(java.util.List&lt;T&gt;, java.util.function.Function&lt;android.os.IBinder, T&gt;)</code>.</a>
@@ -2524,8 +2870,8 @@
       <MemberSignature Language="F#" Value="member this.ReadList : System.Collections.IList * Java.Lang.ClassLoader -&gt; unit" Usage="parcel.ReadList (outVal, loader)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2533,8 +2879,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("readList", "(Ljava/util/List;Ljava/lang/ClassLoader;)V", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2551,6 +2897,14 @@
             dataPosition(), using the given class loader to load any enclosed
             Parcelables.</summary>
         <remarks>
+          <para>Read into an existing List object from the parcel at the current
+            dataPosition(), using the given class loader to load any enclosed
+            Parcelables.  If it is null, the default class loader is used.</para>
+          <para>This member is deprecated. Use the type-safer version <c>#readList(List, ClassLoader, Class)</c> starting
+                 from Android <c>Build.VERSION_CODES#TIRAMISU</c>. Also consider changing the format to
+                 use <c>#readTypedList(List, Parcelable.Creator)</c> if possible (eg. if the items'
+                 class is final) since this is also more performant. Note that changing to the latter
+                 also requires changing the writes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readList(java.util.List,%20java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readList(java.util.List, java.lang.ClassLoader)</code>.</a>
@@ -2584,6 +2938,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2600,6 +2958,14 @@
         <summary>Same as <c>#readList(List, ClassLoader)</c> but accepts <c>clazz</c> parameter as
             the type required for each item.</summary>
         <remarks>
+          <para>Same as <c>#readList(List, ClassLoader)</c> but accepts <c>clazz</c> parameter as
+            the type required for each item.</para>
+          <para>&lt;b&gt;Warning: &lt;/b&gt; if the list contains items implementing the <c>Parcelable</c> interface,
+            the class that implements <c>Parcelable</c> has to be the immediately
+            enclosing class of the runtime type of its CREATOR field (that is,
+            <c>Class#getEnclosingClass()</c> has to return the parcelable implementing class),
+            otherwise this method might throw an exception. If the Parcelable class does not enclose the
+            CREATOR, use the deprecated <c>#readList(List, ClassLoader)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readList(java.util.List%3C?%20super%20T%3E,%20java.lang.ClassLoader,%20java.lang.Class%3CT%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readList(java.util.List&lt;? super T&gt;, java.lang.ClassLoader, java.lang.Class&lt;T&gt;)</code>.</a>
@@ -2620,8 +2986,8 @@
       <MemberSignature Language="F#" Value="member this.ReadLong : unit -&gt; int64" Usage="parcel.ReadLong " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2637,6 +3003,7 @@
         <summary>Read a long integer value from the parcel at the current dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a long integer value from the parcel at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readLong()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readLong()</code>.</a>
@@ -2658,8 +3025,8 @@
       <MemberSignature Language="F#" Value="member this.ReadLongArray : int64[] -&gt; unit" Usage="parcel.ReadLongArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2690,8 +3057,8 @@
       <MemberSignature Language="F#" Value="member this.ReadMap : System.Collections.IDictionary * Java.Lang.ClassLoader -&gt; unit" Usage="parcel.ReadMap (outVal, loader)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2699,8 +3066,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("readMap", "(Ljava/util/Map;Ljava/lang/ClassLoader;)V", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2716,6 +3083,12 @@
         <summary>Please use <c>#readBundle(ClassLoader)</c> instead (whose data must have
             been written with <c>#writeBundle</c>.</summary>
         <remarks>
+          <para>Please use <c>#readBundle(ClassLoader)</c> instead (whose data must have
+            been written with <c>#writeBundle</c>.  Read into an existing Map object
+            from the parcel at the current dataPosition().</para>
+          <para>This member is deprecated. Consider using <c>#readBundle(ClassLoader)</c> as stated above, in case this
+                 method is still preferred use the type-safer version <c>#readMap(Map, ClassLoader,
+                 Class, Class)</c> starting from Android <c>Build.VERSION_CODES#TIRAMISU</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readMap(java.util.Map,%20java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readMap(java.util.Map, java.lang.ClassLoader)</code>.</a>
@@ -2749,6 +3122,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "K", "V" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "K", "V" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2767,6 +3144,8 @@
         <summary>Same as <c>#readMap(Map, ClassLoader)</c> but accepts <c>clazzKey</c> and
             <c>clazzValue</c> parameter as the types required for each key and value pair.</summary>
         <remarks>
+          <para>Same as <c>#readMap(Map, ClassLoader)</c> but accepts <c>clazzKey</c> and
+            <c>clazzValue</c> parameter as the types required for each key and value pair.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readMap(java.util.Map%3C?%20super%20K,%20?%20super%20V%3E,%20java.lang.ClassLoader,%20java.lang.Class%3CK%3E,%20java.lang.Class%3CV%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readMap(java.util.Map&lt;? super K, ? super V&gt;, java.lang.ClassLoader, java.lang.Class&lt;K&gt;, java.lang.Class&lt;V&gt;)</code>.</a>
@@ -2787,8 +3166,8 @@
       <MemberSignature Language="F#" Value="member this.ReadParcelable : Java.Lang.ClassLoader -&gt; Java.Lang.Object" Usage="parcel.ReadParcelable loader" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2800,8 +3179,8 @@
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2817,6 +3196,13 @@
         <returns>Returns the newly created Parcelable, or null if a null
             object has been written.</returns>
         <remarks>
+          <para>Read and return a new Parcelable from the parcel.  The given class loader
+            will be used to load any enclosed Parcelables.  If it is null, the default
+            class loader will be used.</para>
+          <para>This member is deprecated. Use the type-safer version <c>#readParcelable(ClassLoader, Class)</c> starting
+                 from Android <c>Build.VERSION_CODES#TIRAMISU</c>. Also consider changing the format to
+                 use <c>Parcelable.Creator#createFromParcel(Parcel)</c> if possible since this is also
+                 more performant. Note that changing to the latter also requires changing the writes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readParcelable(java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readParcelable(java.lang.ClassLoader)</code>.</a>
@@ -2853,6 +3239,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -2868,6 +3258,13 @@
             required for each item.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Same as <c>#readParcelable(ClassLoader)</c> but accepts <c>clazz</c> parameter as the type
+            required for each item.</para>
+          <para>&lt;b&gt;Warning: &lt;/b&gt; the class that implements <c>Parcelable</c> has to be the immediately
+            enclosing class of the runtime type of its CREATOR field (that is,
+            <c>Class#getEnclosingClass()</c> has to return the parcelable implementing class),
+            otherwise this method might throw an exception. If the Parcelable class does not enclose the
+            CREATOR, use the deprecated <c>#readParcelable(ClassLoader)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readParcelable(java.lang.ClassLoader,%20java.lang.Class%3CT%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readParcelable(java.lang.ClassLoader, java.lang.Class&lt;T&gt;)</code>.</a>
@@ -2888,8 +3285,8 @@
       <MemberSignature Language="F#" Value="member this.ReadParcelableArray : Java.Lang.ClassLoader -&gt; Android.OS.IParcelable[]" Usage="parcel.ReadParcelableArray loader" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2897,8 +3294,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("readParcelableArray", "(Ljava/lang/ClassLoader;)[Landroid/os/Parcelable;", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2912,6 +3309,14 @@
         <summary>Read and return a new Parcelable array from the parcel.</summary>
         <returns>the Parcelable array, or null if the array is null</returns>
         <remarks>
+          <para>Read and return a new Parcelable array from the parcel.
+            The given class loader will be used to load any enclosed
+            Parcelables.</para>
+          <para>This member is deprecated. Use the type-safer version <c>#readParcelableArray(ClassLoader, Class)</c>
+                 starting from Android <c>Build.VERSION_CODES#TIRAMISU</c>. Also consider changing the
+                 format to use <c>#createTypedArray(Parcelable.Creator)</c> if possible (eg. if the
+                 items' class is final) since this is also more performant. Note that changing to the
+                 latter also requires changing the writes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readParcelableArray(java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readParcelableArray(java.lang.ClassLoader)</code>.</a>
@@ -2945,6 +3350,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object[]</ReturnType>
@@ -2960,6 +3369,13 @@
             the type required for each item.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Same as <c>#readParcelableArray(ClassLoader)</c>  but accepts <c>clazz</c> parameter as
+            the type required for each item.</para>
+          <para>&lt;b&gt;Warning: &lt;/b&gt; the class that implements <c>Parcelable</c> has to be the immediately
+            enclosing class of the runtime type of its CREATOR field (that is,
+            <c>Class#getEnclosingClass()</c> has to return the parcelable implementing class),
+            otherwise this method might throw an exception. If the Parcelable class does not enclose the
+            CREATOR, use the deprecated <c>#readParcelableArray(ClassLoader)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readParcelableArray(java.lang.ClassLoader,%20java.lang.Class%3CT%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readParcelableArray(java.lang.ClassLoader, java.lang.Class&lt;T&gt;)</code>.</a>
@@ -2989,8 +3405,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("readParcelableCreator", "(Ljava/lang/ClassLoader;)Landroid/os/Parcelable$Creator;", "", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -3038,6 +3458,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.OS.IParcelableCreator</ReturnType>
@@ -3074,8 +3498,12 @@
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -3092,6 +3520,14 @@
             given <c>list</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read the list of <c>Parcelable</c> objects at the current data position into the
+            given <c>list</c>. The contents of the <c>list</c> are replaced. If the serialized
+            list was <c>null</c>, <c>list</c> is cleared.</para>
+          <para>This member is deprecated. Use the type-safer version <c>#readParcelableList(List, ClassLoader, Class)</c>
+                 starting from Android <c>Build.VERSION_CODES#TIRAMISU</c>. Also consider changing the
+                 format to use <c>#readTypedList(List, Parcelable.Creator)</c> if possible (eg. if the
+                 items' class is final) since this is also more performant. Note that changing to the
+                 latter also requires changing the writes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readParcelableList(java.util.List%3CT%3E,%20java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readParcelableList(java.util.List&lt;T&gt;, java.lang.ClassLoader)</code>.</a>
@@ -3124,6 +3560,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.IList</ReturnType>
@@ -3141,6 +3581,14 @@
             the type required for each item.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Same as <c>#readParcelableList(List, ClassLoader)</c> but accepts <c>clazz</c> parameter as
+            the type required for each item.</para>
+          <para>&lt;b&gt;Warning: &lt;/b&gt; if the list contains items implementing the <c>Parcelable</c> interface,
+            the class that implements <c>Parcelable</c> has to be the immediately
+            enclosing class of the runtime type of its CREATOR field (that is,
+            <c>Class#getEnclosingClass()</c> has to return the parcelable implementing class),
+            otherwise this method might throw an exception. If the Parcelable class does not enclose the
+            CREATOR, use the deprecated <c>#readParcelableList(List, ClassLoader)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readParcelableList(java.util.List%3CT%3E,%20java.lang.ClassLoader,%20java.lang.Class%3C?%20extends%20T%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readParcelableList(java.util.List&lt;T&gt;, java.lang.ClassLoader, java.lang.Class&lt;? extends T&gt;)</code>.</a>
@@ -3161,8 +3609,8 @@
       <MemberSignature Language="F#" Value="member this.ReadPersistableBundle : unit -&gt; Android.OS.PersistableBundle" Usage="parcel.ReadPersistableBundle " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3179,6 +3627,9 @@
             dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a new Bundle object from the parcel at the current
+            dataPosition().  Returns null if the previously written Bundle object was
+            null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readPersistableBundle()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readPersistableBundle()</code>.</a>
@@ -3199,8 +3650,8 @@
       <MemberSignature Language="F#" Value="member this.ReadPersistableBundle : Java.Lang.ClassLoader -&gt; Android.OS.PersistableBundle" Usage="parcel.ReadPersistableBundle loader" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3221,6 +3672,10 @@
             loader of the Bundle for later retrieval of Parcelable objects.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a new Bundle object from the parcel at the current
+            dataPosition(), using the given class loader to initialize the class
+            loader of the Bundle for later retrieval of Parcelable objects.
+            Returns null if the previously written Bundle object was null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readPersistableBundle(java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readPersistableBundle(java.lang.ClassLoader)</code>.</a>
@@ -3241,8 +3696,8 @@
       <MemberSignature Language="F#" Value="member this.ReadSerializable : unit -&gt; Java.IO.ISerializable" Usage="parcel.ReadSerializable " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3250,8 +3705,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("readSerializable", "()Ljava/io/Serializable;", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -3266,6 +3721,9 @@
             Unlike <c>#readSerializable(ClassLoader, Class)</c>, it uses the nearest valid class loader
             up the execution stack to instantiate the Serializable object.</returns>
         <remarks>
+          <para>Read and return a new Serializable object from the parcel.</para>
+          <para>This member is deprecated. Use the type-safer version <c>#readSerializable(ClassLoader, Class)</c> starting
+                  from Android <c>Build.VERSION_CODES#TIRAMISU</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readSerializable()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readSerializable()</code>.</a>
@@ -3299,6 +3757,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -3314,6 +3776,7 @@
         <summary>Same as <c>#readSerializable()</c> but accepts <c>loader</c> and <c>clazz</c> parameters.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Same as <c>#readSerializable()</c> but accepts <c>loader</c> and <c>clazz</c> parameters.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readSerializable(java.lang.ClassLoader,%20java.lang.Class%3CT%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readSerializable(java.lang.ClassLoader, java.lang.Class&lt;T&gt;)</code>.</a>
@@ -3334,8 +3797,8 @@
       <MemberSignature Language="F#" Value="member this.ReadSize : unit -&gt; Android.Util.Size" Usage="parcel.ReadSize " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3351,6 +3814,7 @@
         <summary>Read a Size from the parcel at the current dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a Size from the parcel at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readSize()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readSize()</code>.</a>
@@ -3371,8 +3835,8 @@
       <MemberSignature Language="F#" Value="member this.ReadSizeF : unit -&gt; Android.Util.SizeF" Usage="parcel.ReadSizeF " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3388,6 +3852,7 @@
         <summary>Read a SizeF from the parcel at the current dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a SizeF from the parcel at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readSizeF()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readSizeF()</code>.</a>
@@ -3408,8 +3873,8 @@
       <MemberSignature Language="F#" Value="member this.ReadSparseArray : Java.Lang.ClassLoader -&gt; Android.Util.SparseArray" Usage="parcel.ReadSparseArray loader" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3421,8 +3886,8 @@
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -3437,6 +3902,15 @@
             dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a new SparseArray object from the parcel at the current
+            dataPosition().  Returns null if the previously written list object was
+            null.  The given class loader will be used to load any enclosed
+            Parcelables.</para>
+          <para>This member is deprecated. Use the type-safer version <c>#readSparseArray(ClassLoader, Class)</c> starting
+                 from Android <c>Build.VERSION_CODES#TIRAMISU</c>. Also consider changing the format to
+                 use <c>#createTypedSparseArray(Parcelable.Creator)</c> if possible (eg. if the items'
+                 class is final) since this is also more performant. Note that changing to the latter
+                 also requires changing the writes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readSparseArray(java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readSparseArray(java.lang.ClassLoader)</code>.</a>
@@ -3470,6 +3944,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Util.SparseArray</ReturnType>
@@ -3485,6 +3963,14 @@
             the type required for each item.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Same as <c>#readSparseArray(ClassLoader)</c> but accepts <c>clazz</c> parameter as
+            the type required for each item.</para>
+          <para>&lt;b&gt;Warning: &lt;/b&gt; if the list contains items implementing the <c>Parcelable</c> interface,
+            the class that implements <c>Parcelable</c> has to be the immediately
+            enclosing class of the runtime type of its CREATOR field (that is,
+            <c>Class#getEnclosingClass()</c> has to return the parcelable implementing class),
+            otherwise this method might throw an exception. If the Parcelable class does not enclose the
+            CREATOR, use the deprecated <c>#readSparseArray(ClassLoader)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readSparseArray(java.lang.ClassLoader,%20java.lang.Class%3C?%20extends%20T%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readSparseArray(java.lang.ClassLoader, java.lang.Class&lt;? extends T&gt;)</code>.</a>
@@ -3505,8 +3991,8 @@
       <MemberSignature Language="F#" Value="member this.ReadSparseBooleanArray : unit -&gt; Android.Util.SparseBooleanArray" Usage="parcel.ReadSparseBooleanArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3523,6 +4009,9 @@
             dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read and return a new SparseBooleanArray object from the parcel at the current
+            dataPosition().  Returns null if the previously written list object was
+            null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readSparseBooleanArray()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readSparseBooleanArray()</code>.</a>
@@ -3544,8 +4033,8 @@
       <MemberSignature Language="F#" Value="member this.ReadString : unit -&gt; string" Usage="parcel.ReadString " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3561,6 +4050,7 @@
         <summary>Read a string value from the parcel at the current dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a string value from the parcel at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readString()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readString()</code>.</a>
@@ -3582,8 +4072,8 @@
       <MemberSignature Language="F#" Value="member this.ReadStringArray : string[] -&gt; unit" Usage="parcel.ReadStringArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3614,8 +4104,8 @@
       <MemberSignature Language="F#" Value="member this.ReadStringList : System.Collections.Generic.IList&lt;string&gt; -&gt; unit" Usage="parcel.ReadStringList list" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3634,6 +4124,8 @@
         <summary>Read into the given List items String objects that were written with
             <c>#writeStringList</c> at the current dataPosition().</summary>
         <remarks>
+          <para>Read into the given List items String objects that were written with
+            <c>#writeStringList</c> at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readStringList(java.util.List%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readStringList(java.util.List&lt;java.lang.String&gt;)</code>.</a>
@@ -3654,8 +4146,8 @@
       <MemberSignature Language="F#" Value="member this.ReadStrongBinder : unit -&gt; Android.OS.IBinder" Usage="parcel.ReadStrongBinder " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3671,6 +4163,7 @@
         <summary>Read an object from the parcel at the current dataPosition().</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read an object from the parcel at the current dataPosition().</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readStrongBinder()" title="Reference documentation">Java documentation for <code>android.os.Parcel.readStrongBinder()</code>.</a>
@@ -3692,8 +4185,8 @@
       <MemberSignature Language="F#" Value="member this.ReadTypedArray : Java.Lang.Object[] * Android.OS.IParcelableCreator -&gt; unit" Usage="parcel.ReadTypedArray (val, c)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3728,8 +4221,8 @@
       <MemberSignature Language="F#" Value="member this.ReadTypedList : System.Collections.IList * Android.OS.IParcelableCreator -&gt; unit" Usage="parcel.ReadTypedList (list, c)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3789,6 +4282,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -3822,8 +4319,8 @@
       <MemberSignature Language="F#" Value="member this.ReadValue : Java.Lang.ClassLoader -&gt; Java.Lang.Object" Usage="parcel.ReadValue loader" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3842,6 +4339,9 @@
         <summary>Read a typed object from a parcel.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a typed object from a parcel.  The given class loader will be
+            used to load any enclosed Parcelables.  If it is null, the default class
+            loader will be used.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#readValue(java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>android.os.Parcel.readValue(java.lang.ClassLoader)</code>.</a>
@@ -3863,8 +4363,8 @@
       <MemberSignature Language="F#" Value="member this.Recycle : unit -&gt; unit" Usage="parcel.Recycle " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3879,6 +4379,8 @@
       <Docs>
         <summary>Put a Parcel object back into the pool.</summary>
         <remarks>
+          <para>Put a Parcel object back into the pool.  You must not touch
+            the object after this call.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#recycle()" title="Reference documentation">Java documentation for <code>android.os.Parcel.recycle()</code>.</a>
@@ -3900,8 +4402,8 @@
       <MemberSignature Language="F#" Value="member this.SetDataCapacity : int -&gt; unit" Usage="parcel.SetDataCapacity size" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3921,6 +4423,7 @@
             with this method.</param>
         <summary>Change the capacity (current available space) of the parcel.</summary>
         <remarks>
+          <para>Change the capacity (current available space) of the parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#setDataCapacity(int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.setDataCapacity(int)</code>.</a>
@@ -3942,8 +4445,8 @@
       <MemberSignature Language="F#" Value="member this.SetDataPosition : int -&gt; unit" Usage="parcel.SetDataPosition pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3962,6 +4465,7 @@
             <c>#dataSize</c>.</param>
         <summary>Move the current read/write position in the parcel.</summary>
         <remarks>
+          <para>Move the current read/write position in the parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#setDataPosition(int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.setDataPosition(int)</code>.</a>
@@ -3983,8 +4487,8 @@
       <MemberSignature Language="F#" Value="member this.SetDataSize : int -&gt; unit" Usage="parcel.SetDataSize size" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4002,6 +4506,9 @@
         <param name="size">The new number of bytes in the Parcel.</param>
         <summary>Change the amount of data in the parcel.</summary>
         <remarks>
+          <para>Change the amount of data in the parcel.  Can be either smaller or
+            larger than the current size.  If larger than the current capacity,
+            more memory will be allocated.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#setDataSize(int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.setDataSize(int)</code>.</a>
@@ -4031,6 +4538,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setPropagateAllowBlocking", "()V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setPropagateAllowBlocking", "()V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -4039,6 +4550,8 @@
       <Docs>
         <summary>This method is used by the AIDL compiler for system components.</summary>
         <remarks>
+          <para>This method is used by the AIDL compiler for system components. Not intended to be
+            used by non-system apps.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#setPropagateAllowBlocking()" title="Reference documentation">Java documentation for <code>android.os.Parcel.setPropagateAllowBlocking()</code>.</a>
@@ -4056,11 +4569,11 @@
       <MemberSignature Language="C#" Value="public static Android.OS.IParcelableCreator? StringCreator { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.OS.IParcelableCreator StringCreator" />
       <MemberSignature Language="DocId" Value="P:Android.OS.Parcel.StringCreator" />
-      <MemberSignature Language="F#" Value="member this.StringCreator : Android.OS.IParcelableCreator" Usage="Android.OS.Parcel.StringCreator" />
+      <MemberSignature Language="F#" Value="static member StringCreator : Android.OS.IParcelableCreator" Usage="Android.OS.Parcel.StringCreator" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4088,8 +4601,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.OS.Parcel.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4119,8 +4632,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.OS.Parcel.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4150,8 +4663,8 @@
       <MemberSignature Language="F#" Value="member this.Unmarshall : byte[] * int * int -&gt; unit" Usage="parcel.Unmarshall (data, offset, length)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4171,8 +4684,9 @@
         <param name="data">To be added.</param>
         <param name="offset">To be added.</param>
         <param name="length">To be added.</param>
-        <summary>Set the bytes in data to be the raw bytes of this Parcel.</summary>
+        <summary>Fills the raw bytes of this Parcel with the supplied data.</summary>
         <remarks>
+          <para>Fills the raw bytes of this Parcel with the supplied data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#unmarshall(byte[],%20int,%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.unmarshall(byte[], int, int)</code>.</a>
@@ -4194,8 +4708,8 @@
       <MemberSignature Language="F#" Value="member this.WriteArray : Java.Lang.Object[] -&gt; unit" Usage="parcel.WriteArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4214,6 +4728,9 @@
         <summary>Flatten an Object array into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten an Object array into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.  The array values are written using
+            <c>#writeValue</c> and must follow the specification there.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeArray(java.lang.Object[])" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeArray(java.lang.Object[])</code>.</a>
@@ -4235,8 +4752,8 @@
       <MemberSignature Language="F#" Value="member this.WriteBinderArray : Android.OS.IBinder[] -&gt; unit" Usage="parcel.WriteBinderArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4267,8 +4784,8 @@
       <MemberSignature Language="F#" Value="member this.WriteBinderList : System.Collections.Generic.IList&lt;Android.OS.IBinder&gt; -&gt; unit" Usage="parcel.WriteBinderList val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4287,6 +4804,10 @@
         <summary>Flatten a List containing IBinder objects into the parcel, at
             the current dataPosition() and growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a List containing IBinder objects into the parcel, at
+            the current dataPosition() and growing dataCapacity() if needed.  They
+            can later be retrieved with <c>#createBinderArrayList</c> or
+            <c>#readBinderList</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeBinderList(java.util.List%3Candroid.os.IBinder%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeBinderList(java.util.List&lt;android.os.IBinder&gt;)</code>.</a>
@@ -4315,6 +4836,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("writeBlob", "([B)V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("writeBlob", "([B)V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -4327,6 +4852,11 @@
         <summary>Write a blob of data into the parcel at the current <c>#dataPosition</c>,
             growing <c>#dataCapacity</c> if needed.</summary>
         <remarks>
+          <para>Write a blob of data into the parcel at the current <c>#dataPosition</c>,
+            growing <c>#dataCapacity</c> if needed.</para>
+          <para>If the blob is small, then it is stored in-place, otherwise it is transferred by way of
+            an anonymous shared memory region. If you prefer send in-place, please use
+            <c>#writeByteArray(byte[])</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeBlob(byte[])" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeBlob(byte[])</code>.</a>
@@ -4355,6 +4885,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("writeBlob", "([BII)V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("writeBlob", "([BII)V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -4371,6 +4905,11 @@
         <summary>Write a blob of data into the parcel at the current <c>#dataPosition</c>,
             growing <c>#dataCapacity</c> if needed.</summary>
         <remarks>
+          <para>Write a blob of data into the parcel at the current <c>#dataPosition</c>,
+            growing <c>#dataCapacity</c> if needed.</para>
+          <para>If the blob is small, then it is stored in-place, otherwise it is transferred by way of
+            an anonymous shared memory region. If you prefer send in-place, please use
+            <c>#writeByteArray(byte[], int, int)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeBlob(byte[],%20int,%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeBlob(byte[], int, int)</code>.</a>
@@ -4399,6 +4938,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("writeBoolean", "(Z)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("writeBoolean", "(Z)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -4411,6 +4954,10 @@
         <summary>Write a boolean value into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Write a boolean value into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
+          <para>Note: This method currently delegates to writeInt with a value of 1 or 0
+            for true or false, respectively, but may change in the future.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeBoolean(boolean)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeBoolean(boolean)</code>.</a>
@@ -4431,8 +4978,8 @@
       <MemberSignature Language="F#" Value="member this.WriteBooleanArray : bool[] -&gt; unit" Usage="parcel.WriteBooleanArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4463,8 +5010,8 @@
       <MemberSignature Language="F#" Value="member this.WriteBundle : Android.OS.Bundle -&gt; unit" Usage="parcel.WriteBundle val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4483,6 +5030,8 @@
         <summary>Flatten a Bundle into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a Bundle into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeBundle(android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeBundle(android.os.Bundle)</code>.</a>
@@ -4504,8 +5053,8 @@
       <MemberSignature Language="F#" Value="member this.WriteByte : sbyte -&gt; unit" Usage="parcel.WriteByte val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4524,6 +5073,10 @@
         <summary>Write a byte value into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Write a byte value into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
+          <para>Note: This method currently delegates to writeInt but may change in
+            the future.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeByte(byte)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeByte(byte)</code>.</a>
@@ -4545,8 +5098,8 @@
       <MemberSignature Language="F#" Value="member this.WriteByteArray : byte[] -&gt; unit" Usage="parcel.WriteByteArray b" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4565,6 +5118,8 @@
         <summary>Write a byte array into the parcel at the current <c>#dataPosition</c>,
             growing <c>#dataCapacity</c> if needed.</summary>
         <remarks>
+          <para>Write a byte array into the parcel at the current <c>#dataPosition</c>,
+            growing <c>#dataCapacity</c> if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeByteArray(byte[])" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeByteArray(byte[])</code>.</a>
@@ -4586,8 +5141,8 @@
       <MemberSignature Language="F#" Value="member this.WriteByteArray : byte[] * int * int -&gt; unit" Usage="parcel.WriteByteArray (b, offset, len)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4610,6 +5165,8 @@
         <summary>Write a byte array into the parcel at the current <c>#dataPosition</c>,
             growing <c>#dataCapacity</c> if needed.</summary>
         <remarks>
+          <para>Write a byte array into the parcel at the current <c>#dataPosition</c>,
+            growing <c>#dataCapacity</c> if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeByteArray(byte[],%20int,%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeByteArray(byte[], int, int)</code>.</a>
@@ -4631,8 +5188,8 @@
       <MemberSignature Language="F#" Value="member this.WriteCharArray : char[] -&gt; unit" Usage="parcel.WriteCharArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4663,8 +5220,8 @@
       <MemberSignature Language="F#" Value="member this.WriteDouble : double -&gt; unit" Usage="parcel.WriteDouble val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4683,6 +5240,8 @@
         <summary>Write a double precision floating point value into the parcel at the
             current dataPosition(), growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Write a double precision floating point value into the parcel at the
+            current dataPosition(), growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeDouble(double)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeDouble(double)</code>.</a>
@@ -4704,8 +5263,8 @@
       <MemberSignature Language="F#" Value="member this.WriteDoubleArray : double[] -&gt; unit" Usage="parcel.WriteDoubleArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4736,8 +5295,8 @@
       <MemberSignature Language="F#" Value="member this.WriteException : Java.Lang.Exception -&gt; unit" Usage="parcel.WriteException e" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4756,6 +5315,15 @@
         <summary>Special function for writing an exception result at the header of
             a parcel, to be used when returning an exception from a transaction.</summary>
         <remarks>
+          <para>Special function for writing an exception result at the header of
+            a parcel, to be used when returning an exception from a transaction.
+            Note that this currently only supports a few exception types; any other
+            exception will be re-thrown by this function as a RuntimeException
+            (to be caught by the system's last-resort exception handling when
+            dispatching a transaction).</para>
+          <para>The supported exception types are:
+            &lt;ul&gt;
+            &lt;li&gt;<c>BadParcelableException</c>&lt;li&gt;<c>IllegalArgumentException</c>&lt;li&gt;<c>IllegalStateException</c>&lt;li&gt;<c>NullPointerException</c>&lt;li&gt;<c>SecurityException</c>&lt;li&gt;<c>UnsupportedOperationException</c>&lt;li&gt;<c>NetworkOnMainThreadException</c>&lt;/ul&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeException(java.lang.Exception)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeException(java.lang.Exception)</code>.</a>
@@ -4779,8 +5347,8 @@
       <MemberSignature Language="F#" Value="member this.WriteFileDescriptor : Java.IO.FileDescriptor -&gt; unit" Usage="parcel.WriteFileDescriptor val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4799,6 +5367,14 @@
         <summary>Write a FileDescriptor into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Write a FileDescriptor into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.
+            
+            &lt;p class="caution"&gt;The file descriptor will not be closed, which may
+            result in file descriptor leaks when objects are returned from Binder
+            calls.  Use <c>ParcelFileDescriptor#writeToParcel</c> instead, which
+            accepts contextual flags and will close the original file descriptor
+            if <c>Parcelable#PARCELABLE_WRITE_RETURN_VALUE</c> is set.&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeFileDescriptor(java.io.FileDescriptor)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeFileDescriptor(java.io.FileDescriptor)</code>.</a>
@@ -4832,6 +5408,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -4857,6 +5437,9 @@
               sized with the exact size of dimensions.</param>
         <summary>Flatten a homogeneous multi-dimensional array with fixed-size.</summary>
         <remarks>
+          <para>Flatten a homogeneous multi-dimensional array with fixed-size.  This delegates to other
+            APIs to write a one-dimensional array.  Use <c>#readFixedArray(Object)</c> or
+            <c>#createFixedArray(Class, int[])</c> with the same dimensions to unmarshal.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeFixedArray(T,%20int,%20int...)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeFixedArray(T, int, int...)</code>.</a>
@@ -4877,8 +5460,8 @@
       <MemberSignature Language="F#" Value="member this.WriteFloat : single -&gt; unit" Usage="parcel.WriteFloat val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4897,6 +5480,8 @@
         <summary>Write a floating point value into the parcel at the current
             dataPosition(), growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Write a floating point value into the parcel at the current
+            dataPosition(), growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeFloat(float)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeFloat(float)</code>.</a>
@@ -4918,8 +5503,8 @@
       <MemberSignature Language="F#" Value="member this.WriteFloatArray : single[] -&gt; unit" Usage="parcel.WriteFloatArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4950,8 +5535,8 @@
       <MemberSignature Language="F#" Value="member this.WriteInt : int -&gt; unit" Usage="parcel.WriteInt val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4970,6 +5555,8 @@
         <summary>Write an integer value into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Write an integer value into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeInt(int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeInt(int)</code>.</a>
@@ -4991,8 +5578,8 @@
       <MemberSignature Language="F#" Value="member this.WriteIntArray : int[] -&gt; unit" Usage="parcel.WriteIntArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5035,6 +5622,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -5047,6 +5638,9 @@
         <summary>Flatten a homogeneous array containing an IInterface type into the parcel,
             at the current dataPosition() and growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a homogeneous array containing an IInterface type into the parcel,
+            at the current dataPosition() and growing dataCapacity() if needed.  The
+            type of the objects in the array must be one that implements IInterface.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeInterfaceArray(T[])" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeInterfaceArray(T[])</code>.</a>
@@ -5079,6 +5673,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.IInterface" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -5091,6 +5689,9 @@
         <summary>Flatten a <c>List</c> containing T (IInterface) objects into this parcel
             at the current position.</summary>
         <remarks>
+          <para>Flatten a <c>List</c> containing T (IInterface) objects into this parcel
+            at the current position. They can later be retrieved with
+            <c>#createInterfaceArrayList</c> or <c>#readInterfaceList</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeInterfaceList(java.util.List%3CT%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeInterfaceList(java.util.List&lt;T&gt;)</code>.</a>
@@ -5111,8 +5712,8 @@
       <MemberSignature Language="F#" Value="member this.WriteInterfaceToken : string -&gt; unit" Usage="parcel.WriteInterfaceToken interfaceName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5131,6 +5732,10 @@
         <summary>Store or read an IBinder interface token in the parcel at the current
             <c>#dataPosition</c>.</summary>
         <remarks>
+          <para>Store or read an IBinder interface token in the parcel at the current
+            <c>#dataPosition</c>. This is used to validate that the marshalled
+            transaction is intended for the target interface. This is typically written
+            at the beginning of transactions as a header.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeInterfaceToken(java.lang.String)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeInterfaceToken(java.lang.String)</code>.</a>
@@ -5152,8 +5757,8 @@
       <MemberSignature Language="F#" Value="member this.WriteList : System.Collections.IList -&gt; unit" Usage="parcel.WriteList val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5172,6 +5777,9 @@
         <summary>Flatten a List into the parcel at the current dataPosition(), growing
             dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a List into the parcel at the current dataPosition(), growing
+            dataCapacity() if needed.  The List values are written using
+            <c>#writeValue</c> and must follow the specification there.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeList(java.util.List)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeList(java.util.List)</code>.</a>
@@ -5193,8 +5801,8 @@
       <MemberSignature Language="F#" Value="member this.WriteLong : int64 -&gt; unit" Usage="parcel.WriteLong val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5213,6 +5821,8 @@
         <summary>Write a long integer value into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Write a long integer value into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeLong(long)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeLong(long)</code>.</a>
@@ -5234,8 +5844,8 @@
       <MemberSignature Language="F#" Value="member this.WriteLongArray : int64[] -&gt; unit" Usage="parcel.WriteLongArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5266,8 +5876,8 @@
       <MemberSignature Language="F#" Value="member this.WriteMap : System.Collections.IDictionary -&gt; unit" Usage="parcel.WriteMap val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5285,6 +5895,14 @@
         <param name="val">To be added.</param>
         <summary>Please use <c>#writeBundle</c> instead.</summary>
         <remarks>
+          <para>Please use <c>#writeBundle</c> instead.  Flattens a Map into the parcel
+            at the current dataPosition(),
+            growing dataCapacity() if needed.  The Map keys must be String objects.
+            The Map values are written using <c>#writeValue</c> and must follow
+            the specification there.</para>
+          <para>It is strongly recommended to use <c>#writeBundle</c> instead of
+            this method, since the Bundle class provides a type-safe API that
+            allows you to avoid mysterious type errors at the point of marshalling.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeMap(java.util.Map)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeMap(java.util.Map)</code>.</a>
@@ -5306,8 +5924,8 @@
       <MemberSignature Language="F#" Value="member this.WriteNoException : unit -&gt; unit" Usage="parcel.WriteNoException " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5323,6 +5941,8 @@
         <summary>Special function for writing information at the front of the Parcel
             indicating that no exception occurred.</summary>
         <remarks>
+          <para>Special function for writing information at the front of the Parcel
+            indicating that no exception occurred.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeNoException()" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeNoException()</code>.</a>
@@ -5346,8 +5966,8 @@
       <MemberSignature Language="F#" Value="member this.WriteParcelable : Android.OS.IParcelable * Android.OS.ParcelableWriteFlags -&gt; unit" Usage="parcel.WriteParcelable (p, parcelableFlags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5376,6 +5996,8 @@
         <summary>Flatten the name of the class of the Parcelable and its contents
             into the parcel.</summary>
         <remarks>
+          <para>Flatten the name of the class of the Parcelable and its contents
+            into the parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeParcelable(android.os.Parcelable,%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeParcelable(android.os.Parcelable, int)</code>.</a>
@@ -5397,8 +6019,8 @@
       <MemberSignature Language="F#" Value="member this.WriteParcelableArray : Java.Lang.Object[] * Android.OS.ParcelableWriteFlags -&gt; unit" Usage="parcel.WriteParcelableArray (value, parcelableFlags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5430,6 +6052,11 @@
             <c>Parcelable#writeToParcel(Parcel, int) Parcelable.writeToParcel()</c>.</param>
         <summary>Write a heterogeneous array of Parcelable objects into the Parcel.</summary>
         <remarks>
+          <para>Write a heterogeneous array of Parcelable objects into the Parcel.
+            Each object in the array is written along with its class name, so
+            that the correct class can later be instantiated.  As a result, this
+            has significantly more overhead than <c>#writeTypedArray</c>, but will
+            correctly handle an array containing more than one type of object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeParcelableArray(T[],%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeParcelableArray(T[], int)</code>.</a>
@@ -5458,6 +6085,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("writeParcelableCreator", "(Landroid/os/Parcelable;)V", "", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("writeParcelableCreator", "(Landroid/os/Parcelable;)V", "", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -5469,6 +6100,7 @@
         <param name="p">The Parcelable object to be written.</param>
         <summary>Flatten the name of the class of the Parcelable into this Parcel.</summary>
         <remarks>
+          <para>Flatten the name of the class of the Parcelable into this Parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeParcelableCreator(android.os.Parcelable)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeParcelableCreator(android.os.Parcelable)</code>.</a>
@@ -5501,6 +6133,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -5515,6 +6151,9 @@
         <summary>Flatten a <c>List</c> containing arbitrary <c>Parcelable</c> objects into this parcel
             at the current position.</summary>
         <remarks>
+          <para>Flatten a <c>List</c> containing arbitrary <c>Parcelable</c> objects into this parcel
+            at the current position. They can later be retrieved using
+            <c>#readParcelableList(List, ClassLoader)</c> if required.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeParcelableList(java.util.List%3CT%3E,%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeParcelableList(java.util.List&lt;T&gt;, int)</code>.</a>
@@ -5535,8 +6174,8 @@
       <MemberSignature Language="F#" Value="member this.WritePersistableBundle : Android.OS.PersistableBundle -&gt; unit" Usage="parcel.WritePersistableBundle val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5555,6 +6194,8 @@
         <summary>Flatten a PersistableBundle into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a PersistableBundle into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writePersistableBundle(android.os.PersistableBundle)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writePersistableBundle(android.os.PersistableBundle)</code>.</a>
@@ -5575,8 +6216,8 @@
       <MemberSignature Language="F#" Value="member this.WriteSerializable : Java.IO.ISerializable -&gt; unit" Usage="parcel.WriteSerializable s" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5594,6 +6235,10 @@
         <param name="s">To be added.</param>
         <summary>Write a generic serializable object in to a Parcel.</summary>
         <remarks>
+          <para>Write a generic serializable object in to a Parcel.  It is strongly
+            recommended that this method be avoided, since the serialization
+            overhead is extremely large, and this approach will be much slower than
+            using the other approaches to writing data in to a Parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeSerializable(java.io.Serializable)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeSerializable(java.io.Serializable)</code>.</a>
@@ -5615,8 +6260,8 @@
       <MemberSignature Language="F#" Value="member this.WriteSize : Android.Util.Size -&gt; unit" Usage="parcel.WriteSize val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5635,6 +6280,8 @@
         <summary>Flatten a Size into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a Size into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeSize(android.util.Size)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeSize(android.util.Size)</code>.</a>
@@ -5655,8 +6302,8 @@
       <MemberSignature Language="F#" Value="member this.WriteSizeF : Android.Util.SizeF -&gt; unit" Usage="parcel.WriteSizeF val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5675,6 +6322,8 @@
         <summary>Flatten a SizeF into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a SizeF into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeSizeF(android.util.SizeF)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeSizeF(android.util.SizeF)</code>.</a>
@@ -5695,8 +6344,8 @@
       <MemberSignature Language="F#" Value="member this.WriteSparseArray : Android.Util.SparseArray -&gt; unit" Usage="parcel.WriteSparseArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5719,6 +6368,10 @@
         <summary>Flatten a generic SparseArray into the parcel at the current
             dataPosition(), growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a generic SparseArray into the parcel at the current
+            dataPosition(), growing dataCapacity() if needed.  The SparseArray
+            values are written using <c>#writeValue</c> and must follow the
+            specification there.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeSparseArray(android.util.SparseArray%3CT%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeSparseArray(android.util.SparseArray&lt;T&gt;)</code>.</a>
@@ -5739,8 +6392,8 @@
       <MemberSignature Language="F#" Value="member this.WriteSparseBooleanArray : Android.Util.SparseBooleanArray -&gt; unit" Usage="parcel.WriteSparseBooleanArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5771,8 +6424,8 @@
       <MemberSignature Language="F#" Value="member this.WriteString : string -&gt; unit" Usage="parcel.WriteString val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5791,6 +6444,8 @@
         <summary>Write a string value into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Write a string value into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeString(java.lang.String)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeString(java.lang.String)</code>.</a>
@@ -5812,8 +6467,8 @@
       <MemberSignature Language="F#" Value="member this.WriteStringArray : string[] -&gt; unit" Usage="parcel.WriteStringArray val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5844,8 +6499,8 @@
       <MemberSignature Language="F#" Value="member this.WriteStringList : System.Collections.Generic.IList&lt;string&gt; -&gt; unit" Usage="parcel.WriteStringList val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5864,6 +6519,10 @@
         <summary>Flatten a List containing String objects into the parcel, at
             the current dataPosition() and growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a List containing String objects into the parcel, at
+            the current dataPosition() and growing dataCapacity() if needed.  They
+            can later be retrieved with <c>#createStringArrayList</c> or
+            <c>#readStringList</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeStringList(java.util.List%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeStringList(java.util.List&lt;java.lang.String&gt;)</code>.</a>
@@ -5884,8 +6543,8 @@
       <MemberSignature Language="F#" Value="member this.WriteStrongBinder : Android.OS.IBinder -&gt; unit" Usage="parcel.WriteStrongBinder val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5904,6 +6563,8 @@
         <summary>Write an object into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Write an object into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeStrongBinder(android.os.IBinder)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeStrongBinder(android.os.IBinder)</code>.</a>
@@ -5925,8 +6586,8 @@
       <MemberSignature Language="F#" Value="member this.WriteStrongInterface : Android.OS.IInterface -&gt; unit" Usage="parcel.WriteStrongInterface val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5945,6 +6606,8 @@
         <summary>Write an object into the parcel at the current dataPosition(),
             growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Write an object into the parcel at the current dataPosition(),
+            growing dataCapacity() if needed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeStrongInterface(android.os.IInterface)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeStrongInterface(android.os.IInterface)</code>.</a>
@@ -5966,8 +6629,8 @@
       <MemberSignature Language="F#" Value="member this.WriteTypedArray : Java.Lang.Object[] * Android.OS.ParcelableWriteFlags -&gt; unit" Usage="parcel.WriteTypedArray (val, parcelableFlags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -6001,6 +6664,14 @@
             the parcel, at
             the current dataPosition() and growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a homogeneous array containing a particular object type into
+            the parcel, at
+            the current dataPosition() and growing dataCapacity() if needed.  The
+            type of the objects in the array must be one that implements Parcelable.
+            Unlike the <c>#writeParcelableArray</c> method, however, only the
+            raw data of the objects is written and not their type, so you must use
+            <c>#readTypedArray</c> with the correct corresponding
+            <c>Parcelable.Creator</c> implementation to unmarshall them.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeTypedArray(T[],%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeTypedArray(T[], int)</code>.</a>
@@ -6033,6 +6704,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -6048,6 +6723,11 @@
             type into the parcel at the current dataPosition() and growing dataCapacity()
             if needed.</summary>
         <remarks>
+          <para>Flatten an <c>ArrayMap</c> with string keys containing a particular object
+            type into the parcel at the current dataPosition() and growing dataCapacity()
+            if needed. The type of the objects in the array must be one that implements
+            Parcelable. Only the raw data of the objects is written and not their type,
+            so you must use the corresponding <c>#createTypedArrayMap(Parcelable.Creator)</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeTypedArrayMap(android.util.ArrayMap%3Cjava.lang.String,%20T%3E,%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeTypedArrayMap(android.util.ArrayMap&lt;java.lang.String, T&gt;, int)</code>.</a>
@@ -6068,8 +6748,8 @@
       <MemberSignature Language="F#" Value="member this.WriteTypedList : System.Collections.IList -&gt; unit" Usage="parcel.WriteTypedList val" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -6092,9 +6772,79 @@
         <summary>Flatten a List containing a particular object type into the parcel, at
             the current dataPosition() and growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a List containing a particular object type into the parcel, at
+            the current dataPosition() and growing dataCapacity() if needed.  The
+            type of the objects in the list must be one that implements Parcelable.
+            Unlike the generic writeList() method, however, only the raw data of the
+            objects is written and not their type, so you must use the corresponding
+            readTypedList() to unmarshall them.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeTypedList(java.util.List%3CT%3E)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeTypedList(java.util.List&lt;T&gt;)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="WriteTypedList">
+      <MemberSignature Language="C#" Value="public void WriteTypedList (System.Collections.IList? val, Android.OS.ParcelableWriteFlags parcelableFlags);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void WriteTypedList(class System.Collections.IList val, valuetype Android.OS.ParcelableWriteFlags parcelableFlags) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.OS.Parcel.WriteTypedList(System.Collections.IList,Android.OS.ParcelableWriteFlags)" />
+      <MemberSignature Language="F#" Value="member this.WriteTypedList : System.Collections.IList * Android.OS.ParcelableWriteFlags -&gt; unit" Usage="parcel.WriteTypedList (val, parcelableFlags)" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("writeTypedList", "(Ljava/util/List;I)V", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("writeTypedList", "(Ljava/util/List;I)V", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })]</AttributeName>
+          <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="val" Type="System.Collections.IList" />
+        <Parameter Name="parcelableFlags" Type="Android.OS.ParcelableWriteFlags">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[Android.Runtime.GeneratedEnum]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.GeneratedEnum&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+      </Parameters>
+      <Docs>
+        <param name="val">The list of objects to be written.</param>
+        <param name="parcelableFlags">Contextual flags as per
+            <c>Parcelable#writeToParcel(Parcel, int) Parcelable.writeToParcel()</c>.</param>
+        <summary>Flatten a List containing a particular object type into the parcel, at
+            the current dataPosition() and growing dataCapacity() if needed.</summary>
+        <remarks>
+          <para>Flatten a List containing a particular object type into the parcel, at
+            the current dataPosition() and growing dataCapacity() if needed.  The
+            type of the objects in the list must be one that implements Parcelable.
+            Unlike the generic writeList() method, however, only the raw data of the
+            objects is written and not their type, so you must use the corresponding
+            readTypedList() to unmarshall them.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/os/Parcel#writeTypedList(java.util.List%3CT%3E,%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeTypedList(java.util.List&lt;T&gt;, int)</code>.</a>
             </format>
           </para>
           <para>
@@ -6124,6 +6874,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -6145,6 +6899,7 @@
             <c>Parcelable#writeToParcel(Parcel, int) Parcelable.writeToParcel()</c>.</param>
         <summary>Flatten the Parcelable object into the parcel.</summary>
         <remarks>
+          <para>Flatten the Parcelable object into the parcel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeTypedObject(T,%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeTypedObject(T, int)</code>.</a>
@@ -6177,6 +6932,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends android.os.Parcelable" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -6191,6 +6950,12 @@
         <summary>Flatten a <c>SparseArray</c> containing a particular object type into the parcel
             at the current dataPosition() and growing dataCapacity() if needed.</summary>
         <remarks>
+          <para>Flatten a <c>SparseArray</c> containing a particular object type into the parcel
+            at the current dataPosition() and growing dataCapacity() if needed. The
+            type of the objects in the array must be one that implements Parcelable.
+            Unlike the generic <c>#writeSparseArray(SparseArray)</c> method, however, only
+            the raw data of the objects is written and not their type, so you must use the
+            corresponding <c>#createTypedSparseArray(Parcelable.Creator)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeTypedSparseArray(android.util.SparseArray%3CT%3E,%20int)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeTypedSparseArray(android.util.SparseArray&lt;T&gt;, int)</code>.</a>
@@ -6211,8 +6976,8 @@
       <MemberSignature Language="F#" Value="member this.WriteValue : Java.Lang.Object -&gt; unit" Usage="parcel.WriteValue v" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -6230,6 +6995,45 @@
         <param name="v">To be added.</param>
         <summary>Flatten a generic object in to a parcel.</summary>
         <remarks>
+          <para>Flatten a generic object in to a parcel.  The given Object value may
+            currently be one of the following types:
+            
+            &lt;ul&gt;
+            &lt;li&gt; null
+            &lt;li&gt; String
+            &lt;li&gt; Byte
+            &lt;li&gt; Short
+            &lt;li&gt; Integer
+            &lt;li&gt; Long
+            &lt;li&gt; Float
+            &lt;li&gt; Double
+            &lt;li&gt; Boolean
+            &lt;li&gt; String[]
+            &lt;li&gt; boolean[]
+            &lt;li&gt; byte[]
+            &lt;li&gt; int[]
+            &lt;li&gt; long[]
+            &lt;li&gt; Object[] (supporting objects of the same type defined here).
+            &lt;li&gt; <c>Bundle</c>&lt;li&gt; Map (as supported by <c>#writeMap</c>).
+            &lt;li&gt; Any object that implements the <c>Parcelable</c> protocol.
+            &lt;li&gt; Parcelable[]
+            &lt;li&gt; CharSequence (as supported by <c>TextUtils#writeToParcel</c>).
+            &lt;li&gt; List (as supported by <c>#writeList</c>).
+            &lt;li&gt; <c>SparseArray</c> (as supported by <c>#writeSparseArray(SparseArray)</c>).
+            &lt;li&gt; <c>IBinder</c>&lt;li&gt; Any object that implements Serializable (but see
+                 <c>#writeSerializable</c> for caveats).  Note that all of the
+                 previous types have relatively efficient implementations for
+                 writing to a Parcel; having to rely on the generic serialization
+                 approach is much less efficient and should be avoided whenever
+                 possible.
+            &lt;/ul&gt;
+            
+            &lt;p class="caution"&gt;<c>Parcelable</c> objects are written with
+            <c>Parcelable#writeToParcel</c> using contextual flags of 0.  When
+            serializing objects containing <c>ParcelFileDescriptor</c>s,
+            this may result in file descriptor leaks when they are returned from
+            Binder calls (where <c>Parcelable#PARCELABLE_WRITE_RETURN_VALUE</c>
+            should be used).&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/Parcel#writeValue(java.lang.Object)" title="Reference documentation">Java documentation for <code>android.os.Parcel.writeValue(java.lang.Object)</code>.</a>

@@ -20,6 +20,77 @@
   <Docs since="19">
     <summary>Base class that provides the content of a document to be printed.</summary>
     <remarks>
+      <para>Base class that provides the content of a document to be printed.
+            
+            &lt;h3&gt;Lifecycle&lt;/h3&gt;</para>
+      <para>&lt;ul&gt;
+            &lt;li&gt;
+            Initially, you will receive a call to <c>#onStart()</c>. This callback
+            can be used to allocate resources.
+            &lt;/li&gt;
+            &lt;li&gt;
+            Next, you will get one or more calls to <c>#onLayout(PrintAttributes,
+            PrintAttributes, CancellationSignal, LayoutResultCallback, Bundle)</c> to
+            inform you that the print attributes (page size, density, etc) changed
+            giving you an opportunity to layout the content to match the new constraints.
+            &lt;/li&gt;
+            &lt;li&gt;
+            After every call to <c>#onLayout(PrintAttributes, PrintAttributes,
+            CancellationSignal, LayoutResultCallback, Bundle)</c>, you &lt;strong&gt;may&lt;/strong&gt; get
+            a call to <c>#onWrite(PageRange[], ParcelFileDescriptor, CancellationSignal,
+            WriteResultCallback)</c> asking you to write a PDF file with the content for
+            specific pages.
+            &lt;/li&gt;
+            &lt;li&gt;
+            Finally, you will receive a call to <c>#onFinish()</c>. You can use this
+            callback to release resources allocated in <c>#onStart()</c>.
+            &lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>The <c>#onStart()</c> callback is always the first call you will receive and
+            is useful for doing one time setup or resource allocation before printing. You
+            will not receive a subsequent call here.</para>
+      <para>The <c>#onLayout(PrintAttributes, PrintAttributes, CancellationSignal,
+            LayoutResultCallback, Bundle)</c> callback requires that you layout the content
+            based on the current <c>PrintAttributes</c>. The execution of this method is
+            not considered completed until you invoke one of the methods on the passed in
+            callback instance. Hence, you will not receive a subsequent call to any other
+            method of this class until the execution of this method is complete by invoking
+            one of the callback methods.</para>
+      <para>The <c>#onWrite(PageRange[], ParcelFileDescriptor, CancellationSignal,
+            WriteResultCallback)</c> requires that you render and write the content of some
+            pages to the provided destination. The execution of this method is not
+            considered complete until you invoke one of the methods on the passed in
+            callback instance. Hence, you will not receive a subsequent call to any other
+            method of this class until the execution of this method is complete by invoking
+            one of the callback methods. You will never receive a sequence of one or more
+            calls to this method without a previous call to <c>#onLayout(PrintAttributes,
+            PrintAttributes, CancellationSignal, LayoutResultCallback, Bundle)</c>.</para>
+      <para>The <c>#onFinish()</c> callback is always the last call you will receive and
+            is useful for doing one time cleanup or resource deallocation after printing.
+            You will not receive a subsequent call here.</para>
+      <para>&lt;/p&gt;
+            &lt;h3&gt;Implementation&lt;/h3&gt;</para>
+      <para>The APIs defined in this class are designed to enable doing part or all
+            of the work on an arbitrary thread. For example, if the printed content
+            does not depend on the UI state, i.e. on what is shown on the screen, then
+            you can offload the entire work on a dedicated thread, thus making your
+            application interactive while the print work is being performed. Note that
+            while your activity is covered by the system print UI and a user cannot
+            interact with it, doing the printing work on the main application thread
+            may affect the performance of your other application components as they
+            are also executed on that thread.</para>
+      <para>You can also do work on different threads, for example if you print UI
+            content, you can handle <c>#onStart()</c> and <c>#onLayout(PrintAttributes,
+            PrintAttributes, CancellationSignal, LayoutResultCallback, Bundle)</c> on
+            the UI thread (assuming onStart initializes resources needed for layout).
+            This will ensure that the UI does not change while you are laying out the
+            printed content. Then you can handle <c>#onWrite(PageRange[], ParcelFileDescriptor,
+            CancellationSignal, WriteResultCallback)</c> and <c>#onFinish()</c> on another
+            thread. This will ensure that the main thread is busy for a minimal amount of
+            time. Also this assumes that you will generate the printed content in
+            <c>#onLayout(PrintAttributes, PrintAttributes, CancellationSignal,
+            LayoutResultCallback, Bundle)</c> which is not mandatory. If you use multiple
+            threads, you are responsible for proper synchronization.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/print/PrintDocumentAdapter" title="Reference documentation">Java documentation for <code>android.print.PrintDocumentAdapter</code>.</a>
@@ -39,8 +110,8 @@
       <MemberSignature Language="DocId" Value="M:Android.Print.PrintDocumentAdapter.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -64,8 +135,8 @@
       <MemberSignature Language="F#" Value="new Android.Print.PrintDocumentAdapter : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Print.PrintDocumentAdapter" Usage="new Android.Print.PrintDocumentAdapter (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -87,8 +158,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraPrintPreview : string" Usage="Android.Print.PrintDocumentAdapter.ExtraPrintPreview" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -103,6 +174,10 @@
         <summary>Extra: mapped to a boolean value that is <c>true</c> if
             the current layout is for a print preview, <c>false</c> otherwise.</summary>
         <remarks>
+          <para>Extra: mapped to a boolean value that is <c>true</c> if
+            the current layout is for a print preview, <c>false</c> otherwise.
+            This extra is provided in the <c>Bundle</c> argument of the <c>#onLayout(PrintAttributes, PrintAttributes, CancellationSignal,
+            LayoutResultCallback, Bundle)</c> callback.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/print/PrintDocumentAdapter#EXTRA_PRINT_PREVIEW" title="Reference documentation">Java documentation for <code>android.print.PrintDocumentAdapter.EXTRA_PRINT_PREVIEW</code>.</a>
@@ -155,8 +230,8 @@
       <MemberSignature Language="F#" Value="abstract member OnFinish : unit -&gt; unit&#xA;override this.OnFinish : unit -&gt; unit" Usage="printDocumentAdapter.OnFinish " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -171,6 +246,9 @@
       <Docs>
         <summary>Called when printing finishes.</summary>
         <remarks>
+          <para>Called when printing finishes. You can use this callback to release
+            resources acquired in <c>#onStart()</c>. This method is invoked on
+            the main thread.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/print/PrintDocumentAdapter#onFinish()" title="Reference documentation">Java documentation for <code>android.print.PrintDocumentAdapter.onFinish()</code>.</a>
@@ -191,8 +269,8 @@
       <MemberSignature Language="F#" Value="abstract member OnLayout : Android.Print.PrintAttributes * Android.Print.PrintAttributes * Android.OS.CancellationSignal * Android.Print.PrintDocumentAdapter.LayoutResultCallback * Android.OS.Bundle -&gt; unit" Usage="printDocumentAdapter.OnLayout (oldAttributes, newAttributes, cancellationSignal, callback, extras)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -242,8 +320,8 @@
       <MemberSignature Language="F#" Value="abstract member OnStart : unit -&gt; unit&#xA;override this.OnStart : unit -&gt; unit" Usage="printDocumentAdapter.OnStart " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -258,6 +336,8 @@
       <Docs>
         <summary>Called when printing starts.</summary>
         <remarks>
+          <para>Called when printing starts. You can use this callback to allocate
+            resources. This method is invoked on the main thread.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/print/PrintDocumentAdapter#onStart()" title="Reference documentation">Java documentation for <code>android.print.PrintDocumentAdapter.onStart()</code>.</a>
@@ -278,8 +358,8 @@
       <MemberSignature Language="F#" Value="abstract member OnWrite : Android.Print.PageRange[] * Android.OS.ParcelFileDescriptor * Android.OS.CancellationSignal * Android.Print.PrintDocumentAdapter.WriteResultCallback -&gt; unit" Usage="printDocumentAdapter.OnWrite (pages, destination, cancellationSignal, callback)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -325,8 +405,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Print.PrintDocumentAdapter.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -356,8 +436,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Print.PrintDocumentAdapter.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

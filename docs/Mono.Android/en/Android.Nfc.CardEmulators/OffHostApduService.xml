@@ -22,6 +22,108 @@
             extended to describe one or more NFC applications that are residing
             off-host, for example on an embedded secure element or a UICC.</summary>
     <remarks>
+      <para>OffHostApduService is a convenience <c>Service</c> class that can be
+            extended to describe one or more NFC applications that are residing
+            off-host, for example on an embedded secure element or a UICC.
+            
+            &lt;div class="special reference"&gt;
+            &lt;h3&gt;Developer Guide&lt;/h3&gt;
+            For a general introduction into the topic of card emulation,
+            please read the <see href="https://developer.android.com/guide/topics/connectivity/nfc/hce.html">
+            NFC card emulation developer guide.</see></para>
+      <para>&lt;/div&gt;
+            
+            &lt;h3&gt;NFC Protocols&lt;/h3&gt;</para>
+      <para>Off-host applications represented by this class are based on the NFC-Forum ISO-DEP
+            protocol (based on ISO/IEC 14443-4) and support processing
+            command Application Protocol Data Units (APDUs) as
+            defined in the ISO/IEC 7816-4 specification.
+            
+            &lt;h3&gt;Service selection&lt;/h3&gt;</para>
+      <para>When a remote NFC device wants to talk to your
+            off-host NFC application, it sends a so-called
+            "SELECT AID" APDU as defined in the ISO/IEC 7816-4 specification.
+            The AID is an application identifier defined in ISO/IEC 7816-4.</para>
+      <para>The registration procedure for AIDs is defined in the
+            ISO/IEC 7816-5 specification. If you don't want to register an
+            AID, you are free to use AIDs in the proprietary range:
+            bits 8-5 of the first byte must each be set to '1'. For example,
+            "0xF00102030405" is a proprietary AID. If you do use proprietary
+            AIDs, it is recommended to choose an AID of at least 6 bytes,
+            to reduce the risk of collisions with other applications that
+            might be using proprietary AIDs as well.
+            
+            &lt;h3&gt;AID groups&lt;/h3&gt;</para>
+      <para>In some cases, an off-host environment may need to register multiple AIDs
+            to implement a certain application, and it needs to be sure
+            that it is the default handler for all of these AIDs (as opposed
+            to some AIDs in the group going to another service).</para>
+      <para>An AID group is a list of AIDs that should be considered as
+            belonging together by the OS. For all AIDs in an AID group, the
+            OS will guarantee one of the following:
+            &lt;ul&gt;
+            &lt;li&gt;All AIDs in the group are routed to the off-host execution environment
+            &lt;li&gt;No AIDs in the group are routed to the off-host execution environment
+            &lt;/ul&gt;
+            In other words, there is no in-between state, where some AIDs
+            in the group can be routed to this off-host execution environment,
+            and some to another or a host-based <c>HostApduService</c>.
+            &lt;h3&gt;AID groups and categories&lt;/h3&gt;</para>
+      <para>Each AID group can be associated with a category. This allows
+            the Android OS to classify services, and it allows the user to
+            set defaults at the category level instead of the AID level.</para>
+      <para>You can use
+            <c>CardEmulation#isDefaultServiceForCategory(android.content.ComponentName, String)</c>
+            to determine if your off-host service is the default handler for a category.</para>
+      <para>In this version of the platform, the only known categories
+            are <c>CardEmulation#CATEGORY_PAYMENT</c> and <c>CardEmulation#CATEGORY_OTHER</c>.
+            AID groups without a category, or with a category that is not recognized
+            by the current platform version, will automatically be
+            grouped into the <c>CardEmulation#CATEGORY_OTHER</c> category.
+            
+            &lt;h3&gt;Service AID registration&lt;/h3&gt;</para>
+      <para>To tell the platform which AIDs
+            reside off-host and are managed by this service, a <c>#SERVICE_META_DATA</c>
+            entry must be included in the declaration of the service. An
+            example of a OffHostApduService manifest declaration is shown below:</para>
+      <code lang="text/java">&amp;lt;service android:name=".MyOffHostApduService" android:exported="true" android:permission="android.permission.BIND_NFC_SERVICE"&amp;gt;
+                &amp;lt;intent-filter&amp;gt;
+                    &amp;lt;action android:name="android.nfc.cardemulation.action.OFF_HOST_APDU_SERVICE"/&amp;gt;
+                &amp;lt;/intent-filter&amp;gt;
+                &amp;lt;meta-data android:name="android.nfc.cardemulation.off_host_apdu_ervice" android:resource="@xml/apduservice"/&amp;gt;
+            &amp;lt;/service&amp;gt;</code>
+      <para>This meta-data tag points to an apduservice.xml file.
+            An example of this file with a single AID group declaration is shown below:</para>
+      <code lang="text/java">&amp;lt;offhost-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+                      android:description="@string/servicedesc"&amp;gt;
+                  &amp;lt;aid-group android:description="@string/subscription" android:category="other"&gt;
+                      &amp;lt;aid-filter android:name="F0010203040506"/&amp;gt;
+                      &amp;lt;aid-filter android:name="F0394148148100"/&amp;gt;
+                  &amp;lt;/aid-group&amp;gt;
+            &amp;lt;/offhost-apdu-service&amp;gt;
+            </code>
+      <para>The <c>android.R.styleable#OffHostApduService &amp;lt;offhost-apdu-service&amp;gt;</c> is required
+            to contain a
+            <c>android.R.styleable#OffHostApduService_description &amp;lt;android:description&amp;gt;</c>
+            attribute that contains a user-friendly description of the service that may be shown in UI.</para>
+      <para>The <c>android.R.styleable#OffHostApduService &amp;lt;offhost-apdu-service&amp;gt;</c> must
+            contain one or more <c>android.R.styleable#AidGroup &amp;lt;aid-group&amp;gt;</c> tags.
+            Each <c>android.R.styleable#AidGroup &amp;lt;aid-group&amp;gt;</c> must contain one or
+            more <c>android.R.styleable#AidFilter &amp;lt;aid-filter&amp;gt;</c> tags, each of which
+            contains a single AID. The AID must be specified in hexadecimal format, and contain
+            an even number of characters.</para>
+      <para>This registration will allow the service to be included
+            as an option for being the default handler for categories.
+            The Android OS will take care of correctly
+            routing the AIDs to the off-host execution environment,
+            based on which service the user has selected to be the handler for a certain category.</para>
+      <para>The service may define additional actions outside of the
+            Android namespace that provide further interaction with
+            the off-host execution environment.
+            
+            &lt;p class="note"&gt;Use of this class requires the
+            <c>PackageManager#FEATURE_NFC_HOST_CARD_EMULATION</c> to be present
+            on the device.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/nfc/cardemulation/OffHostApduService" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.OffHostApduService</code>.</a>
@@ -41,8 +143,8 @@
       <MemberSignature Language="DocId" Value="M:Android.Nfc.CardEmulators.OffHostApduService.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -66,8 +168,8 @@
       <MemberSignature Language="F#" Value="new Android.Nfc.CardEmulators.OffHostApduService : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Nfc.CardEmulators.OffHostApduService" Usage="new Android.Nfc.CardEmulators.OffHostApduService (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -120,8 +222,8 @@
       <MemberSignature Language="F#" Value="val mutable ServiceInterface : string" Usage="Android.Nfc.CardEmulators.OffHostApduService.ServiceInterface" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -135,6 +237,7 @@
       <Docs>
         <summary>The <c>Intent</c> action that must be declared as handled by the service.</summary>
         <remarks>
+          <para>The <c>Intent</c> action that must be declared as handled by the service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/OffHostApduService#SERVICE_INTERFACE" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.OffHostApduService.SERVICE_INTERFACE</code>.</a>
@@ -155,8 +258,8 @@
       <MemberSignature Language="F#" Value="val mutable ServiceMetaData : string" Usage="Android.Nfc.CardEmulators.OffHostApduService.ServiceMetaData" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -171,6 +274,8 @@
         <summary>The name of the meta-data element that contains
             more information about this service.</summary>
         <remarks>
+          <para>The name of the meta-data element that contains
+            more information about this service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/OffHostApduService#SERVICE_META_DATA" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.OffHostApduService.SERVICE_META_DATA</code>.</a>
@@ -191,8 +296,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Nfc.CardEmulators.OffHostApduService.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -222,8 +327,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Nfc.CardEmulators.OffHostApduService.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

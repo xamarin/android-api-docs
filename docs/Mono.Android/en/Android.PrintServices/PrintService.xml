@@ -20,6 +20,91 @@
   <Docs since="19">
     <summary>This is the base class for implementing print services.</summary>
     <remarks>
+      <para>This is the base class for implementing print services. A print service knows
+            how to discover and interact one or more printers via one or more protocols.</para>
+      <para>&lt;h3&gt;Printer discovery&lt;/h3&gt;</para>
+      <para>A print service is responsible for discovering printers, adding discovered printers,
+            removing added printers, and updating added printers. When the system is interested
+            in printers managed by your service it will call <c>#onCreatePrinterDiscoverySession()</c> from which you must return a new <c>PrinterDiscoverySession</c> instance. The returned session encapsulates the interaction
+            between the system and your service during printer discovery. For description of this
+            interaction refer to the documentation for <c>PrinterDiscoverySession</c>.</para>
+      <para>For every printer discovery session all printers have to be added since system does
+            not retain printers across sessions. Hence, each printer known to this print service
+            should be added only once during a discovery session. Only an already added printer
+            can be removed or updated. Removed printers can be added again.</para>
+      <para>&lt;h3&gt;Print jobs&lt;/h3&gt;</para>
+      <para>When a new print job targeted to a printer managed by this print service is is queued,
+            i.e. ready for processing by the print service, you will receive a call to <c>#onPrintJobQueued(PrintJob)</c>. The print service may handle the print job immediately
+            or schedule that for an appropriate time in the future. The list of all active print
+            jobs for this service is obtained by calling <c>#getActivePrintJobs()</c>. Active
+            print jobs are ones that are queued or started.</para>
+      <para>A print service is responsible for setting a print job's state as appropriate
+            while processing it. Initially, a print job is queued, i.e. <c>PrintJob#isQueued()
+            PrintJob.isQueued()</c> returns true, which means that the document to be printed is
+            spooled by the system and the print service can begin processing it. You can obtain
+            the printed document by calling <c>PrintJob#getDocument() PrintJob.getDocument()</c>
+            whose data is accessed via <c>PrintDocument#getData() PrintDocument.getData()</c>.
+            After the print service starts printing the data it should set the print job's
+            state to started by calling <c>PrintJob#start()</c> after which
+            <c>PrintJob#isStarted() PrintJob.isStarted()</c> would return true. Upon successful
+            completion, the print job should be marked as completed by calling <c>PrintJob#complete() PrintJob.complete()</c> after which <c>PrintJob#isCompleted()
+            PrintJob.isCompleted()</c> would return true. In case of a failure, the print job should
+            be marked as failed by calling <c>PrintJob#fail(String) PrintJob.fail(
+            String)</c> after which <c>PrintJob#isFailed() PrintJob.isFailed()</c> would
+            return true.</para>
+      <para>If a print job is queued or started and the user requests to cancel it, the print
+            service will receive a call to <c>#onRequestCancelPrintJob(PrintJob)</c> which
+            requests from the service to do best effort in canceling the job. In case the job
+            is successfully canceled, its state has to be marked as cancelled by calling <c>PrintJob#cancel() PrintJob.cancel()</c> after which <c>PrintJob#isCancelled()
+            PrintJob.isCacnelled()</c> would return true.</para>
+      <para>&lt;h3&gt;Lifecycle&lt;/h3&gt;</para>
+      <para>The lifecycle of a print service is managed exclusively by the system and follows
+            the established service lifecycle. Additionally, starting or stopping a print service
+            is triggered exclusively by an explicit user action through enabling or disabling it
+            in the device settings. After the system binds to a print service, it calls <c>#onConnected()</c>. This method can be overriden by clients to perform post binding setup.
+            Also after the system unbinds from a print service, it calls <c>#onDisconnected()</c>.
+            This method can be overriden by clients to perform post unbinding cleanup. Your should
+            not do any work after the system disconnected from your print service since the
+            service can be killed at any time to reclaim memory. The system will not disconnect
+            from a print service if there are active print jobs for the printers managed by it.</para>
+      <para>&lt;h3&gt;Declaration&lt;/h3&gt;</para>
+      <para>A print service is declared as any other service in an AndroidManifest.xml but it must
+            also specify that it handles the <c>android.content.Intent</c> with action <c>#SERVICE_INTERFACE android.printservice.PrintService</c>. Failure to declare this intent
+            will cause the system to ignore the print service. Additionally, a print service must
+            request the <c>android.Manifest.permission#BIND_PRINT_SERVICE
+            android.permission.BIND_PRINT_SERVICE</c> permission to ensure that only the system can
+            bind to it. Failure to declare this intent will cause the system to ignore the print
+            service. Following is an example declaration:</para>
+      <code lang="text/java">&amp;lt;service android:name=".MyPrintService"
+                    android:permission="android.permission.BIND_PRINT_SERVICE"&amp;gt;
+                &amp;lt;intent-filter&amp;gt;
+                    &amp;lt;action android:name="android.printservice.PrintService" /&amp;gt;
+                &amp;lt;/intent-filter&amp;gt;
+                . . .
+            &amp;lt;/service&amp;gt;
+            </code>
+      <para>&lt;h3&gt;Configuration&lt;/h3&gt;</para>
+      <para>A print service can be configured by specifying an optional settings activity which
+            exposes service specific settings, an optional add printers activity which is used for
+            manual addition of printers, vendor name ,etc. It is a responsibility of the system
+            to launch the settings and add printers activities when appropriate.</para>
+      <para>A print service is configured by providing a <c>#SERVICE_META_DATA meta-data</c>
+            entry in the manifest when declaring the service. A service declaration with a meta-data
+            tag is presented below:</para>
+      <code lang="text/java">&amp;lt;service android:name=".MyPrintService"
+                    android:permission="android.permission.BIND_PRINT_SERVICE"&amp;gt;
+                &amp;lt;intent-filter&amp;gt;
+                    &amp;lt;action android:name="android.printservice.PrintService" /&amp;gt;
+                &amp;lt;/intent-filter&amp;gt;
+                &amp;lt;meta-data android:name="android.printservice" android:resource="@xml/printservice" /&amp;gt;
+            &amp;lt;/service&amp;gt;</code>
+      <para>&lt;/p&gt;</para>
+      <para>For more details for how to configure your print service via the meta-data refer to
+            <c>#SERVICE_META_DATA</c> and <c>&amp;lt;{@link android.R.styleable#PrintService
+            print-service}&amp;gt;</c>.</para>
+      <para>&lt;strong&gt;Note: &lt;/strong&gt; All callbacks in this class are executed on the main
+            application thread. You should also invoke any method of this class on the main
+            application thread.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/printservice/PrintService" title="Reference documentation">Java documentation for <code>android.printservice.PrintService</code>.</a>
@@ -39,8 +124,8 @@
       <MemberSignature Language="DocId" Value="M:Android.PrintServices.PrintService.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -64,8 +149,8 @@
       <MemberSignature Language="F#" Value="new Android.PrintServices.PrintService : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.PrintServices.PrintService" Usage="new Android.PrintServices.PrintService (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -87,8 +172,8 @@
       <MemberSignature Language="F#" Value="member this.ActivePrintJobs : System.Collections.Generic.IList&lt;Android.PrintServices.PrintJob&gt;" Usage="Android.PrintServices.PrintService.ActivePrintJobs" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -103,6 +188,9 @@
         <summary>Gets the active print jobs for the printers managed by this service.</summary>
         <value>The active print jobs.</value>
         <remarks>
+          <para>Gets the active print jobs for the printers managed by this service.
+            Active print jobs are ones that are not in a final state, i.e. whose
+            state is queued or started.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#getActivePrintJobs()" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.getActivePrintJobs()</code>.</a>
@@ -126,8 +214,8 @@
       <MemberSignature Language="F#" Value="override this.AttachBaseContext : Android.Content.Context -&gt; unit" Usage="printService.AttachBaseContext base" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -165,6 +253,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("EXTRA_CAN_SELECT_PRINTER", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EXTRA_CAN_SELECT_PRINTER", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -174,6 +266,9 @@
             <c>PrinterInfo.Builder#setInfoIntent(PendingIntent)</c> is called this boolean extra
             will be filled in if the activity can select the printer.</summary>
         <remarks>
+          <para>When the <c>PendingIntent</c> declared via
+            <c>PrinterInfo.Builder#setInfoIntent(PendingIntent)</c> is called this boolean extra
+            will be filled in if the activity can select the printer.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#EXTRA_CAN_SELECT_PRINTER" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.EXTRA_CAN_SELECT_PRINTER</code>.</a>
@@ -202,6 +297,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("EXTRA_PRINT_DOCUMENT_INFO", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EXTRA_PRINT_DOCUMENT_INFO", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -213,6 +312,11 @@
             document as a <c>android.print.PrintDocumentInfo</c> to your activity allowing
             you to inspect it.</summary>
         <remarks>
+          <para>If you declared an optional activity with advanced print options via the
+            <c>android.R.attr#advancedPrintOptionsActivity advancedPrintOptionsActivity</c>
+            attribute, this extra is used to pass in the meta-data for the currently printed
+            document as a <c>android.print.PrintDocumentInfo</c> to your activity allowing
+            you to inspect it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#EXTRA_PRINT_DOCUMENT_INFO" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.EXTRA_PRINT_DOCUMENT_INFO</code>.</a>
@@ -233,8 +337,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraPrinterInfo : string" Usage="Android.PrintServices.PrintService.ExtraPrinterInfo" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -251,6 +355,10 @@
             attribute, this extra is used to pass in the currently selected printer's
             <c>android.print.PrinterInfo</c> to your activity allowing you to inspect it.</summary>
         <remarks>
+          <para>If you declared an optional activity with advanced print options via the
+            <c>android.R.attr#advancedPrintOptionsActivity advancedPrintOptionsActivity</c>
+            attribute, this extra is used to pass in the currently selected printer's
+            <c>android.print.PrinterInfo</c> to your activity allowing you to inspect it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#EXTRA_PRINTER_INFO" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.EXTRA_PRINTER_INFO</code>.</a>
@@ -272,8 +380,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraPrintJobInfo : string" Usage="Android.PrintServices.PrintService.ExtraPrintJobInfo" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -290,6 +398,27 @@
             this extra is used to pass in the currently constructed <c>PrintJobInfo</c> to your activity
             allowing you to modify it.</summary>
         <remarks>
+          <para>If you declared an optional activity with advanced print options via the
+            <c>android.R.attr#advancedPrintOptionsActivity advancedPrintOptionsActivity</c> attribute,
+            this extra is used to pass in the currently constructed <c>PrintJobInfo</c> to your activity
+            allowing you to modify it. After you are done, you must return the modified
+            <c>PrintJobInfo</c> via the same extra.</para>
+          <para>You cannot modify the passed in <c>PrintJobInfo</c> directly, rather you should build
+            another one using the <c>android.print.PrintJobInfo.Builder PrintJobInfo.Builder</c> class.
+            You can specify any standard properties and add advanced, printer specific, ones via
+            <c>android.print.PrintJobInfo.Builder#putAdvancedOption(String, String)
+            PrintJobInfo.Builder.putAdvancedOption(String, String)</c> and
+            <c>android.print.PrintJobInfo.Builder#putAdvancedOption(String, int)
+            PrintJobInfo.Builder.putAdvancedOption(String, int)</c>. The advanced options are not
+            interpreted by the system, they will not be visible to applications, and can only be accessed
+            by your print service via <c>PrintJob#getAdvancedStringOption(String)
+            PrintJob.getAdvancedStringOption(String)</c> and <c>PrintJob#getAdvancedIntOption(String)
+            PrintJob.getAdvancedIntOption(String)</c>.</para>
+          <para>If the advanced print options activity offers changes to the standard print options, you can
+            get the current <c>android.print.PrinterInfo PrinterInfo</c> using the
+            <c>#EXTRA_PRINTER_INFO</c> extra which will allow you to present the user with UI options
+            supported by the current printer. For example, if the current printer does not support a
+            given media size, you should not offer it in the advanced print options UI.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#EXTRA_PRINT_JOB_INFO" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.EXTRA_PRINT_JOB_INFO</code>.</a>
@@ -319,6 +448,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("EXTRA_SELECT_PRINTER", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EXTRA_SELECT_PRINTER", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -328,6 +461,9 @@
             result data</c> from the activity specified in
             <c>PrinterInfo.Builder#setInfoIntent(PendingIntent)</c> the printer will be selected.</summary>
         <remarks>
+          <para>If this boolean extra is set to <c>true</c> in the <c>Activity#setResult(int, Intent)
+            result data</c> from the activity specified in
+            <c>PrinterInfo.Builder#setInfoIntent(PendingIntent)</c> the printer will be selected.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#EXTRA_SELECT_PRINTER" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.EXTRA_SELECT_PRINTER</code>.</a>
@@ -348,8 +484,8 @@
       <MemberSignature Language="F#" Value="member this.GeneratePrinterId : string -&gt; Android.Print.PrinterId" Usage="printService.GeneratePrinterId localId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -368,6 +504,7 @@
         <summary>Generates a global printer id given the printer's locally unique one.</summary>
         <returns>Global printer id.</returns>
         <remarks>
+          <para>Generates a global printer id given the printer's locally unique one.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#generatePrinterId(java.lang.String)" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.generatePrinterId(java.lang.String)</code>.</a>
@@ -419,8 +556,8 @@
       <MemberSignature Language="F#" Value="override this.OnBind : Android.Content.Intent -&gt; Android.OS.IBinder" Usage="printService.OnBind intent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -452,8 +589,8 @@
       <MemberSignature Language="F#" Value="abstract member OnConnected : unit -&gt; unit&#xA;override this.OnConnected : unit -&gt; unit" Usage="printService.OnConnected " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -468,6 +605,7 @@
       <Docs>
         <summary>The system has connected to this service.</summary>
         <remarks>
+          <para>The system has connected to this service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#onConnected()" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.onConnected()</code>.</a>
@@ -488,8 +626,8 @@
       <MemberSignature Language="F#" Value="abstract member OnCreatePrinterDiscoverySession : unit -&gt; Android.PrintServices.PrinterDiscoverySession" Usage="printService.OnCreatePrinterDiscoverySession " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -505,6 +643,7 @@
         <summary>Callback asking you to create a new <c>PrinterDiscoverySession</c>.</summary>
         <returns>The created session.</returns>
         <remarks>
+          <para>Callback asking you to create a new <c>PrinterDiscoverySession</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#onCreatePrinterDiscoverySession()" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.onCreatePrinterDiscoverySession()</code>.</a>
@@ -526,8 +665,8 @@
       <MemberSignature Language="F#" Value="abstract member OnDisconnected : unit -&gt; unit&#xA;override this.OnDisconnected : unit -&gt; unit" Usage="printService.OnDisconnected " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -542,6 +681,7 @@
       <Docs>
         <summary>The system has disconnected from this service.</summary>
         <remarks>
+          <para>The system has disconnected from this service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#onDisconnected()" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.onDisconnected()</code>.</a>
@@ -562,8 +702,8 @@
       <MemberSignature Language="F#" Value="abstract member OnPrintJobQueued : Android.PrintServices.PrintJob -&gt; unit" Usage="printService.OnPrintJobQueued printJob" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -582,6 +722,8 @@
         <summary>Called when there is a queued print job for one of the printers
             managed by this print service.</summary>
         <remarks>
+          <para>Called when there is a queued print job for one of the printers
+            managed by this print service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#onPrintJobQueued(android.printservice.PrintJob)" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.onPrintJobQueued(android.printservice.PrintJob)</code>.</a>
@@ -604,8 +746,8 @@
       <MemberSignature Language="F#" Value="abstract member OnRequestCancelPrintJob : Android.PrintServices.PrintJob -&gt; unit" Usage="printService.OnRequestCancelPrintJob printJob" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -623,6 +765,10 @@
         <param name="printJob">The print job to cancel.</param>
         <summary>Called when cancellation of a print job is requested.</summary>
         <remarks>
+          <para>Called when cancellation of a print job is requested. The service
+            should do best effort to fulfill the request. After the cancellation
+            is performed, the print job should be marked as cancelled state by
+            calling <c>PrintJob#cancel()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#onRequestCancelPrintJob(android.printservice.PrintJob)" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.onRequestCancelPrintJob(android.printservice.PrintJob)</code>.</a>
@@ -645,8 +791,8 @@
       <MemberSignature Language="F#" Value="val mutable ServiceInterface : string" Usage="Android.PrintServices.PrintService.ServiceInterface" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -661,6 +807,8 @@
         <summary>The <c>Intent</c> action that must be declared as handled by a service
             in its manifest for the system to recognize it as a print service.</summary>
         <remarks>
+          <para>The <c>Intent</c> action that must be declared as handled by a service
+            in its manifest for the system to recognize it as a print service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#SERVICE_INTERFACE" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.SERVICE_INTERFACE</code>.</a>
@@ -681,8 +829,8 @@
       <MemberSignature Language="F#" Value="val mutable ServiceMetaData : string" Usage="Android.PrintServices.PrintService.ServiceMetaData" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -697,6 +845,24 @@
         <summary>Name under which a <c>PrintService</c> component publishes additional information
             about itself.</summary>
         <remarks>
+          <para>Name under which a <c>PrintService</c> component publishes additional information
+            about itself. This meta-data must reference a XML resource containing a <c>
+            &amp;lt;{@link android.R.styleable#PrintService print-service}&amp;gt;</c> tag. This is
+            a sample XML file configuring a print service:</para>
+          <code lang="text/java">&amp;lt;print-service
+                android:vendor="SomeVendor"
+                android:settingsActivity="foo.bar.MySettingsActivity"
+                andorid:addPrintersActivity="foo.bar.MyAddPrintersActivity."
+                . . .
+            /&amp;gt;</code>
+          <para>For detailed configuration options that can be specified via the meta-data
+            refer to <c>android.R.styleable#PrintService android.R.styleable.PrintService</c>.</para>
+          <para>If you declare a settings or add a printers activity, they have to be exported,
+            by setting the <c>android.R.attr#exported</c> activity attribute to <c>true
+            </c>. Also in case you want only the system to be able to start any of these
+            activities you can specify that they request the android.permission
+            .START_PRINT_SERVICE_CONFIG_ACTIVITY permission by setting the
+            <c>android.R.attr#permission</c> activity attribute.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrintService#SERVICE_META_DATA" title="Reference documentation">Java documentation for <code>android.printservice.PrintService.SERVICE_META_DATA</code>.</a>
@@ -717,8 +883,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.PrintServices.PrintService.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -748,8 +914,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.PrintServices.PrintService.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

@@ -22,6 +22,193 @@
             <c>CyclicBarrier</c> and <c>CountDownLatch</c> but supporting
             more flexible usage.</summary>
     <remarks>
+      <para>A reusable synchronization barrier, similar in functionality to
+            <c>CyclicBarrier</c> and <c>CountDownLatch</c> but supporting
+            more flexible usage.</para>
+      <para>&lt;b&gt;Registration.&lt;/b&gt; Unlike the case for other barriers, the
+            number of parties &lt;em&gt;registered&lt;/em&gt; to synchronize on a phaser
+            may vary over time.  Tasks may be registered at any time (using
+            methods <c>#register</c>, <c>#bulkRegister</c>, or forms of
+            constructors establishing initial numbers of parties), and
+            optionally deregistered upon any arrival (using <c>#arriveAndDeregister</c>).  As is the case with most basic
+            synchronization constructs, registration and deregistration affect
+            only internal counts; they do not establish any further internal
+            bookkeeping, so tasks cannot query whether they are registered.
+            (However, you can introduce such bookkeeping by subclassing this
+            class.)</para>
+      <para>&lt;b&gt;Synchronization.&lt;/b&gt; Like a <c>CyclicBarrier</c>, a <c>Phaser</c> may be repeatedly awaited.  Method <c>#arriveAndAwaitAdvance</c> has effect analogous to <c>java.util.concurrent.CyclicBarrier#await CyclicBarrier.await</c>. Each
+            generation of a phaser has an associated phase number. The phase
+            number starts at zero, and advances when all parties arrive at the
+            phaser, wrapping around to zero after reaching <c>Integer.MAX_VALUE</c>. The use of phase numbers enables independent
+            control of actions upon arrival at a phaser and upon awaiting
+            others, via two kinds of methods that may be invoked by any
+            registered party:
+            
+            &lt;ul&gt;
+            
+              &lt;li&gt;&lt;b&gt;Arrival.&lt;/b&gt; Methods <c>#arrive</c> and
+                  <c>#arriveAndDeregister</c> record arrival.  These methods
+                  do not block, but return an associated &lt;em&gt;arrival phase
+                  number&lt;/em&gt;; that is, the phase number of the phaser to which
+                  the arrival applied. When the final party for a given phase
+                  arrives, an optional action is performed and the phase
+                  advances.  These actions are performed by the party
+                  triggering a phase advance, and are arranged by overriding
+                  method <c>#onAdvance(int, int)</c>, which also controls
+                  termination. Overriding this method is similar to, but more
+                  flexible than, providing a barrier action to a <c>CyclicBarrier</c>.
+            
+              &lt;li&gt;&lt;b&gt;Waiting.&lt;/b&gt; Method <c>#awaitAdvance</c> requires an
+                  argument indicating an arrival phase number, and returns when
+                  the phaser advances to (or is already at) a different phase.
+                  Unlike similar constructions using <c>CyclicBarrier</c>,
+                  method <c>awaitAdvance</c> continues to wait even if the
+                  waiting thread is interrupted. Interruptible and timeout
+                  versions are also available, but exceptions encountered while
+                  tasks wait interruptibly or with timeout do not change the
+                  state of the phaser. If necessary, you can perform any
+                  associated recovery within handlers of those exceptions,
+                  often after invoking <c>forceTermination</c>.  Phasers may
+                  also be used by tasks executing in a <c>ForkJoinPool</c>.
+                  Progress is ensured if the pool's parallelism level can
+                  accommodate the maximum number of simultaneously blocked
+                  parties.
+            
+            &lt;/ul&gt;</para>
+      <para>&lt;b&gt;Termination.&lt;/b&gt; A phaser may enter a &lt;em&gt;termination&lt;/em&gt;
+            state, that may be checked using method <c>#isTerminated</c>. Upon
+            termination, all synchronization methods immediately return without
+            waiting for advance, as indicated by a negative return value.
+            Similarly, attempts to register upon termination have no effect.
+            Termination is triggered when an invocation of <c>onAdvance</c>
+            returns <c>true</c>. The default implementation returns <c>true</c> if a deregistration has caused the number of registered
+            parties to become zero.  As illustrated below, when phasers control
+            actions with a fixed number of iterations, it is often convenient
+            to override this method to cause termination when the current phase
+            number reaches a threshold. Method <c>#forceTermination</c> is
+            also available to abruptly release waiting threads and allow them
+            to terminate.</para>
+      <para>&lt;b&gt;Tiering.&lt;/b&gt; Phasers may be &lt;em&gt;tiered&lt;/em&gt; (i.e.,
+            constructed in tree structures) to reduce contention. Phasers with
+            large numbers of parties that would otherwise experience heavy
+            synchronization contention costs may instead be set up so that
+            groups of sub-phasers share a common parent.  This may greatly
+            increase throughput even though it incurs greater per-operation
+            overhead.</para>
+      <para>In a tree of tiered phasers, registration and deregistration of
+            child phasers with their parent are managed automatically.
+            Whenever the number of registered parties of a child phaser becomes
+            non-zero (as established in the <c>#Phaser(Phaser,int)</c>
+            constructor, <c>#register</c>, or <c>#bulkRegister</c>), the
+            child phaser is registered with its parent.  Whenever the number of
+            registered parties becomes zero as the result of an invocation of
+            <c>#arriveAndDeregister</c>, the child phaser is deregistered
+            from its parent.</para>
+      <para>&lt;b&gt;Monitoring.&lt;/b&gt; While synchronization methods may be invoked
+            only by registered parties, the current state of a phaser may be
+            monitored by any caller.  At any given moment there are <c>#getRegisteredParties</c> parties in total, of which <c>#getArrivedParties</c> have arrived at the current phase (<c>#getPhase</c>).  When the remaining (<c>#getUnarrivedParties</c>)
+            parties arrive, the phase advances.  The values returned by these
+            methods may reflect transient states and so are not in general
+            useful for synchronization control.  Method <c>#toString</c>
+            returns snapshots of these state queries in a form convenient for
+            informal monitoring.</para>
+      <para>Memory consistency effects: Actions prior to any form of arrive
+            method 
+            &lt;i&gt;happen-before&lt;/i&gt; a corresponding phase advance and
+            onAdvance actions (if present), which in turn <i>happen-before</i>
+            actions following the phase advance.</para>
+      <para>&lt;b&gt;Sample usages:&lt;/b&gt;</para>
+      <para>A <c>Phaser</c> may be used instead of a <c>CountDownLatch</c>
+            to control a one-shot action serving a variable number of parties.
+            The typical idiom is for the method setting this up to first
+            register, then start all the actions, then deregister, as in:</para>
+      <code lang="text/java">{@code
+            void runTasks(List&lt;Runnable&gt; tasks) {
+              Phaser startingGate = new Phaser(1); // "1" to register self
+              // create and start threads
+              for (Runnable task : tasks) {
+                startingGate.register();
+                new Thread(() -&gt; {
+                  startingGate.arriveAndAwaitAdvance();
+                  task.run();
+                }).start();
+              }
+            
+              // deregister self to allow threads to proceed
+              startingGate.arriveAndDeregister();
+            }}</code>
+      <para>One way to cause a set of threads to repeatedly perform actions
+            for a given number of iterations is to override <c>onAdvance</c>:</para>
+      <code lang="text/java">{@code
+            void startTasks(List&lt;Runnable&gt; tasks, int iterations) {
+              Phaser phaser = new Phaser() {
+                protected boolean onAdvance(int phase, int registeredParties) {
+                  return phase &gt;= iterations - 1 || registeredParties == 0;
+                }
+              };
+              phaser.register();
+              for (Runnable task : tasks) {
+                phaser.register();
+                new Thread(() -&gt; {
+                  do {
+                    task.run();
+                    phaser.arriveAndAwaitAdvance();
+                  } while (!phaser.isTerminated());
+                }).start();
+              }
+              // allow threads to proceed; don't wait for them
+              phaser.arriveAndDeregister();
+            }}</code>
+      <para>If the main task must later await termination, it
+            may re-register and then execute a similar loop:</para>
+      <code lang="text/java">{@code
+              // ...
+              phaser.register();
+              while (!phaser.isTerminated())
+                phaser.arriveAndAwaitAdvance();}</code>
+      <para>Related constructions may be used to await particular phase numbers
+            in contexts where you are sure that the phase will never wrap around
+            <c>Integer.MAX_VALUE</c>. For example:</para>
+      <code lang="text/java">{@code
+            void awaitPhase(Phaser phaser, int phase) {
+              int p = phaser.register(); // assumes caller not already registered
+              while (p &lt; phase) {
+                if (phaser.isTerminated())
+                  // ... deal with unexpected termination
+                else
+                  p = phaser.arriveAndAwaitAdvance();
+              }
+              phaser.arriveAndDeregister();
+            }}</code>
+      <para>To create a set of <c>n</c> tasks using a tree of phasers, you
+            could use code of the following form, assuming a Task class with a
+            constructor accepting a <c>Phaser</c> that it registers with upon
+            construction. After invocation of <c>build(new Task[n], 0, n,
+            new Phaser())</c>, these tasks could then be started, for example by
+            submitting to a pool:</para>
+      <code lang="text/java">{@code
+            void build(Task[] tasks, int lo, int hi, Phaser ph) {
+              if (hi - lo &gt; TASKS_PER_PHASER) {
+                for (int i = lo; i &lt; hi; i += TASKS_PER_PHASER) {
+                  int j = Math.min(i + TASKS_PER_PHASER, hi);
+                  build(tasks, i, j, new Phaser(ph));
+                }
+              } else {
+                for (int i = lo; i &lt; hi; ++i)
+                  tasks[i] = new Task(ph);
+                  // assumes new Task(ph) performs ph.register()
+              }
+            }}</code>
+      <para>The best value of <c>TASKS_PER_PHASER</c> depends mainly on
+            expected synchronization rates. A value as low as four may
+            be appropriate for extremely small per-phase task bodies (thus
+            high rates), or up to hundreds for extremely large ones.</para>
+      <para>&lt;b&gt;Implementation notes:&lt;/b&gt; This implementation restricts the
+            maximum number of parties to 65535. Attempts to register additional
+            parties result in <c>IllegalStateException</c>. However, you can and
+            should create tiered phasers to accommodate arbitrarily large sets
+            of participants.</para>
+      <para>Added in 1.7.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/Phaser" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser</code>.</a>
@@ -41,8 +228,8 @@
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Phaser.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -55,6 +242,9 @@
         <summary>Creates a new phaser with no initially registered parties, no
             parent, and initial phase number 0.</summary>
         <remarks>
+          <para>Creates a new phaser with no initially registered parties, no
+            parent, and initial phase number 0. Any thread using this
+            phaser will need to first register for it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#Phaser()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.Phaser()</code>.</a>
@@ -75,8 +265,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Phaser : Java.Util.Concurrent.Phaser -&gt; Java.Util.Concurrent.Phaser" Usage="new Java.Util.Concurrent.Phaser parent" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -91,6 +281,7 @@
         <param name="parent">the parent phaser</param>
         <summary>Equivalent to <c>#Phaser(Phaser, int) Phaser(parent, 0)</c>.</summary>
         <remarks>
+          <para>Equivalent to <c>#Phaser(Phaser, int) Phaser(parent, 0)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#Phaser(java.util.concurrent.Phaser)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.Phaser(java.util.concurrent.Phaser)</code>.</a>
@@ -111,8 +302,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Phaser : int -&gt; Java.Util.Concurrent.Phaser" Usage="new Java.Util.Concurrent.Phaser parties" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -129,6 +320,8 @@
         <summary>Creates a new phaser with the given number of registered
             unarrived parties, no parent, and initial phase number 0.</summary>
         <remarks>
+          <para>Creates a new phaser with the given number of registered
+            unarrived parties, no parent, and initial phase number 0.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#Phaser(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.Phaser(int)</code>.</a>
@@ -152,8 +345,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Phaser : Java.Util.Concurrent.Phaser * int -&gt; Java.Util.Concurrent.Phaser" Usage="new Java.Util.Concurrent.Phaser (parent, parties)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -172,6 +365,10 @@
         <summary>Creates a new phaser with the given parent and number of
             registered unarrived parties.</summary>
         <remarks>
+          <para>Creates a new phaser with the given parent and number of
+            registered unarrived parties.  When the given parent is non-null
+            and the given number of parties is greater than zero, this
+            child phaser is registered with its parent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#Phaser(java.util.concurrent.Phaser,%20int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.Phaser(java.util.concurrent.Phaser, int)</code>.</a>
@@ -195,8 +392,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Phaser : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Concurrent.Phaser" Usage="new Java.Util.Concurrent.Phaser (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -218,8 +415,8 @@
       <MemberSignature Language="F#" Value="abstract member Arrive : unit -&gt; int&#xA;override this.Arrive : unit -&gt; int" Usage="phaser.Arrive " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -235,6 +432,10 @@
         <summary>Arrives at this phaser, without waiting for others to arrive.</summary>
         <returns>the arrival phase number, or a negative value if terminated</returns>
         <remarks>
+          <para>Arrives at this phaser, without waiting for others to arrive.</para>
+          <para>It is a usage error for an unregistered party to invoke this
+            method.  However, this error may result in an <c>IllegalStateException</c> only upon some subsequent operation on
+            this phaser, if ever.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#arrive()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.arrive()</code>.</a>
@@ -258,8 +459,8 @@
       <MemberSignature Language="F#" Value="abstract member ArriveAndAwaitAdvance : unit -&gt; int&#xA;override this.ArriveAndAwaitAdvance : unit -&gt; int" Usage="phaser.ArriveAndAwaitAdvance " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -276,6 +477,14 @@
         <returns>the arrival phase number, or the (negative)
             #getPhase() current phase if terminated</returns>
         <remarks>
+          <para>Arrives at this phaser and awaits others. Equivalent in effect
+            to <c>awaitAdvance(arrive())</c>.  If you need to await with
+            interruption or timeout, you can arrange this with an analogous
+            construction using one of the other forms of the <c>awaitAdvance</c> method.  If instead you need to deregister upon
+            arrival, use <c>awaitAdvance(arriveAndDeregister())</c>.</para>
+          <para>It is a usage error for an unregistered party to invoke this
+            method.  However, this error may result in an <c>IllegalStateException</c> only upon some subsequent operation on
+            this phaser, if ever.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#arriveAndAwaitAdvance()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.arriveAndAwaitAdvance()</code>.</a>
@@ -299,8 +508,8 @@
       <MemberSignature Language="F#" Value="abstract member ArriveAndDeregister : unit -&gt; int&#xA;override this.ArriveAndDeregister : unit -&gt; int" Usage="phaser.ArriveAndDeregister " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -317,6 +526,14 @@
             for others to arrive.</summary>
         <returns>the arrival phase number, or a negative value if terminated</returns>
         <remarks>
+          <para>Arrives at this phaser and deregisters from it without waiting
+            for others to arrive. Deregistration reduces the number of
+            parties required to advance in future phases.  If this phaser
+            has a parent, and deregistration causes this phaser to have
+            zero parties, this phaser is also deregistered from its parent.</para>
+          <para>It is a usage error for an unregistered party to invoke this
+            method.  However, this error may result in an <c>IllegalStateException</c> only upon some subsequent operation on
+            this phaser, if ever.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#arriveAndDeregister()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.arriveAndDeregister()</code>.</a>
@@ -340,8 +557,8 @@
       <MemberSignature Language="F#" Value="member this.ArrivedParties : int" Usage="Java.Util.Concurrent.Phaser.ArrivedParties" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -357,6 +574,9 @@
             the current phase of this phaser.</summary>
         <value>the number of arrived parties</value>
         <remarks>
+          <para>Returns the number of registered parties that have arrived at
+            the current phase of this phaser. If this phaser has terminated,
+            the returned value is meaningless and arbitrary.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#getArrivedParties()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.getArrivedParties()</code>.</a>
@@ -377,8 +597,8 @@
       <MemberSignature Language="F#" Value="abstract member AwaitAdvance : int -&gt; int&#xA;override this.AwaitAdvance : int -&gt; int" Usage="phaser.AwaitAdvance phase" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -403,6 +623,9 @@
             negative, or the (negative) #getPhase() current phase
             if terminated</returns>
         <remarks>
+          <para>Awaits the phase of this phaser to advance from the given phase
+            value, returning immediately if the current phase is not equal
+            to the given phase value or this phaser is terminated.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#awaitAdvance(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.awaitAdvance(int)</code>.</a>
@@ -423,8 +646,8 @@
       <MemberSignature Language="F#" Value="abstract member AwaitAdvanceInterruptibly : int -&gt; int&#xA;override this.AwaitAdvanceInterruptibly : int -&gt; int" Usage="phaser.AwaitAdvanceInterruptibly phase" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -451,6 +674,11 @@
             negative, or the (negative) #getPhase() current phase
             if terminated</returns>
         <remarks>
+          <para>Awaits the phase of this phaser to advance from the given phase
+            value, throwing <c>InterruptedException</c> if interrupted
+            while waiting, or returning immediately if the current phase is
+            not equal to the given phase value or this phaser is
+            terminated.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#awaitAdvanceInterruptibly(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.awaitAdvanceInterruptibly(int)</code>.</a>
@@ -473,8 +701,8 @@
       <MemberSignature Language="F#" Value="abstract member AwaitAdvanceInterruptibly : int * int64 * Java.Util.Concurrent.TimeUnit -&gt; int&#xA;override this.AwaitAdvanceInterruptibly : int * int64 * Java.Util.Concurrent.TimeUnit -&gt; int" Usage="phaser.AwaitAdvanceInterruptibly (phase, timeout, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -506,6 +734,10 @@
             negative, or the (negative) #getPhase() current phase
             if terminated</returns>
         <remarks>
+          <para>Awaits the phase of this phaser to advance from the given phase
+            value or the given timeout to elapse, throwing <c>InterruptedException</c> if interrupted while waiting, or
+            returning immediately if the current phase is not equal to the
+            given phase value or this phaser is terminated.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#awaitAdvanceInterruptibly(int,%20long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.awaitAdvanceInterruptibly(int, long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -529,8 +761,8 @@
       <MemberSignature Language="F#" Value="abstract member BulkRegister : int -&gt; int&#xA;override this.BulkRegister : int -&gt; int" Usage="phaser.BulkRegister parties" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -552,6 +784,14 @@
             applied.  If this value is negative, then this phaser has
             terminated, in which case registration has no effect.</returns>
         <remarks>
+          <para>Adds the given number of new unarrived parties to this phaser.
+            If an ongoing invocation of <c>#onAdvance</c> is in progress,
+            this method may await its completion before returning.  If this
+            phaser has a parent, and the given number of parties is greater
+            than zero, and this phaser previously had no registered
+            parties, this child phaser is also registered with its parent.
+            If this phaser is terminated, the attempt to register has no
+            effect, and a negative value is returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#bulkRegister(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.bulkRegister(int)</code>.</a>
@@ -575,8 +815,8 @@
       <MemberSignature Language="F#" Value="abstract member ForceTermination : unit -&gt; unit&#xA;override this.ForceTermination : unit -&gt; unit" Usage="phaser.ForceTermination " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -591,6 +831,13 @@
       <Docs>
         <summary>Forces this phaser to enter termination state.</summary>
         <remarks>
+          <para>Forces this phaser to enter termination state.  Counts of
+            registered parties are unaffected.  If this phaser is a member
+            of a tiered set of phasers, then all of the phasers in the set
+            are terminated.  If this phaser is already terminated, this
+            method has no effect.  This method may be useful for
+            coordinating recovery after one or more tasks encounter
+            unexpected exceptions.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#forceTermination()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.forceTermination()</code>.</a>
@@ -611,8 +858,8 @@
       <MemberSignature Language="F#" Value="member this.IsTerminated : bool" Usage="Java.Util.Concurrent.Phaser.IsTerminated" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -628,6 +875,7 @@
         <value>
           <c>true</c> if this phaser has been terminated</value>
         <remarks>
+          <para>Returns <c>true</c> if this phaser has been terminated.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#isTerminated()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.isTerminated()</code>.</a>
@@ -679,8 +927,8 @@
       <MemberSignature Language="F#" Value="abstract member OnAdvance : int * int -&gt; bool&#xA;override this.OnAdvance : int * int -&gt; bool" Usage="phaser.OnAdvance (phase, registeredParties)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -704,6 +952,34 @@
         <returns>
           <c>true</c> if this phaser should terminate</returns>
         <remarks>
+          <para>Overridable method to perform an action upon impending phase
+            advance, and to control termination. This method is invoked
+            upon arrival of the party advancing this phaser (when all other
+            waiting parties are dormant).  If this method returns <c>true</c>, this phaser will be set to a final termination state
+            upon advance, and subsequent calls to <c>#isTerminated</c>
+            will return true. Any (unchecked) Exception or Error thrown by
+            an invocation of this method is propagated to the party
+            attempting to advance this phaser, in which case no advance
+            occurs.</para>
+          <para>The arguments to this method provide the state of the phaser
+            prevailing for the current transition.  The effects of invoking
+            arrival, registration, and waiting methods on this phaser from
+            within <c>onAdvance</c> are unspecified and should not be
+            relied on.</para>
+          <para>If this phaser is a member of a tiered set of phasers, then
+            <c>onAdvance</c> is invoked only for its root phaser on each
+            advance.</para>
+          <para>To support the most common use cases, the default
+            implementation of this method returns <c>true</c> when the
+            number of registered parties has become zero as the result of a
+            party invoking <c>arriveAndDeregister</c>.  You can disable
+            this behavior, thus enabling continuation upon future
+            registrations, by overriding this method to always return
+            <c>false</c>:</para>
+          <code lang="text/java">{@code
+            Phaser phaser = new Phaser() {
+              protected boolean onAdvance(int phase, int parties) { return false; }
+            };}</code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#onAdvance(int,%20int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.onAdvance(int, int)</code>.</a>
@@ -724,8 +1000,8 @@
       <MemberSignature Language="F#" Value="member this.Parent : Java.Util.Concurrent.Phaser" Usage="Java.Util.Concurrent.Phaser.Parent" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -740,6 +1016,7 @@
         <summary>Returns the parent of this phaser, or <c>null</c> if none.</summary>
         <value>the parent of this phaser, or <c>null</c> if none</value>
         <remarks>
+          <para>Returns the parent of this phaser, or <c>null</c> if none.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#getParent()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.getParent()</code>.</a>
@@ -760,8 +1037,8 @@
       <MemberSignature Language="F#" Value="member this.Phase : int" Usage="Java.Util.Concurrent.Phaser.Phase" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -776,6 +1053,11 @@
         <summary>Returns the current phase number.</summary>
         <value>the phase number, or a negative value if terminated</value>
         <remarks>
+          <para>Returns the current phase number. The maximum phase number is
+            <c>Integer.MAX_VALUE</c>, after which it restarts at
+            zero. Upon termination, the phase number is negative,
+            in which case the prevailing phase prior to termination
+            may be obtained via <c>getPhase() + Integer.MIN_VALUE</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#getPhase()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.getPhase()</code>.</a>
@@ -796,8 +1078,8 @@
       <MemberSignature Language="F#" Value="abstract member Register : unit -&gt; int&#xA;override this.Register : unit -&gt; int" Usage="phaser.Register " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -815,6 +1097,13 @@
             applied.  If this value is negative, then this phaser has
             terminated, in which case registration has no effect.</returns>
         <remarks>
+          <para>Adds a new unarrived party to this phaser.  If an ongoing
+            invocation of <c>#onAdvance</c> is in progress, this method
+            may await its completion before returning.  If this phaser has
+            a parent, and this phaser previously had no registered parties,
+            this child phaser is also registered with its parent. If
+            this phaser is terminated, the attempt to register has
+            no effect, and a negative value is returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#register()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.register()</code>.</a>
@@ -838,8 +1127,8 @@
       <MemberSignature Language="F#" Value="member this.RegisteredParties : int" Usage="Java.Util.Concurrent.Phaser.RegisteredParties" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -854,6 +1143,7 @@
         <summary>Returns the number of parties registered at this phaser.</summary>
         <value>the number of parties</value>
         <remarks>
+          <para>Returns the number of parties registered at this phaser.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#getRegisteredParties()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.getRegisteredParties()</code>.</a>
@@ -874,8 +1164,8 @@
       <MemberSignature Language="F#" Value="member this.Root : Java.Util.Concurrent.Phaser" Usage="Java.Util.Concurrent.Phaser.Root" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -891,6 +1181,8 @@
             this phaser if it has no parent.</summary>
         <value>the root ancestor of this phaser</value>
         <remarks>
+          <para>Returns the root ancestor of this phaser, which is the same as
+            this phaser if it has no parent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#getRoot()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.getRoot()</code>.</a>
@@ -911,8 +1203,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.Phaser.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -942,8 +1234,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.Phaser.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -973,8 +1265,8 @@
       <MemberSignature Language="F#" Value="member this.UnarrivedParties : int" Usage="Java.Util.Concurrent.Phaser.UnarrivedParties" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -990,6 +1282,9 @@
             arrived at the current phase of this phaser.</summary>
         <value>the number of unarrived parties</value>
         <remarks>
+          <para>Returns the number of registered parties that have not yet
+            arrived at the current phase of this phaser. If this phaser has
+            terminated, the returned value is meaningless and arbitrary.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/Phaser#getUnarrivedParties()" title="Reference documentation">Java documentation for <code>java.util.concurrent.Phaser.getUnarrivedParties()</code>.</a>

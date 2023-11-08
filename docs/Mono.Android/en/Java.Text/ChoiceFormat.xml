@@ -20,6 +20,110 @@
   <Docs since="1">
     <summary>A <c>ChoiceFormat</c> allows you to attach a format to a range of numbers.</summary>
     <remarks>
+      <para>A <c>ChoiceFormat</c> allows you to attach a format to a range of numbers.
+            It is generally used in a <c>MessageFormat</c> for handling plurals.
+            The choice is specified with an ascending list of doubles, where each item
+            specifies a half-open interval up to the next item:
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">X matches j if and only if limit[j] &amp;le; X &amp;lt; limit[j+1]
+            </code>
+      <para>&lt;/blockquote&gt;
+            If there is no match, then either the first or last index is used, depending
+            on whether the number (X) is too low or too high.  If the limit array is not
+            in ascending order, the results of formatting will be incorrect.  ChoiceFormat
+            also accepts <c>&amp;#92;u221E</c> as equivalent to infinity(INF).</para>
+      <para>&lt;strong&gt;Note:&lt;/strong&gt;
+            <c>ChoiceFormat</c> differs from the other <c>Format</c>
+            classes in that you create a <c>ChoiceFormat</c> object with a
+            constructor (not with a <c>getInstance</c> style factory
+            method). The factory methods aren't necessary because <c>ChoiceFormat</c>
+            doesn't require any complex setup for a given locale. In fact,
+            <c>ChoiceFormat</c> doesn't implement any locale specific behavior.</para>
+      <para>When creating a <c>ChoiceFormat</c>, you must specify an array of formats
+            and an array of limits. The length of these arrays must be the same.
+            For example,
+            &lt;ul&gt;
+            &lt;li&gt;
+                &lt;em&gt;limits&lt;/em&gt; = {1,2,3,4,5,6,7}&lt;br&gt;
+                &lt;em&gt;formats&lt;/em&gt; = {"Sun","Mon","Tue","Wed","Thur","Fri","Sat"}&lt;li&gt;
+                &lt;em&gt;limits&lt;/em&gt; = {0, 1, ChoiceFormat.nextDouble(1)}&lt;br&gt;
+                &lt;em&gt;formats&lt;/em&gt; = {"no files", "one file", "many files"}&lt;br&gt;
+                (<c>nextDouble</c> can be used to get the next higher double, to
+                make the half-open interval.)
+            &lt;/ul&gt;</para>
+      <para>Here is a simple example that shows formatting and parsing:
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">{@code
+            double[] limits = {1,2,3,4,5,6,7};
+            String[] dayOfWeekNames = {"Sun","Mon","Tue","Wed","Thur","Fri","Sat"};
+            ChoiceFormat form = new ChoiceFormat(limits, dayOfWeekNames);
+            ParsePosition status = new ParsePosition(0);
+            for (double i = 0.0; i &lt;= 8.0; ++i) {
+                status.setIndex(0);
+                System.out.println(i + " -&gt; " + form.format(i) + " -&gt; "
+                                         + form.parse(form.format(i),status));
+            }
+            }</code>
+      <para>&lt;/blockquote&gt;
+            Here is a more complex example, with a pattern format:
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">{@code
+            double[] filelimits = {0,1,2};
+            String[] filepart = {"are no files","is one file","are {2} files"};
+            ChoiceFormat fileform = new ChoiceFormat(filelimits, filepart);
+            Format[] testFormats = {fileform, null, NumberFormat.getInstance()};
+            MessageFormat pattform = new MessageFormat("There {0} on {1}");
+            pattform.setFormats(testFormats);
+            Object[] testArgs = {null, "ADisk", null};
+            for (int i = 0; i &lt; 4; ++i) {
+                testArgs[0] = new Integer(i);
+                testArgs[2] = testArgs[0];
+                System.out.println(pattform.format(testArgs));
+            }
+            }</code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>Specifying a pattern for ChoiceFormat objects is fairly straightforward.
+            For example:
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">{@code
+            ChoiceFormat fmt = new ChoiceFormat(
+                 "-1#is negative| 0#is zero or fraction | 1#is one |1.0&lt;is 1+ |2#is two |2&lt;is more than 2.");
+            System.out.println("Formatter Pattern : " + fmt.toPattern());
+            
+            System.out.println("Format with -INF : " + fmt.format(Double.NEGATIVE_INFINITY));
+            System.out.println("Format with -1.0 : " + fmt.format(-1.0));
+            System.out.println("Format with 0 : " + fmt.format(0));
+            System.out.println("Format with 0.9 : " + fmt.format(0.9));
+            System.out.println("Format with 1.0 : " + fmt.format(1));
+            System.out.println("Format with 1.5 : " + fmt.format(1.5));
+            System.out.println("Format with 2 : " + fmt.format(2));
+            System.out.println("Format with 2.1 : " + fmt.format(2.1));
+            System.out.println("Format with NaN : " + fmt.format(Double.NaN));
+            System.out.println("Format with +INF : " + fmt.format(Double.POSITIVE_INFINITY));
+            }</code>
+      <para>&lt;/blockquote&gt;
+            And the output result would be like the following:
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">{@code
+            Format with -INF : is negative
+            Format with -1.0 : is negative
+            Format with 0 : is zero or fraction
+            Format with 0.9 : is zero or fraction
+            Format with 1.0 : is one
+            Format with 1.5 : is 1+
+            Format with 2 : is two
+            Format with 2.1 : is more than 2.
+            Format with NaN : is negative
+            Format with +INF : is more than 2.
+            }</code>
+      <para>&lt;/blockquote&gt;
+            
+            &lt;h2&gt;"synchronization"&gt;Synchronization&lt;/h2&gt;</para>
+      <para>Choice formats are not synchronized.
+            It is recommended to create separate format instances for each thread.
+            If multiple threads access a format concurrently, it must be synchronized
+            externally.</para>
+      <para>Added in 1.1.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/text/ChoiceFormat" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat</code>.</a>
@@ -41,8 +145,8 @@
       <MemberSignature Language="F#" Value="new Java.Text.ChoiceFormat : string -&gt; Java.Text.ChoiceFormat" Usage="new Java.Text.ChoiceFormat newPattern" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -57,6 +161,7 @@
         <param name="newPattern">the new pattern string</param>
         <summary>Constructs with limits and corresponding formats based on the pattern.</summary>
         <remarks>
+          <para>Constructs with limits and corresponding formats based on the pattern.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#ChoiceFormat(java.lang.String)" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.ChoiceFormat(java.lang.String)</code>.</a>
@@ -80,8 +185,8 @@
       <MemberSignature Language="F#" Value="new Java.Text.ChoiceFormat : double[] * string[] -&gt; Java.Text.ChoiceFormat" Usage="new Java.Text.ChoiceFormat (limits, formats)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -98,6 +203,7 @@
         <param name="formats">corresponding format strings</param>
         <summary>Constructs with the limits and the corresponding formats.</summary>
         <remarks>
+          <para>Constructs with the limits and the corresponding formats.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#ChoiceFormat(double[],%20java.lang.String[])" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.ChoiceFormat(double[], java.lang.String[])</code>.</a>
@@ -119,8 +225,8 @@
       <MemberSignature Language="F#" Value="new Java.Text.ChoiceFormat : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Text.ChoiceFormat" Usage="new Java.Text.ChoiceFormat (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -142,8 +248,8 @@
       <MemberSignature Language="F#" Value="abstract member ApplyPattern : string -&gt; unit&#xA;override this.ApplyPattern : string -&gt; unit" Usage="choiceFormat.ApplyPattern newPattern" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -161,6 +267,7 @@
         <param name="newPattern">See the class description.</param>
         <summary>Sets the pattern.</summary>
         <remarks>
+          <para>Sets the pattern.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#applyPattern(java.lang.String)" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.applyPattern(java.lang.String)</code>.</a>
@@ -184,8 +291,8 @@
       <MemberSignature Language="F#" Value="override this.Format : double * Java.Lang.StringBuffer * Java.Text.FieldPosition -&gt; Java.Lang.StringBuffer" Usage="choiceFormat.Format (number, toAppendTo, status)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -208,6 +315,7 @@
         <summary>Returns pattern with formatted double.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns pattern with formatted double.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#format(double,%20java.lang.StringBuffer,%20java.text.FieldPosition)" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.format(double, java.lang.StringBuffer, java.text.FieldPosition)</code>.</a>
@@ -229,8 +337,8 @@
       <MemberSignature Language="F#" Value="override this.Format : int64 * Java.Lang.StringBuffer * Java.Text.FieldPosition -&gt; Java.Lang.StringBuffer" Usage="choiceFormat.Format (number, toAppendTo, status)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -253,6 +361,11 @@
         <summary>Specialization of format.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Specialization of format. This method really calls
+            <c>format(double, StringBuffer, FieldPosition)</c>
+            thus the range of longs that are supported is only equal to
+            the range that can be stored by double. This will never be
+            a practical limitation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#format(long,%20java.lang.StringBuffer,%20java.text.FieldPosition)" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.format(long, java.lang.StringBuffer, java.text.FieldPosition)</code>.</a>
@@ -274,8 +387,8 @@
       <MemberSignature Language="F#" Value="abstract member GetFormats : unit -&gt; Java.Lang.Object[]&#xA;override this.GetFormats : unit -&gt; Java.Lang.Object[]" Usage="choiceFormat.GetFormats " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -313,8 +426,8 @@
       <MemberSignature Language="F#" Value="abstract member GetLimits : unit -&gt; double[]&#xA;override this.GetLimits : unit -&gt; double[]" Usage="choiceFormat.GetLimits " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -383,8 +496,8 @@
       <MemberSignature Language="F#" Value="static member NextDouble : double -&gt; double" Usage="Java.Text.ChoiceFormat.NextDouble d" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -403,6 +516,9 @@
         <summary>Finds the least double greater than <c>d</c>.</summary>
         <returns>the least double value greather than <c>d</c></returns>
         <remarks>
+          <para>Finds the least double greater than <c>d</c>.
+            If <c>NaN</c>, returns same value.</para>
+          <para>Used to make half-open intervals.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#nextDouble(double)" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.nextDouble(double)</code>.</a>
@@ -424,8 +540,8 @@
       <MemberSignature Language="F#" Value="static member NextDouble : double * bool -&gt; double" Usage="Java.Text.ChoiceFormat.NextDouble (d, positive)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -450,6 +566,10 @@
             <c>positive</c> is <c>false</c>).</summary>
         <returns>the least or greater double value</returns>
         <remarks>
+          <para>Finds the least double greater than <c>d</c> (if <c>positive</c> is
+            <c>true</c>), or the greatest double less than <c>d</c> (if
+            <c>positive</c> is <c>false</c>).
+            If <c>NaN</c>, returns same value.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#nextDouble(double,%20boolean)" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.nextDouble(double, boolean)</code>.</a>
@@ -471,8 +591,8 @@
       <MemberSignature Language="F#" Value="override this.Parse : string * Java.Text.ParsePosition -&gt; Java.Lang.Number" Usage="choiceFormat.Parse (text, status)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -499,6 +619,7 @@
         <summary>Parses a Number from the input text.</summary>
         <returns>A Number representing the value of the number parsed.</returns>
         <remarks>
+          <para>Parses a Number from the input text.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#parse(java.lang.String,%20java.text.ParsePosition)" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.parse(java.lang.String, java.text.ParsePosition)</code>.</a>
@@ -520,8 +641,8 @@
       <MemberSignature Language="F#" Value="static member PreviousDouble : double -&gt; double" Usage="Java.Text.ChoiceFormat.PreviousDouble d" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -540,6 +661,8 @@
         <summary>Finds the greatest double less than <c>d</c>.</summary>
         <returns>the greatest double value less than <c>d</c></returns>
         <remarks>
+          <para>Finds the greatest double less than <c>d</c>.
+            If <c>NaN</c>, returns same value.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#previousDouble(double)" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.previousDouble(double)</code>.</a>
@@ -561,8 +684,8 @@
       <MemberSignature Language="F#" Value="abstract member SetChoices : double[] * string[] -&gt; unit&#xA;override this.SetChoices : double[] * string[] -&gt; unit" Usage="choiceFormat.SetChoices (limits, formats)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -591,6 +714,7 @@
             is called. Otherwise Y.toString() is called.</param>
         <summary>Set the choices to be used in formatting.</summary>
         <remarks>
+          <para>Set the choices to be used in formatting.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#setChoices(double[],%20java.lang.String[])" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.setChoices(double[], java.lang.String[])</code>.</a>
@@ -612,8 +736,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Text.ChoiceFormat.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -643,8 +767,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Text.ChoiceFormat.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -674,8 +798,8 @@
       <MemberSignature Language="F#" Value="abstract member ToPattern : unit -&gt; string&#xA;override this.ToPattern : unit -&gt; string" Usage="choiceFormat.ToPattern " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -691,6 +815,7 @@
         <summary>Gets the pattern.</summary>
         <returns>the pattern string</returns>
         <remarks>
+          <para>Gets the pattern.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/ChoiceFormat#toPattern()" title="Reference documentation">Java documentation for <code>java.text.ChoiceFormat.toPattern()</code>.</a>

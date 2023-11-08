@@ -20,6 +20,123 @@
   <Docs since="1">
     <summary>This class is used to create operating system processes.</summary>
     <remarks>
+      <para>This class is used to create operating system processes.</para>
+      <para>Each <c>ProcessBuilder</c> instance manages a collection
+            of process attributes.  The <c>#start()</c> method creates a new
+            <c>Process</c> instance with those attributes.  The <c>#start()</c> method can be invoked repeatedly from the same instance
+            to create new subprocesses with identical or related attributes.</para>
+      <para>Each process builder manages these process attributes:
+            
+            &lt;ul&gt;
+            
+            &lt;li&gt;a <i>command</i>, a list of strings which signifies the
+            external program file to be invoked and its arguments, if any.
+            Which string lists represent a valid operating system command is
+            system-dependent.  For example, it is common for each conceptual
+            argument to be an element in this list, but there are operating
+            systems where programs are expected to tokenize command line
+            strings themselves - on such a system a Java implementation might
+            require commands to contain exactly two elements.
+            
+            &lt;li&gt;an <i>environment</i>, which is a system-dependent mapping from
+            <i>variables</i> to <i>values</i>.  The initial value is a copy of
+            the environment of the current process (see <c>System#getenv()</c>).
+            
+            &lt;li&gt;a <i>working directory</i>.  The default value is the current
+            working directory of the current process, usually the directory
+            named by the system property <c>user.dir</c>.
+            
+            &lt;li&gt;"redirect-input"&gt;a source of &lt;i&gt;standard input&lt;/i&gt;.
+            By default, the subprocess reads input from a pipe.  Java code
+            can access this pipe via the output stream returned by
+            <c>Process#getOutputStream()</c>.  However, standard input may
+            be redirected to another source using
+            <c>#redirectInput(Redirect) redirectInput</c>.
+            In this case, <c>Process#getOutputStream()</c> will return a
+            <i>null output stream</i>, for which:
+            
+            &lt;ul&gt;
+            &lt;li&gt;the <c>OutputStream#write(int) write</c> methods always
+            throw <c>IOException</c>&lt;li&gt;the <c>OutputStream#close() close</c> method does nothing
+            &lt;/ul&gt;
+            
+            &lt;li&gt;"redirect-output"&gt;a destination for &lt;i&gt;standard output&lt;/i&gt;
+            and &lt;i&gt;standard error&lt;/i&gt;.  By default, the subprocess writes standard
+            output and standard error to pipes.  Java code can access these pipes
+            via the input streams returned by <c>Process#getInputStream()</c> and
+            <c>Process#getErrorStream()</c>.  However, standard output and
+            standard error may be redirected to other destinations using
+            <c>#redirectOutput(Redirect) redirectOutput</c> and
+            <c>#redirectError(Redirect) redirectError</c>.
+            In this case, <c>Process#getInputStream()</c> and/or
+            <c>Process#getErrorStream()</c> will return a <i>null input
+            stream</i>, for which:
+            
+            &lt;ul&gt;
+            &lt;li&gt;the <c>InputStream#read() read</c> methods always return
+            <c>-1</c>&lt;li&gt;the <c>InputStream#available() available</c> method always returns
+            <c>0</c>&lt;li&gt;the <c>InputStream#close() close</c> method does nothing
+            &lt;/ul&gt;
+            
+            &lt;li&gt;a <i>redirectErrorStream</i> property.  Initially, this property
+            is <c>false</c>, meaning that the standard output and error
+            output of a subprocess are sent to two separate streams, which can
+            be accessed using the <c>Process#getInputStream()</c> and <c>Process#getErrorStream()</c> methods.</para>
+      <para>If the value is set to <c>true</c>, then:
+            
+            &lt;ul&gt;
+            &lt;li&gt;standard error is merged with the standard output and always sent
+            to the same destination (this makes it easier to correlate error
+            messages with the corresponding output)
+            &lt;li&gt;the common destination of standard error and standard output can be
+            redirected using
+            <c>#redirectOutput(Redirect) redirectOutput</c>&lt;li&gt;any redirection set by the
+            <c>#redirectError(Redirect) redirectError</c>
+            method is ignored when creating a subprocess
+            &lt;li&gt;the stream returned from <c>Process#getErrorStream()</c> will
+            always be a null input stream&lt;/ul&gt;
+            
+            &lt;/ul&gt;</para>
+      <para>Modifying a process builder's attributes will affect processes
+            subsequently started by that object's <c>#start()</c> method, but
+            will never affect previously started processes or the Java process
+            itself.</para>
+      <para>Most error checking is performed by the <c>#start()</c> method.
+            It is possible to modify the state of an object so that <c>#start()</c> will fail.  For example, setting the command attribute to
+            an empty list will not throw an exception unless <c>#start()</c>
+            is invoked.</para>
+      <para>&lt;strong&gt;Note that this class is not synchronized.&lt;/strong&gt;
+            If multiple threads access a <c>ProcessBuilder</c> instance
+            concurrently, and at least one of the threads modifies one of the
+            attributes structurally, it <i>must</i> be synchronized externally.</para>
+      <para>Starting a new process which uses the default working directory
+            and environment is easy:</para>
+      <code lang="text/java">{@code
+            Process p = new ProcessBuilder("myCommand", "myArg").start();
+            }</code>
+      <para>Here is an example that starts a process with a modified working
+            directory and environment, and redirects standard output and error
+            to be appended to a log file:</para>
+      <code lang="text/java">{@code
+            ProcessBuilder pb =
+              new ProcessBuilder("myCommand", "myArg1", "myArg2");
+            Map&lt;String, String&gt; env = pb.environment();
+            env.put("VAR1", "myValue");
+            env.remove("OTHERVAR");
+            env.put("VAR2", env.get("VAR1") + "suffix");
+            pb.directory(new File("myDir"));
+            File log = new File("log");
+            pb.redirectErrorStream(true);
+            pb.redirectOutput(Redirect.appendTo(log));
+            Process p = pb.start();
+            assert pb.redirectInput() == Redirect.PIPE;
+            assert pb.redirectOutput().file() == log;
+            assert p.getInputStream().read() == -1;
+            }</code>
+      <para>To start a process with an explicit set of environment
+            variables, first call <c>java.util.Map#clear() Map.clear()</c>
+            before adding environment variables.</para>
+      <para>Added in 1.5.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/lang/ProcessBuilder" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder</code>.</a>
@@ -41,8 +158,8 @@
       <MemberSignature Language="F#" Value="new Java.Lang.ProcessBuilder : System.Collections.Generic.IList&lt;string&gt; -&gt; Java.Lang.ProcessBuilder" Usage="new Java.Lang.ProcessBuilder command" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -58,6 +175,13 @@
         <summary>Constructs a process builder with the specified operating
             system program and arguments.</summary>
         <remarks>
+          <para>Constructs a process builder with the specified operating
+            system program and arguments.  This constructor does <i>not</i>
+            make a copy of the <c>command</c> list.  Subsequent
+            updates to the list will be reflected in the state of the
+            process builder.  It is not checked whether
+            <c>command</c> corresponds to a valid operating system
+            command.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#ProcessBuilder(java.util.List%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.ProcessBuilder(java.util.List&lt;java.lang.String&gt;)</code>.</a>
@@ -78,8 +202,8 @@
       <MemberSignature Language="F#" Value="new Java.Lang.ProcessBuilder : string[] -&gt; Java.Lang.ProcessBuilder" Usage="new Java.Lang.ProcessBuilder command" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -122,8 +246,8 @@
       <MemberSignature Language="F#" Value="member this.Command : unit -&gt; System.Collections.Generic.IList&lt;string&gt;" Usage="processBuilder.Command " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -140,6 +264,10 @@
             arguments.</summary>
         <returns>this process builder's program and its arguments</returns>
         <remarks>
+          <para>Returns this process builder's operating system program and
+            arguments.  The returned list is <i>not</i> a copy.  Subsequent
+            updates to the list will be reflected in the state of this
+            process builder.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#command()" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.command()</code>.</a>
@@ -161,8 +289,8 @@
       <MemberSignature Language="F#" Value="member this.Command : System.Collections.Generic.IList&lt;string&gt; -&gt; Java.Lang.ProcessBuilder" Usage="processBuilder.Command command" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -182,6 +310,12 @@
             arguments.</summary>
         <returns>this process builder</returns>
         <remarks>
+          <para>Sets this process builder's operating system program and
+            arguments.  This method does <i>not</i> make a copy of the
+            <c>command</c> list.  Subsequent updates to the list will
+            be reflected in the state of the process builder.  It is not
+            checked whether <c>command</c> corresponds to a valid
+            operating system command.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#command(java.util.List%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.command(java.util.List&lt;java.lang.String&gt;)</code>.</a>
@@ -202,8 +336,8 @@
       <MemberSignature Language="F#" Value="member this.Command : string[] -&gt; Java.Lang.ProcessBuilder" Usage="processBuilder.Command command" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -250,8 +384,8 @@
       <MemberSignature Language="F#" Value="member this.Directory : unit -&gt; Java.IO.File" Usage="processBuilder.Directory " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -267,6 +401,13 @@
         <summary>Returns this process builder's working directory.</summary>
         <returns>this process builder's working directory</returns>
         <remarks>
+          <para>Returns this process builder's working directory.
+            
+            Subprocesses subsequently started by this object's <c>#start()</c> method will use this as their working directory.
+            The returned value may be <c>null</c> -- this means to use
+            the working directory of the current Java process, usually the
+            directory named by the system property <c>user.dir</c>,
+            as the working directory of the child process.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#directory()" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.directory()</code>.</a>
@@ -288,8 +429,8 @@
       <MemberSignature Language="F#" Value="member this.Directory : Java.IO.File -&gt; Java.Lang.ProcessBuilder" Usage="processBuilder.Directory directory" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -308,6 +449,13 @@
         <summary>Sets this process builder's working directory.</summary>
         <returns>this process builder</returns>
         <remarks>
+          <para>Sets this process builder's working directory.
+            
+            Subprocesses subsequently started by this object's <c>#start()</c> method will use this as their working directory.
+            The argument may be <c>null</c> -- this means to use the
+            working directory of the current Java process, usually the
+            directory named by the system property <c>user.dir</c>,
+            as the working directory of the child process.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#directory(java.io.File)" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.directory(java.io.File)</code>.</a>
@@ -329,8 +477,8 @@
       <MemberSignature Language="F#" Value="member this.Environment : unit -&gt; System.Collections.Generic.IDictionary&lt;string, string&gt;" Usage="processBuilder.Environment " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -346,6 +494,52 @@
         <summary>Returns a string map view of this process builder's environment.</summary>
         <returns>this process builder's environment</returns>
         <remarks>
+          <para>Returns a string map view of this process builder's environment.
+            
+            Whenever a process builder is created, the environment is
+            initialized to a copy of the current process environment (see
+            <c>System#getenv()</c>).  Subprocesses subsequently started by
+            this object's <c>#start()</c> method will use this map as
+            their environment.</para>
+          <para>The returned object may be modified using ordinary <c>java.util.Map Map</c> operations.  These modifications will be
+            visible to subprocesses started via the <c>#start()</c>
+            method.  Two <c>ProcessBuilder</c> instances always
+            contain independent process environments, so changes to the
+            returned map will never be reflected in any other
+            <c>ProcessBuilder</c> instance or the values returned by
+            <c>System#getenv System.getenv</c>.</para>
+          <para>If the system does not support environment variables, an
+            empty map is returned.</para>
+          <para>The returned map does not permit null keys or values.
+            Attempting to insert or query the presence of a null key or
+            value will throw a <c>NullPointerException</c>.
+            Attempting to query the presence of a key or value which is not
+            of type <c>String</c> will throw a <c>ClassCastException</c>.</para>
+          <para>The behavior of the returned map is system-dependent.  A
+            system may not allow modifications to environment variables or
+            may forbid certain variable names or values.  For this reason,
+            attempts to modify the map may fail with
+            <c>UnsupportedOperationException</c> or
+            <c>IllegalArgumentException</c>
+            if the modification is not permitted by the operating system.</para>
+          <para>Since the external format of environment variable names and
+            values is system-dependent, there may not be a one-to-one
+            mapping between them and Java's Unicode strings.  Nevertheless,
+            the map is implemented in such a way that environment variables
+            which are not modified by Java code will have an unmodified
+            native representation in the subprocess.</para>
+          <para>The returned map and its collection views may not obey the
+            general contract of the <c>Object#equals</c> and
+            <c>Object#hashCode</c> methods.</para>
+          <para>The returned map is typically case-sensitive on all platforms.</para>
+          <para>If a security manager exists, its
+            <c>SecurityManager#checkPermission checkPermission</c> method
+            is called with a
+            <c>RuntimePermission</c><c>("getenv.*")</c> permission.
+            This may result in a <c>SecurityException</c> being thrown.</para>
+          <para>When passing information to a Java subprocess,
+            system properties
+            are generally preferred over environment variables.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#environment()" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.environment()</code>.</a>
@@ -367,13 +561,17 @@
       <MemberSignature Language="F#" Value="member this.InheritIO : unit -&gt; Java.Lang.ProcessBuilder" Usage="processBuilder.InheritIO " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("inheritIO", "()Ljava/lang/ProcessBuilder;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("inheritIO", "()Ljava/lang/ProcessBuilder;", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -385,6 +583,22 @@
             to be the same as those of the current Java process.</summary>
         <returns>this process builder</returns>
         <remarks>
+          <para>Sets the source and destination for subprocess standard I/O
+            to be the same as those of the current Java process.</para>
+          <para>This is a convenience method.  An invocation of the form</para>
+          <code lang="text/java">{@code
+            pb.inheritIO()
+            }</code>
+          <para>behaves in exactly the same way as the invocation</para>
+          <code lang="text/java">{@code
+            pb.redirectInput(Redirect.INHERIT)
+              .redirectOutput(Redirect.INHERIT)
+              .redirectError(Redirect.INHERIT)
+            }</code>
+          <para>This gives behavior equivalent to most operating system
+            command interpreters, or the standard C library function
+            <c>system()</c>.</para>
+          <para>Added in 1.7.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#inheritIO()" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.inheritIO()</code>.</a>
@@ -444,6 +658,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("redirectError", "()Ljava/lang/ProcessBuilder$Redirect;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("redirectError", "()Ljava/lang/ProcessBuilder$Redirect;", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.ProcessBuilder+Redirect</ReturnType>
@@ -473,13 +691,17 @@
       <MemberSignature Language="F#" Value="member this.RedirectError : Java.IO.File -&gt; Java.Lang.ProcessBuilder" Usage="processBuilder.RedirectError file" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("redirectError", "(Ljava/io/File;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("redirectError", "(Ljava/io/File;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -493,6 +715,12 @@
         <summary>Sets this process builder's standard error destination to a file.</summary>
         <returns>this process builder</returns>
         <remarks>
+          <para>Sets this process builder's standard error destination to a file.</para>
+          <para>This is a convenience method.  An invocation of the form
+            <c>redirectError(file)</c>
+            behaves in exactly the same way as the invocation
+            <c>#redirectError(Redirect) redirectError</c><c>(Redirect.to(file))</c>.</para>
+          <para>Added in 1.7.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#redirectError(java.io.File)" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.redirectError(java.io.File)</code>.</a>
@@ -520,6 +748,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("redirectError", "(Ljava/lang/ProcessBuilder$Redirect;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("redirectError", "(Ljava/lang/ProcessBuilder$Redirect;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -553,8 +785,8 @@
       <MemberSignature Language="F#" Value="member this.RedirectErrorStream : unit -&gt; bool" Usage="processBuilder.RedirectErrorStream " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -571,6 +803,15 @@
             standard output.</summary>
         <returns>this process builder's <c>redirectErrorStream</c> property</returns>
         <remarks>
+          <para>Tells whether this process builder merges standard error and
+            standard output.</para>
+          <para>If this property is <c>true</c>, then any error output
+            generated by subprocesses subsequently started by this object's
+            <c>#start()</c> method will be merged with the standard
+            output, so that both can be read using the
+            <c>Process#getInputStream()</c> method.  This makes it easier
+            to correlate error messages with the corresponding output.
+            The initial value is <c>false</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#redirectErrorStream()" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.redirectErrorStream()</code>.</a>
@@ -592,8 +833,8 @@
       <MemberSignature Language="F#" Value="member this.RedirectErrorStream : bool -&gt; Java.Lang.ProcessBuilder" Usage="processBuilder.RedirectErrorStream redirectErrorStream" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -612,6 +853,14 @@
         <summary>Sets this process builder's <c>redirectErrorStream</c> property.</summary>
         <returns>this process builder</returns>
         <remarks>
+          <para>Sets this process builder's <c>redirectErrorStream</c> property.</para>
+          <para>If this property is <c>true</c>, then any error output
+            generated by subprocesses subsequently started by this object's
+            <c>#start()</c> method will be merged with the standard
+            output, so that both can be read using the
+            <c>Process#getInputStream()</c> method.  This makes it easier
+            to correlate error messages with the corresponding output.
+            The initial value is <c>false</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#redirectErrorStream(boolean)" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.redirectErrorStream(boolean)</code>.</a>
@@ -640,6 +889,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("redirectInput", "()Ljava/lang/ProcessBuilder$Redirect;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("redirectInput", "()Ljava/lang/ProcessBuilder$Redirect;", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -670,13 +923,17 @@
       <MemberSignature Language="F#" Value="member this.RedirectInput : Java.IO.File -&gt; Java.Lang.ProcessBuilder" Usage="processBuilder.RedirectInput file" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("redirectInput", "(Ljava/io/File;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("redirectInput", "(Ljava/io/File;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -690,6 +947,12 @@
         <summary>Sets this process builder's standard input source to a file.</summary>
         <returns>this process builder</returns>
         <remarks>
+          <para>Sets this process builder's standard input source to a file.</para>
+          <para>This is a convenience method.  An invocation of the form
+            <c>redirectInput(file)</c>
+            behaves in exactly the same way as the invocation
+            <c>#redirectInput(Redirect) redirectInput</c><c>(Redirect.from(file))</c>.</para>
+          <para>Added in 1.7.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#redirectInput(java.io.File)" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.redirectInput(java.io.File)</code>.</a>
@@ -717,6 +980,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("redirectInput", "(Ljava/lang/ProcessBuilder$Redirect;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("redirectInput", "(Ljava/lang/ProcessBuilder$Redirect;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -758,6 +1025,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("redirectOutput", "()Ljava/lang/ProcessBuilder$Redirect;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("redirectOutput", "()Ljava/lang/ProcessBuilder$Redirect;", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.ProcessBuilder+Redirect</ReturnType>
@@ -787,13 +1058,17 @@
       <MemberSignature Language="F#" Value="member this.RedirectOutput : Java.IO.File -&gt; Java.Lang.ProcessBuilder" Usage="processBuilder.RedirectOutput file" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("redirectOutput", "(Ljava/io/File;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("redirectOutput", "(Ljava/io/File;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -807,6 +1082,12 @@
         <summary>Sets this process builder's standard output destination to a file.</summary>
         <returns>this process builder</returns>
         <remarks>
+          <para>Sets this process builder's standard output destination to a file.</para>
+          <para>This is a convenience method.  An invocation of the form
+            <c>redirectOutput(file)</c>
+            behaves in exactly the same way as the invocation
+            <c>#redirectOutput(Redirect) redirectOutput</c><c>(Redirect.to(file))</c>.</para>
+          <para>Added in 1.7.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#redirectOutput(java.io.File)" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.redirectOutput(java.io.File)</code>.</a>
@@ -834,6 +1115,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("redirectOutput", "(Ljava/lang/ProcessBuilder$Redirect;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("redirectOutput", "(Ljava/lang/ProcessBuilder$Redirect;)Ljava/lang/ProcessBuilder;", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -867,8 +1152,8 @@
       <MemberSignature Language="F#" Value="member this.Start : unit -&gt; Java.Lang.Process" Usage="processBuilder.Start " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -884,6 +1169,36 @@
         <summary>Starts a new process using the attributes of this process builder.</summary>
         <returns>a new <c>Process</c> object for managing the subprocess</returns>
         <remarks>
+          <para>Starts a new process using the attributes of this process builder.</para>
+          <para>The new process will
+            invoke the command and arguments given by <c>#command()</c>,
+            in a working directory as given by <c>#directory()</c>,
+            with a process environment as given by <c>#environment()</c>.</para>
+          <para>This method checks that the command is a valid operating
+            system command.  Which commands are valid is system-dependent,
+            but at the very least the command must be a non-empty list of
+            non-null strings.</para>
+          <para>A minimal set of system dependent environment variables may
+            be required to start a process on some operating systems.
+            As a result, the subprocess may inherit additional environment variable
+            settings beyond those in the process builder's <c>#environment()</c>.</para>
+          <para>If there is a security manager, its
+            <c>SecurityManager#checkExec checkExec</c>
+            method is called with the first component of this object's
+            <c>command</c> array as its argument. This may result in
+            a <c>SecurityException</c> being thrown.</para>
+          <para>Starting an operating system process is highly system-dependent.
+            Among the many things that can go wrong are:
+            &lt;ul&gt;
+            &lt;li&gt;The operating system program file was not found.
+            &lt;li&gt;Access to the program file was denied.
+            &lt;li&gt;The working directory does not exist.
+            &lt;/ul&gt;</para>
+          <para>In such cases an exception will be thrown.  The exact nature
+            of the exception is system-dependent, but it will always be a
+            subclass of <c>IOException</c>.</para>
+          <para>Subsequent modifications to this process builder will not
+            affect the returned <c>Process</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/ProcessBuilder#start()" title="Reference documentation">Java documentation for <code>java.lang.ProcessBuilder.start()</code>.</a>
@@ -909,8 +1224,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Lang.ProcessBuilder.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -940,8 +1255,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Lang.ProcessBuilder.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

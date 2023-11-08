@@ -46,6 +46,172 @@
     <summary>A hash table supporting full concurrency of retrievals and
             high expected concurrency for updates.</summary>
     <remarks>
+      <para>A hash table supporting full concurrency of retrievals and
+            high expected concurrency for updates. This class obeys the
+            same functional specification as <c>java.util.Hashtable</c>, and
+            includes versions of methods corresponding to each method of
+            <c>Hashtable</c>. However, even though all operations are
+            thread-safe, retrieval operations do &lt;em&gt;not&lt;/em&gt; entail locking,
+            and there is &lt;em&gt;not&lt;/em&gt; any support for locking the entire table
+            in a way that prevents all access.  This class is fully
+            interoperable with <c>Hashtable</c> in programs that rely on its
+            thread safety but not on its synchronization details.</para>
+      <para>Retrieval operations (including <c>get</c>) generally do not
+            block, so may overlap with update operations (including <c>put</c>
+            and <c>remove</c>). Retrievals reflect the results of the most
+            recently &lt;em&gt;completed&lt;/em&gt; update operations holding upon their
+            onset. (More formally, an update operation for a given key bears a
+            &lt;em&gt;happens-before&lt;/em&gt; relation with any (non-null) retrieval for
+            that key reporting the updated value.)  For aggregate operations
+            such as <c>putAll</c> and <c>clear</c>, concurrent retrievals may
+            reflect insertion or removal of only some entries.  Similarly,
+            Iterators, Spliterators and Enumerations return elements reflecting the
+            state of the hash table at some point at or since the creation of the
+            iterator/enumeration.  They do &lt;em&gt;not&lt;/em&gt; throw <c>java.util.ConcurrentModificationException ConcurrentModificationException</c>.
+            However, iterators are designed to be used by only one thread at a time.
+            Bear in mind that the results of aggregate status methods including
+            <c>size</c>, <c>isEmpty</c>, and <c>containsValue</c> are typically
+            useful only when a map is not undergoing concurrent updates in other threads.
+            Otherwise the results of these methods reflect transient states
+            that may be adequate for monitoring or estimation purposes, but not
+            for program control.</para>
+      <para>The table is dynamically expanded when there are too many
+            collisions (i.e., keys that have distinct hash codes but fall into
+            the same slot modulo the table size), with the expected average
+            effect of maintaining roughly two bins per mapping (corresponding
+            to a 0.75 load factor threshold for resizing). There may be much
+            variance around this average as mappings are added and removed, but
+            overall, this maintains a commonly accepted time/space tradeoff for
+            hash tables.  However, resizing this or any other kind of hash
+            table may be a relatively slow operation. When possible, it is a
+            good idea to provide a size estimate as an optional <c>initialCapacity</c> constructor argument. An additional optional
+            <c>loadFactor</c> constructor argument provides a further means of
+            customizing initial table capacity by specifying the table density
+            to be used in calculating the amount of space to allocate for the
+            given number of elements.  Also, for compatibility with previous
+            versions of this class, constructors may optionally specify an
+            expected <c>concurrencyLevel</c> as an additional hint for
+            internal sizing.  Note that using many keys with exactly the same
+            <c>hashCode()</c> is a sure way to slow down performance of any
+            hash table. To ameliorate impact, when keys are <c>Comparable</c>,
+            this class may use comparison order among keys to help break ties.</para>
+      <para>A <c>Set</c> projection of a ConcurrentHashMap may be created
+            (using <c>#newKeySet()</c> or <c>#newKeySet(int)</c>), or viewed
+            (using <c>#keySet(Object)</c> when only keys are of interest, and the
+            mapped values are (perhaps transiently) not used or all take the
+            same mapping value.</para>
+      <para>A ConcurrentHashMap can be used as a scalable frequency map (a
+            form of histogram or multiset) by using <c>java.util.concurrent.atomic.LongAdder</c> values and initializing via
+            <c>#computeIfAbsent computeIfAbsent</c>. For example, to add a count
+            to a <c>ConcurrentHashMap&lt;String,LongAdder&gt; freqs</c>, you can use
+            <c>freqs.computeIfAbsent(key, k -&gt; new LongAdder()).increment();</c></para>
+      <para>This class and its views and iterators implement all of the
+            &lt;em&gt;optional&lt;/em&gt; methods of the <c>Map</c> and <c>Iterator</c>
+            interfaces.</para>
+      <para>Like <c>Hashtable</c> but unlike <c>HashMap</c>, this class
+            does &lt;em&gt;not&lt;/em&gt; allow <c>null</c> to be used as a key or value.</para>
+      <para>ConcurrentHashMaps support a set of sequential and parallel bulk
+            operations that, unlike most <c>Stream</c> methods, are designed
+            to be safely, and often sensibly, applied even with maps that are
+            being concurrently updated by other threads; for example, when
+            computing a snapshot summary of the values in a shared registry.
+            There are three kinds of operation, each with four forms, accepting
+            functions with keys, values, entries, and (key, value) pairs as
+            arguments and/or return values. Because the elements of a
+            ConcurrentHashMap are not ordered in any particular way, and may be
+            processed in different orders in different parallel executions, the
+            correctness of supplied functions should not depend on any
+            ordering, or on any other objects or values that may transiently
+            change while computation is in progress; and except for forEach
+            actions, should ideally be side-effect-free. Bulk operations on
+            <c>Map.Entry</c> objects do not support method <c>setValue</c>.
+            
+            &lt;ul&gt;
+            &lt;li&gt;forEach: Performs a given action on each element.
+            A variant form applies a given transformation on each element
+            before performing the action.
+            
+            &lt;li&gt;search: Returns the first available non-null result of
+            applying a given function on each element; skipping further
+            search when a result is found.
+            
+            &lt;li&gt;reduce: Accumulates each element.  The supplied reduction
+            function cannot rely on ordering (more formally, it should be
+            both associative and commutative).  There are five variants:
+            
+            &lt;ul&gt;
+            
+            &lt;li&gt;Plain reductions. (There is not a form of this method for
+            (key, value) function arguments since there is no corresponding
+            return type.)
+            
+            &lt;li&gt;Mapped reductions that accumulate the results of a given
+            function applied to each element.
+            
+            &lt;li&gt;Reductions to scalar doubles, longs, and ints, using a
+            given basis value.
+            
+            &lt;/ul&gt;
+            &lt;/ul&gt;</para>
+      <para>These bulk operations accept a <c>parallelismThreshold</c>
+            argument. Methods proceed sequentially if the current map size is
+            estimated to be less than the given threshold. Using a value of
+            <c>Long.MAX_VALUE</c> suppresses all parallelism.  Using a value
+            of <c>1</c> results in maximal parallelism by partitioning into
+            enough subtasks to fully utilize the <c>ForkJoinPool#commonPool()</c> that is used for all parallel
+            computations. Normally, you would initially choose one of these
+            extreme values, and then measure performance of using in-between
+            values that trade off overhead versus throughput.</para>
+      <para>The concurrency properties of bulk operations follow
+            from those of ConcurrentHashMap: Any non-null result returned
+            from <c>get(key)</c> and related access methods bears a
+            happens-before relation with the associated insertion or
+            update.  The result of any bulk operation reflects the
+            composition of these per-element relations (but is not
+            necessarily atomic with respect to the map as a whole unless it
+            is somehow known to be quiescent).  Conversely, because keys
+            and values in the map are never null, null serves as a reliable
+            atomic indicator of the current lack of any result.  To
+            maintain this property, null serves as an implicit basis for
+            all non-scalar reduction operations. For the double, long, and
+            int versions, the basis should be one that, when combined with
+            any other value, returns that other value (more formally, it
+            should be the identity element for the reduction). Most common
+            reductions have these properties; for example, computing a sum
+            with basis 0 or a minimum with basis MAX_VALUE.</para>
+      <para>Search and transformation functions provided as arguments
+            should similarly return null to indicate the lack of any result
+            (in which case it is not used). In the case of mapped
+            reductions, this also enables transformations to serve as
+            filters, returning null (or, in the case of primitive
+            specializations, the identity basis) if the element should not
+            be combined. You can create compound transformations and
+            filterings by composing them yourself under this "null means
+            there is nothing there now" rule before using them in search or
+            reduce operations.</para>
+      <para>Methods accepting and/or returning Entry arguments maintain
+            key-value associations. They may be useful for example when
+            finding the key for the greatest value. Note that "plain" Entry
+            arguments can be supplied using <c>new
+            AbstractMap.SimpleEntry(k,v)</c>.</para>
+      <para>Bulk operations may complete abruptly, throwing an
+            exception encountered in the application of a supplied
+            function. Bear in mind when handling such exceptions that other
+            concurrently executing functions could also have thrown
+            exceptions, or would have done so if the first exception had
+            not occurred.</para>
+      <para>Speedups for parallel compared to sequential forms are common
+            but not guaranteed.  Parallel operations involving brief functions
+            on small maps may execute more slowly than sequential forms if the
+            underlying work to parallelize the computation is more expensive
+            than the computation itself.  Similarly, parallelization may not
+            lead to much actual parallelism if all processors are busy
+            performing unrelated tasks.</para>
+      <para>All arguments to all task methods must be non-null.</para>
+      <para>This class is a member of the
+            <see href="https://developer.android.com//java.base/java/util/package-summary.html#CollectionsFramework">
+            Java Collections Framework</see>.</para>
+      <para>Added in 1.5.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap</code>.</a>
@@ -66,8 +232,8 @@
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.ConcurrentHashMap.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -79,6 +245,7 @@
       <Docs>
         <summary>Creates a new, empty map with the default initial table size (16).</summary>
         <remarks>
+          <para>Creates a new, empty map with the default initial table size (16).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#ConcurrentHashMap()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.ConcurrentHashMap()</code>.</a>
@@ -100,8 +267,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ConcurrentHashMap : System.Collections.IDictionary -&gt; Java.Util.Concurrent.ConcurrentHashMap" Usage="new Java.Util.Concurrent.ConcurrentHashMap m" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -116,6 +283,7 @@
         <param name="m">the map</param>
         <summary>Creates a new map with the same mappings as the given map.</summary>
         <remarks>
+          <para>Creates a new map with the same mappings as the given map.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#ConcurrentHashMap(java.util.Map%3C?%20extends%20K,%20?%20extends%20V%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.ConcurrentHashMap(java.util.Map&lt;? extends K, ? extends V&gt;)</code>.</a>
@@ -136,8 +304,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ConcurrentHashMap : int -&gt; Java.Util.Concurrent.ConcurrentHashMap" Usage="new Java.Util.Concurrent.ConcurrentHashMap initialCapacity" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -155,6 +323,9 @@
             accommodating the specified number of elements without the need
             to dynamically resize.</summary>
         <remarks>
+          <para>Creates a new, empty map with an initial table size
+            accommodating the specified number of elements without the need
+            to dynamically resize.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#ConcurrentHashMap(int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.ConcurrentHashMap(int)</code>.</a>
@@ -179,8 +350,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ConcurrentHashMap : int * single -&gt; Java.Util.Concurrent.ConcurrentHashMap" Usage="new Java.Util.Concurrent.ConcurrentHashMap (initialCapacity, loadFactor)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -202,6 +373,10 @@
             the given number of elements (<c>initialCapacity</c>) and
             initial table density (<c>loadFactor</c>).</summary>
         <remarks>
+          <para>Creates a new, empty map with an initial table size based on
+            the given number of elements (<c>initialCapacity</c>) and
+            initial table density (<c>loadFactor</c>).</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#ConcurrentHashMap(int,%20float)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.ConcurrentHashMap(int, float)</code>.</a>
@@ -225,8 +400,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ConcurrentHashMap : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Concurrent.ConcurrentHashMap" Usage="new Java.Util.Concurrent.ConcurrentHashMap (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -248,8 +423,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.ConcurrentHashMap : int * single * int -&gt; Java.Util.Concurrent.ConcurrentHashMap" Usage="new Java.Util.Concurrent.ConcurrentHashMap (initialCapacity, loadFactor, concurrencyLevel)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -276,6 +451,10 @@
             table density (<c>loadFactor</c>), and number of concurrently
             updating threads (<c>concurrencyLevel</c>).</summary>
         <remarks>
+          <para>Creates a new, empty map with an initial table size based on
+            the given number of elements (<c>initialCapacity</c>), initial
+            table density (<c>loadFactor</c>), and number of concurrently
+            updating threads (<c>concurrencyLevel</c>).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#ConcurrentHashMap(int,%20float,%20int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.ConcurrentHashMap(int, float, int)</code>.</a>
@@ -312,6 +491,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("compute", "(Ljava/lang/Object;Ljava/util/function/BiFunction;)Ljava/lang/Object;", "GetCompute_Ljava_lang_Object_Ljava_util_function_BiFunction_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("compute", "(Ljava/lang/Object;Ljava/util/function/BiFunction;)Ljava/lang/Object;", "GetCompute_Ljava_lang_Object_Ljava_util_function_BiFunction_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -328,6 +511,14 @@
             mapping).</summary>
         <returns>the new value associated with the specified key, or null if none</returns>
         <remarks>
+          <para>Attempts to compute a mapping for the specified key and its
+            current mapped value (or <c>null</c> if there is no current
+            mapping). The entire method invocation is performed atomically.
+            The supplied function is invoked exactly once per invocation of
+            this method.  Some attempted update operations on this map by
+            other threads may be blocked while computation is in progress,
+            so the computation should be short and simple.</para>
+          <para>The remapping function must not modify this map during computation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#compute(K,%20java.util.function.BiFunction%3C?%20super%20K,%20?%20super%20V,%20?%20extends%20V%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.compute(K, java.util.function.BiFunction&lt;? super K, ? super V, ? extends V&gt;)</code>.</a>
@@ -359,6 +550,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("computeIfAbsent", "(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;", "GetComputeIfAbsent_Ljava_lang_Object_Ljava_util_function_Function_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("computeIfAbsent", "(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;", "GetComputeIfAbsent_Ljava_lang_Object_Ljava_util_function_Function_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -376,6 +571,16 @@
         <returns>the current (existing or computed) value associated with
                     the specified key, or null if the computed value is null</returns>
         <remarks>
+          <para>If the specified key is not already associated with a value,
+            attempts to compute its value using the given mapping function
+            and enters it into this map unless <c>null</c>.  The entire
+            method invocation is performed atomically.  The supplied
+            function is invoked exactly once per invocation of this method
+            if the key is absent, else not at all.  Some attempted update
+            operations on this map by other threads may be blocked while
+            computation is in progress, so the computation should be short
+            and simple.</para>
+          <para>The mapping function must not modify this map during computation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#computeIfAbsent(K,%20java.util.function.Function%3C?%20super%20K,%20?%20extends%20V%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.computeIfAbsent(K, java.util.function.Function&lt;? super K, ? extends V&gt;)</code>.</a>
@@ -407,6 +612,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("computeIfPresent", "(Ljava/lang/Object;Ljava/util/function/BiFunction;)Ljava/lang/Object;", "GetComputeIfPresent_Ljava_lang_Object_Ljava_util_function_BiFunction_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("computeIfPresent", "(Ljava/lang/Object;Ljava/util/function/BiFunction;)Ljava/lang/Object;", "GetComputeIfPresent_Ljava_lang_Object_Ljava_util_function_BiFunction_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -423,6 +632,15 @@
             value.</summary>
         <returns>the new value associated with the specified key, or null if none</returns>
         <remarks>
+          <para>If the value for the specified key is present, attempts to
+            compute a new mapping given the key and its current mapped
+            value.  The entire method invocation is performed atomically.
+            The supplied function is invoked exactly once per invocation of
+            this method if the key is present, else not at all.  Some
+            attempted update operations on this map by other threads may be
+            blocked while computation is in progress, so the computation
+            should be short and simple.</para>
+          <para>The remapping function must not modify this map during computation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#computeIfPresent(K,%20java.util.function.BiFunction%3C?%20super%20K,%20?%20super%20V,%20?%20extends%20V%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.computeIfPresent(K, java.util.function.BiFunction&lt;? super K, ? super V, ? extends V&gt;)</code>.</a>
@@ -443,8 +661,8 @@
       <MemberSignature Language="F#" Value="abstract member Contains : Java.Lang.Object -&gt; bool&#xA;override this.Contains : Java.Lang.Object -&gt; bool" Usage="concurrentHashMap.Contains value" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -467,6 +685,12 @@
                     determined by the <c>equals</c> method;
                     <c>false</c> otherwise</returns>
         <remarks>
+          <para>Tests if some key maps into the specified value in this table.</para>
+          <para>Note that this method is identical in functionality to
+            <c>#containsValue(Object)</c>, and exists solely to ensure
+            full compatibility with class <c>java.util.Hashtable</c>,
+            which supported this method prior to introduction of the
+            Java Collections Framework.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#contains(java.lang.Object)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.contains(java.lang.Object)</code>.</a>
@@ -490,8 +714,8 @@
       <MemberSignature Language="F#" Value="abstract member Elements : unit -&gt; Java.Util.IEnumeration&#xA;override this.Elements : unit -&gt; Java.Util.IEnumeration" Usage="concurrentHashMap.Elements " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -507,6 +731,7 @@
         <summary>Returns an enumeration of the values in this table.</summary>
         <returns>an enumeration of the values in this table</returns>
         <remarks>
+          <para>Returns an enumeration of the values in this table.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#elements()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.elements()</code>.</a>
@@ -531,8 +756,8 @@
         <InterfaceMember>M:Java.Util.IMap.EntrySet</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -548,6 +773,17 @@
         <summary>Returns a <c>Set</c> view of the mappings contained in this map.</summary>
         <returns>the set view</returns>
         <remarks>
+          <para>Returns a <c>Set</c> view of the mappings contained in this map.
+            The set is backed by the map, so changes to the map are
+            reflected in the set, and vice-versa.  The set supports element
+            removal, which removes the corresponding mapping from the map,
+            via the <c>Iterator.remove</c>, <c>Set.remove</c>,
+            <c>removeAll</c>, <c>retainAll</c>, and <c>clear</c>
+            operations.</para>
+          <para>The view's iterators and spliterators are
+            &lt;i&gt;weakly consistent&lt;/i&gt;.</para>
+          <para>The view's <c>spliterator</c> reports <c>Spliterator#CONCURRENT</c>,
+            <c>Spliterator#DISTINCT</c>, and <c>Spliterator#NONNULL</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#entrySet()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.entrySet()</code>.</a>
@@ -579,6 +815,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("forEach", "(Ljava/util/function/BiConsumer;)V", "GetForEach_Ljava_util_function_BiConsumer_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("forEach", "(Ljava/util/function/BiConsumer;)V", "GetForEach_Ljava_util_function_BiConsumer_Handler", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -619,6 +859,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("forEach", "(JLjava/util/function/BiConsumer;)V", "GetForEach_JLjava_util_function_BiConsumer_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("forEach", "(JLjava/util/function/BiConsumer;)V", "GetForEach_JLjava_util_function_BiConsumer_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -633,6 +877,8 @@
         <param name="action">the action</param>
         <summary>Performs the given action for each (key, value).</summary>
         <remarks>
+          <para>Performs the given action for each (key, value).</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#forEach(long,%20java.util.function.BiConsumer%3C?%20super%20K,%20?%20super%20V%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.forEach(long, java.util.function.BiConsumer&lt;? super K, ? super V&gt;)</code>.</a>
@@ -665,6 +911,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -685,6 +935,9 @@
         <summary>Performs the given action for each non-null transformation
             of each (key, value).</summary>
         <remarks>
+          <para>Performs the given action for each non-null transformation
+            of each (key, value).</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#forEach(long,%20java.util.function.BiFunction%3C?%20super%20K,%20?%20super%20V,%20?%20extends%20U%3E,%20java.util.function.Consumer%3C?%20super%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.forEach(long, java.util.function.BiFunction&lt;? super K, ? super V, ? extends U&gt;, java.util.function.Consumer&lt;? super U&gt;)</code>.</a>
@@ -713,6 +966,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("forEachEntry", "(JLjava/util/function/Consumer;)V", "GetForEachEntry_JLjava_util_function_Consumer_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("forEachEntry", "(JLjava/util/function/Consumer;)V", "GetForEachEntry_JLjava_util_function_Consumer_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -727,6 +984,8 @@
         <param name="action">the action</param>
         <summary>Performs the given action for each entry.</summary>
         <remarks>
+          <para>Performs the given action for each entry.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#forEachEntry(long,%20java.util.function.Consumer%3C?%20super%20java.util.Map.Entry%3CK,%20V%3E%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.forEachEntry(long, java.util.function.Consumer&lt;? super java.util.Map.Entry&lt;K, V&gt;&gt;)</code>.</a>
@@ -759,6 +1018,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -779,6 +1042,9 @@
         <summary>Performs the given action for each non-null transformation
             of each entry.</summary>
         <remarks>
+          <para>Performs the given action for each non-null transformation
+            of each entry.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#forEachEntry(long,%20java.util.function.Function%3Cjava.util.Map.Entry%3CK,%20V%3E,%20?%20extends%20U%3E,%20java.util.function.Consumer%3C?%20super%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.forEachEntry(long, java.util.function.Function&lt;java.util.Map.Entry&lt;K, V&gt;, ? extends U&gt;, java.util.function.Consumer&lt;? super U&gt;)</code>.</a>
@@ -807,6 +1073,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("forEachKey", "(JLjava/util/function/Consumer;)V", "GetForEachKey_JLjava_util_function_Consumer_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("forEachKey", "(JLjava/util/function/Consumer;)V", "GetForEachKey_JLjava_util_function_Consumer_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -821,6 +1091,8 @@
         <param name="action">the action</param>
         <summary>Performs the given action for each key.</summary>
         <remarks>
+          <para>Performs the given action for each key.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#forEachKey(long,%20java.util.function.Consumer%3C?%20super%20K%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.forEachKey(long, java.util.function.Consumer&lt;? super K&gt;)</code>.</a>
@@ -853,6 +1125,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -873,6 +1149,9 @@
         <summary>Performs the given action for each non-null transformation
             of each key.</summary>
         <remarks>
+          <para>Performs the given action for each non-null transformation
+            of each key.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#forEachKey(long,%20java.util.function.Function%3C?%20super%20K,%20?%20extends%20U%3E,%20java.util.function.Consumer%3C?%20super%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.forEachKey(long, java.util.function.Function&lt;? super K, ? extends U&gt;, java.util.function.Consumer&lt;? super U&gt;)</code>.</a>
@@ -901,6 +1180,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("forEachValue", "(JLjava/util/function/Consumer;)V", "GetForEachValue_JLjava_util_function_Consumer_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("forEachValue", "(JLjava/util/function/Consumer;)V", "GetForEachValue_JLjava_util_function_Consumer_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -915,6 +1198,8 @@
         <param name="action">the action</param>
         <summary>Performs the given action for each value.</summary>
         <remarks>
+          <para>Performs the given action for each value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#forEachValue(long,%20java.util.function.Consumer%3C?%20super%20V%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.forEachValue(long, java.util.function.Consumer&lt;? super V&gt;)</code>.</a>
@@ -947,6 +1232,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -967,6 +1256,9 @@
         <summary>Performs the given action for each non-null transformation
             of each value.</summary>
         <remarks>
+          <para>Performs the given action for each non-null transformation
+            of each value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#forEachValue(long,%20java.util.function.Function%3C?%20super%20V,%20?%20extends%20U%3E,%20java.util.function.Consumer%3C?%20super%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.forEachValue(long, java.util.function.Function&lt;? super V, ? extends U&gt;, java.util.function.Consumer&lt;? super U&gt;)</code>.</a>
@@ -998,6 +1290,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getOrDefault", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;", "GetGetOrDefault_Ljava_lang_Object_Ljava_lang_Object_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getOrDefault", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;", "GetGetOrDefault_Ljava_lang_Object_Ljava_lang_Object_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -1015,6 +1311,9 @@
             key.</summary>
         <returns>the mapping for the key, if present; else the default value</returns>
         <remarks>
+          <para>Returns the value to which the specified key is mapped, or the
+            given default value if this map contains no mapping for the
+            key.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#getOrDefault(java.lang.Object,%20V)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.getOrDefault(java.lang.Object, V)</code>.</a>
@@ -1069,8 +1368,8 @@
       <MemberSignature Language="F#" Value="abstract member Keys : unit -&gt; Java.Util.IEnumeration&#xA;override this.Keys : unit -&gt; Java.Util.IEnumeration" Usage="concurrentHashMap.Keys " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1086,6 +1385,7 @@
         <summary>Returns an enumeration of the keys in this table.</summary>
         <returns>an enumeration of the keys in this table</returns>
         <remarks>
+          <para>Returns an enumeration of the keys in this table.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#keys()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.keys()</code>.</a>
@@ -1115,6 +1415,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("mappingCount", "()J", "GetMappingCountHandler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("mappingCount", "()J", "GetMappingCountHandler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int64</ReturnType>
@@ -1124,6 +1428,12 @@
         <summary>Returns the number of mappings.</summary>
         <returns>the number of mappings</returns>
         <remarks>
+          <para>Returns the number of mappings. This method should be used
+            instead of <c>#size</c> because a ConcurrentHashMap may
+            contain more mappings than can be represented as an int. The
+            value returned is an estimate; the actual count may differ if
+            there are concurrent insertions or removals.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#mappingCount()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.mappingCount()</code>.</a>
@@ -1155,6 +1465,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("merge", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/util/function/BiFunction;)Ljava/lang/Object;", "GetMerge_Ljava_lang_Object_Ljava_lang_Object_Ljava_util_function_BiFunction_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("merge", "(Ljava/lang/Object;Ljava/lang/Object;Ljava/util/function/BiFunction;)Ljava/lang/Object;", "GetMerge_Ljava_lang_Object_Ljava_lang_Object_Ljava_util_function_BiFunction_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -1172,6 +1486,15 @@
             (non-null) value, associates it with the given value.</summary>
         <returns>the new value associated with the specified key, or null if none</returns>
         <remarks>
+          <para>If the specified key is not already associated with a
+            (non-null) value, associates it with the given value.
+            Otherwise, replaces the value with the results of the given
+            remapping function, or removes if <c>null</c>. The entire
+            method invocation is performed atomically.  Some attempted
+            update operations on this map by other threads may be blocked
+            while computation is in progress, so the computation should be
+            short and simple, and must not attempt to update any other
+            mappings of this Map.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#merge(K,%20V,%20java.util.function.BiFunction%3C?%20super%20V,%20?%20super%20V,%20?%20extends%20V%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.merge(K, V, java.util.function.BiFunction&lt;? super V, ? super V, ? extends V&gt;)</code>.</a>
@@ -1195,8 +1518,8 @@
         <InterfaceMember>M:Java.Util.Concurrent.IConcurrentMap.PutIfAbsent(Java.Lang.Object,Java.Lang.Object)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1218,6 +1541,7 @@
         <returns>the previous value associated with the specified key,
                     or <c>null</c> if there was no mapping for the key</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#putIfAbsent(K,%20V)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.putIfAbsent(K, V)</code>.</a>
@@ -1250,6 +1574,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -1273,6 +1601,10 @@
         <returns>the result of accumulating the given transformation
             of all (key, value) pairs</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all (key, value) pairs using the given reducer to
+            combine values, or null if none.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduce(long,%20java.util.function.BiFunction%3C?%20super%20K,%20?%20super%20V,%20?%20extends%20U%3E,%20java.util.function.BiFunction%3C?%20super%20U,%20?%20super%20U,%20?%20extends%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduce(long, java.util.function.BiFunction&lt;? super K, ? super V, ? extends U&gt;, java.util.function.BiFunction&lt;? super U, ? super U, ? extends U&gt;)</code>.</a>
@@ -1300,6 +1632,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("reduceEntries", "(JLjava/util/function/BiFunction;)Ljava/util/Map$Entry;", "GetReduceEntries_JLjava_util_function_BiFunction_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceEntries", "(JLjava/util/function/BiFunction;)Ljava/util/Map$Entry;", "GetReduceEntries_JLjava_util_function_BiFunction_Handler", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1349,6 +1685,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -1372,6 +1712,10 @@
         <returns>the result of accumulating the given transformation
             of all entries</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all entries using the given reducer to combine values,
+            or null if none.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceEntries(long,%20java.util.function.Function%3Cjava.util.Map.Entry%3CK,%20V%3E,%20?%20extends%20U%3E,%20java.util.function.BiFunction%3C?%20super%20U,%20?%20super%20U,%20?%20extends%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceEntries(long, java.util.function.Function&lt;java.util.Map.Entry&lt;K, V&gt;, ? extends U&gt;, java.util.function.BiFunction&lt;? super U, ? super U, ? extends U&gt;)</code>.</a>
@@ -1400,6 +1744,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceEntriesToDouble", "(JLjava/util/function/ToDoubleFunction;DLjava/util/function/DoubleBinaryOperator;)D", "GetReduceEntriesToDouble_JLjava_util_function_ToDoubleFunction_DLjava_util_function_DoubleBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceEntriesToDouble", "(JLjava/util/function/ToDoubleFunction;DLjava/util/function/DoubleBinaryOperator;)D", "GetReduceEntriesToDouble_JLjava_util_function_ToDoubleFunction_DLjava_util_function_DoubleBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Double</ReturnType>
@@ -1423,6 +1771,10 @@
         <returns>the result of accumulating the given transformation
             of all entries</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all entries using the given reducer to combine values,
+            and the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceEntriesToDouble(long,%20java.util.function.ToDoubleFunction%3Cjava.util.Map.Entry%3CK,%20V%3E%3E,%20double,%20java.util.function.DoubleBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceEntriesToDouble(long, java.util.function.ToDoubleFunction&lt;java.util.Map.Entry&lt;K, V&gt;&gt;, double, java.util.function.DoubleBinaryOperator)</code>.</a>
@@ -1451,6 +1803,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceEntriesToInt", "(JLjava/util/function/ToIntFunction;ILjava/util/function/IntBinaryOperator;)I", "GetReduceEntriesToInt_JLjava_util_function_ToIntFunction_ILjava_util_function_IntBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceEntriesToInt", "(JLjava/util/function/ToIntFunction;ILjava/util/function/IntBinaryOperator;)I", "GetReduceEntriesToInt_JLjava_util_function_ToIntFunction_ILjava_util_function_IntBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -1474,6 +1830,10 @@
         <returns>the result of accumulating the given transformation
             of all entries</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all entries using the given reducer to combine values,
+            and the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceEntriesToInt(long,%20java.util.function.ToIntFunction%3Cjava.util.Map.Entry%3CK,%20V%3E%3E,%20int,%20java.util.function.IntBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceEntriesToInt(long, java.util.function.ToIntFunction&lt;java.util.Map.Entry&lt;K, V&gt;&gt;, int, java.util.function.IntBinaryOperator)</code>.</a>
@@ -1502,6 +1862,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceEntriesToLong", "(JLjava/util/function/ToLongFunction;JLjava/util/function/LongBinaryOperator;)J", "GetReduceEntriesToLong_JLjava_util_function_ToLongFunction_JLjava_util_function_LongBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceEntriesToLong", "(JLjava/util/function/ToLongFunction;JLjava/util/function/LongBinaryOperator;)J", "GetReduceEntriesToLong_JLjava_util_function_ToLongFunction_JLjava_util_function_LongBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int64</ReturnType>
@@ -1525,6 +1889,10 @@
         <returns>the result of accumulating the given transformation
             of all entries</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all entries using the given reducer to combine values,
+            and the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceEntriesToLong(long,%20java.util.function.ToLongFunction%3Cjava.util.Map.Entry%3CK,%20V%3E%3E,%20long,%20java.util.function.LongBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceEntriesToLong(long, java.util.function.ToLongFunction&lt;java.util.Map.Entry&lt;K, V&gt;&gt;, long, java.util.function.LongBinaryOperator)</code>.</a>
@@ -1553,6 +1921,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceKeys", "(JLjava/util/function/BiFunction;)Ljava/lang/Object;", "GetReduceKeys_JLjava_util_function_BiFunction_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceKeys", "(JLjava/util/function/BiFunction;)Ljava/lang/Object;", "GetReduceKeys_JLjava_util_function_BiFunction_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -1570,6 +1942,9 @@
         <returns>the result of accumulating all keys using the given
             reducer to combine values, or null if none</returns>
         <remarks>
+          <para>Returns the result of accumulating all keys using the given
+            reducer to combine values, or null if none.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceKeys(long,%20java.util.function.BiFunction%3C?%20super%20K,%20?%20super%20K,%20?%20extends%20K%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceKeys(long, java.util.function.BiFunction&lt;? super K, ? super K, ? extends K&gt;)</code>.</a>
@@ -1602,6 +1977,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -1625,6 +2004,10 @@
         <returns>the result of accumulating the given transformation
             of all keys</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all keys using the given reducer to combine values, or
+            null if none.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceKeys(long,%20java.util.function.Function%3C?%20super%20K,%20?%20extends%20U%3E,%20java.util.function.BiFunction%3C?%20super%20U,%20?%20super%20U,%20?%20extends%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceKeys(long, java.util.function.Function&lt;? super K, ? extends U&gt;, java.util.function.BiFunction&lt;? super U, ? super U, ? extends U&gt;)</code>.</a>
@@ -1653,6 +2036,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceKeysToDouble", "(JLjava/util/function/ToDoubleFunction;DLjava/util/function/DoubleBinaryOperator;)D", "GetReduceKeysToDouble_JLjava_util_function_ToDoubleFunction_DLjava_util_function_DoubleBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceKeysToDouble", "(JLjava/util/function/ToDoubleFunction;DLjava/util/function/DoubleBinaryOperator;)D", "GetReduceKeysToDouble_JLjava_util_function_ToDoubleFunction_DLjava_util_function_DoubleBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Double</ReturnType>
@@ -1676,6 +2063,10 @@
         <returns>the result of accumulating the given transformation
             of all keys</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all keys using the given reducer to combine values, and
+            the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceKeysToDouble(long,%20java.util.function.ToDoubleFunction%3C?%20super%20K%3E,%20double,%20java.util.function.DoubleBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceKeysToDouble(long, java.util.function.ToDoubleFunction&lt;? super K&gt;, double, java.util.function.DoubleBinaryOperator)</code>.</a>
@@ -1704,6 +2095,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceKeysToInt", "(JLjava/util/function/ToIntFunction;ILjava/util/function/IntBinaryOperator;)I", "GetReduceKeysToInt_JLjava_util_function_ToIntFunction_ILjava_util_function_IntBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceKeysToInt", "(JLjava/util/function/ToIntFunction;ILjava/util/function/IntBinaryOperator;)I", "GetReduceKeysToInt_JLjava_util_function_ToIntFunction_ILjava_util_function_IntBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -1727,6 +2122,10 @@
         <returns>the result of accumulating the given transformation
             of all keys</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all keys using the given reducer to combine values, and
+            the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceKeysToInt(long,%20java.util.function.ToIntFunction%3C?%20super%20K%3E,%20int,%20java.util.function.IntBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceKeysToInt(long, java.util.function.ToIntFunction&lt;? super K&gt;, int, java.util.function.IntBinaryOperator)</code>.</a>
@@ -1755,6 +2154,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceKeysToLong", "(JLjava/util/function/ToLongFunction;JLjava/util/function/LongBinaryOperator;)J", "GetReduceKeysToLong_JLjava_util_function_ToLongFunction_JLjava_util_function_LongBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceKeysToLong", "(JLjava/util/function/ToLongFunction;JLjava/util/function/LongBinaryOperator;)J", "GetReduceKeysToLong_JLjava_util_function_ToLongFunction_JLjava_util_function_LongBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int64</ReturnType>
@@ -1778,6 +2181,10 @@
         <returns>the result of accumulating the given transformation
             of all keys</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all keys using the given reducer to combine values, and
+            the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceKeysToLong(long,%20java.util.function.ToLongFunction%3C?%20super%20K%3E,%20long,%20java.util.function.LongBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceKeysToLong(long, java.util.function.ToLongFunction&lt;? super K&gt;, long, java.util.function.LongBinaryOperator)</code>.</a>
@@ -1806,6 +2213,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceToDouble", "(JLjava/util/function/ToDoubleBiFunction;DLjava/util/function/DoubleBinaryOperator;)D", "GetReduceToDouble_JLjava_util_function_ToDoubleBiFunction_DLjava_util_function_DoubleBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceToDouble", "(JLjava/util/function/ToDoubleBiFunction;DLjava/util/function/DoubleBinaryOperator;)D", "GetReduceToDouble_JLjava_util_function_ToDoubleBiFunction_DLjava_util_function_DoubleBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Double</ReturnType>
@@ -1829,6 +2240,10 @@
         <returns>the result of accumulating the given transformation
             of all (key, value) pairs</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all (key, value) pairs using the given reducer to
+            combine values, and the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceToDouble(long,%20java.util.function.ToDoubleBiFunction%3C?%20super%20K,%20?%20super%20V%3E,%20double,%20java.util.function.DoubleBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceToDouble(long, java.util.function.ToDoubleBiFunction&lt;? super K, ? super V&gt;, double, java.util.function.DoubleBinaryOperator)</code>.</a>
@@ -1857,6 +2272,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceToInt", "(JLjava/util/function/ToIntBiFunction;ILjava/util/function/IntBinaryOperator;)I", "GetReduceToInt_JLjava_util_function_ToIntBiFunction_ILjava_util_function_IntBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceToInt", "(JLjava/util/function/ToIntBiFunction;ILjava/util/function/IntBinaryOperator;)I", "GetReduceToInt_JLjava_util_function_ToIntBiFunction_ILjava_util_function_IntBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -1880,6 +2299,10 @@
         <returns>the result of accumulating the given transformation
             of all (key, value) pairs</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all (key, value) pairs using the given reducer to
+            combine values, and the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceToInt(long,%20java.util.function.ToIntBiFunction%3C?%20super%20K,%20?%20super%20V%3E,%20int,%20java.util.function.IntBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceToInt(long, java.util.function.ToIntBiFunction&lt;? super K, ? super V&gt;, int, java.util.function.IntBinaryOperator)</code>.</a>
@@ -1908,6 +2331,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceToLong", "(JLjava/util/function/ToLongBiFunction;JLjava/util/function/LongBinaryOperator;)J", "GetReduceToLong_JLjava_util_function_ToLongBiFunction_JLjava_util_function_LongBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceToLong", "(JLjava/util/function/ToLongBiFunction;JLjava/util/function/LongBinaryOperator;)J", "GetReduceToLong_JLjava_util_function_ToLongBiFunction_JLjava_util_function_LongBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int64</ReturnType>
@@ -1931,6 +2358,10 @@
         <returns>the result of accumulating the given transformation
             of all (key, value) pairs</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all (key, value) pairs using the given reducer to
+            combine values, and the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceToLong(long,%20java.util.function.ToLongBiFunction%3C?%20super%20K,%20?%20super%20V%3E,%20long,%20java.util.function.LongBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceToLong(long, java.util.function.ToLongBiFunction&lt;? super K, ? super V&gt;, long, java.util.function.LongBinaryOperator)</code>.</a>
@@ -1959,6 +2390,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceValues", "(JLjava/util/function/BiFunction;)Ljava/lang/Object;", "GetReduceValues_JLjava_util_function_BiFunction_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceValues", "(JLjava/util/function/BiFunction;)Ljava/lang/Object;", "GetReduceValues_JLjava_util_function_BiFunction_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -1975,6 +2410,9 @@
             given reducer to combine values, or null if none.</summary>
         <returns>the result of accumulating all values</returns>
         <remarks>
+          <para>Returns the result of accumulating all values using the
+            given reducer to combine values, or null if none.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceValues(long,%20java.util.function.BiFunction%3C?%20super%20V,%20?%20super%20V,%20?%20extends%20V%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceValues(long, java.util.function.BiFunction&lt;? super V, ? super V, ? extends V&gt;)</code>.</a>
@@ -2007,6 +2445,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -2030,6 +2472,10 @@
         <returns>the result of accumulating the given transformation
             of all values</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all values using the given reducer to combine values, or
+            null if none.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceValues(long,%20java.util.function.Function%3C?%20super%20V,%20?%20extends%20U%3E,%20java.util.function.BiFunction%3C?%20super%20U,%20?%20super%20U,%20?%20extends%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceValues(long, java.util.function.Function&lt;? super V, ? extends U&gt;, java.util.function.BiFunction&lt;? super U, ? super U, ? extends U&gt;)</code>.</a>
@@ -2058,6 +2504,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceValuesToDouble", "(JLjava/util/function/ToDoubleFunction;DLjava/util/function/DoubleBinaryOperator;)D", "GetReduceValuesToDouble_JLjava_util_function_ToDoubleFunction_DLjava_util_function_DoubleBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceValuesToDouble", "(JLjava/util/function/ToDoubleFunction;DLjava/util/function/DoubleBinaryOperator;)D", "GetReduceValuesToDouble_JLjava_util_function_ToDoubleFunction_DLjava_util_function_DoubleBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Double</ReturnType>
@@ -2081,6 +2531,10 @@
         <returns>the result of accumulating the given transformation
             of all values</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all values using the given reducer to combine values,
+            and the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceValuesToDouble(long,%20java.util.function.ToDoubleFunction%3C?%20super%20V%3E,%20double,%20java.util.function.DoubleBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceValuesToDouble(long, java.util.function.ToDoubleFunction&lt;? super V&gt;, double, java.util.function.DoubleBinaryOperator)</code>.</a>
@@ -2109,6 +2563,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceValuesToInt", "(JLjava/util/function/ToIntFunction;ILjava/util/function/IntBinaryOperator;)I", "GetReduceValuesToInt_JLjava_util_function_ToIntFunction_ILjava_util_function_IntBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceValuesToInt", "(JLjava/util/function/ToIntFunction;ILjava/util/function/IntBinaryOperator;)I", "GetReduceValuesToInt_JLjava_util_function_ToIntFunction_ILjava_util_function_IntBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -2132,6 +2590,10 @@
         <returns>the result of accumulating the given transformation
             of all values</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all values using the given reducer to combine values,
+            and the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceValuesToInt(long,%20java.util.function.ToIntFunction%3C?%20super%20V%3E,%20int,%20java.util.function.IntBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceValuesToInt(long, java.util.function.ToIntFunction&lt;? super V&gt;, int, java.util.function.IntBinaryOperator)</code>.</a>
@@ -2160,6 +2622,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("reduceValuesToLong", "(JLjava/util/function/ToLongFunction;JLjava/util/function/LongBinaryOperator;)J", "GetReduceValuesToLong_JLjava_util_function_ToLongFunction_JLjava_util_function_LongBinaryOperator_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("reduceValuesToLong", "(JLjava/util/function/ToLongFunction;JLjava/util/function/LongBinaryOperator;)J", "GetReduceValuesToLong_JLjava_util_function_ToLongFunction_JLjava_util_function_LongBinaryOperator_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int64</ReturnType>
@@ -2183,6 +2649,10 @@
         <returns>the result of accumulating the given transformation
             of all values</returns>
         <remarks>
+          <para>Returns the result of accumulating the given transformation
+            of all values using the given reducer to combine values,
+            and the given basis as an identity value.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#reduceValuesToLong(long,%20java.util.function.ToLongFunction%3C?%20super%20V%3E,%20long,%20java.util.function.LongBinaryOperator)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.reduceValuesToLong(long, java.util.function.ToLongFunction&lt;? super V&gt;, long, java.util.function.LongBinaryOperator)</code>.</a>
@@ -2206,8 +2676,8 @@
         <InterfaceMember>M:Java.Util.Concurrent.IConcurrentMap.Remove(Java.Lang.Object,Java.Lang.Object)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2229,6 +2699,7 @@
         <returns>the previous value associated with <c>key</c>, or
                     <c>null</c> if there was no mapping for <c>key</c></returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#remove(java.lang.Object,%20java.lang.Object)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.remove(java.lang.Object, java.lang.Object)</code>.</a>
@@ -2255,8 +2726,8 @@
         <InterfaceMember>M:Java.Util.Concurrent.IConcurrentMap.Replace(Java.Lang.Object,Java.Lang.Object)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2278,6 +2749,7 @@
         <returns>the previous value associated with the specified key,
                     or <c>null</c> if there was no mapping for the key</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#replace(K,%20V)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.replace(K, V)</code>.</a>
@@ -2301,8 +2773,8 @@
         <InterfaceMember>M:Java.Util.Concurrent.IConcurrentMap.Replace(Java.Lang.Object,Java.Lang.Object,Java.Lang.Object)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2326,6 +2798,7 @@
         <returns>the previous value associated with the specified key,
                     or <c>null</c> if there was no mapping for the key</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#replace(K,%20V,%20V)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.replace(K, V, V)</code>.</a>
@@ -2356,6 +2829,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("replaceAll", "(Ljava/util/function/BiFunction;)V", "GetReplaceAll_Ljava_util_function_BiFunction_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("replaceAll", "(Ljava/util/function/BiFunction;)V", "GetReplaceAll_Ljava_util_function_BiFunction_Handler", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2391,6 +2868,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -2410,6 +2891,12 @@
         <returns>a non-null result from applying the given search
             function on each (key, value), or null if none</returns>
         <remarks>
+          <para>Returns a non-null result from applying the given search
+            function on each (key, value), or null if none.  Upon
+            success, further element processing is suppressed and the
+            results of any other parallel invocations of the search
+            function are ignored.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#search(long,%20java.util.function.BiFunction%3C?%20super%20K,%20?%20super%20V,%20?%20extends%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.search(long, java.util.function.BiFunction&lt;? super K, ? super V, ? extends U&gt;)</code>.</a>
@@ -2442,6 +2929,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -2461,6 +2952,12 @@
         <returns>a non-null result from applying the given search
             function on each entry, or null if none</returns>
         <remarks>
+          <para>Returns a non-null result from applying the given search
+            function on each entry, or null if none.  Upon success,
+            further element processing is suppressed and the results of
+            any other parallel invocations of the search function are
+            ignored.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#searchEntries(long,%20java.util.function.Function%3Cjava.util.Map.Entry%3CK,%20V%3E,%20?%20extends%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.searchEntries(long, java.util.function.Function&lt;java.util.Map.Entry&lt;K, V&gt;, ? extends U&gt;)</code>.</a>
@@ -2493,6 +2990,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -2512,6 +3013,12 @@
         <returns>a non-null result from applying the given search
             function on each key, or null if none</returns>
         <remarks>
+          <para>Returns a non-null result from applying the given search
+            function on each key, or null if none. Upon success,
+            further element processing is suppressed and the results of
+            any other parallel invocations of the search function are
+            ignored.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#searchKeys(long,%20java.util.function.Function%3C?%20super%20K,%20?%20extends%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.searchKeys(long, java.util.function.Function&lt;? super K, ? extends U&gt;)</code>.</a>
@@ -2544,6 +3051,10 @@
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "U" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "U" })&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -2563,6 +3074,12 @@
         <returns>a non-null result from applying the given search
             function on each value, or null if none</returns>
         <remarks>
+          <para>Returns a non-null result from applying the given search
+            function on each value, or null if none.  Upon success,
+            further element processing is suppressed and the results of
+            any other parallel invocations of the search function are
+            ignored.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ConcurrentHashMap#searchValues(long,%20java.util.function.Function%3C?%20super%20V,%20?%20extends%20U%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ConcurrentHashMap.searchValues(long, java.util.function.Function&lt;? super V, ? extends U&gt;)</code>.</a>
@@ -2583,8 +3100,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.ConcurrentHashMap.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2614,8 +3131,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.ConcurrentHashMap.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

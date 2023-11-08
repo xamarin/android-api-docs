@@ -1,6 +1,6 @@
 <Type Name="IExecutorService" FullName="Java.Util.Concurrent.IExecutorService">
   <TypeSignature Language="C#" Value="public interface IExecutorService : IDisposable, Java.Interop.IJavaPeerable, Java.Util.Concurrent.IExecutor" />
-  <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract IExecutorService implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.Util.Concurrent.IExecutor, class System.IDisposable" />
+  <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract beforefieldinit IExecutorService implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class Java.Util.Concurrent.IExecutor, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Util.Concurrent.IExecutorService" />
   <TypeSignature Language="F#" Value="type IExecutorService = interface&#xA;    interface IExecutor&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
@@ -32,6 +32,89 @@
             methods that can produce a <c>Future</c> for tracking progress of
             one or more asynchronous tasks.</summary>
     <remarks>
+      <para>An <c>Executor</c> that provides methods to manage termination and
+            methods that can produce a <c>Future</c> for tracking progress of
+            one or more asynchronous tasks.</para>
+      <para>An <c>ExecutorService</c> can be shut down, which will cause
+            it to reject new tasks.  Two different methods are provided for
+            shutting down an <c>ExecutorService</c>. The <c>#shutdown</c>
+            method will allow previously submitted tasks to execute before
+            terminating, while the <c>#shutdownNow</c> method prevents waiting
+            tasks from starting and attempts to stop currently executing tasks.
+            Upon termination, an executor has no tasks actively executing, no
+            tasks awaiting execution, and no new tasks can be submitted.  An
+            unused <c>ExecutorService</c> should be shut down to allow
+            reclamation of its resources.</para>
+      <para>Method <c>submit</c> extends base method <c>Executor#execute(Runnable)</c> by creating and returning a <c>Future</c>
+            that can be used to cancel execution and/or wait for completion.
+            Methods <c>invokeAny</c> and <c>invokeAll</c> perform the most
+            commonly useful forms of bulk execution, executing a collection of
+            tasks and then waiting for at least one, or all, to
+            complete. (Class <c>ExecutorCompletionService</c> can be used to
+            write customized variants of these methods.)</para>
+      <para>The <c>Executors</c> class provides factory methods for the
+            executor services provided in this package.
+            
+            &lt;h2&gt;Usage Examples&lt;/h2&gt;
+            
+            Here is a sketch of a network service in which threads in a thread
+            pool service incoming requests. It uses the preconfigured <c>Executors#newFixedThreadPool</c> factory method:</para>
+      <code lang="text/java">{@code
+            class NetworkService implements Runnable {
+              private final ServerSocket serverSocket;
+              private final ExecutorService pool;
+            
+              public NetworkService(int port, int poolSize)
+                  throws IOException {
+                serverSocket = new ServerSocket(port);
+                pool = Executors.newFixedThreadPool(poolSize);
+              }
+            
+              public void run() { // run the service
+                try {
+                  for (;;) {
+                    pool.execute(new Handler(serverSocket.accept()));
+                  }
+                } catch (IOException ex) {
+                  pool.shutdown();
+                }
+              }
+            }
+            
+            class Handler implements Runnable {
+              private final Socket socket;
+              Handler(Socket socket) { this.socket = socket; }
+              public void run() {
+                // read and service request on socket
+              }
+            }}</code>
+      <para>The following method shuts down an <c>ExecutorService</c> in two phases,
+            first by calling <c>shutdown</c> to reject incoming tasks, and then
+            calling <c>shutdownNow</c>, if necessary, to cancel any lingering tasks:</para>
+      <code lang="text/java">{@code
+            void shutdownAndAwaitTermination(ExecutorService pool) {
+              pool.shutdown(); // Disable new tasks from being submitted
+              try {
+                // Wait a while for existing tasks to terminate
+                if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
+                  pool.shutdownNow(); // Cancel currently executing tasks
+                  // Wait a while for tasks to respond to being cancelled
+                  if (!pool.awaitTermination(60, TimeUnit.SECONDS))
+                      System.err.println("Pool did not terminate");
+                }
+              } catch (InterruptedException ex) {
+                // (Re-)Cancel if current thread also interrupted
+                pool.shutdownNow();
+                // Preserve interrupt status
+                Thread.currentThread().interrupt();
+              }
+            }}</code>
+      <para>Memory consistency effects: Actions in a thread prior to the
+            submission of a <c>Runnable</c> or <c>Callable</c> task to an
+            <c>ExecutorService</c>&lt;i&gt;happen-before&lt;/i&gt;
+            any actions taken by that task, which in turn <i>happen-before</i> the
+            result is retrieved via <c>Future.get()</c>.</para>
+      <para>Added in 1.5.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService</code>.</a>
@@ -53,8 +136,8 @@
       <MemberSignature Language="F#" Value="abstract member AwaitTermination : int64 * Java.Util.Concurrent.TimeUnit -&gt; bool" Usage="iExecutorService.AwaitTermination (timeout, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -79,6 +162,9 @@
           <c>true</c> if this executor terminated and
                     <c>false</c> if the timeout elapsed before termination</returns>
         <remarks>
+          <para>Blocks until all tasks have completed execution after a shutdown
+            request, or the timeout occurs, or the current thread is
+            interrupted, whichever happens first.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService#awaitTermination(long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService.awaitTermination(long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -102,8 +188,8 @@
       <MemberSignature Language="F#" Value="abstract member InvokeAll : System.Collections.ICollection -&gt; System.Collections.IList" Usage="iExecutorService.InvokeAll tasks" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -130,6 +216,14 @@
                     sequential order as produced by the iterator for the
                     given task list, each of which has completed</returns>
         <remarks>
+          <para>Executes the given tasks, returning a list of Futures holding
+            their status and results when all complete.
+            <c>Future#isDone</c> is <c>true</c> for each
+            element of the returned list.
+            Note that a &lt;em&gt;completed&lt;/em&gt; task could have
+            terminated either normally or by throwing an exception.
+            The results of this method are undefined if the given
+            collection is modified while this operation is in progress.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService#invokeAll(java.util.Collection%3C?%20extends%20java.util.concurrent.Callable%3CT%3E%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService.invokeAll(java.util.Collection&lt;? extends java.util.concurrent.Callable&lt;T&gt;&gt;)</code>.</a>
@@ -150,8 +244,8 @@
       <MemberSignature Language="F#" Value="abstract member InvokeAll : System.Collections.ICollection * int64 * Java.Util.Concurrent.TimeUnit -&gt; System.Collections.IList" Usage="iExecutorService.InvokeAll (tasks, timeout, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -185,6 +279,16 @@
                     each task will have completed. If it did time out, some
                     of these tasks will not have completed.</returns>
         <remarks>
+          <para>Executes the given tasks, returning a list of Futures holding
+            their status and results
+            when all complete or the timeout expires, whichever happens first.
+            <c>Future#isDone</c> is <c>true</c> for each
+            element of the returned list.
+            Upon return, tasks that have not completed are cancelled.
+            Note that a &lt;em&gt;completed&lt;/em&gt; task could have
+            terminated either normally or by throwing an exception.
+            The results of this method are undefined if the given
+            collection is modified while this operation is in progress.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService#invokeAll(java.util.Collection%3C?%20extends%20java.util.concurrent.Callable%3CT%3E%3E,%20long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService.invokeAll(java.util.Collection&lt;? extends java.util.concurrent.Callable&lt;T&gt;&gt;, long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -205,8 +309,8 @@
       <MemberSignature Language="F#" Value="abstract member InvokeAny : System.Collections.ICollection -&gt; Java.Lang.Object" Usage="iExecutorService.InvokeAny tasks" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -231,6 +335,12 @@
             of one that has completed successfully (i.</summary>
         <returns>the result returned by one of the tasks</returns>
         <remarks>
+          <para>Executes the given tasks, returning the result
+            of one that has completed successfully (i.e., without throwing
+            an exception), if any do. Upon normal or exceptional return,
+            tasks that have not completed are cancelled.
+            The results of this method are undefined if the given
+            collection is modified while this operation is in progress.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService#invokeAny(java.util.Collection%3C?%20extends%20java.util.concurrent.Callable%3CT%3E%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService.invokeAny(java.util.Collection&lt;? extends java.util.concurrent.Callable&lt;T&gt;&gt;)</code>.</a>
@@ -251,8 +361,8 @@
       <MemberSignature Language="F#" Value="abstract member InvokeAny : System.Collections.ICollection * int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Lang.Object" Usage="iExecutorService.InvokeAny (tasks, timeout, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -281,6 +391,13 @@
             of one that has completed successfully (i.</summary>
         <returns>the result returned by one of the tasks</returns>
         <remarks>
+          <para>Executes the given tasks, returning the result
+            of one that has completed successfully (i.e., without throwing
+            an exception), if any do before the given timeout elapses.
+            Upon normal or exceptional return, tasks that have not
+            completed are cancelled.
+            The results of this method are undefined if the given
+            collection is modified while this operation is in progress.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService#invokeAny(java.util.Collection%3C?%20extends%20java.util.concurrent.Callable%3CT%3E%3E,%20long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService.invokeAny(java.util.Collection&lt;? extends java.util.concurrent.Callable&lt;T&gt;&gt;, long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -301,8 +418,8 @@
       <MemberSignature Language="F#" Value="member this.IsShutdown : bool" Usage="Java.Util.Concurrent.IExecutorService.IsShutdown" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -329,8 +446,8 @@
       <MemberSignature Language="F#" Value="member this.IsTerminated : bool" Usage="Java.Util.Concurrent.IExecutorService.IsTerminated" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -357,8 +474,8 @@
       <MemberSignature Language="F#" Value="abstract member Shutdown : unit -&gt; unit" Usage="iExecutorService.Shutdown " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -374,6 +491,12 @@
         <summary>Initiates an orderly shutdown in which previously submitted
             tasks are executed, but no new tasks will be accepted.</summary>
         <remarks>
+          <para>Initiates an orderly shutdown in which previously submitted
+            tasks are executed, but no new tasks will be accepted.
+            Invocation has no additional effect if already shut down.</para>
+          <para>This method does not wait for previously submitted tasks to
+            complete execution.  Use <c>#awaitTermination awaitTermination</c>
+            to do that.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService#shutdown()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService.shutdown()</code>.</a>
@@ -395,8 +518,8 @@
       <MemberSignature Language="F#" Value="abstract member ShutdownNow : unit -&gt; System.Collections.Generic.IList&lt;Java.Lang.IRunnable&gt;" Usage="iExecutorService.ShutdownNow " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -414,6 +537,16 @@
             that were awaiting execution.</summary>
         <returns>list of tasks that never commenced execution</returns>
         <remarks>
+          <para>Attempts to stop all actively executing tasks, halts the
+            processing of waiting tasks, and returns a list of the tasks
+            that were awaiting execution.</para>
+          <para>This method does not wait for actively executing tasks to
+            terminate.  Use <c>#awaitTermination awaitTermination</c> to
+            do that.</para>
+          <para>There are no guarantees beyond best-effort attempts to stop
+            processing actively executing tasks.  For example, typical
+            implementations will cancel via <c>Thread#interrupt</c>, so any
+            task that fails to respond to interrupts may never terminate.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService#shutdownNow()" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService.shutdownNow()</code>.</a>
@@ -435,8 +568,8 @@
       <MemberSignature Language="F#" Value="abstract member Submit : Java.Lang.IRunnable -&gt; Java.Util.Concurrent.IFuture" Usage="iExecutorService.Submit task" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -456,6 +589,9 @@
             representing that task.</summary>
         <returns>a Future representing pending completion of the task</returns>
         <remarks>
+          <para>Submits a Runnable task for execution and returns a Future
+            representing that task. The Future's <c>get</c> method will
+            return <c>null</c> upon &lt;em&gt;successful&lt;/em&gt; completion.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService#submit(java.lang.Runnable)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService.submit(java.lang.Runnable)</code>.</a>
@@ -481,8 +617,8 @@
       <MemberSignature Language="F#" Value="abstract member Submit : Java.Util.Concurrent.ICallable -&gt; Java.Util.Concurrent.IFuture" Usage="iExecutorService.Submit task" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -507,6 +643,17 @@
             Future representing the pending results of the task.</summary>
         <returns>a Future representing pending completion of the task</returns>
         <remarks>
+          <para>Submits a value-returning task for execution and returns a
+            Future representing the pending results of the task. The
+            Future's <c>get</c> method will return the task's result upon
+            successful completion.</para>
+          <para>If you would like to immediately block waiting
+            for a task, you can use constructions of the form
+            <c>result = exec.submit(aCallable).get();</c></para>
+          <para>Note: The <c>Executors</c> class includes a set of methods
+            that can convert some other common closure-like objects,
+            for example, <c>java.security.PrivilegedAction</c> to
+            <c>Callable</c> form so they can be submitted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService#submit(java.util.concurrent.Callable%3CT%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService.submit(java.util.concurrent.Callable&lt;T&gt;)</code>.</a>
@@ -527,8 +674,8 @@
       <MemberSignature Language="F#" Value="abstract member Submit : Java.Lang.IRunnable * Java.Lang.Object -&gt; Java.Util.Concurrent.IFuture" Usage="iExecutorService.Submit (task, result)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -555,6 +702,9 @@
             representing that task.</summary>
         <returns>a Future representing pending completion of the task</returns>
         <remarks>
+          <para>Submits a Runnable task for execution and returns a Future
+            representing that task. The Future's <c>get</c> method will
+            return the given result upon successful completion.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/ExecutorService#submit(java.lang.Runnable,%20T)" title="Reference documentation">Java documentation for <code>java.util.concurrent.ExecutorService.submit(java.lang.Runnable, T)</code>.</a>

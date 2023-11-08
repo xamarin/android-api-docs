@@ -16,11 +16,120 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/service/quickaccesswallet/QuickAccessWalletService", ApiSince=30, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/service/quickaccesswallet/QuickAccessWalletService", ApiSince=30, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>A <c>QuickAccessWalletService</c> provides a list of <c>WalletCard</c>s shown in the Quick
             Access Wallet.</summary>
     <remarks>
+      <para>A <c>QuickAccessWalletService</c> provides a list of <c>WalletCard</c>s shown in the Quick
+            Access Wallet. The Quick Access Wallet allows the user to change their selected payment method
+            and access other important passes, such as tickets and transit passes, without leaving the
+            context of their current app.</para>
+      <para>An <c>QuickAccessWalletService</c> is only bound to the Android System for the purposes of
+            showing wallet cards if:
+            &lt;ol&gt;
+              &lt;li&gt;The application hosting the QuickAccessWalletService is also the default NFC payment
+              application. This means that the same application must also have a
+              <c>android.nfc.cardemulation.HostApduService</c> or
+              <c>android.nfc.cardemulation.OffHostApduService</c> that requires the
+              android.permission.BIND_NFC_SERVICE permission.
+              &lt;li&gt;The user explicitly selected the application as the default payment application in
+              the Tap &amp;amp; pay settings screen.
+              &lt;li&gt;The QuickAccessWalletService requires that the binding application hold the
+              <c>android.permission.BIND_QUICK_ACCESS_WALLET_SERVICE</c> permission, which only the System
+              Service can hold.
+              &lt;li&gt;The user explicitly enables it using Android Settings (the
+                  <c>Settings#ACTION_QUICK_ACCESS_WALLET_SETTINGS</c> intent can be used to launch it).
+            &lt;/ol&gt;
+            
+            "BasicUsage"&gt;&lt;h3&gt;Basic usage&lt;/h3&gt;</para>
+      <para>The basic Quick Access Wallet process is defined by the workflow below:
+            &lt;ol&gt;
+              &lt;li&gt;User performs a gesture to bring up the Quick Access Wallet, which is displayed by the
+              Android System.
+              &lt;li&gt;The Android System creates a <c>GetWalletCardsRequest</c>, binds to the
+              <c>QuickAccessWalletService</c>, and delivers the request.
+              &lt;li&gt;The service receives the request through <c>#onWalletCardsRequested</c>&lt;li&gt;The service responds by calling <c>GetWalletCardsCallback#onSuccess</c> with a
+              <c>GetWalletCardsResponse response</c> that contains between 1 and
+              <c>GetWalletCardsRequest#getMaxCards() maxCards</c> cards.
+              &lt;li&gt;The Android System displays the Quick Access Wallet containing the provided cards. The
+              card at the <c>GetWalletCardsResponse#getSelectedIndex() selectedIndex</c> will initially
+              be presented as the 'selected' card.
+              &lt;li&gt;As soon as the cards are displayed, the Android System will notify the service that the
+              card at the selected index has been selected through <c>#onWalletCardSelected</c>.
+              &lt;li&gt;The user interacts with the wallet and may select one or more cards in sequence. Each time
+              a new card is selected, the Android System will notify the service through
+              <c>#onWalletCardSelected</c> and will provide the <c>WalletCard#getCardId() cardId</c> of the
+              card that is now selected.
+              &lt;li&gt;If the user commences an NFC payment, the service may send a <c>WalletServiceEvent</c>
+              to the System indicating that the wallet application now needs to show the activity associated
+              with making a payment. Sending a <c>WalletServiceEvent</c> of type
+              <c>WalletServiceEvent#TYPE_NFC_PAYMENT_STARTED</c> should cause the quick access wallet UI
+              to be dismissed.
+              &lt;li&gt;When the wallet is dismissed, the Android System will notify the service through
+              <c>#onWalletDismissed</c>.
+            &lt;/ol&gt;</para>
+      <para>The workflow is designed to minimize the time that the Android System is bound to the
+            service, but connections may be cached and reused to improve performance and conserve memory.
+            All calls should be considered stateless: if the service needs to keep state between calls, it
+            must do its own state management (keeping in mind that the service's process might be killed
+            by the Android System when unbound; for example, if the device is running low in memory).</para>
+      <para>"ErrorHandling"&gt;&lt;h3&gt;Error handling&lt;/h3&gt;</para>
+      <para>If the service encountered an error processing the request, it should call
+            <c>GetWalletCardsCallback#onFailure</c>.
+            For performance reasons, it's paramount that the service calls either
+            <c>GetWalletCardsCallback#onSuccess</c> or
+            <c>GetWalletCardsCallback#onFailure</c> for each
+            <c>#onWalletCardsRequested</c> received - if it doesn't, the request will eventually time out
+            and be discarded by the Android System.</para>
+      <para>"ManifestEntry"&gt;&lt;h3&gt;Manifest entry&lt;/h3&gt;</para>
+      <para>QuickAccessWalletService must require the permission
+            "android.permission.BIND_QUICK_ACCESS_WALLET_SERVICE".</para>
+      <code lang="text/java">{@literal
+            &lt;service
+                android:name=".MyQuickAccessWalletService"
+                android:label="@string/my_default_tile_label"
+                android:icon="@drawable/my_default_icon_label"
+                android:logo="@drawable/my_wallet_logo"
+                android:permission="android.permission.BIND_QUICK_ACCESS_WALLET_SERVICE"&gt;
+                &lt;intent-filter&gt;
+                    &lt;action android:name="android.service.quickaccesswallet.QuickAccessWalletService" /&gt;
+                    &lt;category android:name="android.intent.category.DEFAULT"/&gt;
+                &lt;/intent-filter&gt;
+                &lt;meta-data android:name="android.quickaccesswallet"
+                     android:resource="@xml/quickaccesswallet_configuration" /&gt;;
+            &lt;/service&gt;}
+            </code>
+      <para>The &lt;meta-data&gt; element includes an android:resource attribute that points to an
+            XML resource with further details about the service. The <c>quickaccesswallet_configuration</c>
+            in the example above specifies an activity that allows the users to view the entire wallet.
+            The following example shows the quickaccesswallet_configuration XML resource:</para>
+      <para />
+      <code lang="text/java">{@literal
+            &lt;quickaccesswallet-service
+              xmlns:android="http://schemas.android.com/apk/res/android"
+              android:settingsActivity="com.example.android.SettingsActivity"
+              android:shortcutLongLabel="@string/my_wallet_empty_state_text"
+              android:shortcutShortLabel="@string/my_wallet_button_text"
+              android:targetActivity="com.example.android.WalletActivity"/&gt;
+            }
+            </code>
+      <para>The entry for <c>settingsActivity</c> should contain the fully qualified class name of an
+            activity that allows the user to modify the settings for this service. The <c>targetActivity</c>
+            entry should contain the fully qualified class name of an activity that allows the user to view
+            their entire wallet. The <c>targetActivity</c> will be started with the Intent action
+            <c>#ACTION_VIEW_WALLET</c> and the <c>settingsActivity</c> will be started with the Intent
+            action <c>#ACTION_VIEW_WALLET_SETTINGS</c>.</para>
+      <para>The <c>shortcutShortLabel</c> and <c>shortcutLongLabel</c> are used by the QuickAccessWallet
+            in the buttons that navigate to the wallet app. The <c>shortcutShortLabel</c> is displayed next
+            to the cards that are returned by the service and should be no more than 20 characters. The
+            <c>shortcutLongLabel</c> is displayed when no cards are returned. This 'empty state' view also
+            displays the service logo, specified by the <c>android:logo</c> manifest entry. If the logo is
+            not specified, the empty state view will show the app icon instead.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService</code>.</a>
@@ -47,6 +156,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "()V", "", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "()V", "", ApiSince=30)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <Parameters />
@@ -91,6 +204,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("ACTION_VIEW_WALLET", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("ACTION_VIEW_WALLET", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -98,6 +215,7 @@
       <Docs>
         <summary>Intent action to launch an activity to display the wallet.</summary>
         <remarks>
+          <para>Intent action to launch an activity to display the wallet.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#ACTION_VIEW_WALLET" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.ACTION_VIEW_WALLET</code>.</a>
@@ -126,6 +244,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("ACTION_VIEW_WALLET_SETTINGS", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("ACTION_VIEW_WALLET_SETTINGS", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -133,6 +255,7 @@
       <Docs>
         <summary>Intent action to launch an activity to display quick access wallet settings.</summary>
         <remarks>
+          <para>Intent action to launch an activity to display quick access wallet settings.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#ACTION_VIEW_WALLET_SETTINGS" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.ACTION_VIEW_WALLET_SETTINGS</code>.</a>
@@ -190,6 +313,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onBind", "(Landroid/content/Intent;)Landroid/os/IBinder;", "GetOnBind_Landroid_content_Intent_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onBind", "(Landroid/content/Intent;)Landroid/os/IBinder;", "GetOnBind_Landroid_content_Intent_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.OS.IBinder</ReturnType>
@@ -219,6 +346,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onWalletCardSelected", "(Landroid/service/quickaccesswallet/SelectWalletCardRequest;)V", "GetOnWalletCardSelected_Landroid_service_quickaccesswallet_SelectWalletCardRequest_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onWalletCardSelected", "(Landroid/service/quickaccesswallet/SelectWalletCardRequest;)V", "GetOnWalletCardSelected_Landroid_service_quickaccesswallet_SelectWalletCardRequest_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -230,6 +361,14 @@
         <param name="request">To be added.</param>
         <summary>A wallet card was selected.</summary>
         <remarks>
+          <para>A wallet card was selected. Sent when the user selects a wallet card from the list of cards.
+            Selection may indicate that the card is now in the center of the screen, or highlighted in
+            some other fashion. It does not mean that the user clicked on the card -- clicking on the
+            card will cause the <c>WalletCard#getPendingIntent()</c> to be sent.</para>
+          <para>Card selection events are especially important to NFC payment applications because
+            many NFC terminals can only accept one payment card at a time. If the user has several NFC
+            cards in their wallet, selecting different cards can change which payment method is presented
+            to the terminal.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#onWalletCardSelected(android.service.quickaccesswallet.SelectWalletCardRequest)" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.onWalletCardSelected(android.service.quickaccesswallet.SelectWalletCardRequest)</code>.</a>
@@ -258,6 +397,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onWalletCardsRequested", "(Landroid/service/quickaccesswallet/GetWalletCardsRequest;Landroid/service/quickaccesswallet/GetWalletCardsCallback;)V", "GetOnWalletCardsRequested_Landroid_service_quickaccesswallet_GetWalletCardsRequest_Landroid_service_quickaccesswallet_GetWalletCardsCallback_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onWalletCardsRequested", "(Landroid/service/quickaccesswallet/GetWalletCardsRequest;Landroid/service/quickaccesswallet/GetWalletCardsCallback;)V", "GetOnWalletCardsRequested_Landroid_service_quickaccesswallet_GetWalletCardsRequest_Landroid_service_quickaccesswallet_GetWalletCardsCallback_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -271,6 +414,11 @@
         <param name="callback">To be added.</param>
         <summary>Called when the user requests the service to provide wallet cards.</summary>
         <remarks>
+          <para>Called when the user requests the service to provide wallet cards.</para>
+          <para>This method will be called on the main thread, but the callback may be called from any
+            thread. The callback should be called as quickly as possible. The service must always call
+            either <c>GetWalletCardsCallback#onSuccess(GetWalletCardsResponse)</c> or <c>GetWalletCardsCallback#onFailure(GetWalletCardsError)</c>. Calling multiple times or calling
+            both methods will cause an exception to be thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#onWalletCardsRequested(android.service.quickaccesswallet.GetWalletCardsRequest,%20android.service.quickaccesswallet.GetWalletCardsCallback)" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.onWalletCardsRequested(android.service.quickaccesswallet.GetWalletCardsRequest, android.service.quickaccesswallet.GetWalletCardsCallback)</code>.</a>
@@ -299,6 +447,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onWalletDismissed", "()V", "GetOnWalletDismissedHandler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onWalletDismissed", "()V", "GetOnWalletDismissedHandler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -307,6 +459,8 @@
       <Docs>
         <summary>Indicates that the wallet was dismissed.</summary>
         <remarks>
+          <para>Indicates that the wallet was dismissed. This is received when the Quick Access Wallet is no
+            longer visible.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#onWalletDismissed()" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.onWalletDismissed()</code>.</a>
@@ -335,6 +489,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("sendWalletServiceEvent", "(Landroid/service/quickaccesswallet/WalletServiceEvent;)V", "", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("sendWalletServiceEvent", "(Landroid/service/quickaccesswallet/WalletServiceEvent;)V", "", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -346,6 +504,11 @@
         <param name="serviceEvent">To be added.</param>
         <summary>Send a <c>WalletServiceEvent</c> to the Quick Access Wallet.</summary>
         <remarks>
+          <para>Send a <c>WalletServiceEvent</c> to the Quick Access Wallet.</para>
+          <para>Background events may require that the Quick Access Wallet view be updated. For example, if
+            the wallet application hosting this service starts to handle an NFC payment while the Quick
+            Access Wallet is being shown, the Quick Access Wallet will need to be dismissed so that the
+            Activity showing the payment can be displayed to the user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#sendWalletServiceEvent(android.service.quickaccesswallet.WalletServiceEvent)" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.sendWalletServiceEvent(android.service.quickaccesswallet.WalletServiceEvent)</code>.</a>
@@ -374,6 +537,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("SERVICE_INTERFACE", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("SERVICE_INTERFACE", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -381,6 +548,10 @@
       <Docs>
         <summary>The <c>Intent</c> that must be declared as handled by the service.</summary>
         <remarks>
+          <para>The <c>Intent</c> that must be declared as handled by the service. To be supported, the
+            service must also require the
+            <c>android.Manifest.permission#BIND_QUICK_ACCESS_WALLET_SERVICE</c>
+            permission so that other applications can not abuse it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#SERVICE_INTERFACE" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.SERVICE_INTERFACE</code>.</a>
@@ -409,6 +580,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("SERVICE_META_DATA", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("SERVICE_META_DATA", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -416,6 +591,15 @@
       <Docs>
         <summary>Name under which a QuickAccessWalletService component publishes information about itself.</summary>
         <remarks>
+          <para>Name under which a QuickAccessWalletService component publishes information about itself.
+            This meta-data should reference an XML resource containing a
+            <c>&amp;lt;{@link
+            android.R.styleable#QuickAccessWalletService quickaccesswallet-service}&amp;gt;</c> tag. This
+            is a a sample XML file configuring an QuickAccessWalletService:</para>
+          <code lang="text/java">&amp;lt;quickaccesswallet-service
+                android:walletActivity="foo.bar.WalletActivity"
+                . . .
+            /&amp;gt;</code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#SERVICE_META_DATA" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.SERVICE_META_DATA</code>.</a>
@@ -441,6 +625,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getTargetActivityPendingIntent", "()Landroid/app/PendingIntent;", "GetGetTargetActivityPendingIntentHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getTargetActivityPendingIntent", "()Landroid/app/PendingIntent;", "GetGetTargetActivityPendingIntentHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -452,6 +640,12 @@
         <summary>Specify a <c>PendingIntent</c> to be launched as the "Quick Access" activity.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Specify a <c>PendingIntent</c> to be launched as the "Quick Access" activity.
+            
+            This activity will be launched directly by the system in lieu of the card switcher activity
+            provided by the system.
+            
+            In order to use the system-provided card switcher activity, return null from this method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/quickaccesswallet/QuickAccessWalletService#getTargetActivityPendingIntent()" title="Reference documentation">Java documentation for <code>android.service.quickaccesswallet.QuickAccessWalletService.getTargetActivityPendingIntent()</code>.</a>

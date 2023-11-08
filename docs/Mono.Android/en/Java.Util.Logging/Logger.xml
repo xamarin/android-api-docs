@@ -21,6 +21,157 @@
     <summary>A Logger object is used to log messages for a specific
             system or application component.</summary>
     <remarks>
+      <para>A Logger object is used to log messages for a specific
+            system or application component.  Loggers are normally named,
+            using a hierarchical dot-separated namespace.  Logger names
+            can be arbitrary strings, but they should normally be based on
+            the package name or class name of the logged component, such
+            as java.net or javax.swing.  In addition it is possible to create
+            "anonymous" Loggers that are not stored in the Logger namespace.</para>
+      <para>Logger objects may be obtained by calls on one of the getLogger
+            factory methods.  These will either create a new Logger or
+            return a suitable existing Logger. It is important to note that
+            the Logger returned by one of the <c>getLogger</c> factory methods
+            may be garbage collected at any time if a strong reference to the
+            Logger is not kept.</para>
+      <para>Logging messages will be forwarded to registered Handler
+            objects, which can forward the messages to a variety of
+            destinations, including consoles, files, OS logs, etc.</para>
+      <para>Each Logger keeps track of a "parent" Logger, which is its
+            nearest existing ancestor in the Logger namespace.</para>
+      <para>Each Logger has a "Level" associated with it.  This reflects
+            a minimum Level that this logger cares about.  If a Logger's
+            level is set to <c>null</c>, then its effective level is inherited
+            from its parent, which may in turn obtain it recursively from its
+            parent, and so on up the tree.</para>
+      <para>The log level can be configured based on the properties from the
+            logging configuration file, as described in the description
+            of the LogManager class.  However it may also be dynamically changed
+            by calls on the Logger.setLevel method.  If a logger's level is
+            changed the change may also affect child loggers, since any child
+            logger that has <c>null</c> as its level will inherit its
+            effective level from its parent.</para>
+      <para>On each logging call the Logger initially performs a cheap
+            check of the request level (e.g., SEVERE or FINE) against the
+            effective log level of the logger.  If the request level is
+            lower than the log level, the logging call returns immediately.</para>
+      <para>After passing this initial (cheap) test, the Logger will allocate
+            a LogRecord to describe the logging message.  It will then call a
+            Filter (if present) to do a more detailed check on whether the
+            record should be published.  If that passes it will then publish
+            the LogRecord to its output Handlers.  By default, loggers also
+            publish to their parent's Handlers, recursively up the tree.</para>
+      <para>Each Logger may have a <c>ResourceBundle</c> associated with it.
+            The <c>ResourceBundle</c> may be specified by name, using the
+            <c>#getLogger(java.lang.String, java.lang.String)</c> factory
+            method, or by value - using the <c>#setResourceBundle(java.util.ResourceBundle) setResourceBundle</c> method.
+            This bundle will be used for localizing logging messages.
+            If a Logger does not have its own <c>ResourceBundle</c> or resource bundle
+            name, then it will inherit the <c>ResourceBundle</c> or resource bundle name
+            from its parent, recursively up the tree.</para>
+      <para>Most of the logger output methods take a "msg" argument.  This
+            msg argument may be either a raw value or a localization key.
+            During formatting, if the logger has (or inherits) a localization
+            <c>ResourceBundle</c> and if the <c>ResourceBundle</c> has a mapping for
+            the msg string, then the msg string is replaced by the localized value.
+            Otherwise the original msg string is used.  Typically, formatters use
+            java.text.MessageFormat style formatting to format parameters, so
+            for example a format string "{0}{1}" would format two parameters
+            as strings.</para>
+      <para>A set of methods alternatively take a "msgSupplier" instead of a "msg"
+            argument.  These methods take a <c>Supplier</c><c>&lt;String&gt;</c> function
+            which is invoked to construct the desired log message only when the message
+            actually is to be logged based on the effective log level thus eliminating
+            unnecessary message construction. For example, if the developer wants to
+            log system health status for diagnosis, with the String-accepting version,
+            the code would look like:</para>
+      <code lang="text/java">&lt;code&gt;
+            
+               class DiagnosisMessages {
+                 static String systemHealthStatus() {
+                   // collect system health information
+                   ...
+                 }
+               }
+               ...
+               logger.log(Level.FINER, DiagnosisMessages.systemHealthStatus());
+            &lt;/code&gt;</code>
+      <para>With the above code, the health status is collected unnecessarily even when
+            the log level FINER is disabled. With the Supplier-accepting version as
+            below, the status will only be collected when the log level FINER is
+            enabled.</para>
+      <code lang="text/java">&lt;code&gt;
+            
+               logger.log(Level.FINER, DiagnosisMessages::systemHealthStatus);
+            &lt;/code&gt;</code>
+      <para>When looking for a <c>ResourceBundle</c>, the logger will first look at
+            whether a bundle was specified using <c>#setResourceBundle(java.util.ResourceBundle) setResourceBundle</c>, and then
+            only whether a resource bundle name was specified through the <c>#getLogger(java.lang.String, java.lang.String) getLogger</c> factory method.
+            If no <c>ResourceBundle</c> or no resource bundle name is found,
+            then it will use the nearest <c>ResourceBundle</c> or resource bundle
+            name inherited from its parent tree.&lt;br&gt;
+            When a <c>ResourceBundle</c> was inherited or specified through the
+            <c>#setResourceBundle(java.util.ResourceBundle) setResourceBundle</c> method, then
+            that <c>ResourceBundle</c> will be used. Otherwise if the logger only
+            has or inherited a resource bundle name, then that resource bundle name
+            will be mapped to a <c>ResourceBundle</c> object, using the default Locale
+            at the time of logging.
+            &lt;br id="ResourceBundleMapping"&gt;When mapping resource bundle names to
+            <c>ResourceBundle</c> objects, the logger will first try to use the
+            Thread's java.lang.Thread#getContextClassLoader() context class
+            loader to map the given resource bundle name to a <c>ResourceBundle</c>.
+            If the thread context class loader is <c>null</c>, it will try the
+            java.lang.ClassLoader#getSystemClassLoader() system class loader
+            instead.  If the <c>ResourceBundle</c> is still not found, it will use the
+            class loader of the first caller of the <c>#getLogger(java.lang.String, java.lang.String) getLogger</c> factory method.</para>
+      <para>Formatting (including localization) is the responsibility of
+            the output Handler, which will typically call a Formatter.</para>
+      <para>Note that formatting need not occur synchronously.  It may be delayed
+            until a LogRecord is actually written to an external sink.</para>
+      <para>The logging methods are grouped in five main categories:
+            &lt;ul&gt;
+            &lt;li&gt;</para>
+      <para>There are a set of "log" methods that take a log level, a message
+                string, and optionally some parameters to the message string.
+            &lt;li&gt;</para>
+      <para>There are a set of "logp" methods (for "log precise") that are
+                like the "log" methods, but also take an explicit source class name
+                and method name.
+            &lt;li&gt;</para>
+      <para>There are a set of "logrb" method (for "log with resource bundle")
+                that are like the "logp" method, but also take an explicit resource
+                bundle object for use in localizing the log message.
+            &lt;li&gt;</para>
+      <para>There are convenience methods for tracing method entries (the
+                "entering" methods), method returns (the "exiting" methods) and
+                throwing exceptions (the "throwing" methods).
+            &lt;li&gt;</para>
+      <para>Finally, there are a set of convenience methods for use in the
+                very simplest cases, when a developer simply wants to log a
+                simple string at a given log level.  These methods are named
+                after the standard Level names ("severe", "warning", "info", etc.)
+                and take a single argument, a message string.
+            &lt;/ul&gt;</para>
+      <para>For the methods that do not take an explicit source name and
+            method name, the Logging framework will make a "best effort"
+            to determine which class and method called into the logging method.
+            However, it is important to realize that this automatically inferred
+            information may only be approximate (or may even be quite wrong!).
+            Virtual machines are allowed to do extensive optimizations when
+            JITing and may entirely remove stack frames, making it impossible
+            to reliably locate the calling class and method.</para>
+      <para>All methods on Logger are multi-thread safe.</para>
+      <para>&lt;b&gt;Subclassing Information:&lt;/b&gt; Note that a LogManager class may
+            provide its own implementation of named Loggers for any point in
+            the namespace.  Therefore, any subclasses of Logger (unless they
+            are implemented in conjunction with a new LogManager class) should
+            take care to obtain a Logger instance from the LogManager class and
+            should delegate operations such as "isLoggable" and "log(LogRecord)"
+            to that instance.  Note that in order to intercept all logging
+            output, subclasses need only override the log(LogRecord) method.
+            All the other logging methods are implemented as calls on this
+            log(LogRecord) method.</para>
+      <para>Added in 1.4.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/logging/Logger" title="Reference documentation">Java documentation for <code>java.util.logging.Logger</code>.</a>
@@ -42,8 +193,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Logging.Logger : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Logging.Logger" Usage="new Java.Util.Logging.Logger (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -65,8 +216,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Logging.Logger : string * string -&gt; Java.Util.Logging.Logger" Usage="new Java.Util.Logging.Logger (name, resourceBundleName)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -89,6 +240,9 @@
                                      of the messages require localization.</param>
         <summary>Protected method to construct a logger for a named subsystem.</summary>
         <remarks>
+          <para>Protected method to construct a logger for a named subsystem.</para>
+          <para>The logger will be initially configured with a null Level
+            and with useParentHandlers set to true.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#Logger(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.Logger(java.lang.String, java.lang.String)</code>.</a>
@@ -112,8 +266,8 @@
       <MemberSignature Language="F#" Value="abstract member AddHandler : Java.Util.Logging.Handler -&gt; unit&#xA;override this.AddHandler : Java.Util.Logging.Handler -&gt; unit" Usage="logger.AddHandler handler" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -131,6 +285,10 @@
         <param name="handler">a logging Handler</param>
         <summary>Add a log Handler to receive logging messages.</summary>
         <remarks>
+          <para>Add a log Handler to receive logging messages.</para>
+          <para>By default, Loggers also send their output to their parent logger.
+            Typically the root Logger is configured with a set of Handlers
+            that essentially act as default handlers for all loggers.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#addHandler(java.util.logging.Handler)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.addHandler(java.util.logging.Handler)</code>.</a>
@@ -149,11 +307,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.Logging.Logger AnonymousLogger { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.Logging.Logger AnonymousLogger" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Logging.Logger.AnonymousLogger" />
-      <MemberSignature Language="F#" Value="member this.AnonymousLogger : Java.Util.Logging.Logger" Usage="Java.Util.Logging.Logger.AnonymousLogger" />
+      <MemberSignature Language="F#" Value="static member AnonymousLogger : Java.Util.Logging.Logger" Usage="Java.Util.Logging.Logger.AnonymousLogger" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -168,6 +326,22 @@
         <summary>Create an anonymous Logger.</summary>
         <value>a newly created private Logger</value>
         <remarks>
+          <para>Create an anonymous Logger.  The newly created Logger is not
+            registered in the LogManager namespace.  There will be no
+            access checks on updates to the logger.</para>
+          <para>This factory method is primarily intended for use from applets.
+            Because the resulting Logger is anonymous it can be kept private
+            by the creating class.  This removes the need for normal security
+            checks, which in turn allows untrusted applet code to update
+            the control state of the Logger.  For example an applet can do
+            a setLevel or an addHandler on an anonymous Logger.</para>
+          <para>Even although the new logger is anonymous, it is configured
+            to have the root logger ("") as its parent.  This means that
+            by default it inherits its effective level and handlers
+            from the root logger. Changing its parent via the
+            <c>#setParent(java.util.logging.Logger) setParent</c> method
+            will still require the security permission specified by that method.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getAnonymousLogger()" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getAnonymousLogger()</code>.</a>
@@ -197,6 +371,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("config", "(Ljava/util/function/Supplier;)V", "GetConfig_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("config", "(Ljava/util/function/Supplier;)V", "GetConfig_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -210,6 +388,14 @@
         <summary>Log a CONFIG message, which is only to be constructed if the logging
             level is such that the message will actually be logged.</summary>
         <remarks>
+          <para>Log a CONFIG message, which is only to be constructed if the logging
+            level is such that the message will actually be logged.</para>
+          <para>If the logger is currently enabled for the CONFIG message
+            level then the message is constructed by invoking the provided
+            supplier function and forwarded to all the registered output
+            Handler objects.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#config(java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.config(java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -230,8 +416,8 @@
       <MemberSignature Language="F#" Value="abstract member Config : string -&gt; unit&#xA;override this.Config : string -&gt; unit" Usage="logger.Config msg" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -249,6 +435,11 @@
         <param name="msg">The string message (or a key in the message catalog)</param>
         <summary>Log a CONFIG message.</summary>
         <remarks>
+          <para>Log a CONFIG message.</para>
+          <para>If the logger is currently enabled for the CONFIG message
+            level then the given message is forwarded to all the
+            registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#config(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.config(java.lang.String)</code>.</a>
@@ -270,8 +461,8 @@
       <MemberSignature Language="F#" Value="abstract member Entering : string * string -&gt; unit&#xA;override this.Entering : string * string -&gt; unit" Usage="logger.Entering (sourceClass, sourceMethod)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -291,6 +482,11 @@
         <param name="sourceMethod">name of method that is being entered</param>
         <summary>Log a method entry.</summary>
         <remarks>
+          <para>Log a method entry.</para>
+          <para>This is a convenience method that can be used to log entry
+            to a method.  A LogRecord with message "ENTRY", log level
+            FINER, and the given sourceMethod and sourceClass is logged.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#entering(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.entering(java.lang.String, java.lang.String)</code>.</a>
@@ -312,8 +508,8 @@
       <MemberSignature Language="F#" Value="abstract member Entering : string * string * Java.Lang.Object -&gt; unit&#xA;override this.Entering : string * string * Java.Lang.Object -&gt; unit" Usage="logger.Entering (sourceClass, sourceMethod, param1)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -335,6 +531,12 @@
         <param name="param1">parameter to the method being entered</param>
         <summary>Log a method entry, with one parameter.</summary>
         <remarks>
+          <para>Log a method entry, with one parameter.</para>
+          <para>This is a convenience method that can be used to log entry
+            to a method.  A LogRecord with message "ENTRY {0}", log level
+            FINER, and the given sourceMethod, sourceClass, and parameter
+            is logged.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#entering(java.lang.String,%20java.lang.String,%20java.lang.Object)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.entering(java.lang.String, java.lang.String, java.lang.Object)</code>.</a>
@@ -356,8 +558,8 @@
       <MemberSignature Language="F#" Value="abstract member Entering : string * string * Java.Lang.Object[] -&gt; unit&#xA;override this.Entering : string * string * Java.Lang.Object[] -&gt; unit" Usage="logger.Entering (sourceClass, sourceMethod, params)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -379,6 +581,13 @@
         <param name="params">array of parameters to the method being entered</param>
         <summary>Log a method entry, with an array of parameters.</summary>
         <remarks>
+          <para>Log a method entry, with an array of parameters.</para>
+          <para>This is a convenience method that can be used to log entry
+            to a method.  A LogRecord with message "ENTRY" (followed by a
+            format {N} indicator for each entry in the parameter array),
+            log level FINER, and the given sourceMethod, sourceClass, and
+            parameters is logged.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#entering(java.lang.String,%20java.lang.String,%20java.lang.Object[])" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.entering(java.lang.String, java.lang.String, java.lang.Object[])</code>.</a>
@@ -400,8 +609,8 @@
       <MemberSignature Language="F#" Value="abstract member Exiting : string * string -&gt; unit&#xA;override this.Exiting : string * string -&gt; unit" Usage="logger.Exiting (sourceClass, sourceMethod)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -421,6 +630,11 @@
         <param name="sourceMethod">name of the method</param>
         <summary>Log a method return.</summary>
         <remarks>
+          <para>Log a method return.</para>
+          <para>This is a convenience method that can be used to log returning
+            from a method.  A LogRecord with message "RETURN", log level
+            FINER, and the given sourceMethod and sourceClass is logged.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#exiting(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.exiting(java.lang.String, java.lang.String)</code>.</a>
@@ -442,8 +656,8 @@
       <MemberSignature Language="F#" Value="abstract member Exiting : string * string * Java.Lang.Object -&gt; unit&#xA;override this.Exiting : string * string * Java.Lang.Object -&gt; unit" Usage="logger.Exiting (sourceClass, sourceMethod, result)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -465,6 +679,12 @@
         <param name="result">Object that is being returned</param>
         <summary>Log a method return, with result object.</summary>
         <remarks>
+          <para>Log a method return, with result object.</para>
+          <para>This is a convenience method that can be used to log returning
+            from a method.  A LogRecord with message "RETURN {0}", log level
+            FINER, and the gives sourceMethod, sourceClass, and result
+            object is logged.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#exiting(java.lang.String,%20java.lang.String,%20java.lang.Object)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.exiting(java.lang.String, java.lang.String, java.lang.Object)</code>.</a>
@@ -486,8 +706,8 @@
       <MemberSignature Language="F#" Value="member this.Filter : Java.Util.Logging.IFilter with get, set" Usage="Java.Util.Logging.Logger.Filter" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -508,12 +728,17 @@
         <value>a filter object (may be null)</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Get the current filter for this Logger.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getFilter()" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getFilter()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set a filter to control output on this Logger.</para>
+          <para>After passing the initial "level" check, the Logger will
+            call this Filter to check if a log record should really
+            be published.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#setFilter(java.util.logging.Filter)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.setFilter(java.util.logging.Filter)</code>.</a>
@@ -543,6 +768,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("fine", "(Ljava/util/function/Supplier;)V", "GetFine_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("fine", "(Ljava/util/function/Supplier;)V", "GetFine_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -556,6 +785,14 @@
         <summary>Log a FINE message, which is only to be constructed if the logging
             level is such that the message will actually be logged.</summary>
         <remarks>
+          <para>Log a FINE message, which is only to be constructed if the logging
+            level is such that the message will actually be logged.</para>
+          <para>If the logger is currently enabled for the FINE message
+            level then the message is constructed by invoking the provided
+            supplier function and forwarded to all the registered output
+            Handler objects.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#fine(java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.fine(java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -576,8 +813,8 @@
       <MemberSignature Language="F#" Value="abstract member Fine : string -&gt; unit&#xA;override this.Fine : string -&gt; unit" Usage="logger.Fine msg" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -595,6 +832,11 @@
         <param name="msg">The string message (or a key in the message catalog)</param>
         <summary>Log a FINE message.</summary>
         <remarks>
+          <para>Log a FINE message.</para>
+          <para>If the logger is currently enabled for the FINE message
+            level then the given message is forwarded to all the
+            registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#fine(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.fine(java.lang.String)</code>.</a>
@@ -624,6 +866,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("finer", "(Ljava/util/function/Supplier;)V", "GetFiner_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("finer", "(Ljava/util/function/Supplier;)V", "GetFiner_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -637,6 +883,14 @@
         <summary>Log a FINER message, which is only to be constructed if the logging
             level is such that the message will actually be logged.</summary>
         <remarks>
+          <para>Log a FINER message, which is only to be constructed if the logging
+            level is such that the message will actually be logged.</para>
+          <para>If the logger is currently enabled for the FINER message
+            level then the message is constructed by invoking the provided
+            supplier function and forwarded to all the registered output
+            Handler objects.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#finer(java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.finer(java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -657,8 +911,8 @@
       <MemberSignature Language="F#" Value="abstract member Finer : string -&gt; unit&#xA;override this.Finer : string -&gt; unit" Usage="logger.Finer msg" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -676,6 +930,11 @@
         <param name="msg">The string message (or a key in the message catalog)</param>
         <summary>Log a FINER message.</summary>
         <remarks>
+          <para>Log a FINER message.</para>
+          <para>If the logger is currently enabled for the FINER message
+            level then the given message is forwarded to all the
+            registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#finer(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.finer(java.lang.String)</code>.</a>
@@ -705,6 +964,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("finest", "(Ljava/util/function/Supplier;)V", "GetFinest_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("finest", "(Ljava/util/function/Supplier;)V", "GetFinest_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -718,6 +981,14 @@
         <summary>Log a FINEST message, which is only to be constructed if the logging
             level is such that the message will actually be logged.</summary>
         <remarks>
+          <para>Log a FINEST message, which is only to be constructed if the logging
+            level is such that the message will actually be logged.</para>
+          <para>If the logger is currently enabled for the FINEST message
+            level then the message is constructed by invoking the provided
+            supplier function and forwarded to all the registered output
+            Handler objects.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#finest(java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.finest(java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -738,8 +1009,8 @@
       <MemberSignature Language="F#" Value="abstract member Finest : string -&gt; unit&#xA;override this.Finest : string -&gt; unit" Usage="logger.Finest msg" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -757,6 +1028,11 @@
         <param name="msg">The string message (or a key in the message catalog)</param>
         <summary>Log a FINEST message.</summary>
         <remarks>
+          <para>Log a FINEST message.</para>
+          <para>If the logger is currently enabled for the FINEST message
+            level then the given message is forwarded to all the
+            registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#finest(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.finest(java.lang.String)</code>.</a>
@@ -778,8 +1054,8 @@
       <MemberSignature Language="F#" Value="static member GetAnonymousLogger : string -&gt; Java.Util.Logging.Logger" Usage="Java.Util.Logging.Logger.GetAnonymousLogger resourceBundleName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -800,6 +1076,22 @@
         <summary>Create an anonymous Logger.</summary>
         <returns>a newly created private Logger</returns>
         <remarks>
+          <para>Create an anonymous Logger.  The newly created Logger is not
+            registered in the LogManager namespace.  There will be no
+            access checks on updates to the logger.</para>
+          <para>This factory method is primarily intended for use from applets.
+            Because the resulting Logger is anonymous it can be kept private
+            by the creating class.  This removes the need for normal security
+            checks, which in turn allows untrusted applet code to update
+            the control state of the Logger.  For example an applet can do
+            a setLevel or an addHandler on an anonymous Logger.</para>
+          <para>Even although the new logger is anonymous, it is configured
+            to have the root logger ("") as its parent.  This means that
+            by default it inherits its effective level and handlers
+            from the root logger.  Changing its parent via the
+            <c>#setParent(java.util.logging.Logger) setParent</c> method
+            will still require the security permission specified by that method.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getAnonymousLogger(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getAnonymousLogger(java.lang.String)</code>.</a>
@@ -823,8 +1115,8 @@
       <MemberSignature Language="F#" Value="abstract member GetHandlers : unit -&gt; Java.Util.Logging.Handler[]&#xA;override this.GetHandlers : unit -&gt; Java.Util.Logging.Handler[]" Usage="logger.GetHandlers " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -840,6 +1132,8 @@
         <summary>Get the Handlers associated with this logger.</summary>
         <returns>an array of all registered Handlers</returns>
         <remarks>
+          <para>Get the Handlers associated with this logger.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getHandlers()" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getHandlers()</code>.</a>
@@ -861,8 +1155,8 @@
       <MemberSignature Language="F#" Value="static member GetLogger : string -&gt; Java.Util.Logging.Logger" Usage="Java.Util.Logging.Logger.GetLogger name" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -885,6 +1179,21 @@
         <summary>Find or create a logger for a named subsystem.</summary>
         <returns>a suitable Logger</returns>
         <remarks>
+          <para>Find or create a logger for a named subsystem.  If a logger has
+            already been created with the given name it is returned.  Otherwise
+            a new logger is created.</para>
+          <para>If a new logger is created its log level will be configured
+            based on the LogManager configuration and it will configured
+            to also send logging output to its parent's Handlers.  It will
+            be registered in the LogManager global namespace.</para>
+          <para>Note: The LogManager may only retain a weak reference to the newly
+            created Logger. It is important to understand that a previously
+            created Logger with the given name may be garbage collected at any
+            time if there is no strong reference to the Logger. In particular,
+            this means that two back-to-back calls like
+            <c>getLogger("MyLogger").log(...)</c> may use different Logger
+            objects named "MyLogger" if there is no strong reference to the
+            Logger named "MyLogger" elsewhere in the program.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getLogger(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getLogger(java.lang.String)</code>.</a>
@@ -908,8 +1217,8 @@
       <MemberSignature Language="F#" Value="static member GetLogger : string * string -&gt; Java.Util.Logging.Logger" Usage="Java.Util.Logging.Logger.GetLogger (name, resourceBundleName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -936,6 +1245,27 @@
         <summary>Find or create a logger for a named subsystem.</summary>
         <returns>a suitable Logger</returns>
         <remarks>
+          <para>Find or create a logger for a named subsystem.  If a logger has
+            already been created with the given name it is returned.  Otherwise
+            a new logger is created.</para>
+          <para>If a new logger is created its log level will be configured
+            based on the LogManager and it will configured to also send logging
+            output to its parent's Handlers.  It will be registered in
+            the LogManager global namespace.</para>
+          <para>Note: The LogManager may only retain a weak reference to the newly
+            created Logger. It is important to understand that a previously
+            created Logger with the given name may be garbage collected at any
+            time if there is no strong reference to the Logger. In particular,
+            this means that two back-to-back calls like
+            <c>getLogger("MyLogger", ...).log(...)</c> may use different Logger
+            objects named "MyLogger" if there is no strong reference to the
+            Logger named "MyLogger" elsewhere in the program.</para>
+          <para>If the named Logger already exists and does not yet have a
+            localization resource bundle then the given resource bundle
+            name is used.  If the named Logger already exists and has
+            a different resource bundle name then an IllegalArgumentException
+            is thrown.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getLogger(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getLogger(java.lang.String, java.lang.String)</code>.</a>
@@ -958,11 +1288,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.Logging.Logger Global { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.Logging.Logger Global" />
       <MemberSignature Language="DocId" Value="P:Java.Util.Logging.Logger.Global" />
-      <MemberSignature Language="F#" Value="member this.Global : Java.Util.Logging.Logger" Usage="Java.Util.Logging.Logger.Global" />
+      <MemberSignature Language="F#" Value="static member Global : Java.Util.Logging.Logger" Usage="Java.Util.Logging.Logger.Global" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -977,6 +1307,8 @@
         <summary>Return global logger object with the name Logger.</summary>
         <value>global logger object</value>
         <remarks>
+          <para>Return global logger object with the name Logger.GLOBAL_LOGGER_NAME.</para>
+          <para>Added in 1.7.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getGlobal()" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getGlobal()</code>.</a>
@@ -1012,6 +1344,8 @@
       <Docs>
         <summary>GLOBAL_LOGGER_NAME is a name for the global logger.</summary>
         <remarks>
+          <para>GLOBAL_LOGGER_NAME is a name for the global logger.</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#GLOBAL_LOGGER_NAME" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.GLOBAL_LOGGER_NAME</code>.</a>
@@ -1040,6 +1374,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("info", "(Ljava/util/function/Supplier;)V", "GetInfo_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("info", "(Ljava/util/function/Supplier;)V", "GetInfo_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1053,6 +1391,14 @@
         <summary>Log a INFO message, which is only to be constructed if the logging
             level is such that the message will actually be logged.</summary>
         <remarks>
+          <para>Log a INFO message, which is only to be constructed if the logging
+            level is such that the message will actually be logged.</para>
+          <para>If the logger is currently enabled for the INFO message
+            level then the message is constructed by invoking the provided
+            supplier function and forwarded to all the registered output
+            Handler objects.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#info(java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.info(java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -1073,8 +1419,8 @@
       <MemberSignature Language="F#" Value="abstract member Info : string -&gt; unit&#xA;override this.Info : string -&gt; unit" Usage="logger.Info msg" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1092,6 +1438,11 @@
         <param name="msg">The string message (or a key in the message catalog)</param>
         <summary>Log an INFO message.</summary>
         <remarks>
+          <para>Log an INFO message.</para>
+          <para>If the logger is currently enabled for the INFO message
+            level then the given message is forwarded to all the
+            registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#info(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.info(java.lang.String)</code>.</a>
@@ -1113,8 +1464,8 @@
       <MemberSignature Language="F#" Value="abstract member IsLoggable : Java.Util.Logging.Level -&gt; bool&#xA;override this.IsLoggable : Java.Util.Logging.Level -&gt; bool" Usage="logger.IsLoggable level" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1134,6 +1485,9 @@
             by this logger.</summary>
         <returns>true if the given message level is currently being logged.</returns>
         <remarks>
+          <para>Check if a message of the given level would actually be logged
+            by this logger.  This check is based on the Loggers effective level,
+            which may be inherited from its parent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#isLoggable(java.util.logging.Level)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.isLoggable(java.util.logging.Level)</code>.</a>
@@ -1186,8 +1540,8 @@
       <MemberSignature Language="F#" Value="member this.Level : Java.Util.Logging.Level with get, set" Usage="Java.Util.Logging.Logger.Level" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1209,12 +1563,22 @@
         <value>this Logger's level</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Get the log Level that has been specified for this Logger.
+            The result may be null, which means that this logger's
+            effective level will be inherited from its parent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getLevel()" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getLevel()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the log level specifying which message levels will be
+            logged by this logger.  Message levels lower than this
+            value will be discarded.  The level value Level.OFF
+            can be used to turn off logging.</para>
+          <para>If the new level is null, it means that this node should
+            inherit its level from its nearest ancestor with a specific
+            (non-null) level value.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#setLevel(java.util.logging.Level)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.setLevel(java.util.logging.Level)</code>.</a>
@@ -1236,8 +1600,8 @@
       <MemberSignature Language="F#" Value="abstract member Log : Java.Util.Logging.LogRecord -&gt; unit&#xA;override this.Log : Java.Util.Logging.LogRecord -&gt; unit" Usage="logger.Log record" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1255,6 +1619,10 @@
         <param name="record">the LogRecord to be published</param>
         <summary>Log a LogRecord.</summary>
         <remarks>
+          <para>Log a LogRecord.</para>
+          <para>All the other logging methods in this class call through
+            this method to actually perform any logging.  Subclasses can
+            override this single method to capture all log activity.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#log(java.util.logging.LogRecord)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.log(java.util.logging.LogRecord)</code>.</a>
@@ -1284,6 +1652,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("log", "(Ljava/util/logging/Level;Ljava/util/function/Supplier;)V", "GetLog_Ljava_util_logging_Level_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("log", "(Ljava/util/logging/Level;Ljava/util/function/Supplier;)V", "GetLog_Ljava_util_logging_Level_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1299,6 +1671,14 @@
         <summary>Log a message, which is only to be constructed if the logging level
             is such that the message will actually be logged.</summary>
         <remarks>
+          <para>Log a message, which is only to be constructed if the logging level
+            is such that the message will actually be logged.</para>
+          <para>If the logger is currently enabled for the given message
+            level then the message is constructed by invoking the provided
+            supplier function and forwarded to all the registered output
+            Handler objects.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#log(java.util.logging.Level,%20java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.log(java.util.logging.Level, java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -1319,8 +1699,8 @@
       <MemberSignature Language="F#" Value="abstract member Log : Java.Util.Logging.Level * string -&gt; unit&#xA;override this.Log : Java.Util.Logging.Level * string -&gt; unit" Usage="logger.Log (level, msg)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1340,6 +1720,11 @@
         <param name="msg">The string message (or a key in the message catalog)</param>
         <summary>Log a message, with no arguments.</summary>
         <remarks>
+          <para>Log a message, with no arguments.</para>
+          <para>If the logger is currently enabled for the given message
+            level then the given message is forwarded to all the
+            registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#log(java.util.logging.Level,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.log(java.util.logging.Level, java.lang.String)</code>.</a>
@@ -1369,6 +1754,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("log", "(Ljava/util/logging/Level;Ljava/lang/Throwable;Ljava/util/function/Supplier;)V", "GetLog_Ljava_util_logging_Level_Ljava_lang_Throwable_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("log", "(Ljava/util/logging/Level;Ljava/lang/Throwable;Ljava/util/function/Supplier;)V", "GetLog_Ljava_util_logging_Level_Ljava_lang_Throwable_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1385,6 +1774,16 @@
                                    desired log message</param>
         <summary>Log a lazily constructed message, with associated Throwable information.</summary>
         <remarks>
+          <para>Log a lazily constructed message, with associated Throwable information.</para>
+          <para>If the logger is currently enabled for the given message level then the
+            message is constructed by invoking the provided supplier function. The
+            message and the given <c>Throwable</c> are then stored in a <c>LogRecord</c> which is forwarded to all registered output handlers.</para>
+          <para>Note that the thrown argument is stored in the LogRecord thrown
+            property, rather than the LogRecord parameters property.  Thus it is
+            processed specially by output Formatters and is not treated
+            as a formatting parameter to the LogRecord message property.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#log(java.util.logging.Level,%20java.lang.Throwable,%20java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.log(java.util.logging.Level, java.lang.Throwable, java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -1405,8 +1804,8 @@
       <MemberSignature Language="F#" Value="abstract member Log : Java.Util.Logging.Level * string * Java.Lang.Object -&gt; unit&#xA;override this.Log : Java.Util.Logging.Level * string * Java.Lang.Object -&gt; unit" Usage="logger.Log (level, msg, param1)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1428,6 +1827,11 @@
         <param name="param1">parameter to the message</param>
         <summary>Log a message, with one object parameter.</summary>
         <remarks>
+          <para>Log a message, with one object parameter.</para>
+          <para>If the logger is currently enabled for the given message
+            level then a corresponding LogRecord is created and forwarded
+            to all the registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#log(java.util.logging.Level,%20java.lang.String,%20java.lang.Object)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.log(java.util.logging.Level, java.lang.String, java.lang.Object)</code>.</a>
@@ -1449,8 +1853,8 @@
       <MemberSignature Language="F#" Value="abstract member Log : Java.Util.Logging.Level * string * Java.Lang.Object[] -&gt; unit&#xA;override this.Log : Java.Util.Logging.Level * string * Java.Lang.Object[] -&gt; unit" Usage="logger.Log (level, msg, params)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1472,6 +1876,11 @@
         <param name="params">array of parameters to the message</param>
         <summary>Log a message, with an array of object arguments.</summary>
         <remarks>
+          <para>Log a message, with an array of object arguments.</para>
+          <para>If the logger is currently enabled for the given message
+            level then a corresponding LogRecord is created and forwarded
+            to all the registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#log(java.util.logging.Level,%20java.lang.String,%20java.lang.Object[])" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.log(java.util.logging.Level, java.lang.String, java.lang.Object[])</code>.</a>
@@ -1493,8 +1902,8 @@
       <MemberSignature Language="F#" Value="abstract member Log : Java.Util.Logging.Level * string * Java.Lang.Throwable -&gt; unit&#xA;override this.Log : Java.Util.Logging.Level * string * Java.Lang.Throwable -&gt; unit" Usage="logger.Log (level, msg, thrown)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1516,6 +1925,15 @@
         <param name="thrown">Throwable associated with log message.</param>
         <summary>Log a message, with associated Throwable information.</summary>
         <remarks>
+          <para>Log a message, with associated Throwable information.</para>
+          <para>If the logger is currently enabled for the given message
+            level then the given arguments are stored in a LogRecord
+            which is forwarded to all registered output handlers.</para>
+          <para>Note that the thrown argument is stored in the LogRecord thrown
+            property, rather than the LogRecord parameters property.  Thus it is
+            processed specially by output Formatters and is not treated
+            as a formatting parameter to the LogRecord message property.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#log(java.util.logging.Level,%20java.lang.String,%20java.lang.Throwable)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.log(java.util.logging.Level, java.lang.String, java.lang.Throwable)</code>.</a>
@@ -1545,6 +1963,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("logp", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/util/function/Supplier;)V", "GetLogp_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("logp", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/util/function/Supplier;)V", "GetLogp_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1564,6 +1986,14 @@
         <summary>Log a lazily constructed message, specifying source class and method,
             with no arguments.</summary>
         <remarks>
+          <para>Log a lazily constructed message, specifying source class and method,
+            with no arguments.</para>
+          <para>If the logger is currently enabled for the given message
+            level then the message is constructed by invoking the provided
+            supplier function and forwarded to all the registered output
+            Handler objects.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logp(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logp(java.util.logging.Level, java.lang.String, java.lang.String, java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -1584,8 +2014,8 @@
       <MemberSignature Language="F#" Value="abstract member Logp : Java.Util.Logging.Level * string * string * string -&gt; unit&#xA;override this.Logp : Java.Util.Logging.Level * string * string * string -&gt; unit" Usage="logger.Logp (level, sourceClass, sourceMethod, msg)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1610,6 +2040,12 @@
         <summary>Log a message, specifying source class and method,
             with no arguments.</summary>
         <remarks>
+          <para>Log a message, specifying source class and method,
+            with no arguments.</para>
+          <para>If the logger is currently enabled for the given message
+            level then the given message is forwarded to all the
+            registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logp(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logp(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -1639,6 +2075,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("logp", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;Ljava/util/function/Supplier;)V", "GetLogp_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_lang_Throwable_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("logp", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;Ljava/util/function/Supplier;)V", "GetLogp_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_lang_Throwable_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1660,6 +2100,17 @@
         <summary>Log a lazily constructed message, specifying source class and method,
             with associated Throwable information.</summary>
         <remarks>
+          <para>Log a lazily constructed message, specifying source class and method,
+            with associated Throwable information.</para>
+          <para>If the logger is currently enabled for the given message level then the
+            message is constructed by invoking the provided supplier function. The
+            message and the given <c>Throwable</c> are then stored in a <c>LogRecord</c> which is forwarded to all registered output handlers.</para>
+          <para>Note that the thrown argument is stored in the LogRecord thrown
+            property, rather than the LogRecord parameters property.  Thus it is
+            processed specially by output Formatters and is not treated
+            as a formatting parameter to the LogRecord message property.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logp(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.lang.Throwable,%20java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logp(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.Throwable, java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -1680,8 +2131,8 @@
       <MemberSignature Language="F#" Value="abstract member Logp : Java.Util.Logging.Level * string * string * string * Java.Lang.Object -&gt; unit&#xA;override this.Logp : Java.Util.Logging.Level * string * string * string * Java.Lang.Object -&gt; unit" Usage="logger.Logp (level, sourceClass, sourceMethod, msg, param1)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1708,6 +2159,12 @@
         <summary>Log a message, specifying source class and method,
             with a single object parameter to the log message.</summary>
         <remarks>
+          <para>Log a message, specifying source class and method,
+            with a single object parameter to the log message.</para>
+          <para>If the logger is currently enabled for the given message
+            level then a corresponding LogRecord is created and forwarded
+            to all the registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logp(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.lang.String,%20java.lang.Object)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logp(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.Object)</code>.</a>
@@ -1729,8 +2186,8 @@
       <MemberSignature Language="F#" Value="abstract member Logp : Java.Util.Logging.Level * string * string * string * Java.Lang.Object[] -&gt; unit&#xA;override this.Logp : Java.Util.Logging.Level * string * string * string * Java.Lang.Object[] -&gt; unit" Usage="logger.Logp (level, sourceClass, sourceMethod, msg, params)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1757,6 +2214,12 @@
         <summary>Log a message, specifying source class and method,
             with an array of object arguments.</summary>
         <remarks>
+          <para>Log a message, specifying source class and method,
+            with an array of object arguments.</para>
+          <para>If the logger is currently enabled for the given message
+            level then a corresponding LogRecord is created and forwarded
+            to all the registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logp(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.lang.String,%20java.lang.Object[])" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logp(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.Object[])</code>.</a>
@@ -1778,8 +2241,8 @@
       <MemberSignature Language="F#" Value="abstract member Logp : Java.Util.Logging.Level * string * string * string * Java.Lang.Throwable -&gt; unit&#xA;override this.Logp : Java.Util.Logging.Level * string * string * string * Java.Lang.Throwable -&gt; unit" Usage="logger.Logp (level, sourceClass, sourceMethod, msg, thrown)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1806,6 +2269,16 @@
         <summary>Log a message, specifying source class and method,
             with associated Throwable information.</summary>
         <remarks>
+          <para>Log a message, specifying source class and method,
+            with associated Throwable information.</para>
+          <para>If the logger is currently enabled for the given message
+            level then the given arguments are stored in a LogRecord
+            which is forwarded to all registered output handlers.</para>
+          <para>Note that the thrown argument is stored in the LogRecord thrown
+            property, rather than the LogRecord parameters property.  Thus it is
+            processed specially by output Formatters and is not treated
+            as a formatting parameter to the LogRecord message property.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logp(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.lang.String,%20java.lang.Throwable)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logp(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.Throwable)</code>.</a>
@@ -1827,8 +2300,8 @@
       <MemberSignature Language="F#" Value="abstract member Logrb : Java.Util.Logging.Level * string * string * string * string -&gt; unit&#xA;override this.Logrb : Java.Util.Logging.Level * string * string * string * string -&gt; unit" Usage="logger.Logrb (level, sourceClass, sourceMethod, bundleName, msg)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1836,8 +2309,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("logrb", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", "GetLogrb_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1860,6 +2333,18 @@
         <summary>Log a message, specifying source class, method, and resource bundle name
             with no arguments.</summary>
         <remarks>
+          <para>Log a message, specifying source class, method, and resource bundle name
+            with no arguments.</para>
+          <para>If the logger is currently enabled for the given message
+            level then the given message is forwarded to all the
+            registered output Handler objects.</para>
+          <para>The msg string is localized using the named resource bundle.  If the
+            resource bundle name is null, or an empty String or invalid
+            then the msg string is not localized.</para>
+          <para />
+          <para>This member is deprecated. Use <c>#logrb(java.util.logging.Level, java.lang.String,
+            java.lang.String, java.util.ResourceBundle, java.lang.String,
+            java.lang.Object...)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logrb(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -1888,6 +2373,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("logrb", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/util/ResourceBundle;Ljava/lang/String;[Ljava/lang/Object;)V", "GetLogrb_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_util_ResourceBundle_Ljava_lang_String_arrayLjava_lang_Object_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("logrb", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/util/ResourceBundle;Ljava/lang/String;[Ljava/lang/Object;)V", "GetLogrb_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_util_ResourceBundle_Ljava_lang_String_arrayLjava_lang_Object_Handler", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1946,6 +2435,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("logrb", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/util/ResourceBundle;Ljava/lang/String;Ljava/lang/Throwable;)V", "GetLogrb_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_util_ResourceBundle_Ljava_lang_String_Ljava_lang_Throwable_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("logrb", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/util/ResourceBundle;Ljava/lang/String;Ljava/lang/Throwable;)V", "GetLogrb_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_util_ResourceBundle_Ljava_lang_String_Ljava_lang_Throwable_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1969,6 +2462,20 @@
         <summary>Log a message, specifying source class, method, and resource bundle,
             with associated Throwable information.</summary>
         <remarks>
+          <para>Log a message, specifying source class, method, and resource bundle,
+            with associated Throwable information.</para>
+          <para>If the logger is currently enabled for the given message
+            level then the given arguments are stored in a LogRecord
+            which is forwarded to all registered output handlers.</para>
+          <para>The <c>msg</c> string is localized using the given resource bundle.
+            If the resource bundle is <c>null</c>, then the <c>msg</c> string is not
+            localized.</para>
+          <para>Note that the thrown argument is stored in the LogRecord thrown
+            property, rather than the LogRecord parameters property.  Thus it is
+            processed specially by output Formatters and is not treated
+            as a formatting parameter to the LogRecord message property.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logrb(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.util.ResourceBundle,%20java.lang.String,%20java.lang.Throwable)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.util.ResourceBundle, java.lang.String, java.lang.Throwable)</code>.</a>
@@ -1989,8 +2496,8 @@
       <MemberSignature Language="F#" Value="abstract member Logrb : Java.Util.Logging.Level * string * string * string * string * Java.Lang.Object -&gt; unit&#xA;override this.Logrb : Java.Util.Logging.Level * string * string * string * string * Java.Lang.Object -&gt; unit" Usage="logger.Logrb (level, sourceClass, sourceMethod, bundleName, msg, param1)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1998,8 +2505,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("logrb", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;)V", "GetLogrb_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_lang_String_Ljava_lang_String_Ljava_lang_Object_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2024,6 +2531,18 @@
         <summary>Log a message, specifying source class, method, and resource bundle name,
             with a single object parameter to the log message.</summary>
         <remarks>
+          <para>Log a message, specifying source class, method, and resource bundle name,
+            with a single object parameter to the log message.</para>
+          <para>If the logger is currently enabled for the given message
+            level then a corresponding LogRecord is created and forwarded
+            to all the registered output Handler objects.</para>
+          <para>The msg string is localized using the named resource bundle.  If the
+            resource bundle name is null, or an empty String or invalid
+            then the msg string is not localized.</para>
+          <para />
+          <para>This member is deprecated. Use <c>#logrb(java.util.logging.Level, java.lang.String,
+              java.lang.String, java.util.ResourceBundle, java.lang.String,
+              java.lang.Object...)</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logrb(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.lang.String,%20java.lang.String,%20java.lang.Object)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.Object)</code>.</a>
@@ -2045,8 +2564,8 @@
       <MemberSignature Language="F#" Value="abstract member Logrb : Java.Util.Logging.Level * string * string * string * string * Java.Lang.Object[] -&gt; unit&#xA;override this.Logrb : Java.Util.Logging.Level * string * string * string * string * Java.Lang.Object[] -&gt; unit" Usage="logger.Logrb (level, sourceClass, sourceMethod, bundleName, msg, params)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2054,8 +2573,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("logrb", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V", "GetLogrb_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_lang_String_Ljava_lang_String_arrayLjava_lang_Object_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2080,6 +2599,18 @@
         <summary>Log a message, specifying source class, method, and resource bundle name,
             with an array of object arguments.</summary>
         <remarks>
+          <para>Log a message, specifying source class, method, and resource bundle name,
+            with an array of object arguments.</para>
+          <para>If the logger is currently enabled for the given message
+            level then a corresponding LogRecord is created and forwarded
+            to all the registered output Handler objects.</para>
+          <para>The msg string is localized using the named resource bundle.  If the
+            resource bundle name is null, or an empty String or invalid
+            then the msg string is not localized.</para>
+          <para />
+          <para>This member is deprecated. Use <c>#logrb(java.util.logging.Level, java.lang.String,
+                 java.lang.String, java.util.ResourceBundle, java.lang.String,
+                 java.lang.Object...)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logrb(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.lang.String,%20java.lang.String,%20java.lang.Object[])" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.Object[])</code>.</a>
@@ -2101,8 +2632,8 @@
       <MemberSignature Language="F#" Value="abstract member Logrb : Java.Util.Logging.Level * string * string * string * string * Java.Lang.Throwable -&gt; unit&#xA;override this.Logrb : Java.Util.Logging.Level * string * string * string * string * Java.Lang.Throwable -&gt; unit" Usage="logger.Logrb (level, sourceClass, sourceMethod, bundleName, msg, thrown)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2110,8 +2641,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("logrb", "(Ljava/util/logging/Level;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)V", "GetLogrb_Ljava_util_logging_Level_Ljava_lang_String_Ljava_lang_String_Ljava_lang_String_Ljava_lang_String_Ljava_lang_Throwable_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2136,6 +2667,22 @@
         <summary>Log a message, specifying source class, method, and resource bundle name,
             with associated Throwable information.</summary>
         <remarks>
+          <para>Log a message, specifying source class, method, and resource bundle name,
+            with associated Throwable information.</para>
+          <para>If the logger is currently enabled for the given message
+            level then the given arguments are stored in a LogRecord
+            which is forwarded to all registered output handlers.</para>
+          <para>The msg string is localized using the named resource bundle.  If the
+            resource bundle name is null, or an empty String or invalid
+            then the msg string is not localized.</para>
+          <para>Note that the thrown argument is stored in the LogRecord thrown
+            property, rather than the LogRecord parameters property.  Thus it is
+            processed specially by output Formatters and is not treated
+            as a formatting parameter to the LogRecord message property.</para>
+          <para />
+          <para>This member is deprecated. Use <c>#logrb(java.util.logging.Level, java.lang.String,
+                java.lang.String, java.util.ResourceBundle, java.lang.String,
+                java.lang.Throwable)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#logrb(java.util.logging.Level,%20java.lang.String,%20java.lang.String,%20java.lang.String,%20java.lang.String,%20java.lang.Throwable)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.logrb(java.util.logging.Level, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.Throwable)</code>.</a>
@@ -2157,8 +2704,8 @@
       <MemberSignature Language="F#" Value="member this.Name : string" Usage="Java.Util.Logging.Logger.Name" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2173,6 +2720,7 @@
         <summary>Get the name for this logger.</summary>
         <value>logger name.  Will be null for anonymous Loggers.</value>
         <remarks>
+          <para>Get the name for this logger.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getName()" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getName()</code>.</a>
@@ -2194,8 +2742,8 @@
       <MemberSignature Language="F#" Value="member this.Parent : Java.Util.Logging.Logger with get, set" Usage="Java.Util.Logging.Logger.Parent" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2216,12 +2764,23 @@
         <value>nearest existing parent Logger</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Return the parent for this Logger.</para>
+          <para>This method returns the nearest extant parent in the namespace.
+            Thus if a Logger is called "a.b.c.d", and a Logger called "a.b"
+            has been created but no logger "a.b.c" exists, then a call of
+            getParent on the Logger "a.b.c.d" will return the Logger "a.b".</para>
+          <para>The result will be null if it is called on the root Logger
+            in the namespace.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getParent()" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getParent()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the parent for this Logger.  This method is used by
+            the LogManager to update a Logger when the namespace changes.</para>
+          <para>It should not be called from application code.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#setParent(java.util.logging.Logger)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.setParent(java.util.logging.Logger)</code>.</a>
@@ -2243,8 +2802,8 @@
       <MemberSignature Language="F#" Value="abstract member RemoveHandler : Java.Util.Logging.Handler -&gt; unit&#xA;override this.RemoveHandler : Java.Util.Logging.Handler -&gt; unit" Usage="logger.RemoveHandler handler" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2262,6 +2821,8 @@
         <param name="handler">a logging Handler</param>
         <summary>Remove a log Handler.</summary>
         <remarks>
+          <para>Remove a log Handler.</para>
+          <para>Returns silently if the given Handler is not found or is null</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#removeHandler(java.util.logging.Handler)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.removeHandler(java.util.logging.Handler)</code>.</a>
@@ -2283,8 +2844,8 @@
       <MemberSignature Language="F#" Value="member this.ResourceBundle : Java.Util.ResourceBundle with get, set" Usage="Java.Util.Logging.Logger.ResourceBundle" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2294,6 +2855,10 @@
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setResourceBundle", "(Ljava/util/ResourceBundle;)V", "GetSetResourceBundle_Ljava_util_ResourceBundle_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setResourceBundle", "(Ljava/util/ResourceBundle;)V", "GetSetResourceBundle_Ljava_util_ResourceBundle_Handler", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2306,12 +2871,25 @@
         <value>localization bundle (may be <c>null</c>)</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Retrieve the localization resource bundle for this
+            logger.
+            This method will return a <c>ResourceBundle</c> that was either
+            set by the <c>#setResourceBundle(java.util.ResourceBundle) setResourceBundle</c> method or
+            mapped from the
+            the resource bundle name set via the <c>Logger#getLogger(java.lang.String, java.lang.String) getLogger</c> factory
+            method for the current default locale.
+            &lt;br&gt;Note that if the result is <c>null</c>, then the Logger will use a resource
+            bundle or resource bundle name inherited from its parent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getResourceBundle()" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getResourceBundle()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets a resource bundle on this logger.
+            All messages will be logged using the given resource bundle for its
+            specific ResourceBundle#getLocale locale.</para>
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#setResourceBundle(java.util.ResourceBundle)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.setResourceBundle(java.util.ResourceBundle)</code>.</a>
@@ -2333,8 +2911,8 @@
       <MemberSignature Language="F#" Value="member this.ResourceBundleName : string" Usage="Java.Util.Logging.Logger.ResourceBundleName" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2350,6 +2928,13 @@
             logger.</summary>
         <value>localization bundle name (may be <c>null</c>)</value>
         <remarks>
+          <para>Retrieve the localization resource bundle name for this
+            logger.
+            This is either the name specified through the <c>#getLogger(java.lang.String, java.lang.String) getLogger</c> factory method,
+            or the ResourceBundle#getBaseBundleName() base name of the
+            ResourceBundle set through <c>#setResourceBundle(java.util.ResourceBundle) setResourceBundle</c> method.
+            &lt;br&gt;Note that if the result is <c>null</c>, then the Logger will use a resource
+            bundle or resource bundle name inherited from its parent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getResourceBundleName()" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getResourceBundleName()</code>.</a>
@@ -2379,6 +2964,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("severe", "(Ljava/util/function/Supplier;)V", "GetSevere_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("severe", "(Ljava/util/function/Supplier;)V", "GetSevere_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2392,6 +2981,14 @@
         <summary>Log a SEVERE message, which is only to be constructed if the logging
             level is such that the message will actually be logged.</summary>
         <remarks>
+          <para>Log a SEVERE message, which is only to be constructed if the logging
+            level is such that the message will actually be logged.</para>
+          <para>If the logger is currently enabled for the SEVERE message
+            level then the message is constructed by invoking the provided
+            supplier function and forwarded to all the registered output
+            Handler objects.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#severe(java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.severe(java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -2412,8 +3009,8 @@
       <MemberSignature Language="F#" Value="abstract member Severe : string -&gt; unit&#xA;override this.Severe : string -&gt; unit" Usage="logger.Severe msg" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2431,6 +3028,11 @@
         <param name="msg">The string message (or a key in the message catalog)</param>
         <summary>Log a SEVERE message.</summary>
         <remarks>
+          <para>Log a SEVERE message.</para>
+          <para>If the logger is currently enabled for the SEVERE message
+            level then the given message is forwarded to all the
+            registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#severe(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.severe(java.lang.String)</code>.</a>
@@ -2452,8 +3054,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Logging.Logger.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2483,8 +3085,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Logging.Logger.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2514,8 +3116,8 @@
       <MemberSignature Language="F#" Value="abstract member Throwing : string * string * Java.Lang.Throwable -&gt; unit&#xA;override this.Throwing : string * string * Java.Lang.Throwable -&gt; unit" Usage="logger.Throwing (sourceClass, sourceMethod, thrown)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2537,6 +3139,19 @@
         <param name="thrown">The Throwable that is being thrown.</param>
         <summary>Log throwing an exception.</summary>
         <remarks>
+          <para>Log throwing an exception.</para>
+          <para>This is a convenience method to log that a method is
+            terminating by throwing an exception.  The logging is done
+            using the FINER level.</para>
+          <para>If the logger is currently enabled for the given message
+            level then the given arguments are stored in a LogRecord
+            which is forwarded to all registered output handlers.  The
+            LogRecord's message is set to "THROW".</para>
+          <para>Note that the thrown argument is stored in the LogRecord thrown
+            property, rather than the LogRecord parameters property.  Thus it is
+            processed specially by output Formatters and is not treated
+            as a formatting parameter to the LogRecord message property.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#throwing(java.lang.String,%20java.lang.String,%20java.lang.Throwable)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.throwing(java.lang.String, java.lang.String, java.lang.Throwable)</code>.</a>
@@ -2558,8 +3173,8 @@
       <MemberSignature Language="F#" Value="member this.UseParentHandlers : bool with get, set" Usage="Java.Util.Logging.Logger.UseParentHandlers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2583,12 +3198,18 @@
         <value>true if output is to be sent to the logger's parent</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Discover whether or not this logger is sending its output
+            to its parent logger.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#getUseParentHandlers()" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.getUseParentHandlers()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Specify whether or not this logger should send its output
+            to its parent Logger.  This means that any LogRecords will
+            also be written to the parent's Handlers, and potentially
+            to its parent, recursively up the namespace.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#setUseParentHandlers(boolean)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.setUseParentHandlers(boolean)</code>.</a>
@@ -2618,6 +3239,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("warning", "(Ljava/util/function/Supplier;)V", "GetWarning_Ljava_util_function_Supplier_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("warning", "(Ljava/util/function/Supplier;)V", "GetWarning_Ljava_util_function_Supplier_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2631,6 +3256,14 @@
         <summary>Log a WARNING message, which is only to be constructed if the logging
             level is such that the message will actually be logged.</summary>
         <remarks>
+          <para>Log a WARNING message, which is only to be constructed if the logging
+            level is such that the message will actually be logged.</para>
+          <para>If the logger is currently enabled for the WARNING message
+            level then the message is constructed by invoking the provided
+            supplier function and forwarded to all the registered output
+            Handler objects.</para>
+          <para />
+          <para>Added in 1.8.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#warning(java.util.function.Supplier%3Cjava.lang.String%3E)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.warning(java.util.function.Supplier&lt;java.lang.String&gt;)</code>.</a>
@@ -2651,8 +3284,8 @@
       <MemberSignature Language="F#" Value="abstract member Warning : string -&gt; unit&#xA;override this.Warning : string -&gt; unit" Usage="logger.Warning msg" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2670,6 +3303,11 @@
         <param name="msg">The string message (or a key in the message catalog)</param>
         <summary>Log a WARNING message.</summary>
         <remarks>
+          <para>Log a WARNING message.</para>
+          <para>If the logger is currently enabled for the WARNING message
+            level then the given message is forwarded to all the
+            registered output Handler objects.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/logging/Logger#warning(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.logging.Logger.warning(java.lang.String)</code>.</a>

@@ -29,11 +29,62 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/media/MediaCas", ApiSince=26, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/media/MediaCas", ApiSince=26, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>MediaCas can be used to obtain keys for descrambling protected media streams, in
             conjunction with <c>android.media.MediaDescrambler</c>.</summary>
     <remarks>
+      <para>MediaCas can be used to obtain keys for descrambling protected media streams, in
+            conjunction with <c>android.media.MediaDescrambler</c>. The MediaCas APIs are
+            designed to support conditional access such as those in the ISO/IEC13818-1.
+            The CA system is identified by a 16-bit integer CA_system_id. The scrambling
+            algorithms are usually proprietary and implemented by vendor-specific CA plugins
+            installed on the device.</para>
+      <para>The app is responsible for constructing a MediaCas object for the CA system it
+            intends to use. The app can query if a certain CA system is supported using static
+            method <c>#isSystemIdSupported</c>. It can also obtain the entire list of supported
+            CA systems using static method <c>#enumeratePlugins</c>.</para>
+      <para>Once the MediaCas object is constructed, the app should properly provision it by
+            using method <c>#provision</c> and/or <c>#processEmm</c>. The EMMs (Entitlement
+            management messages) can be distributed out-of-band, or in-band with the stream.</para>
+      <para>To descramble elementary streams, the app first calls <c>#openSession</c> to
+            generate a <c>Session</c> object that will uniquely identify a session. A session
+            provides a context for subsequent key updates and descrambling activities. The ECMs
+            (Entitlement control messages) are sent to the session via method
+            <c>Session#processEcm</c>.</para>
+      <para>The app next constructs a MediaDescrambler object, and initializes it with the
+            session using <c>MediaDescrambler#setMediaCasSession</c>. This ties the
+            descrambler to the session, and the descrambler can then be used to descramble
+            content secured with the session's key, either during extraction, or during decoding
+            with <c>android.media.MediaCodec</c>.</para>
+      <para>If the app handles sample extraction using its own extractor, it can use
+            MediaDescrambler to descramble samples into clear buffers (if the session's license
+            doesn't require secure decoders), or descramble a small amount of data to retrieve
+            information necessary for the downstream pipeline to process the sample (if the
+            session's license requires secure decoders).</para>
+      <para>If the session requires a secure decoder, a MediaDescrambler needs to be provided to
+            MediaCodec to descramble samples queued by <c>MediaCodec#queueSecureInputBuffer</c>
+            into protected buffers. The app should use <c>MediaCodec#configure(MediaFormat,
+            android.view.Surface, int, MediaDescrambler)</c> instead of the normal <c>MediaCodec#configure(MediaFormat, android.view.Surface, MediaCrypto, int)</c> method
+            to configure MediaCodec.</para>
+      <para>&lt;h3&gt;Using Android's MediaExtractor&lt;/h3&gt;</para>
+      <para>If the app uses <c>MediaExtractor</c>, it can delegate the CAS session
+            management to MediaExtractor by calling <c>MediaExtractor#setMediaCas</c>.
+            MediaExtractor will take over and call <c>#openSession</c>, <c>#processEmm</c>
+            and/or <c>Session#processEcm</c>, etc.. if necessary.</para>
+      <para>When using <c>MediaExtractor</c>, the app would still need a MediaDescrambler
+            to use with <c>MediaCodec</c> if the licensing requires a secure decoder. The
+            session associated with the descrambler of a track can be retrieved by calling
+            <c>MediaExtractor#getCasInfo</c>, and used to initialize a MediaDescrambler
+            object for MediaCodec.</para>
+      <para>&lt;h3&gt;Listeners&lt;/h3&gt;</para>
+      <para>The app may register a listener to receive events from the CA system using
+            method <c>#setEventListener</c>. The exact format of the event is scheme-specific
+            and is not specified by this API.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/media/MediaCas" title="Reference documentation">Java documentation for <code>android.media.MediaCas</code>.</a>
@@ -62,6 +113,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(I)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(I)V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters>
         <Parameter Name="casSystemId" Type="System.Int32" />
@@ -70,6 +125,7 @@
         <param name="casSystemId">The system id of the CA system.</param>
         <summary>Instantiate a CA system of the specified system id.</summary>
         <remarks>
+          <para>Instantiate a CA system of the specified system id.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#MediaCas(int)" title="Reference documentation">Java documentation for <code>android.media.MediaCas.MediaCas(int)</code>.</a>
@@ -98,6 +154,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Landroid/content/Context;ILjava/lang/String;I)V", "", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Landroid/content/Context;ILjava/lang/String;I)V", "", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters>
         <Parameter Name="context" Type="Android.Content.Context" />
@@ -120,6 +180,7 @@
         <param name="priorityHint">priority hint from the use case type for new created CAS system.</param>
         <summary>Instantiate a CA system of the specified system id.</summary>
         <remarks>
+          <para>Instantiate a CA system of the specified system id.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#MediaCas(android.content.Context,%20int,%20java.lang.String,%20int)" title="Reference documentation">Java documentation for <code>android.media.MediaCas.MediaCas(android.content.Context, int, java.lang.String, int)</code>.</a>
@@ -147,6 +208,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Landroid/content/Context;ILjava/lang/String;ILandroid/os/Handler;Landroid/media/MediaCas$EventListener;)V", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Landroid/content/Context;ILjava/lang/String;ILandroid/os/Handler;Landroid/media/MediaCas$EventListener;)V", "", ApiSince=31)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <Parameters>
@@ -204,6 +269,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("close", "()V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("close", "()V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -230,6 +299,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("enumeratePlugins", "()[Landroid/media/MediaCas$PluginDescriptor;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("enumeratePlugins", "()[Landroid/media/MediaCas$PluginDescriptor;", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -268,6 +341,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("isSystemIdSupported", "(I)Z", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("isSystemIdSupported", "(I)Z", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -280,6 +357,7 @@
         <summary>Query if a certain CA system is supported on this device.</summary>
         <returns>Whether the specified CA system is supported on this device.</returns>
         <remarks>
+          <para>Query if a certain CA system is supported on this device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#isSystemIdSupported(int)" title="Reference documentation">Java documentation for <code>android.media.MediaCas.isSystemIdSupported(int)</code>.</a>
@@ -342,6 +420,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("openSession", "()Landroid/media/MediaCas$Session;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("openSession", "()Landroid/media/MediaCas$Session;", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCas+Session</ReturnType>
@@ -380,6 +462,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("openSession", "(II)Landroid/media/MediaCas$Session;", "", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("openSession", "(II)Landroid/media/MediaCas$Session;", "", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCas+Session</ReturnType>
@@ -396,8 +482,8 @@
         <Parameter Name="scramblingMode" Type="System.Int32">
           <Attributes>
             <Attribute>
-              <AttributeName Language="C#">[Android.Runtime.IntDef(Fields=new System.String[] { "ScramblingModeReserved", "ScramblingModeDvbCsa1", "ScramblingModeDvbCsa2", "ScramblingModeDvbCsa3Standard", "ScramblingModeDvbCsa3Minimal", "ScramblingModeDvbCsa3Enhance", "ScramblingModeDvbCissaV1", "ScramblingModeDvbIdsa", "ScramblingModeMulti2", "ScramblingModeAes128", "ScramblingModeAesEcb", "ScramblingModeAesScte52", "ScramblingModeTdesEcb", "ScramblingModeTdesScte52" }, Type="Android.Media.MediaCas")]</AttributeName>
-              <AttributeName Language="F#">[&lt;Android.Runtime.IntDef(Fields=new System.String[] { "ScramblingModeReserved", "ScramblingModeDvbCsa1", "ScramblingModeDvbCsa2", "ScramblingModeDvbCsa3Standard", "ScramblingModeDvbCsa3Minimal", "ScramblingModeDvbCsa3Enhance", "ScramblingModeDvbCissaV1", "ScramblingModeDvbIdsa", "ScramblingModeMulti2", "ScramblingModeAes128", "ScramblingModeAesEcb", "ScramblingModeAesScte52", "ScramblingModeTdesEcb", "ScramblingModeTdesScte52" }, Type="Android.Media.MediaCas")&gt;]</AttributeName>
+              <AttributeName Language="C#">[Android.Runtime.IntDef(Fields=new System.String[] { "ScramblingModeReserved", "ScramblingModeDvbCsa1", "ScramblingModeDvbCsa2", "ScramblingModeDvbCsa3Standard", "ScramblingModeDvbCsa3Minimal", "ScramblingModeDvbCsa3Enhance", "ScramblingModeDvbCissaV1", "ScramblingModeDvbIdsa", "ScramblingModeMulti2", "ScramblingModeAes128", "ScramblingModeAesCbc", "ScramblingModeAesEcb", "ScramblingModeAesScte52", "ScramblingModeTdesEcb", "ScramblingModeTdesScte52" }, Type="Android.Media.MediaCas")]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.IntDef(Fields=new System.String[] { "ScramblingModeReserved", "ScramblingModeDvbCsa1", "ScramblingModeDvbCsa2", "ScramblingModeDvbCsa3Standard", "ScramblingModeDvbCsa3Minimal", "ScramblingModeDvbCsa3Enhance", "ScramblingModeDvbCissaV1", "ScramblingModeDvbIdsa", "ScramblingModeMulti2", "ScramblingModeAes128", "ScramblingModeAesCbc", "ScramblingModeAesEcb", "ScramblingModeAesScte52", "ScramblingModeTdesEcb", "ScramblingModeTdesScte52" }, Type="Android.Media.MediaCas")&gt;]</AttributeName>
             </Attribute>
           </Attributes>
         </Parameter>
@@ -441,6 +527,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasPluginStatus enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasPluginStatus enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasPluginStatus</ReturnType>
@@ -450,6 +540,8 @@
         <summary>The event to indicate that the status of CAS system is changed by the removal or insertion of
             physical CAS modules.</summary>
         <remarks>
+          <para>The event to indicate that the status of CAS system is changed by the removal or insertion of
+            physical CAS modules.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#PLUGIN_STATUS_PHYSICAL_MODULE_CHANGED" title="Reference documentation">Java documentation for <code>android.media.MediaCas.PLUGIN_STATUS_PHYSICAL_MODULE_CHANGED</code>.</a>
@@ -482,6 +574,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasPluginStatus enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasPluginStatus enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasPluginStatus</ReturnType>
@@ -490,6 +586,7 @@
       <Docs>
         <summary>The event to indicate that the number of CAS system's session is changed.</summary>
         <remarks>
+          <para>The event to indicate that the number of CAS system's session is changed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#PLUGIN_STATUS_SESSION_NUMBER_CHANGED" title="Reference documentation">Java documentation for <code>android.media.MediaCas.PLUGIN_STATUS_SESSION_NUMBER_CHANGED</code>.</a>
@@ -518,6 +615,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("processEmm", "([B)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("processEmm", "([B)V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -529,6 +630,9 @@
         <param name="data">byte array of the EMM data.</param>
         <summary>Send a received EMM packet to the CA system.</summary>
         <remarks>
+          <para>Send a received EMM packet to the CA system. This is similar to
+            <c>#processEmm(byte[], int, int)</c> except that the entire byte
+            array is sent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#processEmm(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaCas.processEmm(byte[])</code>.</a>
@@ -557,6 +661,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("processEmm", "([BII)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("processEmm", "([BII)V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -572,6 +680,7 @@
         <param name="length">length of the data (starting from offset).</param>
         <summary>Send a received EMM packet to the CA system.</summary>
         <remarks>
+          <para>Send a received EMM packet to the CA system.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#processEmm(byte[],%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.MediaCas.processEmm(byte[], int, int)</code>.</a>
@@ -600,6 +709,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("provision", "(Ljava/lang/String;)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("provision", "(Ljava/lang/String;)V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -613,6 +726,7 @@
             specific.</param>
         <summary>Initiate a provisioning operation for a CA system.</summary>
         <remarks>
+          <para>Initiate a provisioning operation for a CA system.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#provision(java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaCas.provision(java.lang.String)</code>.</a>
@@ -641,6 +755,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("refreshEntitlements", "(I[B)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("refreshEntitlements", "(I[B)V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -654,6 +772,7 @@
         <param name="refreshData">private data associated with the refreshment.</param>
         <summary>Notify the CA system to refresh entitlement keys.</summary>
         <remarks>
+          <para>Notify the CA system to refresh entitlement keys.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#refreshEntitlements(int,%20byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaCas.refreshEntitlements(int, byte[])</code>.</a>
@@ -686,6 +805,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -694,9 +817,55 @@
       <Docs>
         <summary>Advanced Encryption System (AES) 128-bit Encryption mode.</summary>
         <remarks>
+          <para>Advanced Encryption System (AES) 128-bit Encryption mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_AES128" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_AES128</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="ScramblingModeAesCbc">
+      <MemberSignature Language="C#" Value="public const Android.Media.MediaCasScramblingMode ScramblingModeAesCbc = 14;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.MediaCasScramblingMode ScramblingModeAesCbc = (14)" />
+      <MemberSignature Language="DocId" Value="F:Android.Media.MediaCas.ScramblingModeAesCbc" />
+      <MemberSignature Language="F#" Value="val mutable ScramblingModeAesCbc : Android.Media.MediaCasScramblingMode" Usage="Android.Media.MediaCas.ScramblingModeAesCbc" />
+      <MemberType>Field</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("SCRAMBLING_MODE_AES_CBC", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("SCRAMBLING_MODE_AES_CBC", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
+      </ReturnValue>
+      <MemberValue>14</MemberValue>
+      <Docs>
+        <summary>Advanced Encryption System (AES) Cipher Block Chaining (CBC) mode.</summary>
+        <remarks>
+          <para>Advanced Encryption System (AES) Cipher Block Chaining (CBC) mode.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_AES_CBC" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_AES_CBC</code>.</a>
             </format>
           </para>
           <para>
@@ -726,6 +895,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -734,6 +907,7 @@
       <Docs>
         <summary>Advanced Encryption System (AES) Electronic Code Book (ECB) mode.</summary>
         <remarks>
+          <para>Advanced Encryption System (AES) Electronic Code Book (ECB) mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_AES_ECB" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_AES_ECB</code>.</a>
@@ -766,6 +940,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -775,6 +953,8 @@
         <summary>Advanced Encryption System (AES) Society of Cable Telecommunications Engineers (SCTE) 52
             mode.</summary>
         <remarks>
+          <para>Advanced Encryption System (AES) Society of Cable Telecommunications Engineers (SCTE) 52
+            mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_AES_SCTE52" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_AES_SCTE52</code>.</a>
@@ -807,6 +987,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -815,6 +999,7 @@
       <Docs>
         <summary>DVB Common IPTV Software-oriented Scrambling Algorithm (CISSA) Version 1.</summary>
         <remarks>
+          <para>DVB Common IPTV Software-oriented Scrambling Algorithm (CISSA) Version 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_DVB_CISSA_V1" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_DVB_CISSA_V1</code>.</a>
@@ -847,6 +1032,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -855,6 +1044,7 @@
       <Docs>
         <summary>DVB (Digital Video Broadcasting) Common Scrambling Algorithm (CSA) 1.</summary>
         <remarks>
+          <para>DVB (Digital Video Broadcasting) Common Scrambling Algorithm (CSA) 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_DVB_CSA1" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_DVB_CSA1</code>.</a>
@@ -887,6 +1077,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -895,6 +1089,7 @@
       <Docs>
         <summary>DVB CSA 2.</summary>
         <remarks>
+          <para>DVB CSA 2.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_DVB_CSA2" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_DVB_CSA2</code>.</a>
@@ -927,6 +1122,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -935,6 +1134,7 @@
       <Docs>
         <summary>DVB CSA 3 in fully enhanced mode.</summary>
         <remarks>
+          <para>DVB CSA 3 in fully enhanced mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_DVB_CSA3_ENHANCE" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_DVB_CSA3_ENHANCE</code>.</a>
@@ -967,6 +1167,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -975,6 +1179,7 @@
       <Docs>
         <summary>DVB CSA 3 in minimally enhanced mode.</summary>
         <remarks>
+          <para>DVB CSA 3 in minimally enhanced mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_DVB_CSA3_MINIMAL" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_DVB_CSA3_MINIMAL</code>.</a>
@@ -1007,6 +1212,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -1015,6 +1224,7 @@
       <Docs>
         <summary>DVB CSA 3 in standard mode.</summary>
         <remarks>
+          <para>DVB CSA 3 in standard mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_DVB_CSA3_STANDARD" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_DVB_CSA3_STANDARD</code>.</a>
@@ -1047,6 +1257,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -1055,6 +1269,7 @@
       <Docs>
         <summary>ATIS-0800006 IIF Default Scrambling Algorithm (IDSA).</summary>
         <remarks>
+          <para>ATIS-0800006 IIF Default Scrambling Algorithm (IDSA).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_DVB_IDSA" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_DVB_IDSA</code>.</a>
@@ -1087,6 +1302,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -1095,6 +1314,7 @@
       <Docs>
         <summary>A symmetric key algorithm.</summary>
         <remarks>
+          <para>A symmetric key algorithm.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_MULTI2" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_MULTI2</code>.</a>
@@ -1127,6 +1347,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -1135,6 +1359,7 @@
       <Docs>
         <summary>DVB (Digital Video Broadcasting) reserved mode.</summary>
         <remarks>
+          <para>DVB (Digital Video Broadcasting) reserved mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_RESERVED" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_RESERVED</code>.</a>
@@ -1167,6 +1392,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -1175,6 +1404,7 @@
       <Docs>
         <summary>Triple Data Encryption Algorithm (TDES) Electronic Code Book (ECB) mode.</summary>
         <remarks>
+          <para>Triple Data Encryption Algorithm (TDES) Electronic Code Book (ECB) mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_TDES_ECB" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_TDES_ECB</code>.</a>
@@ -1207,6 +1437,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasScramblingMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasScramblingMode</ReturnType>
@@ -1216,6 +1450,8 @@
         <summary>Triple Data Encryption Algorithm (TDES) Society of Cable Telecommunications Engineers (SCTE)
             52 mode.</summary>
         <remarks>
+          <para>Triple Data Encryption Algorithm (TDES) Society of Cable Telecommunications Engineers (SCTE)
+            52 mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SCRAMBLING_MODE_TDES_SCTE52" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SCRAMBLING_MODE_TDES_SCTE52</code>.</a>
@@ -1244,6 +1480,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("sendEvent", "(II[B)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("sendEvent", "(II[B)V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1260,6 +1500,8 @@
         <param name="data">a byte array containing scheme-specific data for the event.</param>
         <summary>Send an event to a CA system.</summary>
         <remarks>
+          <para>Send an event to a CA system. The format of the event is scheme-specific
+            and is opaque to the framework.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#sendEvent(int,%20int,%20byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaCas.sendEvent(int, int, byte[])</code>.</a>
@@ -1292,6 +1534,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasSessionUsage enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasSessionUsage enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasSessionUsage</ReturnType>
@@ -1300,6 +1546,7 @@
       <Docs>
         <summary>Cas session is used to descramble live streams.</summary>
         <remarks>
+          <para>Cas session is used to descramble live streams.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SESSION_USAGE_LIVE" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SESSION_USAGE_LIVE</code>.</a>
@@ -1332,6 +1579,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasSessionUsage enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasSessionUsage enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasSessionUsage</ReturnType>
@@ -1340,6 +1591,7 @@
       <Docs>
         <summary>Cas session is used to descramble recoreded streams.</summary>
         <remarks>
+          <para>Cas session is used to descramble recoreded streams.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SESSION_USAGE_PLAYBACK" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SESSION_USAGE_PLAYBACK</code>.</a>
@@ -1372,6 +1624,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasSessionUsage enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasSessionUsage enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasSessionUsage</ReturnType>
@@ -1380,6 +1636,7 @@
       <Docs>
         <summary>Cas session is used to descramble live streams and encrypt local recorded content</summary>
         <remarks>
+          <para>Cas session is used to descramble live streams and encrypt local recorded content</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SESSION_USAGE_RECORD" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SESSION_USAGE_RECORD</code>.</a>
@@ -1412,6 +1669,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasSessionUsage enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaCasSessionUsage enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaCasSessionUsage</ReturnType>
@@ -1421,6 +1682,8 @@
         <summary>Cas session is used to descramble live streams , encrypt local recorded content and playback
             local encrypted content.</summary>
         <remarks>
+          <para>Cas session is used to descramble live streams , encrypt local recorded content and playback
+            local encrypted content.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#SESSION_USAGE_TIMESHIFT" title="Reference documentation">Java documentation for <code>android.media.MediaCas.SESSION_USAGE_TIMESHIFT</code>.</a>
@@ -1448,6 +1711,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setEventListener", "(Landroid/media/MediaCas$EventListener;Landroid/os/Handler;)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setEventListener", "(Landroid/media/MediaCas$EventListener;Landroid/os/Handler;)V", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1492,6 +1759,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setPrivateData", "([B)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setPrivateData", "([B)V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1503,6 +1774,7 @@
         <param name="data">byte array of the private data.</param>
         <summary>Send the private data for the CA system.</summary>
         <remarks>
+          <para>Send the private data for the CA system.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaCas#setPrivateData(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaCas.setPrivateData(byte[])</code>.</a>

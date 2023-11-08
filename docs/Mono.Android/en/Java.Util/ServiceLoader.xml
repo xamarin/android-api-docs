@@ -38,6 +38,124 @@
     <param name="&lt;S&gt;&lt;S&gt;">The type of the service to be loaded by this loader</param>
     <summary>A simple service-provider loading facility.</summary>
     <remarks>
+      <para>A simple service-provider loading facility.</para>
+      <para>A <i>service</i> is a well-known set of interfaces and (usually
+            abstract) classes.  A <i>service provider</i> is a specific implementation
+            of a service.  The classes in a provider typically implement the interfaces
+            and subclass the classes defined in the service itself.  Service providers
+            can be installed in an implementation of the Java platform in the form of
+            extensions, that is, jar files placed into any of the usual extension
+            directories.  Providers can also be made available by adding them to the
+            application's class path or by some other platform-specific means.</para>
+      <para>For the purpose of loading, a service is represented by a single type,
+            that is, a single interface or abstract class.  (A concrete class can be
+            used, but this is not recommended.)  A provider of a given service contains
+            one or more concrete classes that extend this <i>service type</i> with data
+            and code specific to the provider.  The <i>provider class</i> is typically
+            not the entire provider itself but rather a proxy which contains enough
+            information to decide whether the provider is able to satisfy a particular
+            request together with code that can create the actual provider on demand.
+            The details of provider classes tend to be highly service-specific; no
+            single class or interface could possibly unify them, so no such type is
+            defined here.  The only requirement enforced by this facility is that
+            provider classes must have a zero-argument constructor so that they can be
+            instantiated during loading.</para>
+      <para>"format"&gt; A service provider is identified by placing a
+            &lt;i&gt;provider-configuration file&lt;/i&gt; in the resource directory
+            &lt;c&gt;META-INF/services&lt;/c&gt;.  The file's name is the fully-qualified binary name of the service's type.
+            The file contains a list of fully-qualified binary names of concrete
+            provider classes, one per line.  Space and tab characters surrounding each
+            name, as well as blank lines, are ignored.  The comment character is
+            <c>'#'</c> (<c>'&amp;#92;u0023'</c>,
+            &lt;font style="font-size:smaller;"&gt;NUMBER SIGN&lt;/font&gt;); on
+            each line all characters following the first comment character are ignored.
+            The file must be encoded in UTF-8.</para>
+      <para>If a particular concrete provider class is named in more than one
+            configuration file, or is named in the same configuration file more than
+            once, then the duplicates are ignored.  The configuration file naming a
+            particular provider need not be in the same jar file or other distribution
+            unit as the provider itself.  The provider must be accessible from the same
+            class loader that was initially queried to locate the configuration file;
+            note that this is not necessarily the class loader from which the file was
+            actually loaded.</para>
+      <para>Providers are located and instantiated lazily, that is, on demand.  A
+            service loader maintains a cache of the providers that have been loaded so
+            far.  Each invocation of the <c>#iterator iterator</c> method returns an
+            iterator that first yields all of the elements of the cache, in
+            instantiation order, and then lazily locates and instantiates any remaining
+            providers, adding each one to the cache in turn.  The cache can be cleared
+            via the <c>#reload reload</c> method.</para>
+      <para>Service loaders always execute in the security context of the caller.
+            Trusted system code should typically invoke the methods in this class, and
+            the methods of the iterators which they return, from within a privileged
+            security context.</para>
+      <para>Instances of this class are not safe for use by multiple concurrent
+            threads.</para>
+      <para>Unless otherwise specified, passing a <c>null</c> argument to any
+            method in this class will cause a <c>NullPointerException</c> to be thrown.</para>
+      <para>&lt;span style="font-weight: bold; padding-right: 1em"&gt;Example&lt;/span&gt;
+            Suppose we have a service type <c>com.example.CodecSet</c> which is
+            intended to represent sets of encoder/decoder pairs for some protocol.  In
+            this case it is an abstract class with two abstract methods:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">public abstract Encoder getEncoder(String encodingName);
+            public abstract Decoder getDecoder(String encodingName);</code>
+      <para>&lt;/blockquote&gt;
+            
+            Each method returns an appropriate object or <c>null</c> if the provider
+            does not support the given encoding.  Typical providers support more than
+            one encoding.</para>
+      <para>If <c>com.example.impl.StandardCodecs</c> is an implementation of the
+            <c>CodecSet</c> service then its jar file also contains a file named
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">META-INF/services/com.example.CodecSet</code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>This file contains the single line:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">com.example.impl.StandardCodecs    # Standard codecs</code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>The <c>CodecSet</c> class creates and saves a single service instance
+            at initialization:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">private static ServiceLoader&amp;lt;CodecSet&amp;gt; codecSetLoader
+                = ServiceLoader.load(CodecSet.class);</code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>To locate an encoder for a given encoding name it defines a static
+            factory method which iterates through the known and available providers,
+            returning only when it has located a suitable encoder or has run out of
+            providers.
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">public static Encoder getEncoder(String encodingName) {
+                for (CodecSet cp : codecSetLoader) {
+                    Encoder enc = cp.getEncoder(encodingName);
+                    if (enc != null)
+                        return enc;
+                }
+                return null;
+            }</code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>A <c>getDecoder</c> method is defined similarly.</para>
+      <para>&lt;span style="font-weight: bold; padding-right: 1em"&gt;Usage Note&lt;/span&gt; If
+            the class path of a class loader that is used for provider loading includes
+            remote network URLs then those URLs will be dereferenced in the process of
+            searching for provider-configuration files.</para>
+      <para>This activity is normal, although it may cause puzzling entries to be
+            created in web-server logs.  If a web server is not configured correctly,
+            however, then this activity may cause the provider-loading algorithm to fail
+            spuriously.</para>
+      <para>A web server should return an HTTP 404 (Not Found) response when a
+            requested resource does not exist.  Sometimes, however, web servers are
+            erroneously configured to return an HTTP 200 (OK) response along with a
+            helpful HTML error page in such cases.  This will cause a <c>ServiceConfigurationError</c> to be thrown when this class attempts to parse
+            the HTML page as a provider-configuration file.  The best solution to this
+            problem is to fix the misconfigured web server to return the correct
+            response code (HTTP 404) along with the HTML error page.</para>
+      <para>Added in 1.6.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/ServiceLoader" title="Reference documentation">Java documentation for <code>java.util.ServiceLoader</code>.</a>
@@ -52,6 +170,61 @@
     <since version="Added in API level 9" />
   </Docs>
   <Members>
+    <Member MemberName="FindFirst">
+      <MemberSignature Language="C#" Value="public Java.Util.Optional? FindFirst ();" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance class Java.Util.Optional FindFirst() cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Util.ServiceLoader.FindFirst" />
+      <MemberSignature Language="F#" Value="member this.FindFirst : unit -&gt; Java.Util.Optional" Usage="serviceLoader.FindFirst " />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("findFirst", "()Ljava/util/Optional;", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("findFirst", "()Ljava/util/Optional;", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Java.Util.Optional</ReturnType>
+      </ReturnValue>
+      <Parameters />
+      <Docs>
+        <summary>Load the first available service provider of this loader's service.</summary>
+        <returns>The first service provider or empty <c>Optional</c> if no
+                    service providers are located</returns>
+        <remarks>
+          <para>Load the first available service provider of this loader's service. This
+            convenience method is equivalent to invoking the <c>#iterator()
+            iterator()</c> method and obtaining the first element. It therefore
+            returns the first element from the provider cache if possible, it
+            otherwise attempts to load and instantiate the first provider.</para>
+          <para>The following example loads the first available service provider. If
+            no service providers are located then it uses a default implementation.</para>
+          <code lang="text/java">{@code
+               CodecFactory factory = ServiceLoader.load(CodecFactory.class)
+                                                   .findFirst()
+                                                   .orElse(DEFAULT_CODECSET_FACTORY);
+            }</code>
+          <para>Added in 9.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/util/ServiceLoader#findFirst()" title="Reference documentation">Java documentation for <code>java.util.ServiceLoader.findFirst()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
     <Member MemberName="Iterator">
       <MemberSignature Language="C#" Value="public Java.Util.IIterator? Iterator ();" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance class Java.Util.IIterator Iterator() cil managed" />
@@ -62,8 +235,8 @@
         <InterfaceMember>M:Java.Lang.IIterable.Iterator</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -80,6 +253,36 @@
         <returns>An iterator that lazily loads providers for this loader's
                      service</returns>
         <remarks>
+          <para>Lazily loads the available providers of this loader's service.</para>
+          <para>The iterator returned by this method first yields all of the
+            elements of the provider cache, in instantiation order.  It then lazily
+            loads and instantiates any remaining providers, adding each one to the
+            cache in turn.</para>
+          <para>To achieve laziness the actual work of parsing the available
+            provider-configuration files and instantiating providers must be done by
+            the iterator itself.  Its <c>java.util.Iterator#hasNext hasNext</c> and
+            <c>java.util.Iterator#next next</c> methods can therefore throw a
+            <c>ServiceConfigurationError</c> if a provider-configuration file
+            violates the specified format, or if it names a provider class that
+            cannot be found and instantiated, or if the result of instantiating the
+            class is not assignable to the service type, or if any other kind of
+            exception or error is thrown as the next provider is located and
+            instantiated.  To write robust code it is only necessary to catch <c>ServiceConfigurationError</c> when using a service iterator.</para>
+          <para>If such an error is thrown then subsequent invocations of the
+            iterator will make a best effort to locate and instantiate the next
+            available provider, but in general such recovery cannot be guaranteed.
+            
+            &lt;blockquote style="font-size: smaller; line-height: 1.2"&gt;&lt;span
+            style="padding-right: 1em; font-weight: bold"&gt;Design Note&lt;/span&gt;
+            Throwing an error in these cases may seem extreme.  The rationale for
+            this behavior is that a malformed provider-configuration file, like a
+            malformed class file, indicates a serious problem with the way the Java
+            virtual machine is configured or is being used.  As such it is
+            preferable to throw an error rather than try to recover or, even worse,
+            fail silently.&lt;/blockquote&gt;</para>
+          <para>The iterator returned by this method does not support removal.
+            Invoking its <c>java.util.Iterator#remove() remove</c> method will
+            cause an <c>UnsupportedOperationException</c> to be thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ServiceLoader#iterator()" title="Reference documentation">Java documentation for <code>java.util.ServiceLoader.iterator()</code>.</a>
@@ -135,8 +338,8 @@
       <MemberSignature Language="F#" Value="static member Load : Java.Lang.Class -&gt; Java.Util.ServiceLoader" Usage="Java.Util.ServiceLoader.Load service" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -161,6 +364,21 @@
             current thread's java.</summary>
         <returns>A new service loader</returns>
         <remarks>
+          <para>Creates a new service loader for the given service type, using the
+            current thread's java.lang.Thread#getContextClassLoader
+            context class loader.</para>
+          <para>An invocation of this convenience method of the form
+            
+            &lt;blockquote&gt;</para>
+          <code lang="text/java">ServiceLoader.load(&lt;i&gt;service&lt;/i&gt;)</code>
+          <para>&lt;/blockquote&gt;
+            
+            is equivalent to
+            
+            &lt;blockquote&gt;</para>
+          <code lang="text/java">ServiceLoader.load(&lt;i&gt;service&lt;/i&gt;,
+                               Thread.currentThread().getContextClassLoader())</code>
+          <para>&lt;/blockquote&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ServiceLoader#load(java.lang.Class%3CS%3E)" title="Reference documentation">Java documentation for <code>java.util.ServiceLoader.load(java.lang.Class&lt;S&gt;)</code>.</a>
@@ -181,8 +399,8 @@
       <MemberSignature Language="F#" Value="static member Load : Java.Lang.Class * Java.Lang.ClassLoader -&gt; Java.Util.ServiceLoader" Usage="Java.Util.ServiceLoader.Load (service, loader)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -212,6 +430,8 @@
             loader.</summary>
         <returns>A new service loader</returns>
         <remarks>
+          <para>Creates a new service loader for the given service type and class
+            loader.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ServiceLoader#load(java.lang.Class%3CS%3E,%20java.lang.ClassLoader)" title="Reference documentation">Java documentation for <code>java.util.ServiceLoader.load(java.lang.Class&lt;S&gt;, java.lang.ClassLoader)</code>.</a>
@@ -232,8 +452,8 @@
       <MemberSignature Language="F#" Value="static member LoadInstalled : Java.Lang.Class -&gt; Java.Util.ServiceLoader" Usage="Java.Util.ServiceLoader.LoadInstalled service" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -258,6 +478,21 @@
             extension class loader.</summary>
         <returns>A new service loader</returns>
         <remarks>
+          <para>Creates a new service loader for the given service type, using the
+            extension class loader.</para>
+          <para>This convenience method simply locates the extension class loader,
+            call it <c><i>extClassLoader</i></c>, and then returns
+            
+            &lt;blockquote&gt;</para>
+          <code lang="text/java">ServiceLoader.load(&lt;i&gt;service&lt;/i&gt;, &lt;i&gt;extClassLoader&lt;/i&gt;)</code>
+          <para>&lt;/blockquote&gt;</para>
+          <para>If the extension class loader cannot be found then the system class
+            loader is used; if there is no system class loader then the bootstrap
+            class loader is used.</para>
+          <para>This method is intended for use when only installed providers are
+            desired.  The resulting service will only find and load providers that
+            have been installed into the current Java virtual machine; providers on
+            the application's class path will be ignored.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ServiceLoader#loadInstalled(java.lang.Class%3CS%3E)" title="Reference documentation">Java documentation for <code>java.util.ServiceLoader.loadInstalled(java.lang.Class&lt;S&gt;)</code>.</a>
@@ -278,8 +513,8 @@
       <MemberSignature Language="F#" Value="member this.Reload : unit -&gt; unit" Usage="serviceLoader.Reload " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -295,6 +530,12 @@
         <summary>Clear this loader's provider cache so that all providers will be
             reloaded.</summary>
         <remarks>
+          <para>Clear this loader's provider cache so that all providers will be
+            reloaded.</para>
+          <para>After invoking this method, subsequent invocations of the <c>#iterator() iterator</c> method will lazily look up and instantiate
+            providers from scratch, just as is done by a newly-created loader.</para>
+          <para>This method is intended for use in situations in which new providers
+            can be installed into a running Java virtual machine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ServiceLoader#reload()" title="Reference documentation">Java documentation for <code>java.util.ServiceLoader.reload()</code>.</a>
@@ -316,8 +557,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.ServiceLoader.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -347,8 +588,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.ServiceLoader.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

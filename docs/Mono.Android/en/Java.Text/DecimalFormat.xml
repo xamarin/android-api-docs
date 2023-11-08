@@ -23,6 +23,307 @@
             <c>NumberFormat</c> that formats decimal numbers.</summary>
     <remarks>
       <para>
+        <c>DecimalFormat</c> is a concrete subclass of
+            <c>NumberFormat</c> that formats decimal numbers. It has a variety of
+            features designed to make it possible to parse and format numbers in any
+            locale, including support for Western, Arabic, and Indic digits.  It also
+            supports different kinds of numbers, including integers (123), fixed-point
+            numbers (123.4), scientific notation (1.23E4), percentages (12%), and
+            currency amounts ($123).  All of these can be localized.</para>
+      <para>To obtain a <c>NumberFormat</c> for a specific locale, including the
+            default locale, call one of <c>NumberFormat</c>'s factory methods, such
+            as <c>getInstance()</c>.  In general, do not call the
+            <c>DecimalFormat</c> constructors directly, since the
+            <c>NumberFormat</c> factory methods may return subclasses other than
+            <c>DecimalFormat</c>. If you need to customize the format object, do
+            something like this:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">NumberFormat f = NumberFormat.getInstance(loc);
+            if (f instanceof DecimalFormat) {
+                ((DecimalFormat) f).setDecimalSeparatorAlwaysShown(true);
+            }
+            </code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>A <c>DecimalFormat</c> comprises a &lt;em&gt;pattern&lt;/em&gt; and a set of
+            &lt;em&gt;symbols&lt;/em&gt;.  The pattern may be set directly using
+            <c>applyPattern()</c>, or indirectly using the API methods.  The
+            symbols are stored in a <c>DecimalFormatSymbols</c> object.  When using
+            the <c>NumberFormat</c> factory methods, the pattern and symbols are
+            read from localized <c>ResourceBundle</c>s.
+            
+            &lt;h2&gt;Patterns&lt;/h2&gt;
+            
+            <c>DecimalFormat</c> patterns have the following syntax:
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">&lt;i&gt;Pattern:&lt;/i&gt;
+                    &lt;i&gt;PositivePattern&lt;/i&gt;
+                    &lt;i&gt;PositivePattern&lt;/i&gt; ; &lt;i&gt;NegativePattern&lt;/i&gt;
+            &lt;i&gt;PositivePattern:&lt;/i&gt;
+                    &lt;i&gt;Prefix&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt; &lt;i&gt;Number&lt;/i&gt; &lt;i&gt;Suffix&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt;
+            &lt;i&gt;NegativePattern:&lt;/i&gt;
+                    &lt;i&gt;Prefix&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt; &lt;i&gt;Number&lt;/i&gt; &lt;i&gt;Suffix&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt;
+            &lt;i&gt;Prefix:&lt;/i&gt;
+                    any Unicode characters except &amp;#92;uFFFE, &amp;#92;uFFFF, and special characters
+            &lt;i&gt;Suffix:&lt;/i&gt;
+                    any Unicode characters except &amp;#92;uFFFE, &amp;#92;uFFFF, and special characters
+            &lt;i&gt;Number:&lt;/i&gt;
+                    &lt;i&gt;Integer&lt;/i&gt; &lt;i&gt;Exponent&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt;
+                    &lt;i&gt;Integer&lt;/i&gt; . &lt;i&gt;Fraction&lt;/i&gt; &lt;i&gt;Exponent&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt;
+            &lt;i&gt;Integer:&lt;/i&gt;
+                    &lt;i&gt;MinimumInteger&lt;/i&gt;
+                    #
+                    # &lt;i&gt;Integer&lt;/i&gt;
+                    # , &lt;i&gt;Integer&lt;/i&gt;
+            &lt;i&gt;MinimumInteger:&lt;/i&gt;
+                    0
+                    0 &lt;i&gt;MinimumInteger&lt;/i&gt;
+                    0 , &lt;i&gt;MinimumInteger&lt;/i&gt;
+            &lt;i&gt;Fraction:&lt;/i&gt;
+                    &lt;i&gt;MinimumFraction&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt; &lt;i&gt;OptionalFraction&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt;
+            &lt;i&gt;MinimumFraction:&lt;/i&gt;
+                    0 &lt;i&gt;MinimumFraction&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt;
+            &lt;i&gt;OptionalFraction:&lt;/i&gt;
+                    # &lt;i&gt;OptionalFraction&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt;
+            &lt;i&gt;Exponent:&lt;/i&gt;
+                    E &lt;i&gt;MinimumExponent&lt;/i&gt;
+            &lt;i&gt;MinimumExponent:&lt;/i&gt;
+                    0 &lt;i&gt;MinimumExponent&lt;sub&gt;opt&lt;/sub&gt;&lt;/i&gt;
+            </code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>A <c>DecimalFormat</c> pattern contains a positive and negative
+            subpattern, for example, <c>"#,##0.00;(#,##0.00)"</c>.  Each
+            subpattern has a prefix, numeric part, and suffix. The negative subpattern
+            is optional; if absent, then the positive subpattern prefixed with the
+            minus sign (<c>'-' U+002D HYPHEN-MINUS</c>) is used as the
+            negative subpattern. That is, <c>"0.00"</c> alone is equivalent to
+            <c>"0.00;-0.00"</c>.  If there is an explicit negative subpattern, it
+            serves only to specify the negative prefix and suffix; the number of digits,
+            minimal digits, and other characteristics are all the same as the positive
+            pattern. That means that <c>"#,##0.0#;(#)"</c> produces precisely
+            the same behavior as <c>"#,##0.0#;(#,##0.0#)"</c>.</para>
+      <para>The prefixes, suffixes, and various symbols used for infinity, digits,
+            grouping separators, decimal separators, etc. may be set to arbitrary
+            values, and they will appear properly during formatting.  However, care must
+            be taken that the symbols and strings do not conflict, or parsing will be
+            unreliable.  For example, either the positive and negative prefixes or the
+            suffixes must be distinct for <c>DecimalFormat.parse()</c> to be able
+            to distinguish positive from negative values.  (If they are identical, then
+            <c>DecimalFormat</c> will behave as if no negative subpattern was
+            specified.)  Another example is that the decimal separator and grouping
+            separator should be distinct characters, or parsing will be impossible.</para>
+      <para>The grouping separator is commonly used for thousands, but in some
+            countries it separates ten-thousands. The grouping size is a constant number
+            of digits between the grouping characters, such as 3 for 100,000,000 or 4 for
+            1,0000,0000.  If you supply a pattern with multiple grouping characters, the
+            interval between the last one and the end of the integer is the one that is
+            used. So <c>"#,##,###,####"</c> == <c>"######,####"</c> ==
+            <c>"##,####,####"</c>.
+            
+            &lt;h3&gt;"special_pattern_character"&gt;Special Pattern Characters&lt;/h3&gt;</para>
+      <para>Many characters in a pattern are taken literally; they are matched during
+            parsing and output unchanged during formatting.  Special characters, on the
+            other hand, stand for other characters, strings, or classes of characters.
+            They must be quoted, unless noted otherwise, if they are to appear in the
+            prefix or suffix as literals.</para>
+      <para>The characters listed here are used in non-localized patterns.  Localized
+            patterns use the corresponding characters taken from this formatter's
+            <c>DecimalFormatSymbols</c> object instead, and these characters lose
+            their special status.  Two exceptions are the currency sign and quote, which
+            are not localized.
+            
+            &lt;blockquote&gt;
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;Chart showing symbol, location, localized, and meaning.&lt;/caption&gt;
+            &lt;thead&gt;
+                &lt;tr&gt;
+                     &lt;th scope="col" style="text-align:left"&gt;Symbol
+                     &lt;th scope="col" style="text-align:left"&gt;Location
+                     &lt;th scope="col" style="text-align:left"&gt;Localized?
+                     &lt;th scope="col" style="text-align:left"&gt;Meaning
+            &lt;/thead&gt;
+            &lt;tbody&gt;
+                &lt;tr style="vertical-align:top"&gt;
+                     &lt;th scope="row"&gt;<c>0</c>&lt;td&gt;Number
+                     &lt;td&gt;Yes
+                     &lt;td&gt;Digit
+                &lt;tr style="vertical-align: top"&gt;
+                     &lt;th scope="row"&gt;<c>#</c>&lt;td&gt;Number
+                     &lt;td&gt;Yes
+                     &lt;td&gt;Digit, zero shows as absent
+                &lt;tr style="vertical-align:top"&gt;
+                     &lt;th scope="row"&gt;<c>.</c>&lt;td&gt;Number
+                     &lt;td&gt;Yes
+                     &lt;td&gt;Decimal separator or monetary decimal separator
+                &lt;tr style="vertical-align: top"&gt;
+                     &lt;th scope="row"&gt;<c>-</c>&lt;td&gt;Number
+                     &lt;td&gt;Yes
+                     &lt;td&gt;Minus sign
+                &lt;tr style="vertical-align:top"&gt;
+                     &lt;th scope="row"&gt;<c>,</c>&lt;td&gt;Number
+                     &lt;td&gt;Yes
+                     &lt;td&gt;Grouping separator or monetary grouping separator
+                &lt;tr style="vertical-align: top"&gt;
+                     &lt;th scope="row"&gt;<c>E</c>&lt;td&gt;Number
+                     &lt;td&gt;Yes
+                     &lt;td&gt;Separates mantissa and exponent in scientific notation.
+                         &lt;em&gt;Need not be quoted in prefix or suffix.&lt;/em&gt;
+                &lt;tr style="vertical-align:top"&gt;
+                     &lt;th scope="row"&gt;<c>;</c>&lt;td&gt;Subpattern boundary
+                     &lt;td&gt;Yes
+                     &lt;td&gt;Separates positive and negative subpatterns
+                &lt;tr style="vertical-align: top"&gt;
+                     &lt;th scope="row"&gt;<c>%</c>&lt;td&gt;Prefix or suffix
+                     &lt;td&gt;Yes
+                     &lt;td&gt;Multiply by 100 and show as percentage
+                &lt;tr style="vertical-align:top"&gt;
+                     &lt;th scope="row"&gt;<c>&amp;#92;u2030</c>&lt;td&gt;Prefix or suffix
+                     &lt;td&gt;Yes
+                     &lt;td&gt;Multiply by 1000 and show as per mille value
+                &lt;tr style="vertical-align: top"&gt;
+                     &lt;th scope="row"&gt;<c>&amp;#164;</c> (<c>&amp;#92;u00A4</c>)
+                     &lt;td&gt;Prefix or suffix
+                     &lt;td&gt;No
+                     &lt;td&gt;Currency sign, replaced by currency symbol.  If
+                         doubled, replaced by international currency symbol.
+                         If present in a pattern, the monetary decimal/grouping separators
+                         are used instead of the decimal/grouping separators.
+                &lt;tr style="vertical-align:top"&gt;
+                     &lt;th scope="row"&gt;<c>'</c>&lt;td&gt;Prefix or suffix
+                     &lt;td&gt;No
+                     &lt;td&gt;Used to quote special characters in a prefix or suffix,
+                         for example, <c>"'#'#"</c> formats 123 to
+                         <c>"#123"</c>.  To create a single quote
+                         itself, use two in a row: <c>"# o''clock"</c>.
+            &lt;/tbody&gt;
+            &lt;/table&gt;
+            &lt;/blockquote&gt;
+            
+            &lt;h3&gt;Scientific Notation&lt;/h3&gt;</para>
+      <para>Numbers in scientific notation are expressed as the product of a mantissa
+            and a power of ten, for example, 1234 can be expressed as 1.234 x 10^3.  The
+            mantissa is often in the range 1.0 &amp;le; x &lt; 10.0, but it need not
+            be.
+            <c>DecimalFormat</c> can be instructed to format and parse scientific
+            notation &lt;em&gt;only via a pattern&lt;/em&gt;; there is currently no factory method
+            that creates a scientific notation format.  In a pattern, the exponent
+            character immediately followed by one or more digit characters indicates
+            scientific notation.  Example: <c>"0.###E0"</c> formats the number
+            1234 as <c>"1.234E3"</c>.
+            
+            &lt;ul&gt;
+            &lt;li&gt;The number of digit characters after the exponent character gives the
+            minimum exponent digit count.  There is no maximum.  Negative exponents are
+            formatted using the localized minus sign, &lt;em&gt;not&lt;/em&gt; the prefix and suffix
+            from the pattern.  This allows patterns such as <c>"0.###E0 m/s"</c>.
+            
+            &lt;li&gt;The minimum and maximum number of integer digits are interpreted
+            together:
+            
+            &lt;ul&gt;
+            &lt;li&gt;If the maximum number of integer digits is greater than their minimum number
+            and greater than 1, it forces the exponent to be a multiple of the maximum
+            number of integer digits, and the minimum number of integer digits to be
+            interpreted as 1.  The most common use of this is to generate
+            &lt;em&gt;engineering notation&lt;/em&gt;, in which the exponent is a multiple of three,
+            e.g., <c>"##0.#####E0"</c>. Using this pattern, the number 12345
+            formats to <c>"12.345E3"</c>, and 123456 formats to
+            <c>"123.456E3"</c>.
+            
+            &lt;li&gt;Otherwise, the minimum number of integer digits is achieved by adjusting the
+            exponent.  Example: 0.00123 formatted with <c>"00.###E0"</c> yields
+            <c>"12.3E-4"</c>.
+            &lt;/ul&gt;
+            
+            &lt;li&gt;The number of significant digits in the mantissa is the sum of the
+            &lt;em&gt;minimum integer&lt;/em&gt; and &lt;em&gt;maximum fraction&lt;/em&gt; digits, and is
+            unaffected by the maximum integer digits.  For example, 12345 formatted with
+            <c>"##0.##E0"</c> is <c>"12.3E3"</c>. To show all digits, set
+            the significant digits count to zero.  The number of significant digits
+            does not affect parsing.
+            
+            &lt;li&gt;Exponential patterns may not contain grouping separators.
+            &lt;/ul&gt;
+            
+            &lt;h3&gt;Rounding&lt;/h3&gt;
+            
+            <c>DecimalFormat</c> provides rounding modes defined in
+            <c>java.math.RoundingMode</c> for formatting.  By default, it uses
+            <c>java.math.RoundingMode#HALF_EVEN RoundingMode.HALF_EVEN</c>.
+            
+            &lt;h3&gt;Digits&lt;/h3&gt;
+            
+            For formatting, <c>DecimalFormat</c> uses the ten consecutive
+            characters starting with the localized zero digit defined in the
+            <c>DecimalFormatSymbols</c> object as digits. For parsing, these
+            digits as well as all Unicode decimal digits, as defined by
+            <c>Character#digit Character.digit</c>, are recognized.
+            
+            &lt;h4&gt;Special Values&lt;/h4&gt;</para>
+      <para>
+        <c>NaN</c> is formatted as a string, which typically has a single character
+            <c>&amp;#92;uFFFD</c>.  This string is determined by the
+            <c>DecimalFormatSymbols</c> object.  This is the only value for which
+            the prefixes and suffixes are not used.</para>
+      <para>Infinity is formatted as a string, which typically has a single character
+            <c>&amp;#92;u221E</c>, with the positive or negative prefixes and suffixes
+            applied.  The infinity string is determined by the
+            <c>DecimalFormatSymbols</c> object.</para>
+      <para>Negative zero (<c>"-0"</c>) parses to
+            &lt;ul&gt;
+            &lt;li&gt;<c>BigDecimal(0)</c> if <c>isParseBigDecimal()</c> is
+            true,
+            &lt;li&gt;<c>Long(0)</c> if <c>isParseBigDecimal()</c> is false
+                and <c>isParseIntegerOnly()</c> is true,
+            &lt;li&gt;<c>Double(-0.0)</c> if both <c>isParseBigDecimal()</c>
+            and <c>isParseIntegerOnly()</c> are false.
+            &lt;/ul&gt;
+            
+            &lt;h3&gt;"synchronization"&gt;Synchronization&lt;/h3&gt;</para>
+      <para>Decimal formats are generally not synchronized.
+            It is recommended to create separate format instances for each thread.
+            If multiple threads access a format concurrently, it must be synchronized
+            externally.
+            
+            &lt;h3&gt;Example&lt;/h3&gt;
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">&lt;strong&gt;{@code
+            // Print out a number using the localized number, integer, currency,
+            // and percent format for each locale}&lt;/strong&gt;{@code
+            Locale[] locales = NumberFormat.getAvailableLocales();
+            double myNumber = -1234.56;
+            NumberFormat form;
+            for (int j = 0; j &lt; 4; ++j) {
+                System.out.println("FORMAT");
+                for (int i = 0; i &lt; locales.length; ++i) {
+                    if (locales[i].getCountry().length() == 0) {
+                       continue; // Skip language-only locales
+                    }
+                    System.out.print(locales[i].getDisplayName());
+                    switch (j) {
+                    case 0:
+                        form = NumberFormat.getInstance(locales[i]); break;
+                    case 1:
+                        form = NumberFormat.getIntegerInstance(locales[i]); break;
+                    case 2:
+                        form = NumberFormat.getCurrencyInstance(locales[i]); break;
+                    default:
+                        form = NumberFormat.getPercentInstance(locales[i]); break;
+                    }
+                    if (form instanceof DecimalFormat) {
+                        System.out.print(": " + ((DecimalFormat) form).toPattern());
+                    }
+                    System.out.print(" -&gt; " + form.format(myNumber));
+                    try {
+                        System.out.println(" -&gt; " + form.parse(form.format(myNumber)));
+                    } catch (ParseException e) {}
+                }
+            }
+            }</code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>Added in 1.1.</para>
+      <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/text/DecimalFormat" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat</code>.</a>
         </format>
@@ -42,8 +343,8 @@
       <MemberSignature Language="DocId" Value="M:Java.Text.DecimalFormat.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -56,6 +357,14 @@
         <summary>Creates a DecimalFormat using the default pattern and symbols
             for the default <c>java.util.Locale.Category#FORMAT FORMAT</c> locale.</summary>
         <remarks>
+          <para>Creates a DecimalFormat using the default pattern and symbols
+            for the default <c>java.util.Locale.Category#FORMAT FORMAT</c> locale.
+            This is a convenient way to obtain a
+            DecimalFormat when internationalization is not the main concern.</para>
+          <para>To obtain standard formats for a given locale, use the factory methods
+            on NumberFormat such as getNumberInstance. These factories will
+            return the most appropriate sub-class of NumberFormat for a given
+            locale.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#DecimalFormat()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.DecimalFormat()</code>.</a>
@@ -77,8 +386,8 @@
       <MemberSignature Language="F#" Value="new Java.Text.DecimalFormat : string -&gt; Java.Text.DecimalFormat" Usage="new Java.Text.DecimalFormat pattern" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -94,6 +403,14 @@
         <summary>Creates a DecimalFormat using the given pattern and the symbols
             for the default <c>java.util.Locale.Category#FORMAT FORMAT</c> locale.</summary>
         <remarks>
+          <para>Creates a DecimalFormat using the given pattern and the symbols
+            for the default <c>java.util.Locale.Category#FORMAT FORMAT</c> locale.
+            This is a convenient way to obtain a
+            DecimalFormat when internationalization is not the main concern.</para>
+          <para>To obtain standard formats for a given locale, use the factory methods
+            on NumberFormat such as getNumberInstance. These factories will
+            return the most appropriate sub-class of NumberFormat for a given
+            locale.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#DecimalFormat(java.lang.String)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.DecimalFormat(java.lang.String)</code>.</a>
@@ -117,8 +434,8 @@
       <MemberSignature Language="F#" Value="new Java.Text.DecimalFormat : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Text.DecimalFormat" Usage="new Java.Text.DecimalFormat (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -140,8 +457,8 @@
       <MemberSignature Language="F#" Value="new Java.Text.DecimalFormat : string * Java.Text.DecimalFormatSymbols -&gt; Java.Text.DecimalFormat" Usage="new Java.Text.DecimalFormat (pattern, symbols)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -158,6 +475,14 @@
         <param name="symbols">the set of symbols to be used</param>
         <summary>Creates a DecimalFormat using the given pattern and symbols.</summary>
         <remarks>
+          <para>Creates a DecimalFormat using the given pattern and symbols.
+            Use this constructor when you need to completely customize the
+            behavior of the format.</para>
+          <para>To obtain standard formats for a given
+            locale, use the factory methods on NumberFormat such as
+            getInstance or getCurrencyInstance. If you need only minor adjustments
+            to a standard format, you can modify the format returned by
+            a NumberFormat factory method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#DecimalFormat(java.lang.String,%20java.text.DecimalFormatSymbols)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.DecimalFormat(java.lang.String, java.text.DecimalFormatSymbols)</code>.</a>
@@ -181,8 +506,8 @@
       <MemberSignature Language="F#" Value="abstract member ApplyLocalizedPattern : string -&gt; unit&#xA;override this.ApplyLocalizedPattern : string -&gt; unit" Usage="decimalFormat.ApplyLocalizedPattern pattern" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -200,6 +525,22 @@
         <param name="pattern">a new pattern</param>
         <summary>Apply the given pattern to this Format object.</summary>
         <remarks>
+          <para>Apply the given pattern to this Format object.  The pattern
+            is assumed to be in a localized notation. A pattern is a
+            short-hand specification for the various formatting properties.
+            These properties can also be changed individually through the
+            various setter methods.</para>
+          <para>There is no limit to integer digits set
+            by this routine, since that is the typical end-user desire;
+            use setMaximumInteger if you want to set a real value.
+            For negative numbers, use a second pattern, separated by a semicolon</para>
+          <para>Example <c>"#,#00.0#"</c> &amp;rarr; 1,234.56</para>
+          <para>This means a minimum of 2 integer digits, 1 fraction digit, and
+            a maximum of 2 fraction digits.</para>
+          <para>Example: <c>"#,#00.0#;(#,#00.0#)"</c> for negatives in
+            parentheses.</para>
+          <para>In negative patterns, the minimum and maximum counts are ignored;
+            these are presumed to be set in the positive pattern.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#applyLocalizedPattern(java.lang.String)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.applyLocalizedPattern(java.lang.String)</code>.</a>
@@ -223,8 +564,8 @@
       <MemberSignature Language="F#" Value="abstract member ApplyPattern : string -&gt; unit&#xA;override this.ApplyPattern : string -&gt; unit" Usage="decimalFormat.ApplyPattern pattern" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -242,6 +583,21 @@
         <param name="pattern">a new pattern</param>
         <summary>Apply the given pattern to this Format object.</summary>
         <remarks>
+          <para>Apply the given pattern to this Format object.  A pattern is a
+            short-hand specification for the various formatting properties.
+            These properties can also be changed individually through the
+            various setter methods.</para>
+          <para>There is no limit to integer digits set
+            by this routine, since that is the typical end-user desire;
+            use setMaximumInteger if you want to set a real value.
+            For negative numbers, use a second pattern, separated by a semicolon</para>
+          <para>Example <c>"#,#00.0#"</c> &amp;rarr; 1,234.56</para>
+          <para>This means a minimum of 2 integer digits, 1 fraction digit, and
+            a maximum of 2 fraction digits.</para>
+          <para>Example: <c>"#,#00.0#;(#,#00.0#)"</c> for negatives in
+            parentheses.</para>
+          <para>In negative patterns, the minimum and maximum counts are ignored;
+            these are presumed to be set in the positive pattern.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#applyPattern(java.lang.String)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.applyPattern(java.lang.String)</code>.</a>
@@ -265,8 +621,8 @@
       <MemberSignature Language="F#" Value="member this.DecimalFormatSymbols : Java.Text.DecimalFormatSymbols with get, set" Usage="Java.Text.DecimalFormat.DecimalFormatSymbols" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -289,12 +645,16 @@
         <value>a copy of the desired DecimalFormatSymbols</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns a copy of the decimal format symbols, which is generally not
+            changed by the programmer or user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#getDecimalFormatSymbols()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.getDecimalFormatSymbols()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets the decimal format symbols, which is generally not changed
+            by the programmer or user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#setDecimalFormatSymbols(java.text.DecimalFormatSymbols)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.setDecimalFormatSymbols(java.text.DecimalFormatSymbols)</code>.</a>
@@ -316,8 +676,8 @@
       <MemberSignature Language="F#" Value="member this.DecimalSeparatorAlwaysShown : bool with get, set" Usage="Java.Text.DecimalFormat.DecimalSeparatorAlwaysShown" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -342,12 +702,18 @@
                     <c>false</c> otherwise</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Allows you to get the behavior of the decimal separator with integers.
+            (The decimal separator will always appear with decimals.)</para>
+          <para>Example: Decimal ON: 12345 &amp;rarr; 12345.; OFF: 12345 &amp;rarr; 12345</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#isDecimalSeparatorAlwaysShown()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.isDecimalSeparatorAlwaysShown()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Allows you to set the behavior of the decimal separator with integers.
+            (The decimal separator will always appear with decimals.)</para>
+          <para>Example: Decimal ON: 12345 &amp;rarr; 12345.; OFF: 12345 &amp;rarr; 12345</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#setDecimalSeparatorAlwaysShown(boolean)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.setDecimalSeparatorAlwaysShown(boolean)</code>.</a>
@@ -369,8 +735,8 @@
       <MemberSignature Language="F#" Value="override this.Format : Java.Lang.Object * Java.Lang.StringBuffer * Java.Text.FieldPosition -&gt; Java.Lang.StringBuffer" Usage="decimalFormat.Format (number, toAppendTo, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -402,6 +768,10 @@
             buffer.</summary>
         <returns>the value passed in as <c>toAppendTo</c></returns>
         <remarks>
+          <para>Formats a number and appends the resulting text to the given string
+            buffer.
+            The number can be of any subclass of <c>java.lang.Number</c>.</para>
+          <para>This implementation uses the maximum precision permitted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#format(java.lang.Object,%20java.lang.StringBuffer,%20java.text.FieldPosition)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.format(java.lang.Object, java.lang.StringBuffer, java.text.FieldPosition)</code>.</a>
@@ -423,8 +793,8 @@
       <MemberSignature Language="F#" Value="override this.Format : double * Java.Lang.StringBuffer * Java.Text.FieldPosition -&gt; Java.Lang.StringBuffer" Usage="decimalFormat.Format (number, result, fieldPosition)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -454,6 +824,7 @@
         <summary>Formats a double to produce a string.</summary>
         <returns>The formatted number string</returns>
         <remarks>
+          <para>Formats a double to produce a string.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#format(double,%20java.lang.StringBuffer,%20java.text.FieldPosition)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.format(double, java.lang.StringBuffer, java.text.FieldPosition)</code>.</a>
@@ -475,8 +846,8 @@
       <MemberSignature Language="F#" Value="override this.Format : int64 * Java.Lang.StringBuffer * Java.Text.FieldPosition -&gt; Java.Lang.StringBuffer" Usage="decimalFormat.Format (number, result, fieldPosition)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -506,6 +877,7 @@
         <summary>Format a long to produce a string.</summary>
         <returns>The formatted number string</returns>
         <remarks>
+          <para>Format a long to produce a string.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#format(long,%20java.lang.StringBuffer,%20java.text.FieldPosition)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.format(long, java.lang.StringBuffer, java.text.FieldPosition)</code>.</a>
@@ -527,8 +899,8 @@
       <MemberSignature Language="F#" Value="member this.GroupingSize : int with get, set" Usage="Java.Text.DecimalFormat.GroupingSize" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -549,12 +921,28 @@
         <value>the grouping size</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Return the grouping size. Grouping size is the number of digits between
+            grouping separators in the integer portion of a number.  For example,
+            in the number "123,456.78", the grouping size is 3. Grouping size of
+            zero designates that grouping is not used, which provides the same
+            formatting as if calling <c>#setGroupingUsed(boolean)
+            setGroupingUsed(false)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#getGroupingSize()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.getGroupingSize()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the grouping size. Grouping size is the number of digits between
+            grouping separators in the integer portion of a number.  For example,
+            in the number "123,456.78", the grouping size is 3. Grouping size of
+            zero designates that grouping is not used, which provides the same
+            formatting as if calling <c>#setGroupingUsed(boolean)
+            setGroupingUsed(false)</c>.</para>
+          <para>The value passed in is converted to a byte, which may lose information.
+            Values that are negative or greater than
+            <c>java.lang.Byte#MAX_VALUE Byte.MAX_VALUE</c>, will throw an
+            <c>IllegalArgumentException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#setGroupingSize(int)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.setGroupingSize(int)</code>.</a>
@@ -607,8 +995,8 @@
       <MemberSignature Language="F#" Value="member this.Multiplier : int with get, set" Usage="Java.Text.DecimalFormat.Multiplier" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -631,12 +1019,22 @@
         <value>the multiplier</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Gets the multiplier for use in percent, per mille, and similar
+            formats.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#getMultiplier()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.getMultiplier()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets the multiplier for use in percent, per mille, and similar
+            formats.
+            For a percent format, set the multiplier to 100 and the suffixes to
+            have '%' (for Arabic, use the Arabic percent sign).
+            For a per mille format, set the multiplier to 1000 and the suffixes to
+            have '&amp;#92;u2030'.</para>
+          <para>Example: with multiplier 100, 1.23 is formatted as "123", and
+            "123" is parsed into 1.23.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#setMultiplier(int)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.setMultiplier(int)</code>.</a>
@@ -658,8 +1056,8 @@
       <MemberSignature Language="F#" Value="member this.NegativePrefix : string with get, set" Usage="Java.Text.DecimalFormat.NegativePrefix" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -680,12 +1078,16 @@
         <value>the negative prefix</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Get the negative prefix.</para>
+          <para>Examples: -123, ($123) (with negative suffix), sFr-123</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#getNegativePrefix()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.getNegativePrefix()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the negative prefix.</para>
+          <para>Examples: -123, ($123) (with negative suffix), sFr-123</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#setNegativePrefix(java.lang.String)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.setNegativePrefix(java.lang.String)</code>.</a>
@@ -707,8 +1109,8 @@
       <MemberSignature Language="F#" Value="member this.NegativeSuffix : string with get, set" Usage="Java.Text.DecimalFormat.NegativeSuffix" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -729,12 +1131,16 @@
         <value>the negative suffix</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Get the negative suffix.</para>
+          <para>Examples: -123%, ($123) (with positive suffixes)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#getNegativeSuffix()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.getNegativeSuffix()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the negative suffix.</para>
+          <para>Examples: 123%</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#setNegativeSuffix(java.lang.String)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.setNegativeSuffix(java.lang.String)</code>.</a>
@@ -756,8 +1162,8 @@
       <MemberSignature Language="F#" Value="override this.Parse : string * Java.Text.ParsePosition -&gt; Java.Lang.Number" Usage="decimalFormat.Parse (text, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -779,6 +1185,50 @@
         <summary>Parses text from a string to produce a <c>Number</c>.</summary>
         <returns>the parsed value, or <c>null</c> if the parse fails</returns>
         <remarks>
+          <para>Parses text from a string to produce a <c>Number</c>.</para>
+          <para>The method attempts to parse text starting at the index given by
+            <c>pos</c>.
+            If parsing succeeds, then the index of <c>pos</c> is updated
+            to the index after the last character used (parsing does not necessarily
+            use all characters up to the end of the string), and the parsed
+            number is returned. The updated <c>pos</c> can be used to
+            indicate the starting point for the next call to this method.
+            If an error occurs, then the index of <c>pos</c> is not
+            changed, the error index of <c>pos</c> is set to the index of
+            the character where the error occurred, and null is returned.</para>
+          <para>The subclass returned depends on the value of <c>#isParseBigDecimal</c>
+            as well as on the string being parsed.
+            &lt;ul&gt;
+              &lt;li&gt;If <c>isParseBigDecimal()</c> is false (the default),
+                  most integer values are returned as <c>Long</c>
+                  objects, no matter how they are written: <c>"17"</c> and
+                  <c>"17.000"</c> both parse to <c>Long(17)</c>.
+                  Values that cannot fit into a <c>Long</c> are returned as
+                  <c>Double</c>s. This includes values with a fractional part,
+                  infinite values, <c>NaN</c>, and the value -0.0.
+                  <c>DecimalFormat</c> does &lt;em&gt;not&lt;/em&gt; decide whether to
+                  return a <c>Double</c> or a <c>Long</c> based on the
+                  presence of a decimal separator in the source string. Doing so
+                  would prevent integers that overflow the mantissa of a double,
+                  such as <c>"-9,223,372,036,854,775,808.00"</c>, from being
+                  parsed accurately.</para>
+          <para>Callers may use the <c>Number</c> methods
+                  <c>doubleValue</c>, <c>longValue</c>, etc., to obtain
+                  the type they want.
+              &lt;li&gt;If <c>isParseBigDecimal()</c> is true, values are returned
+                  as <c>BigDecimal</c> objects. The values are the ones
+                  constructed by <c>java.math.BigDecimal#BigDecimal(String)</c>
+                  for corresponding strings in locale-independent format. The
+                  special cases negative and positive infinity and NaN are returned
+                  as <c>Double</c> instances holding the values of the
+                  corresponding <c>Double</c> constants.
+            &lt;/ul&gt;</para>
+          <para>
+            <c>DecimalFormat</c> parses all Unicode characters that represent
+            decimal digits, as defined by <c>Character.digit()</c>. In
+            addition, <c>DecimalFormat</c> also recognizes as digits the ten
+            consecutive characters starting with the localized zero digit defined in
+            the <c>DecimalFormatSymbols</c> object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#parse(java.lang.String,%20java.text.ParsePosition)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.parse(java.lang.String, java.text.ParsePosition)</code>.</a>
@@ -800,8 +1250,8 @@
       <MemberSignature Language="F#" Value="member this.ParseBigDecimal : bool with get, set" Usage="Java.Text.DecimalFormat.ParseBigDecimal" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -828,12 +1278,18 @@
                     <c>false</c> otherwise</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns whether the <c>#parse(java.lang.String, java.text.ParsePosition)</c>
+            method returns <c>BigDecimal</c>. The default value is false.</para>
+          <para>Added in 1.5.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#isParseBigDecimal()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.isParseBigDecimal()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets whether the <c>#parse(java.lang.String, java.text.ParsePosition)</c>
+            method returns <c>BigDecimal</c>.</para>
+          <para>Added in 1.5.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#setParseBigDecimal(boolean)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.setParseBigDecimal(boolean)</code>.</a>
@@ -855,8 +1311,8 @@
       <MemberSignature Language="F#" Value="member this.PositivePrefix : string with get, set" Usage="Java.Text.DecimalFormat.PositivePrefix" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -877,12 +1333,16 @@
         <value>the positive prefix</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Get the positive prefix.</para>
+          <para>Examples: +123, $123, sFr123</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#getPositivePrefix()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.getPositivePrefix()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the positive prefix.</para>
+          <para>Examples: +123, $123, sFr123</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#setPositivePrefix(java.lang.String)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.setPositivePrefix(java.lang.String)</code>.</a>
@@ -904,8 +1364,8 @@
       <MemberSignature Language="F#" Value="member this.PositiveSuffix : string with get, set" Usage="Java.Text.DecimalFormat.PositiveSuffix" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -926,12 +1386,16 @@
         <value>the positive suffix</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Get the positive suffix.</para>
+          <para>Example: 123%</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#getPositiveSuffix()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.getPositiveSuffix()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the positive suffix.</para>
+          <para>Example: 123%</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#setPositiveSuffix(java.lang.String)" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.setPositiveSuffix(java.lang.String)</code>.</a>
@@ -953,8 +1417,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Text.DecimalFormat.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -984,8 +1448,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Text.DecimalFormat.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1015,8 +1479,8 @@
       <MemberSignature Language="F#" Value="abstract member ToLocalizedPattern : unit -&gt; string&#xA;override this.ToLocalizedPattern : unit -&gt; string" Usage="decimalFormat.ToLocalizedPattern " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1033,6 +1497,8 @@
             state of this Format object.</summary>
         <returns>a localized pattern string</returns>
         <remarks>
+          <para>Synthesizes a localized pattern string that represents the current
+            state of this Format object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#toLocalizedPattern()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.toLocalizedPattern()</code>.</a>
@@ -1054,8 +1520,8 @@
       <MemberSignature Language="F#" Value="abstract member ToPattern : unit -&gt; string&#xA;override this.ToPattern : unit -&gt; string" Usage="decimalFormat.ToPattern " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1072,6 +1538,8 @@
             of this Format object.</summary>
         <returns>a pattern string</returns>
         <remarks>
+          <para>Synthesizes a pattern string that represents the current state
+            of this Format object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/text/DecimalFormat#toPattern()" title="Reference documentation">Java documentation for <code>java.text.DecimalFormat.toPattern()</code>.</a>

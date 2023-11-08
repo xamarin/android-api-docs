@@ -34,6 +34,226 @@
     <summary>The <c>AudioFormat</c> class is used to access a number of audio format and
             channel configuration constants.</summary>
     <remarks>
+      <para>The <c>AudioFormat</c> class is used to access a number of audio format and
+            channel configuration constants. They are for instance used
+            in <c>AudioTrack</c> and <c>AudioRecord</c>, as valid values in individual parameters of
+            constructors like <c>AudioTrack#AudioTrack(int, int, int, int, int, int)</c>, where the fourth
+            parameter is one of the <c>AudioFormat.ENCODING_*</c> constants.
+            The <c>AudioFormat</c> constants are also used in <c>MediaFormat</c> to specify
+            audio related values commonly used in media, such as for <c>MediaFormat#KEY_CHANNEL_MASK</c>.</para>
+      <para>The <c>AudioFormat.Builder</c> class can be used to create instances of
+            the <c>AudioFormat</c> format class.
+            Refer to
+            <c>AudioFormat.Builder</c> for documentation on the mechanics of the configuration and building
+            of such instances. Here we describe the main concepts that the <c>AudioFormat</c> class
+            allow you to convey in each instance, they are:
+            &lt;ol&gt;
+            &lt;li&gt;sample rate&lt;li&gt;encoding&lt;li&gt;channel masks&lt;/ol&gt;</para>
+      <para>Closely associated with the <c>AudioFormat</c> is the notion of an
+            audio frame, which is used throughout the documentation
+            to represent the minimum size complete unit of audio data.
+            
+            &lt;h4 id="sampleRate"&gt;Sample rate&lt;/h4&gt;</para>
+      <para>Expressed in Hz, the sample rate in an <c>AudioFormat</c> instance expresses the number
+            of audio samples for each channel per second in the content you are playing or recording. It is
+            not the sample rate
+            at which content is rendered or produced. For instance a sound at a media sample rate of 8000Hz
+            can be played on a device operating at a sample rate of 48000Hz; the sample rate conversion is
+            automatically handled by the platform, it will not play at 6x speed.</para>
+      <para>As of API <c>android.os.Build.VERSION_CODES#M</c>,
+            sample rates up to 192kHz are supported
+            for <c>AudioRecord</c> and <c>AudioTrack</c>, with sample rate conversion
+            performed as needed.
+            To improve efficiency and avoid lossy conversions, it is recommended to match the sample rate
+            for <c>AudioRecord</c> and <c>AudioTrack</c> to the endpoint device
+            sample rate, and limit the sample rate to no more than 48kHz unless there are special
+            device capabilities that warrant a higher rate.
+            
+            &lt;h4 id="encoding"&gt;Encoding&lt;/h4&gt;</para>
+      <para>Audio encoding is used to describe the bit representation of audio data, which can be
+            either linear PCM or compressed audio, such as AC3 or DTS.</para>
+      <para>For linear PCM, the audio encoding describes the sample size, 8 bits, 16 bits, or 32 bits,
+            and the sample representation, integer or float.
+            &lt;ul&gt;
+            &lt;li&gt; <c>#ENCODING_PCM_8BIT</c>: The audio sample is a 8 bit unsigned integer in the
+            range [0, 255], with a 128 offset for zero. This is typically stored as a Java byte in a
+            byte array or ByteBuffer. Since the Java byte is &lt;em&gt;signed&lt;/em&gt;,
+            be careful with math operations and conversions as the most significant bit is inverted.
+            &lt;/li&gt;
+            &lt;li&gt; <c>#ENCODING_PCM_16BIT</c>: The audio sample is a 16 bit signed integer
+            typically stored as a Java short in a short array, but when the short
+            is stored in a ByteBuffer, it is native endian (as compared to the default Java big endian).
+            The short has full range from [-32768, 32767],
+            and is sometimes interpreted as fixed point Q.15 data.
+            &lt;/li&gt;
+            &lt;li&gt; <c>#ENCODING_PCM_FLOAT</c>: Introduced in
+            API <c>android.os.Build.VERSION_CODES#LOLLIPOP</c>, this encoding specifies that
+            the audio sample is a 32 bit IEEE single precision float. The sample can be
+            manipulated as a Java float in a float array, though within a ByteBuffer
+            it is stored in native endian byte order.
+            The nominal range of <c>ENCODING_PCM_FLOAT</c> audio data is [-1.0, 1.0].
+            It is implementation dependent whether the positive maximum of 1.0 is included
+            in the interval. Values outside of the nominal range are clamped before
+            sending to the endpoint device. Beware that
+            the handling of NaN is undefined; subnormals may be treated as zero; and
+            infinities are generally clamped just like other values for <c>AudioTrack</c>
+            &amp;ndash; try to avoid infinities because they can easily generate a NaN.
+            &lt;br&gt;
+            To achieve higher audio bit depth than a signed 16 bit integer short,
+            it is recommended to use <c>ENCODING_PCM_FLOAT</c> for audio capture, processing,
+            and playback.
+            Floats are efficiently manipulated by modern CPUs,
+            have greater precision than 24 bit signed integers,
+            and have greater dynamic range than 32 bit signed integers.
+            <c>AudioRecord</c> as of API <c>android.os.Build.VERSION_CODES#M</c> and
+            <c>AudioTrack</c> as of API <c>android.os.Build.VERSION_CODES#LOLLIPOP</c>
+            support <c>ENCODING_PCM_FLOAT</c>.
+            &lt;/li&gt;
+            &lt;li&gt; <c>#ENCODING_PCM_24BIT_PACKED</c>: Introduced in
+            API <c>android.os.Build.VERSION_CODES#S</c>,
+            this encoding specifies the audio sample is an
+            extended precision 24 bit signed integer
+            stored as a 3 Java bytes in a <c>ByteBuffer</c> or byte array in native endian
+            (see <c>java.nio.ByteOrder#nativeOrder()</c>).
+            Each sample has full range from [-8388608, 8388607],
+            and can be interpreted as fixed point Q.23 data.
+            &lt;/li&gt;
+            &lt;li&gt; <c>#ENCODING_PCM_32BIT</c>: Introduced in
+            API <c>android.os.Build.VERSION_CODES#S</c>,
+            this encoding specifies the audio sample is an
+            extended precision 32 bit signed integer
+            stored as a 4 Java bytes in a <c>ByteBuffer</c> or byte array in native endian
+            (see <c>java.nio.ByteOrder#nativeOrder()</c>).
+            Each sample has full range from [-2147483648, 2147483647],
+            and can be interpreted as fixed point Q.31 data.
+            &lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>For compressed audio, the encoding specifies the method of compression,
+            for example <c>#ENCODING_AC3</c> and <c>#ENCODING_DTS</c>. The compressed
+            audio data is typically stored as bytes in
+            a byte array or ByteBuffer. When a compressed audio encoding is specified
+            for an <c>AudioTrack</c>, it creates a direct (non-mixed) track
+            for output to an endpoint (such as HDMI) capable of decoding the compressed audio.
+            For (most) other endpoints, which are not capable of decoding such compressed audio,
+            you will need to decode the data first, typically by creating a <c>MediaCodec</c>.
+            Alternatively, one may use <c>MediaPlayer</c> for playback of compressed
+            audio files or streams.</para>
+      <para>When compressed audio is sent out through a direct <c>AudioTrack</c>,
+            it need not be written in exact multiples of the audio access unit;
+            this differs from <c>MediaCodec</c> input buffers.
+            
+            &lt;h4 id="channelMask"&gt;Channel mask&lt;/h4&gt;</para>
+      <para>Channel masks are used in <c>AudioTrack</c> and <c>AudioRecord</c> to describe
+            the samples and their arrangement in the audio frame. They are also used in the endpoint (e.g.
+            a USB audio interface, a DAC connected to headphones) to specify allowable configurations of a
+            particular device.
+            &lt;br&gt;As of API <c>android.os.Build.VERSION_CODES#M</c>, there are two types of channel masks:
+            channel position masks and channel index masks.
+            
+            &lt;h5 id="channelPositionMask"&gt;Channel position masks&lt;/h5&gt;
+            Channel position masks are the original Android channel masks, and are used since API
+            <c>android.os.Build.VERSION_CODES#BASE</c>.
+            For input and output, they imply a positional nature - the location of a speaker or a microphone
+            for recording or playback.
+            &lt;br&gt;For a channel position mask, each allowed channel position corresponds to a bit in the
+            channel mask. If that channel position is present in the audio frame, that bit is set,
+            otherwise it is zero. The order of the bits (from lsb to msb) corresponds to the order of that
+            position's sample in the audio frame.
+            &lt;br&gt;The canonical channel position masks by channel count are as follows:
+            &lt;br&gt;&lt;table&gt;
+            &lt;tr&gt;&lt;td&gt;channel count&lt;/td&gt;&lt;td&gt;channel position mask&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;<c>#CHANNEL_OUT_MONO</c>&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;<c>#CHANNEL_OUT_STEREO</c>&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;<c>#CHANNEL_OUT_STEREO</c> | <c>#CHANNEL_OUT_FRONT_CENTER</c>&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;<c>#CHANNEL_OUT_QUAD</c>&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;5&lt;/td&gt;&lt;td&gt;<c>#CHANNEL_OUT_QUAD</c> | <c>#CHANNEL_OUT_FRONT_CENTER</c>&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;<c>#CHANNEL_OUT_5POINT1</c>&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;<c>#CHANNEL_OUT_5POINT1</c> | <c>#CHANNEL_OUT_BACK_CENTER</c>&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;8&lt;/td&gt;&lt;td&gt;<c>#CHANNEL_OUT_7POINT1_SURROUND</c>&lt;/td&gt;&lt;/tr&gt;
+            &lt;/table&gt;
+            &lt;br&gt;These masks are an ORed composite of individual channel masks. For example
+            <c>#CHANNEL_OUT_STEREO</c> is composed of <c>#CHANNEL_OUT_FRONT_LEFT</c> and
+            <c>#CHANNEL_OUT_FRONT_RIGHT</c>.</para>
+      <para>The following diagram represents the layout of the output channels, as seen from above
+            the listener (in the center at the "lis" position, facing the front-center channel).</para>
+      <code lang="text/java">TFL ----- TFC ----- TFR     T is Top
+                  |  \       |       /  |
+                  |   FL --- FC --- FR  |     F is Front
+                  |   |\     |     /|   |
+                  |   | BFL-BFC-BFR |   |     BF is Bottom Front
+                  |   |             |   |
+                  |   FWL   lis   FWR   |     W is Wide
+                  |   |             |   |
+                 TSL  SL    TC     SR  TSR    S is Side
+                  |   |             |   |
+                  |   BL --- BC -- BR   |     B is Back
+                  |  /               \  |
+                  TBL ----- TBC ----- TBR     C is Center, L/R is Left/Right
+            </code>
+      <para>All "T" (top) channels are above the listener, all "BF" (bottom-front) channels are below the
+            listener, all others are in the listener's horizontal plane. When used in conjunction, LFE1 and
+            LFE2 are below the listener, when used alone, LFE plane is undefined.
+            See the channel definitions for the abbreviations
+            
+            &lt;h5 id="channelIndexMask"&gt;Channel index masks&lt;/h5&gt;
+            Channel index masks are introduced in API <c>android.os.Build.VERSION_CODES#M</c>. They allow
+            the selection of a particular channel from the source or sink endpoint by number, i.e. the first
+            channel, the second channel, and so forth. This avoids problems with artificially assigning
+            positions to channels of an endpoint, or figuring what the i&lt;sup&gt;th&lt;/sup&gt; position bit is within
+            an endpoint's channel position mask etc.
+            &lt;br&gt;Here's an example where channel index masks address this confusion: dealing with a 4 channel
+            USB device. Using a position mask, and based on the channel count, this would be a
+            <c>#CHANNEL_OUT_QUAD</c> device, but really one is only interested in channel 0
+            through channel 3. The USB device would then have the following individual bit channel masks:
+            <c>#CHANNEL_OUT_FRONT_LEFT</c>,
+            <c>#CHANNEL_OUT_FRONT_RIGHT</c>, <c>#CHANNEL_OUT_BACK_LEFT</c>
+            and <c>#CHANNEL_OUT_BACK_RIGHT</c>. But which is channel 0 and which is
+            channel 3?
+            &lt;br&gt;For a channel index mask, each channel number is represented as a bit in the mask, from the
+            lsb (channel 0) upwards to the msb, numerically this bit value is
+            <c>1 &lt;&lt; channelNumber</c>.
+            A set bit indicates that channel is present in the audio frame, otherwise it is cleared.
+            The order of the bits also correspond to that channel number's sample order in the audio frame.
+            &lt;br&gt;For the previous 4 channel USB device example, the device would have a channel index mask
+            <c>0xF</c>. Suppose we wanted to select only the first and the third channels; this would
+            correspond to a channel index mask <c>0x5</c> (the first and third bits set). If an
+            <c>AudioTrack</c> uses this channel index mask, the audio frame would consist of two
+            samples, the first sample of each frame routed to channel 0, and the second sample of each frame
+            routed to channel 2.
+            The canonical channel index masks by channel count are given by the formula
+            <c>(1 &lt;&lt; channelCount) - 1</c>.
+            
+            &lt;h5&gt;Use cases&lt;/h5&gt;
+            &lt;ul&gt;
+            &lt;li&gt;<i>Channel position mask for an endpoint:</i><c>CHANNEL_OUT_FRONT_LEFT</c>,
+             <c>CHANNEL_OUT_FRONT_CENTER</c>, etc. for HDMI home theater purposes.
+            &lt;li&gt;<i>Channel position mask for an audio stream:</i> Creating an <c>AudioTrack</c>
+             to output movie content, where 5.1 multichannel output is to be written.
+            &lt;li&gt;<i>Channel index mask for an endpoint:</i> USB devices for which input and output do not
+             correspond to left or right speaker or microphone.
+            &lt;li&gt;<i>Channel index mask for an audio stream:</i> An <c>AudioRecord</c> may only want the
+             third and fourth audio channels of the endpoint (i.e. the second channel pair), and not care the
+             about position it corresponds to, in which case the channel index mask is <c>0xC</c>.
+             Multichannel <c>AudioRecord</c> sessions should use channel index masks.
+            &lt;/ul&gt;
+            &lt;h4 id="audioFrame"&gt;Audio Frame&lt;/h4&gt;</para>
+      <para>For linear PCM, an audio frame consists of a set of samples captured at the same time,
+            whose count and
+            channel association are given by the channel mask,
+            and whose sample contents are specified by the encoding.
+            For example, a stereo 16 bit PCM frame consists of
+            two 16 bit linear PCM samples, with a frame size of 4 bytes.
+            For compressed audio, an audio frame may alternately
+            refer to an access unit of compressed data bytes that is logically grouped together for
+            decoding and bitstream access (e.g. <c>MediaCodec</c>),
+            or a single byte of compressed data (e.g. <c>AudioTrack#getBufferSizeInFrames()
+            AudioTrack.getBufferSizeInFrames()</c>),
+            or the linear PCM frame result from decoding the compressed data
+            (e.g.<c>AudioTrack#getPlaybackHeadPosition()
+            AudioTrack.getPlaybackHeadPosition()</c>),
+            depending on the context where audio frame is used.
+            For the purposes of <c>AudioFormat#getFrameSizeInBytes()</c>, a compressed data format
+            returns a frame size of 1 byte.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/media/AudioFormat" title="Reference documentation">Java documentation for <code>android.media.AudioFormat</code>.</a>
@@ -54,8 +274,8 @@
       <MemberSignature Language="DocId" Value="M:Android.Media.AudioFormat.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -89,8 +309,8 @@
       <MemberSignature Language="F#" Value="new Android.Media.AudioFormat : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Media.AudioFormat" Usage="new Android.Media.AudioFormat (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -117,6 +337,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getChannelCount", "()I", "GetGetChannelCountHandler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getChannelCount", "()I", "GetGetChannelCountHandler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
@@ -129,6 +353,7 @@
         <value>the channel count derived from the channel position mask or the channel index mask.
             Zero is returned if both the channel position mask and the channel index mask are not set.</value>
         <remarks>
+          <para>Return the channel count.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#getChannelCount()" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.getChannelCount()</code>.</a>
@@ -154,6 +379,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getChannelIndexMask", "()I", "GetGetChannelIndexMaskHandler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getChannelIndexMask", "()I", "GetGetChannelIndexMaskHandler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
@@ -166,6 +395,10 @@
         <value>one of the values that can be set in <c>Builder#setChannelIndexMask(int)</c> or
             <c>AudioFormat#CHANNEL_INVALID</c> if not set or an invalid mask was used.</value>
         <remarks>
+          <para>Return the channel index mask.
+            See the section on channel masks for more information about
+            the difference between index-based masks, and position-based masks (as returned
+            by <c>#getChannelMask()</c>).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#getChannelIndexMask()" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.getChannelIndexMask()</code>.</a>
@@ -189,8 +422,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -205,6 +438,7 @@
       <Docs>
         <summary>Invalid audio channel mask</summary>
         <remarks>
+          <para>Invalid audio channel mask</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_INVALID" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_INVALID</code>.</a>
@@ -226,8 +460,8 @@
       <MemberSignature Language="F#" Value="member this.ChannelMask : Android.Media.ChannelOut" Usage="Android.Media.AudioFormat.ChannelMask" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -243,6 +477,10 @@
         <value>one of the values that can be set in <c>Builder#setChannelMask(int)</c> or
             <c>AudioFormat#CHANNEL_INVALID</c> if not set.</value>
         <remarks>
+          <para>Return the channel mask.
+            See the section on channel masks for more information about
+            the difference between index-based masks(as returned by <c>#getChannelIndexMask()</c>) and
+            the position-based mask returned by this function.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#getChannelMask()" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.getChannelMask()</code>.</a>
@@ -278,6 +516,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -286,6 +528,8 @@
       <Docs>
         <summary>Output channel mask for 5.</summary>
         <remarks>
+          <para>Output channel mask for 5.1.2
+             Same as 5.1 with the addition of left and right top channels</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_5POINT1POINT2" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_5POINT1POINT2</code>.</a>
@@ -321,6 +565,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -329,9 +577,60 @@
       <Docs>
         <summary>Output channel mask for 5.</summary>
         <remarks>
+          <para>Output channel mask for 5.1.4
+            Same as 5.1 with the addition of four top channels</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_5POINT1POINT4" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_5POINT1POINT4</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="ChannelOut6point1">
+      <MemberSignature Language="C#" Value="public const Android.Media.ChannelOut ChannelOut6point1 = 1276;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.ChannelOut ChannelOut6point1 = (1276)" />
+      <MemberSignature Language="DocId" Value="F:Android.Media.AudioFormat.ChannelOut6point1" />
+      <MemberSignature Language="F#" Value="val mutable ChannelOut6point1 : Android.Media.ChannelOut" Usage="Android.Media.AudioFormat.ChannelOut6point1" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("CHANNEL_OUT_6POINT1", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("CHANNEL_OUT_6POINT1", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Media.ChannelOut</ReturnType>
+      </ReturnValue>
+      <MemberValue>1276</MemberValue>
+      <Docs>
+        <summary>Output channel mask for 6.</summary>
+        <remarks>
+          <para>Output channel mask for 6.1
+             Same as 5.1 with the addition of the back center channel</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_6POINT1" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_6POINT1</code>.</a>
             </format>
           </para>
           <para>
@@ -361,8 +660,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("CHANNEL_OUT_7POINT1")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android23.0", "This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android23.0", "This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -370,8 +669,9 @@
       </ReturnValue>
       <MemberValue>1020</MemberValue>
       <Docs>
-        <summary>To be added.</summary>
+        <summary>This member is deprecated.</summary>
         <remarks>
+          <para>This member is deprecated. Not the typical 7.1 surround configuration. Use <c>#CHANNEL_OUT_7POINT1_SURROUND</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_7POINT1" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_7POINT1</code>.</a>
@@ -407,6 +707,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -415,6 +719,8 @@
       <Docs>
         <summary>Output channel mask for 7.</summary>
         <remarks>
+          <para>Output channel mask for 7.1.2
+            Same as 7.1 with the addition of left and right top channels</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_7POINT1POINT2" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_7POINT1POINT2</code>.</a>
@@ -450,6 +756,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -458,6 +768,8 @@
       <Docs>
         <summary>Output channel mask for 7.</summary>
         <remarks>
+          <para>Output channel mask for 7.1.4
+             Same as 7.1 with the addition of four top channels</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_7POINT1POINT4" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_7POINT1POINT4</code>.</a>
@@ -493,6 +805,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -501,6 +817,8 @@
       <Docs>
         <summary>Output channel mask for 9.</summary>
         <remarks>
+          <para>Output channel mask for 9.1.4
+            Same as 7.1.4 with the addition of left and right front wide channels</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_9POINT1POINT4" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_9POINT1POINT4</code>.</a>
@@ -536,6 +854,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -544,6 +866,8 @@
       <Docs>
         <summary>Output channel mask for 9.</summary>
         <remarks>
+          <para>Output channel mask for 9.1.6
+            Same as 9.1.4 with the addition of left and right top side channels</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_9POINT1POINT6" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_9POINT1POINT6</code>.</a>
@@ -579,6 +903,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -587,6 +915,7 @@
       <Docs>
         <summary>Bottom front center output channel (see BFC in channel diagram below FC)</summary>
         <remarks>
+          <para>Bottom front center output channel (see BFC in channel diagram below FC)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_BOTTOM_FRONT_CENTER" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_CENTER</code>.</a>
@@ -622,6 +951,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -630,6 +963,7 @@
       <Docs>
         <summary>Bottom front left output channel (see BFL in channel diagram below FL)</summary>
         <remarks>
+          <para>Bottom front left output channel (see BFL in channel diagram below FL)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_BOTTOM_FRONT_LEFT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_LEFT</code>.</a>
@@ -665,6 +999,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -673,6 +1011,7 @@
       <Docs>
         <summary>Bottom front right output channel (see BFR in channel diagram below FR)</summary>
         <remarks>
+          <para>Bottom front right output channel (see BFR in channel diagram below FR)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_BOTTOM_FRONT_RIGHT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_RIGHT</code>.</a>
@@ -708,6 +1047,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -716,6 +1059,7 @@
       <Docs>
         <summary>Front wide left output channel (see FWL in channel diagram)</summary>
         <remarks>
+          <para>Front wide left output channel (see FWL in channel diagram)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_FRONT_WIDE_LEFT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_FRONT_WIDE_LEFT</code>.</a>
@@ -751,6 +1095,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -759,6 +1107,7 @@
       <Docs>
         <summary>Front wide right output channel (see FWR in channel diagram)</summary>
         <remarks>
+          <para>Front wide right output channel (see FWR in channel diagram)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_FRONT_WIDE_RIGHT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_FRONT_WIDE_RIGHT</code>.</a>
@@ -794,6 +1143,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -805,6 +1158,10 @@
             to contain the right low-frequency effect signal, also referred to as "LFE2"
             in ITU-R BS.</summary>
         <remarks>
+          <para>The second LFE channel
+            When used in conjunction with <c>#CHANNEL_OUT_LOW_FREQUENCY</c>, it is intended
+            to contain the right low-frequency effect signal, also referred to as "LFE2"
+            in ITU-R BS.2159-8</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_LOW_FREQUENCY_2" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_LOW_FREQUENCY_2</code>.</a>
@@ -840,6 +1197,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -848,6 +1209,7 @@
       <Docs>
         <summary>Top back center output channel (see TBC in channel diagram above BC)</summary>
         <remarks>
+          <para>Top back center output channel (see TBC in channel diagram above BC)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_TOP_BACK_CENTER" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_TOP_BACK_CENTER</code>.</a>
@@ -883,6 +1245,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -891,6 +1257,7 @@
       <Docs>
         <summary>Top back left output channel (see TBL in channel diagram above BL)</summary>
         <remarks>
+          <para>Top back left output channel (see TBL in channel diagram above BL)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_TOP_BACK_LEFT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_TOP_BACK_LEFT</code>.</a>
@@ -926,6 +1293,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -934,6 +1305,7 @@
       <Docs>
         <summary>Top back right output channel (see TBR in channel diagram above BR)</summary>
         <remarks>
+          <para>Top back right output channel (see TBR in channel diagram above BR)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_TOP_BACK_RIGHT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_TOP_BACK_RIGHT</code>.</a>
@@ -969,6 +1341,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -977,6 +1353,7 @@
       <Docs>
         <summary>Top center (above listener) output channel (see TC in channel diagram)</summary>
         <remarks>
+          <para>Top center (above listener) output channel (see TC in channel diagram)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_TOP_CENTER" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_TOP_CENTER</code>.</a>
@@ -1012,6 +1389,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -1020,6 +1401,7 @@
       <Docs>
         <summary>Top front center output channel (see TFC in channel diagram above FC)</summary>
         <remarks>
+          <para>Top front center output channel (see TFC in channel diagram above FC)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_TOP_FRONT_CENTER" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_TOP_FRONT_CENTER</code>.</a>
@@ -1055,6 +1437,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -1063,6 +1449,7 @@
       <Docs>
         <summary>Top front left output channel (see TFL in channel diagram above FL)</summary>
         <remarks>
+          <para>Top front left output channel (see TFL in channel diagram above FL)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_TOP_FRONT_LEFT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_TOP_FRONT_LEFT</code>.</a>
@@ -1098,6 +1485,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -1106,6 +1497,7 @@
       <Docs>
         <summary>Top front right output channel (see TFR in channel diagram above FR)</summary>
         <remarks>
+          <para>Top front right output channel (see TFR in channel diagram above FR)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_TOP_FRONT_RIGHT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_TOP_FRONT_RIGHT</code>.</a>
@@ -1141,6 +1533,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -1149,6 +1545,7 @@
       <Docs>
         <summary>Top side left output channel (see TSL in channel diagram above SL)</summary>
         <remarks>
+          <para>Top side left output channel (see TSL in channel diagram above SL)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_TOP_SIDE_LEFT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_TOP_SIDE_LEFT</code>.</a>
@@ -1184,6 +1581,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.ChannelOut enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android32.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android32.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ChannelOut</ReturnType>
@@ -1192,6 +1593,7 @@
       <Docs>
         <summary>Top side right output channel (see TSR in channel diagram above SR)</summary>
         <remarks>
+          <para>Top side right output channel (see TSR in channel diagram above SR)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#CHANNEL_OUT_TOP_SIDE_RIGHT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.CHANNEL_OUT_TOP_SIDE_RIGHT</code>.</a>
@@ -1209,7 +1611,7 @@
       <MemberSignature Language="C#" Value="public static Android.OS.IParcelableCreator? Creator { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.OS.IParcelableCreator Creator" />
       <MemberSignature Language="DocId" Value="P:Android.Media.AudioFormat.Creator" />
-      <MemberSignature Language="F#" Value="member this.Creator : Android.OS.IParcelableCreator" Usage="Android.Media.AudioFormat.Creator" />
+      <MemberSignature Language="F#" Value="static member Creator : Android.OS.IParcelableCreator" Usage="Android.Media.AudioFormat.Creator" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -1219,6 +1621,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("CREATOR", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("CREATOR", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1250,6 +1656,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("describeContents", "()I", "GetDescribeContentsHandler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("describeContents", "()I", "GetDescribeContentsHandler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -1270,8 +1680,8 @@
       <MemberSignature Language="F#" Value="member this.Encoding : Android.Media.Encoding" Usage="Android.Media.AudioFormat.Encoding" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1287,6 +1697,9 @@
         <value>one of the values that can be set in <c>Builder#setEncoding(int)</c> or
             <c>AudioFormat#ENCODING_INVALID</c> if not set.</value>
         <remarks>
+          <para>Return the encoding.
+            See the section on encodings for more information about the different
+            types of supported audio encoding.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#getEncoding()" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.getEncoding()</code>.</a>
@@ -1322,6 +1735,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.Encoding</ReturnType>
@@ -1330,9 +1747,111 @@
       <Docs>
         <summary>Audio data format: DRA compressed</summary>
         <remarks>
+          <para>Audio data format: DRA compressed</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_DRA" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_DRA</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="EncodingDsd">
+      <MemberSignature Language="C#" Value="public const Android.Media.Encoding EncodingDsd = 31;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.Encoding EncodingDsd = (31)" />
+      <MemberSignature Language="DocId" Value="F:Android.Media.AudioFormat.EncodingDsd" />
+      <MemberSignature Language="F#" Value="val mutable EncodingDsd : Android.Media.Encoding" Usage="Android.Media.AudioFormat.EncodingDsd" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("ENCODING_DSD", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("ENCODING_DSD", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Media.Encoding</ReturnType>
+      </ReturnValue>
+      <MemberValue>31</MemberValue>
+      <Docs>
+        <summary>Audio data format: Direct Stream Digital</summary>
+        <remarks>
+          <para>Audio data format: Direct Stream Digital</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_DSD" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_DSD</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="EncodingDtsHdMa">
+      <MemberSignature Language="C#" Value="public const Android.Media.Encoding EncodingDtsHdMa = 29;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.Encoding EncodingDtsHdMa = (29)" />
+      <MemberSignature Language="DocId" Value="F:Android.Media.AudioFormat.EncodingDtsHdMa" />
+      <MemberSignature Language="F#" Value="val mutable EncodingDtsHdMa : Android.Media.Encoding" Usage="Android.Media.AudioFormat.EncodingDtsHdMa" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("ENCODING_DTS_HD_MA", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("ENCODING_DTS_HD_MA", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Media.Encoding</ReturnType>
+      </ReturnValue>
+      <MemberValue>29</MemberValue>
+      <Docs>
+        <summary>Audio data format: DTS HD Master Audio compressed
+            DTS HD Master Audio stream is variable bit rate and contains lossless audio.</summary>
+        <remarks>
+          <para>Audio data format: DTS HD Master Audio compressed
+            DTS HD Master Audio stream is variable bit rate and contains lossless audio.
+            Use <c>#ENCODING_DTS_HD_MA</c> for lossless audio content (DTS-HD MA Lossless)
+            and use <c>#ENCODING_DTS_HD</c> for other DTS bitstreams with extension substream
+            (DTS 8Ch Discrete, DTS Hi Res, DTS Express).</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_DTS_HD_MA" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_DTS_HD_MA</code>.</a>
             </format>
           </para>
           <para>
@@ -1362,8 +1881,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("ENCODING_DTS_UHD", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android34.0", "This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android34.0", "This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1371,11 +1894,121 @@
       </ReturnValue>
       <MemberValue>27</MemberValue>
       <Docs>
-        <summary>Audio data format: DTS UHD compressed</summary>
+        <summary>Audio data format: DTS UHD Profile-1 compressed (aka DTS:X Profile 1)
+            Has the same meaning and value as ENCODING_DTS_UHD_P1.</summary>
         <remarks>
+          <para>Audio data format: DTS UHD Profile-1 compressed (aka DTS:X Profile 1)
+            Has the same meaning and value as ENCODING_DTS_UHD_P1.</para>
+          <para>This member is deprecated. Use <c>#ENCODING_DTS_UHD_P1</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_DTS_UHD" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_DTS_UHD</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="EncodingDtsUhdP1">
+      <MemberSignature Language="C#" Value="public const Android.Media.Encoding EncodingDtsUhdP1 = 27;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.Encoding EncodingDtsUhdP1 = (27)" />
+      <MemberSignature Language="DocId" Value="F:Android.Media.AudioFormat.EncodingDtsUhdP1" />
+      <MemberSignature Language="F#" Value="val mutable EncodingDtsUhdP1 : Android.Media.Encoding" Usage="Android.Media.AudioFormat.EncodingDtsUhdP1" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("ENCODING_DTS_UHD_P1", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("ENCODING_DTS_UHD_P1", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Media.Encoding</ReturnType>
+      </ReturnValue>
+      <MemberValue>27</MemberValue>
+      <Docs>
+        <summary>Audio data format: DTS UHD Profile-1 compressed (aka DTS:X Profile 1)
+            Has the same meaning and value as the deprecated <c>#ENCODING_DTS_UHD</c>.</summary>
+        <remarks>
+          <para>Audio data format: DTS UHD Profile-1 compressed (aka DTS:X Profile 1)
+            Has the same meaning and value as the deprecated <c>#ENCODING_DTS_UHD</c>.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_DTS_UHD_P1" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_DTS_UHD_P1</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="EncodingDtsUhdP2">
+      <MemberSignature Language="C#" Value="public const Android.Media.Encoding EncodingDtsUhdP2 = 30;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Media.Encoding EncodingDtsUhdP2 = (30)" />
+      <MemberSignature Language="DocId" Value="F:Android.Media.AudioFormat.EncodingDtsUhdP2" />
+      <MemberSignature Language="F#" Value="val mutable EncodingDtsUhdP2 : Android.Media.Encoding" Usage="Android.Media.AudioFormat.EncodingDtsUhdP2" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("ENCODING_DTS_UHD_P2", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("ENCODING_DTS_UHD_P2", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Media.Encoding</ReturnType>
+      </ReturnValue>
+      <MemberValue>30</MemberValue>
+      <Docs>
+        <summary>Audio data format: DTS UHD Profile-2 compressed
+            DTS-UHD Profile-2 supports delivery of Channel-Based Audio, Object-Based Audio
+            and High Order Ambisonic presentations up to the fourth order.</summary>
+        <remarks>
+          <para>Audio data format: DTS UHD Profile-2 compressed
+            DTS-UHD Profile-2 supports delivery of Channel-Based Audio, Object-Based Audio
+            and High Order Ambisonic presentations up to the fourth order.
+            Use <c>#ENCODING_DTS_UHD_P1</c> to transmit DTS UHD Profile 1 (aka DTS:X Profile 1)
+            bitstream.
+            Use <c>#ENCODING_DTS_UHD_P2</c> to transmit DTS UHD Profile 2 (aka DTS:X Profile 2)
+            bitstream.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_DTS_UHD_P2" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_DTS_UHD_P2</code>.</a>
             </format>
           </para>
           <para>
@@ -1408,6 +2041,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.Encoding</ReturnType>
@@ -1416,6 +2053,7 @@
       <Docs>
         <summary>Audio data format: MPEG-H baseline profile, level 3</summary>
         <remarks>
+          <para>Audio data format: MPEG-H baseline profile, level 3</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_MPEGH_BL_L3" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_MPEGH_BL_L3</code>.</a>
@@ -1451,6 +2089,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.Encoding</ReturnType>
@@ -1459,6 +2101,7 @@
       <Docs>
         <summary>Audio data format: MPEG-H baseline profile, level 4</summary>
         <remarks>
+          <para>Audio data format: MPEG-H baseline profile, level 4</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_MPEGH_BL_L4" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_MPEGH_BL_L4</code>.</a>
@@ -1494,6 +2137,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.Encoding</ReturnType>
@@ -1502,6 +2149,7 @@
       <Docs>
         <summary>Audio data format: MPEG-H low complexity profile, level 3</summary>
         <remarks>
+          <para>Audio data format: MPEG-H low complexity profile, level 3</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_MPEGH_LC_L3" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_MPEGH_LC_L3</code>.</a>
@@ -1537,6 +2185,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.Encoding</ReturnType>
@@ -1545,6 +2197,7 @@
       <Docs>
         <summary>Audio data format: MPEG-H low complexity profile, level 4</summary>
         <remarks>
+          <para>Audio data format: MPEG-H low complexity profile, level 4</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_MPEGH_LC_L4" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_MPEGH_LC_L4</code>.</a>
@@ -1580,6 +2233,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.Encoding</ReturnType>
@@ -1588,6 +2245,7 @@
       <Docs>
         <summary>Audio data format: OPUS compressed.</summary>
         <remarks>
+          <para>Audio data format: OPUS compressed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_OPUS" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_OPUS</code>.</a>
@@ -1623,6 +2281,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.Encoding</ReturnType>
@@ -1631,6 +2293,10 @@
       <Docs>
         <summary>Audio data format: PCM 24 bit per sample packed as 3 bytes.</summary>
         <remarks>
+          <para>Audio data format: PCM 24 bit per sample packed as 3 bytes.</para>
+          <para>The bytes are in little-endian order, so the least significant byte
+            comes first in the byte array.</para>
+          <para>Not guaranteed to be supported by devices, may be emulated if not supported.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_PCM_24BIT_PACKED" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_PCM_24BIT_PACKED</code>.</a>
@@ -1666,6 +2332,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.Encoding enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.Encoding</ReturnType>
@@ -1674,6 +2344,8 @@
       <Docs>
         <summary>Audio data format: PCM 32 bit per sample.</summary>
         <remarks>
+          <para>Audio data format: PCM 32 bit per sample.
+            Not guaranteed to be supported by devices, may be emulated if not supported.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#ENCODING_PCM_32BIT" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.ENCODING_PCM_32BIT</code>.</a>
@@ -1699,6 +2371,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getFrameSizeInBytes", "()I", "GetGetFrameSizeInBytesHandler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getFrameSizeInBytes", "()I", "GetGetFrameSizeInBytesHandler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1710,6 +2386,17 @@
         <summary>Return the frame size in bytes.</summary>
         <value>The audio frame size in bytes corresponding to the encoding and the channel mask.</value>
         <remarks>
+          <para>Return the frame size in bytes.
+            
+            For PCM or PCM packed compressed data this is the size of a sample multiplied
+            by the channel count. For all other cases, including invalid/unset channel masks,
+            this will return 1 byte.
+            As an example, a stereo 16-bit PCM format would have a frame size of 4 bytes,
+            an 8 channel float PCM format would have a frame size of 32 bytes,
+            and a compressed data format (not packed in PCM) would have a frame size of 1 byte.
+            
+            Both <c>AudioRecord</c> or <c>AudioTrack</c> process data in multiples of
+            this frame size.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#getFrameSizeInBytes()" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.getFrameSizeInBytes()</code>.</a>
@@ -1764,8 +2451,8 @@
       <MemberSignature Language="F#" Value="member this.SampleRate : int" Usage="Android.Media.AudioFormat.SampleRate" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1781,6 +2468,7 @@
         <value>one of the values that can be set in <c>Builder#setSampleRate(int)</c> or
             <c>#SAMPLE_RATE_UNSPECIFIED</c> if not set.</value>
         <remarks>
+          <para>Return the sample rate.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#getSampleRate()" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.getSampleRate()</code>.</a>
@@ -1812,6 +2500,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("SAMPLE_RATE_UNSPECIFIED", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("SAMPLE_RATE_UNSPECIFIED", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -1820,6 +2512,9 @@
       <Docs>
         <summary>Sample rate will be a route-dependent value.</summary>
         <remarks>
+          <para>Sample rate will be a route-dependent value.
+            For AudioTrack, it is usually the sink sample rate,
+            and for AudioRecord it is usually the source sample rate.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/AudioFormat#SAMPLE_RATE_UNSPECIFIED" title="Reference documentation">Java documentation for <code>android.media.AudioFormat.SAMPLE_RATE_UNSPECIFIED</code>.</a>
@@ -1840,8 +2535,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Media.AudioFormat.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1871,8 +2566,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Media.AudioFormat.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1912,6 +2607,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("writeToParcel", "(Landroid/os/Parcel;I)V", "GetWriteToParcel_Landroid_os_Parcel_IHandler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("writeToParcel", "(Landroid/os/Parcel;I)V", "GetWriteToParcel_Landroid_os_Parcel_IHandler", ApiSince=24)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>

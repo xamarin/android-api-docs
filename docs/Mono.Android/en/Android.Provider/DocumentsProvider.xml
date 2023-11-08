@@ -20,6 +20,59 @@
   <Docs since="19">
     <summary>Base class for a document provider.</summary>
     <remarks>
+      <para>Base class for a document provider. A document provider offers read and write
+            access to durable files, such as files stored on a local disk, or files in a
+            cloud storage service. To create a document provider, extend this class,
+            implement the abstract methods, and add it to your manifest like this:</para>
+      <code lang="text/java">&amp;lt;manifest&amp;gt;
+               ...
+               &amp;lt;application&amp;gt;
+                   ...
+                   &amp;lt;provider
+                       android:name="com.example.MyCloudProvider"
+                       android:authorities="com.example.mycloudprovider"
+                       android:exported="true"
+                       android:grantUriPermissions="true"
+                       android:permission="android.permission.MANAGE_DOCUMENTS"
+                       android:enabled="@bool/isAtLeastKitKat"&amp;gt;
+                       &amp;lt;intent-filter&amp;gt;
+                           &amp;lt;action android:name="android.content.action.DOCUMENTS_PROVIDER" /&amp;gt;
+                       &amp;lt;/intent-filter&amp;gt;
+                   &amp;lt;/provider&amp;gt;
+                   ...
+               &amp;lt;/application&amp;gt;
+            &amp;lt;/manifest&amp;gt;</code>
+      <para>When defining your provider, you must protect it with
+            <c>android.Manifest.permission#MANAGE_DOCUMENTS</c>, which is a permission
+            only the system can obtain. Applications cannot use a documents provider
+            directly; they must go through <c>Intent#ACTION_OPEN_DOCUMENT</c> or
+            <c>Intent#ACTION_CREATE_DOCUMENT</c> which requires a user to actively
+            navigate and select documents. When a user selects documents through that UI,
+            the system issues narrow URI permission grants to the requesting application.</para>
+      <para>&lt;h3&gt;Documents&lt;/h3&gt;</para>
+      <para>A document can be either an openable stream (with a specific MIME type), or a
+            directory containing additional documents (with the
+            <c>Document#MIME_TYPE_DIR</c> MIME type). Each directory represents the top
+            of a subtree containing zero or more documents, which can recursively contain
+            even more documents and directories.</para>
+      <para>Each document can have different capabilities, as described by
+            <c>Document#COLUMN_FLAGS</c>. For example, if a document can be represented
+            as a thumbnail, your provider can set
+            <c>Document#FLAG_SUPPORTS_THUMBNAIL</c> and implement
+            <c>#openDocumentThumbnail(String, Point, CancellationSignal)</c> to return
+            that thumbnail.</para>
+      <para>Each document under a provider is uniquely referenced by its
+            <c>Document#COLUMN_DOCUMENT_ID</c>, which must not change once returned. A
+            single document can be included in multiple directories when responding to
+            <c>#queryChildDocuments(String, String[], String)</c>. For example, a
+            provider might surface a single photo in multiple locations: once in a
+            directory of geographic locations, and again in a directory of dates.</para>
+      <para>&lt;h3&gt;Roots&lt;/h3&gt;</para>
+      <para>All documents are surfaced through one or more "roots." Each root represents
+            the top of a document tree that a user can navigate. For example, a root
+            could represent an account or a physical storage device. Similar to
+            documents, each root can have capabilities expressed through
+            <c>Root#COLUMN_FLAGS</c>.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/provider/DocumentsProvider" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider</code>.</a>
@@ -39,8 +92,8 @@
       <MemberSignature Language="DocId" Value="M:Android.Provider.DocumentsProvider.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -64,8 +117,8 @@
       <MemberSignature Language="F#" Value="new Android.Provider.DocumentsProvider : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Provider.DocumentsProvider" Usage="new Android.Provider.DocumentsProvider (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -95,6 +148,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("copyDocument", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;", "GetCopyDocument_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("copyDocument", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;", "GetCopyDocument_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -109,6 +166,11 @@
         <summary>Copy the requested document or a document tree.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Copy the requested document or a document tree.</para>
+          <para>Copies a document including all child documents to another location within
+            the same document provider. Upon completion returns the document id of
+            the copied document at the target destination. <c>null</c> must never
+            be returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#copyDocument(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.copyDocument(java.lang.String, java.lang.String)</code>.</a>
@@ -129,8 +191,8 @@
       <MemberSignature Language="F#" Value="abstract member CreateDocument : string * string * string -&gt; string&#xA;override this.CreateDocument : string * string * string -&gt; string" Usage="documentsProvider.CreateDocument (parentDocumentId, mimeType, displayName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -158,6 +220,10 @@
             <c>Document#COLUMN_DOCUMENT_ID</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create a new document and return its newly generated
+            <c>Document#COLUMN_DOCUMENT_ID</c>. You must allocate a new
+            <c>Document#COLUMN_DOCUMENT_ID</c> to represent the document, which must
+            not change once returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#createDocument(java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.createDocument(java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -188,6 +254,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("createWebLinkIntent", "(Ljava/lang/String;Landroid/os/Bundle;)Landroid/content/IntentSender;", "GetCreateWebLinkIntent_Ljava_lang_String_Landroid_os_Bundle_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createWebLinkIntent", "(Ljava/lang/String;Landroid/os/Bundle;)Landroid/content/IntentSender;", "GetCreateWebLinkIntent_Ljava_lang_String_Landroid_os_Bundle_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Content.IntentSender</ReturnType>
@@ -202,6 +272,20 @@
         <summary>Creates an intent sender for a web link, if the document is web linkable.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Creates an intent sender for a web link, if the document is web linkable.</para>
+          <para>
+            <c>AuthenticationRequiredException</c> can be thrown if user does not have
+            sufficient permission for the linked document. Before any new permissions
+            are granted for the linked document, a visible UI must be shown, so the
+            user can explicitly confirm whether the permission grants are expected.
+            The user must be able to cancel the operation.</para>
+          <para>Options passed as an argument may include a list of recipients, such
+            as email addresses. The provider should reflect these options if possible,
+            but it's acceptable to ignore them. In either case, confirmation UI must
+            be shown before any new permission grants are granted.</para>
+          <para>It is all right to generate a web link without granting new permissions,
+            if opening the link would result in a page for requesting permission
+            access. If it's impossible then the operation must fail by throwing an exception.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#createWebLinkIntent(java.lang.String,%20android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.createWebLinkIntent(java.lang.String, android.os.Bundle)</code>.</a>
@@ -222,8 +306,8 @@
       <MemberSignature Language="F#" Value="override this.Delete : Android.Net.Uri * string * string[] -&gt; int" Usage="documentsProvider.Delete (uri, selection, selectionArgs)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -246,6 +330,8 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Throws by default, and
+            cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#delete(android.net.Uri,%20java.lang.String,%20java.lang.String[])" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.delete(android.net.Uri, java.lang.String, java.lang.String[])</code>.</a>
@@ -267,8 +353,8 @@
       <MemberSignature Language="F#" Value="abstract member DeleteDocument : string -&gt; unit&#xA;override this.DeleteDocument : string -&gt; unit" Usage="documentsProvider.DeleteDocument documentId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -286,6 +372,12 @@
         <param name="documentId">the document to delete.</param>
         <summary>Delete the requested document.</summary>
         <remarks>
+          <para>Delete the requested document.</para>
+          <para>Upon returning, any URI permission grants for the given document will be
+            revoked. If additional documents were deleted as a side effect of this
+            call (such as documents inside a directory) the implementor is
+            responsible for revoking those permissions using
+            <c>#revokeDocumentPermission(String)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#deleteDocument(java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.deleteDocument(java.lang.String)</code>.</a>
@@ -315,6 +407,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("ejectRoot", "(Ljava/lang/String;)V", "GetEjectRoot_Ljava_lang_String_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("ejectRoot", "(Ljava/lang/String;)V", "GetEjectRoot_Ljava_lang_String_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -326,6 +422,7 @@
         <param name="rootId">the root to be ejected.</param>
         <summary>Ejects the root.</summary>
         <remarks>
+          <para>Ejects the root. Throws <c>IllegalStateException</c> if ejection failed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#ejectRoot(java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.ejectRoot(java.lang.String)</code>.</a>
@@ -353,6 +450,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("findDocumentPath", "(Ljava/lang/String;Ljava/lang/String;)Landroid/provider/DocumentsContract$Path;", "GetFindDocumentPath_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("findDocumentPath", "(Ljava/lang/String;Ljava/lang/String;)Landroid/provider/DocumentsContract$Path;", "GetFindDocumentPath_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -399,6 +500,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getDocumentMetadata", "(Ljava/lang/String;)Landroid/os/Bundle;", "GetGetDocumentMetadata_Ljava_lang_String_Handler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getDocumentMetadata", "(Ljava/lang/String;)Landroid/os/Bundle;", "GetGetDocumentMetadata_Ljava_lang_String_Handler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.OS.Bundle</ReturnType>
@@ -411,6 +516,21 @@
         <summary>Returns metadata associated with the document.</summary>
         <returns>a Bundle of Bundles.</returns>
         <remarks>
+          <para>Returns metadata associated with the document. The type of metadata returned
+            is specific to the document type. For example the data returned for an image
+            file will likely consist primarily or solely of EXIF metadata.</para>
+          <para>The returned <c>Bundle</c> will contain zero or more entries depending
+            on the type of data supported by the document provider.
+            
+            &lt;ol&gt;
+            &lt;li&gt;A <c>DocumentsContract#METADATA_TYPES</c> containing a <c>String[]</c> value.
+                The string array identifies the type or types of metadata returned. Each
+                value in the can be used to access a <c>Bundle</c> of data
+                containing that type of data.
+            &lt;li&gt;An entry each for each type of returned metadata. Each set of metadata is
+                itself represented as a bundle and accessible via a string key naming
+                the type of data.
+            &lt;/ol&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#getDocumentMetadata(java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.getDocumentMetadata(java.lang.String)</code>.</a>
@@ -439,6 +559,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getDocumentStreamTypes", "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;", "GetGetDocumentStreamTypes_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getDocumentStreamTypes", "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;", "GetGetDocumentStreamTypes_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String[]</ReturnType>
@@ -454,6 +578,12 @@
             <c>#openTypedDocument(String, String, Bundle, CancellationSignal)</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return a list of streamable MIME types matching the filter, which can be passed to
+            <c>#openTypedDocument(String, String, Bundle, CancellationSignal)</c>.</para>
+          <para>The default implementation returns a MIME type provided by
+            <c>#queryDocument(String, String[])</c> as long as it matches the filter and the document
+            does not have the <c>Document#FLAG_VIRTUAL_DOCUMENT</c> flag set.</para>
+          <para>Virtual documents must have at least one streamable format.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#getDocumentStreamTypes(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.getDocumentStreamTypes(java.lang.String, java.lang.String)</code>.</a>
@@ -474,8 +604,8 @@
       <MemberSignature Language="F#" Value="abstract member GetDocumentType : string -&gt; string&#xA;override this.GetDocumentType : string -&gt; string" Usage="documentsProvider.GetDocumentType documentId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -494,6 +624,11 @@
         <summary>Return concrete MIME type of the requested document.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return concrete MIME type of the requested document. Must match the value
+            of <c>Document#COLUMN_MIME_TYPE</c> for this document. The default
+            implementation queries <c>#queryDocument(String, String[])</c>, so
+            providers may choose to override this as an optimization.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#getDocumentType(java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.getDocumentType(java.lang.String)</code>.</a>
@@ -515,8 +650,8 @@
       <MemberSignature Language="F#" Value="override this.GetType : Android.Net.Uri -&gt; string" Usage="documentsProvider.GetType uri" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -535,6 +670,7 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#getType(android.net.Uri)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.getType(android.net.Uri)</code>.</a>
@@ -549,6 +685,51 @@
         <altmember cref="M:Android.Provider.DocumentsProvider.GetDocumentType(System.String)" />
       </Docs>
     </Member>
+    <Member MemberName="GetTypeAnonymous">
+      <MemberSignature Language="C#" Value="public override sealed string? GetTypeAnonymous (Android.Net.Uri uri);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance string GetTypeAnonymous(class Android.Net.Uri uri) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Provider.DocumentsProvider.GetTypeAnonymous(Android.Net.Uri)" />
+      <MemberSignature Language="F#" Value="override this.GetTypeAnonymous : Android.Net.Uri -&gt; string" Usage="documentsProvider.GetTypeAnonymous uri" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("getTypeAnonymous", "(Landroid/net/Uri;)Ljava/lang/String;", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("getTypeAnonymous", "(Landroid/net/Uri;)Ljava/lang/String;", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.String</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="uri" Type="Android.Net.Uri" />
+      </Parameters>
+      <Docs>
+        <param name="uri">To be added.</param>
+        <summary>An unrestricted version of getType, which does not reveal sensitive information</summary>
+        <returns>To be added.</returns>
+        <remarks>
+          <para>An unrestricted version of getType, which does not reveal sensitive information</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#getTypeAnonymous(android.net.Uri)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.getTypeAnonymous(android.net.Uri)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
     <Member MemberName="Insert">
       <MemberSignature Language="C#" Value="public override sealed Android.Net.Uri? Insert (Android.Net.Uri? uri, Android.Content.ContentValues? values);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance class Android.Net.Uri Insert(class Android.Net.Uri uri, class Android.Content.ContentValues values) cil managed" />
@@ -556,8 +737,8 @@
       <MemberSignature Language="F#" Value="override this.Insert : Android.Net.Uri * Android.Content.ContentValues -&gt; Android.Net.Uri" Usage="documentsProvider.Insert (uri, values)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -579,6 +760,8 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Throws by default, and
+            cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#insert(android.net.Uri,%20android.content.ContentValues)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.insert(android.net.Uri, android.content.ContentValues)</code>.</a>
@@ -600,8 +783,8 @@
       <MemberSignature Language="F#" Value="abstract member IsChildDocument : string * string -&gt; bool&#xA;override this.IsChildDocument : string * string -&gt; bool" Usage="documentsProvider.IsChildDocument (parentDocumentId, documentId)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -623,6 +806,10 @@
             parent.</summary>
         <returns>if given document is a descendant of the given parent.</returns>
         <remarks>
+          <para>Test if a document is descendant (child, grandchild, etc) from the given
+            parent. For example, providers must implement this to support
+            <c>Intent#ACTION_OPEN_DOCUMENT_TREE</c>. You should avoid making network
+            requests to keep this request fast.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#isChildDocument(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.isChildDocument(java.lang.String, java.lang.String)</code>.</a>
@@ -682,6 +869,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("moveDocument", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;", "GetMoveDocument_Ljava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("moveDocument", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;", "GetMoveDocument_Ljava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -699,6 +890,13 @@
         <summary>Move the requested document or a document tree.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Move the requested document or a document tree.</para>
+          <para>Moves a document including all child documents to another location within
+            the same document provider. Upon completion returns the document id of
+            the copied document at the target destination. <c>null</c> must never
+            be returned.</para>
+          <para>It's the responsibility of the provider to revoke grants if the document
+            is no longer accessible using <c>sourceDocumentId</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#moveDocument(java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.moveDocument(java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -719,8 +917,8 @@
       <MemberSignature Language="F#" Value="override this.OpenAssetFile : Android.Net.Uri * string -&gt; Android.Content.Res.AssetFileDescriptor" Usage="documentsProvider.OpenAssetFile (uri, mode)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -745,6 +943,7 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#openAssetFile(android.net.Uri,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.openAssetFile(android.net.Uri, java.lang.String)</code>.</a>
@@ -767,8 +966,8 @@
       <MemberSignature Language="F#" Value="override this.OpenAssetFile : Android.Net.Uri * string * Android.OS.CancellationSignal -&gt; Android.Content.Res.AssetFileDescriptor" Usage="documentsProvider.OpenAssetFile (uri, mode, signal)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -800,6 +999,7 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#openAssetFile(android.net.Uri,%20java.lang.String,%20android.os.CancellationSignal)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.openAssetFile(android.net.Uri, java.lang.String, android.os.CancellationSignal)</code>.</a>
@@ -822,8 +1022,8 @@
       <MemberSignature Language="F#" Value="abstract member OpenDocument : string * string * Android.OS.CancellationSignal -&gt; Android.OS.ParcelFileDescriptor" Usage="documentsProvider.OpenDocument (documentId, mode, signal)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -847,6 +1047,17 @@
         <summary>Open and return the requested document.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Open and return the requested document.</para>
+          <para>Your provider should return a reliable <c>ParcelFileDescriptor</c> to
+            detect when the remote caller has finished reading or writing the
+            document.</para>
+          <para>Mode "r" should always be supported. Provider should throw
+            <c>UnsupportedOperationException</c> if the passing mode is not supported.
+            You may return a pipe or socket pair if the mode is exclusively "r" or
+            "w", but complex modes like "rw" imply a normal file on disk that
+            supports seeking.</para>
+          <para>If you block while downloading content, you should periodically check
+            <c>CancellationSignal#isCanceled()</c> to abort abandoned open requests.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#openDocument(java.lang.String,%20java.lang.String,%20android.os.CancellationSignal)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.openDocument(java.lang.String, java.lang.String, android.os.CancellationSignal)</code>.</a>
@@ -872,8 +1083,8 @@
       <MemberSignature Language="F#" Value="abstract member OpenDocumentThumbnail : string * Android.Graphics.Point * Android.OS.CancellationSignal -&gt; Android.Content.Res.AssetFileDescriptor&#xA;override this.OpenDocumentThumbnail : string * Android.Graphics.Point * Android.OS.CancellationSignal -&gt; Android.Content.Res.AssetFileDescriptor" Usage="documentsProvider.OpenDocumentThumbnail (documentId, sizeHint, signal)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -897,6 +1108,13 @@
         <summary>Open and return a thumbnail of the requested document.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Open and return a thumbnail of the requested document.</para>
+          <para>A provider should return a thumbnail closely matching the hinted size,
+            attempting to serve from a local cache if possible. A provider should
+            never return images more than double the hinted size.</para>
+          <para>If you perform expensive operations to download or generate a thumbnail,
+            you should periodically check <c>CancellationSignal#isCanceled()</c> to
+            abort abandoned thumbnail requests.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#openDocumentThumbnail(java.lang.String,%20android.graphics.Point,%20android.os.CancellationSignal)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.openDocumentThumbnail(java.lang.String, android.graphics.Point, android.os.CancellationSignal)</code>.</a>
@@ -918,8 +1136,8 @@
       <MemberSignature Language="F#" Value="override this.OpenFile : Android.Net.Uri * string -&gt; Android.OS.ParcelFileDescriptor" Usage="documentsProvider.OpenFile (uri, mode)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -942,6 +1160,7 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#openFile(android.net.Uri,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.openFile(android.net.Uri, java.lang.String)</code>.</a>
@@ -964,8 +1183,8 @@
       <MemberSignature Language="F#" Value="override this.OpenFile : Android.Net.Uri * string * Android.OS.CancellationSignal -&gt; Android.OS.ParcelFileDescriptor" Usage="documentsProvider.OpenFile (uri, mode, signal)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -996,6 +1215,7 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#openFile(android.net.Uri,%20java.lang.String,%20android.os.CancellationSignal)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.openFile(android.net.Uri, java.lang.String, android.os.CancellationSignal)</code>.</a>
@@ -1018,8 +1238,8 @@
       <MemberSignature Language="F#" Value="override this.OpenTypedAssetFile : Android.Net.Uri * string * Android.OS.Bundle -&gt; Android.Content.Res.AssetFileDescriptor" Usage="documentsProvider.OpenTypedAssetFile (uri, mimeTypeFilter, opts)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1046,6 +1266,7 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#openTypedAssetFile(android.net.Uri,%20java.lang.String,%20android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.openTypedAssetFile(android.net.Uri, java.lang.String, android.os.Bundle)</code>.</a>
@@ -1068,8 +1289,8 @@
       <MemberSignature Language="F#" Value="override this.OpenTypedAssetFile : Android.Net.Uri * string * Android.OS.Bundle * Android.OS.CancellationSignal -&gt; Android.Content.Res.AssetFileDescriptor" Usage="documentsProvider.OpenTypedAssetFile (uri, mimeTypeFilter, opts, signal)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1103,6 +1324,7 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#openTypedAssetFile(android.net.Uri,%20java.lang.String,%20android.os.Bundle,%20android.os.CancellationSignal)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.openTypedAssetFile(android.net.Uri, java.lang.String, android.os.Bundle, android.os.CancellationSignal)</code>.</a>
@@ -1133,6 +1355,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("openTypedDocument", "(Ljava/lang/String;Ljava/lang/String;Landroid/os/Bundle;Landroid/os/CancellationSignal;)Landroid/content/res/AssetFileDescriptor;", "GetOpenTypedDocument_Ljava_lang_String_Ljava_lang_String_Landroid_os_Bundle_Landroid_os_CancellationSignal_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("openTypedDocument", "(Ljava/lang/String;Ljava/lang/String;Landroid/os/Bundle;Landroid/os/CancellationSignal;)Landroid/content/res/AssetFileDescriptor;", "GetOpenTypedDocument_Ljava_lang_String_Ljava_lang_String_Landroid_os_Bundle_Landroid_os_CancellationSignal_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Content.Res.AssetFileDescriptor</ReturnType>
@@ -1155,6 +1381,11 @@
             type filter.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Open and return the document in a format matching the specified MIME
+            type filter.</para>
+          <para>A provider may perform a conversion if the documents's MIME type is not
+            matching the specified MIME type filter.</para>
+          <para>Virtual documents must have at least one streamable format.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#openTypedDocument(java.lang.String,%20java.lang.String,%20android.os.Bundle,%20android.os.CancellationSignal)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.openTypedDocument(java.lang.String, java.lang.String, android.os.Bundle, android.os.CancellationSignal)</code>.</a>
@@ -1183,6 +1414,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("query", "(Landroid/net/Uri;[Ljava/lang/String;Landroid/os/Bundle;Landroid/os/CancellationSignal;)Landroid/database/Cursor;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("query", "(Landroid/net/Uri;[Ljava/lang/String;Landroid/os/Bundle;Landroid/os/CancellationSignal;)Landroid/database/Cursor;", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Database.ICursor</ReturnType>
@@ -1201,6 +1436,7 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#query(android.net.Uri,%20java.lang.String[],%20android.os.Bundle,%20android.os.CancellationSignal)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.query(android.net.Uri, java.lang.String[], android.os.Bundle, android.os.CancellationSignal)</code>.</a>
@@ -1221,8 +1457,8 @@
       <MemberSignature Language="F#" Value="override this.Query : Android.Net.Uri * string[] * string * string[] * string -&gt; Android.Database.ICursor" Usage="documentsProvider.Query (uri, projection, selection, selectionArgs, sortOrder)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1290,6 +1526,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("queryChildDocuments", "(Ljava/lang/String;[Ljava/lang/String;Landroid/os/Bundle;)Landroid/database/Cursor;", "GetQueryChildDocuments_Ljava_lang_String_arrayLjava_lang_String_Landroid_os_Bundle_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("queryChildDocuments", "(Ljava/lang/String;[Ljava/lang/String;Landroid/os/Bundle;)Landroid/database/Cursor;", "GetQueryChildDocuments_Ljava_lang_String_arrayLjava_lang_String_Landroid_os_Bundle_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Database.ICursor</ReturnType>
@@ -1314,6 +1554,22 @@
             in the requested directory.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Override this method to return the children documents contained
+            in the requested directory. This must return immediate descendants only.</para>
+          <para>If your provider is cloud-based, and you have data cached
+            locally, you may return the local data immediately, setting
+            <c>DocumentsContract#EXTRA_LOADING</c> on Cursor extras to indicate that
+            you are still fetching additional data. Then, when the network data is
+            available, you can send a change notification to trigger a requery and
+            return the complete contents. To return a Cursor with extras, you need to
+            extend and override <c>Cursor#getExtras()</c>.</para>
+          <para>To support change notifications, you must
+            <c>Cursor#setNotificationUri(ContentResolver, Uri)</c> with a relevant
+            Uri, such as
+            <c>DocumentsContract#buildChildDocumentsUri(String, String)</c>. Then
+            you can call <c>ContentResolver#notifyChange(Uri,
+            android.database.ContentObserver, boolean)</c> with that Uri to send change
+            notifications.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#queryChildDocuments(java.lang.String,%20java.lang.String[],%20android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.queryChildDocuments(java.lang.String, java.lang.String[], android.os.Bundle)</code>.</a>
@@ -1334,8 +1590,8 @@
       <MemberSignature Language="F#" Value="abstract member QueryChildDocuments : string * string[] * string -&gt; Android.Database.ICursor" Usage="documentsProvider.QueryChildDocuments (parentDocumentId, projection, sortOrder)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1365,6 +1621,25 @@
         <summary>Return the children documents contained in the requested directory.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return the children documents contained in the requested directory. This
+            must only return immediate descendants, as additional queries will be
+            issued to recursively explore the tree.</para>
+          <para>Apps targeting <c>android.os.Build.VERSION_CODES#O</c> or higher
+            should override <c>#queryChildDocuments(String, String[], Bundle)</c>.</para>
+          <para>If your provider is cloud-based, and you have some data cached or pinned
+            locally, you may return the local data immediately, setting
+            <c>DocumentsContract#EXTRA_LOADING</c> on the Cursor to indicate that
+            you are still fetching additional data. Then, when the network data is
+            available, you can send a change notification to trigger a requery and
+            return the complete contents. To return a Cursor with extras, you need to
+            extend and override <c>Cursor#getExtras()</c>.</para>
+          <para>To support change notifications, you must
+            <c>Cursor#setNotificationUri(ContentResolver, Uri)</c> with a relevant
+            Uri, such as
+            <c>DocumentsContract#buildChildDocumentsUri(String, String)</c>. Then
+            you can call <c>ContentResolver#notifyChange(Uri,
+            android.database.ContentObserver, boolean)</c> with that Uri to send change
+            notifications.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#queryChildDocuments(java.lang.String,%20java.lang.String[],%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.queryChildDocuments(java.lang.String, java.lang.String[], java.lang.String)</code>.</a>
@@ -1389,8 +1664,8 @@
       <MemberSignature Language="F#" Value="abstract member QueryDocument : string * string[] -&gt; Android.Database.ICursor" Usage="documentsProvider.QueryDocument (documentId, projection)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1413,6 +1688,8 @@
         <summary>Return metadata for the single requested document.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return metadata for the single requested document. You should avoid
+            making network requests to keep this request fast.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#queryDocument(java.lang.String,%20java.lang.String[])" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.queryDocument(java.lang.String, java.lang.String[])</code>.</a>
@@ -1434,8 +1711,8 @@
       <MemberSignature Language="F#" Value="abstract member QueryRecentDocuments : string * string[] -&gt; Android.Database.ICursor&#xA;override this.QueryRecentDocuments : string * string[] -&gt; Android.Database.ICursor" Usage="documentsProvider.QueryRecentDocuments (rootId, projection)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1458,6 +1735,12 @@
         <summary>Return recently modified documents under the requested root.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return recently modified documents under the requested root. This will
+            only be called for roots that advertise
+            <c>Root#FLAG_SUPPORTS_RECENTS</c>. The returned documents should be
+            sorted by <c>Document#COLUMN_LAST_MODIFIED</c> in descending order, and
+            limited to only return the 64 most recently modified documents.</para>
+          <para>Recent documents do not support change notifications.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#queryRecentDocuments(java.lang.String,%20java.lang.String[])" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.queryRecentDocuments(java.lang.String, java.lang.String[])</code>.</a>
@@ -1488,6 +1771,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("queryRecentDocuments", "(Ljava/lang/String;[Ljava/lang/String;Landroid/os/Bundle;Landroid/os/CancellationSignal;)Landroid/database/Cursor;", "GetQueryRecentDocuments_Ljava_lang_String_arrayLjava_lang_String_Landroid_os_Bundle_Landroid_os_CancellationSignal_Handler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("queryRecentDocuments", "(Ljava/lang/String;[Ljava/lang/String;Landroid/os/Bundle;Landroid/os/CancellationSignal;)Landroid/database/Cursor;", "GetQueryRecentDocuments_Ljava_lang_String_arrayLjava_lang_String_Landroid_os_Bundle_Landroid_os_CancellationSignal_Handler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Database.ICursor</ReturnType>
@@ -1509,6 +1796,19 @@
         <summary>Return recently modified documents under the requested root.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return recently modified documents under the requested root. This will
+            only be called for roots that advertise
+            <c>Root#FLAG_SUPPORTS_RECENTS</c>. The returned documents should be
+            sorted by <c>Document#COLUMN_LAST_MODIFIED</c> in descending order of
+            the most recently modified documents.</para>
+          <para>If this method is overriden by the concrete DocumentsProvider and
+            <c>ContentResolver#QUERY_ARG_LIMIT</c> is specified with a nonnegative
+            int under queryArgs, the result will be limited by that number and
+            <c>ContentResolver#QUERY_ARG_LIMIT</c> will be specified under
+            <c>ContentResolver#EXTRA_HONORED_ARGS</c>. Otherwise, a default 64 limit
+            will be used and no QUERY_ARG* will be specified under
+            <c>ContentResolver#EXTRA_HONORED_ARGS</c>.</para>
+          <para>Recent documents do not support change notifications.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#queryRecentDocuments(java.lang.String,%20java.lang.String[],%20android.os.Bundle,%20android.os.CancellationSignal)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.queryRecentDocuments(java.lang.String, java.lang.String[], android.os.Bundle, android.os.CancellationSignal)</code>.</a>
@@ -1529,8 +1829,8 @@
       <MemberSignature Language="F#" Value="abstract member QueryRoots : string[] -&gt; Android.Database.ICursor" Usage="documentsProvider.QueryRoots projection" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1550,6 +1850,16 @@
         <summary>Return all roots currently provided.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return all roots currently provided. To display to users, you must define
+            at least one root. You should avoid making network requests to keep this
+            request fast.</para>
+          <para>Each root is defined by the metadata columns described in <c>Root</c>,
+            including <c>Root#COLUMN_DOCUMENT_ID</c> which points to a directory
+            representing a tree of documents to display under that root.</para>
+          <para>If this set of roots changes, you must call <c>ContentResolver#notifyChange(Uri,
+            android.database.ContentObserver, boolean)</c> with
+            <c>DocumentsContract#buildRootsUri(String)</c> to notify the system.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#queryRoots(java.lang.String[])" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.queryRoots(java.lang.String[])</code>.</a>
@@ -1571,8 +1881,8 @@
       <MemberSignature Language="F#" Value="abstract member QuerySearchDocuments : string * string * string[] -&gt; Android.Database.ICursor&#xA;override this.QuerySearchDocuments : string * string * string[] -&gt; Android.Database.ICursor" Usage="documentsProvider.QuerySearchDocuments (rootId, query, projection)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1598,6 +1908,24 @@
             root.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return documents that match the given query under the requested
+            root. The returned documents should be sorted by relevance in descending
+            order. How documents are matched against the query string is an
+            implementation detail left to each provider, but it's suggested that at
+            least <c>Document#COLUMN_DISPLAY_NAME</c> be matched in a
+            case-insensitive fashion.</para>
+          <para>If your provider is cloud-based, and you have some data cached or pinned
+            locally, you may return the local data immediately, setting
+            <c>DocumentsContract#EXTRA_LOADING</c> on the Cursor to indicate that
+            you are still fetching additional data. Then, when the network data is
+            available, you can send a change notification to trigger a requery and
+            return the complete contents.</para>
+          <para>To support change notifications, you must
+            <c>Cursor#setNotificationUri(ContentResolver, Uri)</c> with a relevant
+            Uri, such as <c>DocumentsContract#buildSearchDocumentsUri(String,
+            String, String)</c>. Then you can call <c>ContentResolver#notifyChange(Uri,
+            android.database.ContentObserver, boolean)</c> with that Uri to send change
+            notifications.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#querySearchDocuments(java.lang.String,%20java.lang.String,%20java.lang.String[])" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.querySearchDocuments(java.lang.String, java.lang.String, java.lang.String[])</code>.</a>
@@ -1630,6 +1958,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("querySearchDocuments", "(Ljava/lang/String;[Ljava/lang/String;Landroid/os/Bundle;)Landroid/database/Cursor;", "GetQuerySearchDocuments_Ljava_lang_String_arrayLjava_lang_String_Landroid_os_Bundle_Handler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("querySearchDocuments", "(Ljava/lang/String;[Ljava/lang/String;Landroid/os/Bundle;)Landroid/database/Cursor;", "GetQuerySearchDocuments_Ljava_lang_String_arrayLjava_lang_String_Landroid_os_Bundle_Handler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Database.ICursor</ReturnType>
@@ -1657,6 +1989,24 @@
                     extras <c>Bundle</c> when any QUERY_ARG_* value was honored
                     during the preparation of the results.</returns>
         <remarks>
+          <para>Return documents that match the given query under the requested
+            root. The returned documents should be sorted by relevance in descending
+            order. How documents are matched against the query string is an
+            implementation detail left to each provider, but it's suggested that at
+            least <c>Document#COLUMN_DISPLAY_NAME</c> be matched in a
+            case-insensitive fashion.</para>
+          <para>If your provider is cloud-based, and you have some data cached or pinned
+            locally, you may return the local data immediately, setting
+            <c>DocumentsContract#EXTRA_LOADING</c> on the Cursor to indicate that
+            you are still fetching additional data. Then, when the network data is
+            available, you can send a change notification to trigger a requery and
+            return the complete contents.</para>
+          <para>To support change notifications, you must
+            <c>Cursor#setNotificationUri(ContentResolver, Uri)</c> with a relevant
+            Uri, such as <c>DocumentsContract#buildSearchDocumentsUri(String,
+            String, String)</c>. Then you can call <c>ContentResolver#notifyChange(Uri,
+            android.database.ContentObserver, boolean)</c> with that Uri to send change
+            notifications.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#querySearchDocuments(java.lang.String,%20java.lang.String[],%20android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.querySearchDocuments(java.lang.String, java.lang.String[], android.os.Bundle)</code>.</a>
@@ -1685,6 +2035,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("removeDocument", "(Ljava/lang/String;Ljava/lang/String;)V", "GetRemoveDocument_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("removeDocument", "(Ljava/lang/String;Ljava/lang/String;)V", "GetRemoveDocument_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1698,6 +2052,11 @@
         <param name="parentDocumentId">the parent of the document to move.</param>
         <summary>Removes the requested document or a document tree.</summary>
         <remarks>
+          <para>Removes the requested document or a document tree.</para>
+          <para>In contrast to <c>#deleteDocument</c> it requires specifying the parent.
+            This method is especially useful if the document can be in multiple parents.</para>
+          <para>It's the responsibility of the provider to revoke grants if the document is
+            removed from the last parent, and effectively the document is deleted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#removeDocument(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.removeDocument(java.lang.String, java.lang.String)</code>.</a>
@@ -1718,8 +2077,8 @@
       <MemberSignature Language="F#" Value="abstract member RenameDocument : string * string -&gt; string&#xA;override this.RenameDocument : string * string -&gt; string" Usage="documentsProvider.RenameDocument (documentId, displayName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1742,6 +2101,12 @@
         <summary>Rename an existing document.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Rename an existing document.</para>
+          <para>If a different <c>Document#COLUMN_DOCUMENT_ID</c> must be used to
+            represent the renamed document, generate and return it. Any outstanding
+            URI permission grants will be updated to point at the new document. If
+            the original <c>Document#COLUMN_DOCUMENT_ID</c> is still valid after the
+            rename, return <c>null</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#renameDocument(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.renameDocument(java.lang.String, java.lang.String)</code>.</a>
@@ -1763,8 +2128,8 @@
       <MemberSignature Language="F#" Value="member this.RevokeDocumentPermission : string -&gt; unit" Usage="documentsProvider.RevokeDocumentPermission documentId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1784,6 +2149,10 @@
             <c>Document#COLUMN_DOCUMENT_ID</c>, usually called when a document
             becomes invalid.</summary>
         <remarks>
+          <para>Revoke any active permission grants for the given
+            <c>Document#COLUMN_DOCUMENT_ID</c>, usually called when a document
+            becomes invalid. Follows the same semantics as
+            <c>Context#revokeUriPermission(Uri, int)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#revokeDocumentPermission(java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.revokeDocumentPermission(java.lang.String)</code>.</a>
@@ -1804,8 +2173,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Provider.DocumentsProvider.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1835,8 +2204,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Provider.DocumentsProvider.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1866,8 +2235,8 @@
       <MemberSignature Language="F#" Value="override this.Update : Android.Net.Uri * Android.Content.ContentValues * string * string[] -&gt; int" Usage="documentsProvider.Update (uri, values, selection, selectionArgs)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1894,6 +2263,8 @@
         <summary>Implementation is provided by the parent class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implementation is provided by the parent class. Throws by default, and
+            cannot be overridden.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/DocumentsProvider#update(android.net.Uri,%20android.content.ContentValues,%20java.lang.String,%20java.lang.String[])" title="Reference documentation">Java documentation for <code>android.provider.DocumentsProvider.update(android.net.Uri, android.content.ContentValues, java.lang.String, java.lang.String[])</code>.</a>
