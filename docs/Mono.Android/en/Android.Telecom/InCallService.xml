@@ -16,11 +16,204 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/telecom/InCallService", ApiSince=23, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/telecom/InCallService", ApiSince=23, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>This service is implemented by an app that wishes to provide functionality for managing
             phone calls.</summary>
     <remarks>
+      <para>This service is implemented by an app that wishes to provide functionality for managing
+            phone calls.
+            &lt;h2&gt;Becoming the Default Phone App&lt;/h2&gt;
+            The default dialer/phone app is one which provides the in-call user interface while the device is
+            in a call.  It also provides the user with a means to initiate calls and see a history of calls
+            on their device.  A device is bundled with a system provided default dialer/phone app.  The user
+            may choose a single app to take over this role from the system app.  An app which wishes to
+            fulfill this role uses the <c>android.app.role.RoleManager</c> to request that they fill the
+            <c>android.app.role.RoleManager#ROLE_DIALER</c> role.</para>
+      <para>The default phone app provides a user interface while the device is in a call, and the device is
+            not in car mode (i.e. <c>UiModeManager#getCurrentModeType()</c> is not
+            <c>android.content.res.Configuration#UI_MODE_TYPE_CAR</c>).</para>
+      <para>In order to fill the <c>android.app.role.RoleManager#ROLE_DIALER</c> role, an app must meet a
+            number of requirements:
+            &lt;ul&gt;
+                &lt;li&gt;It must handle the <c>Intent#ACTION_DIAL</c> intent.  This means the app must provide
+                a dial pad UI for the user to initiate outgoing calls.&lt;/li&gt;
+                &lt;li&gt;It must fully implement the <c>InCallService</c> API and provide both an incoming call
+                UI, as well as an ongoing call UI.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>Note: If the app filling the <c>android.app.role.RoleManager#ROLE_DIALER</c> returns a
+            <c>null</c><c>InCallService</c> during binding, the Telecom framework will automatically fall
+            back to using the dialer app preloaded on the device.  The system will display a notification to
+            the user to let them know that their call was continued using the preloaded dialer app.  Your
+            app should never return a <c>null</c> binding; doing so means it does not fulfil the
+            requirements of <c>android.app.role.RoleManager#ROLE_DIALER</c>.</para>
+      <para>Note: If your app fills <c>android.app.role.RoleManager#ROLE_DIALER</c> and makes changes at
+            runtime which cause it to no longer fulfil the requirements of this role,
+            <c>android.app.role.RoleManager</c> will automatically remove your app from the role and close
+            your app.  For example, if you use
+            <c>android.content.pm.PackageManager#setComponentEnabledSetting(ComponentName, int, int)</c> to
+            programmatically disable the <c>InCallService</c> your app declares in its manifest, your app
+            will no longer fulfil the requirements expected of
+            <c>android.app.role.RoleManager#ROLE_DIALER</c>.</para>
+      <para>The preloaded dialer will ALWAYS be used when the user places an emergency call, even if your
+            app fills the <c>android.app.role.RoleManager#ROLE_DIALER</c> role.  To ensure an optimal
+            experience when placing an emergency call, the default dialer should ALWAYS use
+            <c>android.telecom.TelecomManager#placeCall(Uri, Bundle)</c> to place calls (including
+            emergency calls).  This ensures that the platform is able to verify that the request came from
+            the default dialer.  If a non-preloaded dialer app uses <c>Intent#ACTION_CALL</c> to place an
+            emergency call, it will be raised to the preloaded dialer app using <c>Intent#ACTION_DIAL</c>
+            for confirmation; this is a suboptimal user experience.</para>
+      <para>Below is an example manifest registration for an <c>InCallService</c>. The meta-data
+            <c>TelecomManager#METADATA_IN_CALL_SERVICE_UI</c> indicates that this particular
+            <c>InCallService</c> implementation intends to replace the built-in in-call UI.
+            The meta-data <c>TelecomManager#METADATA_IN_CALL_SERVICE_RINGING</c> indicates that this
+            <c>InCallService</c> will play the ringtone for incoming calls.  See
+            below for more information on showing the incoming call
+            UI and playing the ringtone in your app.</para>
+      <code lang="text/java">{@code
+            &lt;service android:name="your.package.YourInCallServiceImplementation"
+                     android:permission="android.permission.BIND_INCALL_SERVICE"
+                     android:exported="true"&gt;
+                 &lt;meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" /&gt;
+                 &lt;meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING"
+                     android:value="true" /&gt;
+                 &lt;intent-filter&gt;
+                     &lt;action android:name="android.telecom.InCallService"/&gt;
+                 &lt;/intent-filter&gt;
+            &lt;/service&gt;
+            }
+            </code>
+      <para>&lt;em&gt;Note: You should NOT mark your <c>InCallService</c> with the attribute
+            <c>android:exported="false"</c>; doing so can result in a failure to bind to your implementation
+            during calls.&lt;/em&gt;</para>
+      <para>In addition to implementing the <c>InCallService</c> API, you must also declare an activity in
+            your manifest which handles the <c>Intent#ACTION_DIAL</c> intent.  The example below illustrates
+            how this is done:</para>
+      <code lang="text/java">{@code
+            &lt;activity android:name="your.package.YourDialerActivity"
+                      android:label="@string/yourDialerActivityLabel"&gt;
+                 &lt;intent-filter&gt;
+                      &lt;action android:name="android.intent.action.DIAL" /&gt;
+                      &lt;category android:name="android.intent.category.DEFAULT" /&gt;
+                 &lt;/intent-filter&gt;
+                 &lt;intent-filter&gt;
+                      &lt;action android:name="android.intent.action.DIAL" /&gt;
+                      &lt;category android:name="android.intent.category.DEFAULT" /&gt;
+                      &lt;data android:scheme="tel" /&gt;
+                 &lt;/intent-filter&gt;
+            &lt;/activity&gt;
+            }
+            </code>
+      <para>When a user installs your application and runs it for the first time, you should use the
+            <c>android.app.role.RoleManager</c> to prompt the user to see if they would like your app to
+            be the new default phone app.
+            &lt;p id="requestRole"&gt;
+            The code below shows how your app can request to become the default phone/dialer app:</para>
+      <code lang="text/java">{@code
+            private static final int REQUEST_ID = 1;
+            
+            public void requestRole() {
+                RoleManager roleManager = (RoleManager) getSystemService(ROLE_SERVICE);
+                Intent intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER);
+                startActivityForResult(intent, REQUEST_ID);
+            }
+            
+            &amp;#64;Override
+            public void onActivityResult(int requestCode, int resultCode, Intent data) {
+                if (requestCode == REQUEST_ID) {
+                    if (resultCode == android.app.Activity.RESULT_OK) {
+                        // Your app is now the default dialer app
+                    } else {
+                        // Your app is not the default dialer app
+                    }
+                }
+            }
+            }
+            
+            </code>
+      <para>&lt;p id="companionInCallService"&gt;
+            &lt;h3&gt;Access to InCallService for Wearable Devices&lt;/h3&gt;
+            &lt;ol&gt;
+            If your app is a third-party companion app and wants to access InCallService APIs, what your
+            app could do are:</para>
+      <para>&lt;ol&gt;
+                &lt;li&gt; Declare MANAGE_ONGOING_CALLS permission in your manifest
+                &lt;li&gt; Associate with a physical wearable device via the
+                     <c>android.companion.CompanionDeviceManager</c> API as a companion app. See:
+                     https://developer.android.com/guide/topics/connectivity/companion-device-pairing
+                &lt;li&gt; Implement this InCallService with BIND_INCALL_SERVICE permission
+              &lt;/ol&gt;
+            &lt;/ol&gt;</para>
+      <para>&lt;/pre&gt;
+            &lt;p id="incomingCallNotification"&gt;
+            &lt;h3&gt;Showing the Incoming Call Notification&lt;/h3&gt;
+            When your app receives a new incoming call via <c>InCallService#onCallAdded(Call)</c>, it is
+            responsible for displaying an incoming call UI for the incoming call.  It should do this using
+            <c>android.app.NotificationManager</c> APIs to post a new incoming call notification.</para>
+      <para>Where your app declares the meta-data <c>TelecomManager#METADATA_IN_CALL_SERVICE_RINGING</c>, it
+            is responsible for playing the ringtone for incoming calls.  Your app should create a
+            <c>android.app.NotificationChannel</c> which specifies the desired ringtone.  For example:</para>
+      <code lang="text/java">&lt;code&gt;
+            NotificationChannel channel = new NotificationChannel(YOUR_CHANNEL_ID, "Incoming Calls",
+                     NotificationManager.IMPORTANCE_MAX);
+            // other channel setup stuff goes here.
+            
+            // We'll use the default system ringtone for our incoming call notification channel.  You can
+            // use your own audio resource here.
+            Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            channel.setSound(ringtoneUri, new AudioAttributes.Builder()
+                     // Setting the AudioAttributes is important as it identifies the purpose of your
+                     // notification sound.
+                     .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                 .build());
+            
+            NotificationManager mgr = getSystemService(NotificationManager.class);
+            mgr.createNotificationChannel(channel);
+            &lt;/code&gt;</code>
+      <para>When your app receives a new incoming call, it creates a <c>android.app.Notification</c> for the
+            incoming call and associates it with your incoming call notification channel. You can specify a
+            <c>android.app.PendingIntent</c> on the notification which will launch your full screen
+            incoming call UI.  The notification manager framework will display your notification as a
+            heads-up notification if the user is actively using the phone.  When the user is not using the
+            phone, your full-screen incoming call UI is used instead.
+            For example:</para>
+      <code lang="text/java">&lt;code&gt;{@code
+            // Create an intent which triggers your fullscreen incoming call user interface.
+            Intent intent = new Intent(Intent.ACTION_MAIN, null);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.setClass(context, YourIncomingCallActivity.class);
+            PendingIntent pendingIntent = PendingIntent.getActivity(context, 1, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
+            
+            // Build the notification as an ongoing high priority item; this ensures it will show as
+            // a heads up notification which slides down over top of the current content.
+            final Notification.Builder builder = new Notification.Builder(context);
+            builder.setOngoing(true);
+            builder.setPriority(Notification.PRIORITY_HIGH);
+            
+            // Set notification content intent to take user to the fullscreen UI if user taps on the
+            // notification body.
+            builder.setContentIntent(pendingIntent);
+            // Set full screen intent to trigger display of the fullscreen UI when the notification
+            // manager deems it appropriate.
+            builder.setFullScreenIntent(pendingIntent, true);
+            
+            // Setup notification content.
+            builder.setSmallIcon( yourIconResourceId );
+            builder.setContentTitle("Your notification title");
+            builder.setContentText("Your notification content.");
+            
+            // Use builder.addAction(..) to add buttons to answer or reject the call.
+            
+            NotificationManager notificationManager = mContext.getSystemService(
+                NotificationManager.class);
+            notificationManager.notify(YOUR_CHANNEL_ID, YOUR_TAG, YOUR_ID, builder.build());
+            }</code>
+      <para />
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/telecom/InCallService" title="Reference documentation">Java documentation for <code>android.telecom.InCallService</code>.</a>
@@ -47,6 +240,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "()V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "()V", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <Parameters />
@@ -92,6 +289,14 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getCallAudioState", "()Landroid/telecom/CallAudioState;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getCallAudioState", "()Landroid/telecom/CallAudioState;", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
@@ -104,6 +309,10 @@
         <value>An object encapsulating the audio state. Returns null if the service is not
                     fully initialized.</value>
         <remarks>
+          <para>Obtains the current phone call audio state.</para>
+          <para>This member is deprecated. Use <c>#getCurrentCallEndpoint()</c>,
+            <c>#onAvailableCallEndpointsChanged(List)</c> and
+            <c>#onMuteStateChanged(boolean)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#getCallAudioState()" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.getCallAudioState()</code>.</a>
@@ -129,6 +338,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getCalls", "()Ljava/util/List;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getCalls", "()Ljava/util/List;", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
@@ -140,6 +353,7 @@
         <summary>Obtains the current list of <c>Call</c>s to be displayed by this in-call service.</summary>
         <value>A list of the relevant <c>Call</c>s.</value>
         <remarks>
+          <para>Obtains the current list of <c>Call</c>s to be displayed by this in-call service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#getCalls()" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.getCalls()</code>.</a>
@@ -168,6 +382,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("canAddCall", "()Z", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("canAddCall", "()Z", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -177,9 +395,51 @@
         <summary>Returns if the device can support additional calls.</summary>
         <returns>Whether the phone supports adding more calls.</returns>
         <remarks>
+          <para>Returns if the device can support additional calls.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#canAddCall()" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.canAddCall()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="CurrentCallEndpoint">
+      <MemberSignature Language="C#" Value="public Android.Telecom.CallEndpoint CurrentCallEndpoint { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance class Android.Telecom.CallEndpoint CurrentCallEndpoint" />
+      <MemberSignature Language="DocId" Value="P:Android.Telecom.InCallService.CurrentCallEndpoint" />
+      <MemberSignature Language="F#" Value="member this.CurrentCallEndpoint : Android.Telecom.CallEndpoint" Usage="Android.Telecom.InCallService.CurrentCallEndpoint" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: Android.Runtime.Register("getCurrentCallEndpoint", "()Landroid/telecom/CallEndpoint;", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getCurrentCallEndpoint", "()Landroid/telecom/CallEndpoint;", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Telecom.CallEndpoint</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Obtains the current CallEndpoint.</summary>
+        <value>An object encapsulating the CallEndpoint.</value>
+        <remarks>
+          <para>Obtains the current CallEndpoint.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/telecom/InCallService#getCurrentCallEndpoint()" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.getCurrentCallEndpoint()</code>.</a>
             </format>
           </para>
           <para>
@@ -221,6 +481,50 @@
         </remarks>
       </Docs>
     </Member>
+    <Member MemberName="OnAvailableCallEndpointsChanged">
+      <MemberSignature Language="C#" Value="public virtual void OnAvailableCallEndpointsChanged (System.Collections.Generic.IList&lt;Android.Telecom.CallEndpoint&gt; availableEndpoints);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnAvailableCallEndpointsChanged(class System.Collections.Generic.IList`1&lt;class Android.Telecom.CallEndpoint&gt; availableEndpoints) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Telecom.InCallService.OnAvailableCallEndpointsChanged(System.Collections.Generic.IList{Android.Telecom.CallEndpoint})" />
+      <MemberSignature Language="F#" Value="abstract member OnAvailableCallEndpointsChanged : System.Collections.Generic.IList&lt;Android.Telecom.CallEndpoint&gt; -&gt; unit&#xA;override this.OnAvailableCallEndpointsChanged : System.Collections.Generic.IList&lt;Android.Telecom.CallEndpoint&gt; -&gt; unit" Usage="inCallService.OnAvailableCallEndpointsChanged availableEndpoints" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("onAvailableCallEndpointsChanged", "(Ljava/util/List;)V", "GetOnAvailableCallEndpointsChanged_Ljava_util_List_Handler", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("onAvailableCallEndpointsChanged", "(Ljava/util/List;)V", "GetOnAvailableCallEndpointsChanged_Ljava_util_List_Handler", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="availableEndpoints" Type="System.Collections.Generic.IList&lt;Android.Telecom.CallEndpoint&gt;" />
+      </Parameters>
+      <Docs>
+        <param name="availableEndpoints">The set of available CallEndpoint <c>CallEndpoint</c>.</param>
+        <summary>Called when the available CallEndpoint changes.</summary>
+        <remarks>
+          <para>Called when the available CallEndpoint changes.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/telecom/InCallService#onAvailableCallEndpointsChanged(java.util.List%3Candroid.telecom.CallEndpoint%3E)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.onAvailableCallEndpointsChanged(java.util.List&lt;android.telecom.CallEndpoint&gt;)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
     <Member MemberName="OnBind">
       <MemberSignature Language="C#" Value="public override Android.OS.IBinder? OnBind (Android.Content.Intent? intent);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig virtual instance class Android.OS.IBinder OnBind(class Android.Content.Intent intent) cil managed" />
@@ -235,6 +539,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("onBind", "(Landroid/content/Intent;)Landroid/os/IBinder;", "GetOnBind_Landroid_content_Intent_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onBind", "(Landroid/content/Intent;)Landroid/os/IBinder;", "GetOnBind_Landroid_content_Intent_Handler", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -267,6 +575,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onBringToForeground", "(Z)V", "GetOnBringToForeground_ZHandler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onBringToForeground", "(Z)V", "GetOnBringToForeground_ZHandler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -278,6 +590,9 @@
         <param name="showDialpad">If true, put up the dialpad when the screen is shown.</param>
         <summary>Called to bring the in-call screen to the foreground.</summary>
         <remarks>
+          <para>Called to bring the in-call screen to the foreground. The in-call experience should
+            respond immediately by coming to the foreground to inform the user of the state of
+            ongoing <c>Call</c>s.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#onBringToForeground(boolean)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.onBringToForeground(boolean)</code>.</a>
@@ -306,6 +621,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCallAdded", "(Landroid/telecom/Call;)V", "GetOnCallAdded_Landroid_telecom_Call_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCallAdded", "(Landroid/telecom/Call;)V", "GetOnCallAdded_Landroid_telecom_Call_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -317,6 +636,11 @@
         <param name="call">A newly added <c>Call</c>.</param>
         <summary>Called when a <c>Call</c> has been added to this in-call session.</summary>
         <remarks>
+          <para>Called when a <c>Call</c> has been added to this in-call session. The in-call user
+            experience should add necessary state listeners to the specified <c>Call</c> and
+            immediately start to show the user information about the existence
+            and nature of this <c>Call</c>. Subsequent invocations of <c>#getCalls()</c> will
+            include this <c>Call</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#onCallAdded(android.telecom.Call)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.onCallAdded(android.telecom.Call)</code>.</a>
@@ -345,6 +669,14 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCallAudioStateChanged", "(Landroid/telecom/CallAudioState;)V", "GetOnCallAudioStateChanged_Landroid_telecom_CallAudioState_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCallAudioStateChanged", "(Landroid/telecom/CallAudioState;)V", "GetOnCallAudioStateChanged_Landroid_telecom_CallAudioState_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -356,9 +688,57 @@
         <param name="audioState">The new <c>CallAudioState</c>.</param>
         <summary>Called when the audio state changes.</summary>
         <remarks>
+          <para>Called when the audio state changes.</para>
+          <para>This member is deprecated. Use <c>#onCallEndpointChanged(CallEndpoint)</c>,
+            <c>#onAvailableCallEndpointsChanged(List)</c> and
+            <c>#onMuteStateChanged(boolean)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#onCallAudioStateChanged(android.telecom.CallAudioState)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.onCallAudioStateChanged(android.telecom.CallAudioState)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="OnCallEndpointChanged">
+      <MemberSignature Language="C#" Value="public virtual void OnCallEndpointChanged (Android.Telecom.CallEndpoint callEndpoint);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnCallEndpointChanged(class Android.Telecom.CallEndpoint callEndpoint) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Telecom.InCallService.OnCallEndpointChanged(Android.Telecom.CallEndpoint)" />
+      <MemberSignature Language="F#" Value="abstract member OnCallEndpointChanged : Android.Telecom.CallEndpoint -&gt; unit&#xA;override this.OnCallEndpointChanged : Android.Telecom.CallEndpoint -&gt; unit" Usage="inCallService.OnCallEndpointChanged callEndpoint" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("onCallEndpointChanged", "(Landroid/telecom/CallEndpoint;)V", "GetOnCallEndpointChanged_Landroid_telecom_CallEndpoint_Handler", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCallEndpointChanged", "(Landroid/telecom/CallEndpoint;)V", "GetOnCallEndpointChanged_Landroid_telecom_CallEndpoint_Handler", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="callEndpoint" Type="Android.Telecom.CallEndpoint" />
+      </Parameters>
+      <Docs>
+        <param name="callEndpoint">The current CallEndpoint <c>CallEndpoint</c>.</param>
+        <summary>Called when the current CallEndpoint changes.</summary>
+        <remarks>
+          <para>Called when the current CallEndpoint changes.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/telecom/InCallService#onCallEndpointChanged(android.telecom.CallEndpoint)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.onCallEndpointChanged(android.telecom.CallEndpoint)</code>.</a>
             </format>
           </para>
           <para>
@@ -384,6 +764,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCallRemoved", "(Landroid/telecom/Call;)V", "GetOnCallRemoved_Landroid_telecom_Call_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCallRemoved", "(Landroid/telecom/Call;)V", "GetOnCallRemoved_Landroid_telecom_Call_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -395,6 +779,10 @@
         <param name="call">A newly removed <c>Call</c>.</param>
         <summary>Called when a <c>Call</c> has been removed from this in-call session.</summary>
         <remarks>
+          <para>Called when a <c>Call</c> has been removed from this in-call session. The in-call user
+            experience should remove any state listeners from the specified <c>Call</c> and
+            immediately stop displaying any information about this <c>Call</c>.
+            Subsequent invocations of <c>#getCalls()</c> will no longer include this <c>Call</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#onCallRemoved(android.telecom.Call)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.onCallRemoved(android.telecom.Call)</code>.</a>
@@ -423,6 +811,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCanAddCallChanged", "(Z)V", "GetOnCanAddCallChanged_ZHandler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCanAddCallChanged", "(Z)V", "GetOnCanAddCallChanged_ZHandler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -434,6 +826,9 @@
         <param name="canAddCall">Indicates whether an additional call can be added.</param>
         <summary>Called when the ability to add more calls changes.</summary>
         <remarks>
+          <para>Called when the ability to add more calls changes.  If the phone cannot
+            support more calls then <c>canAddCall</c> is set to <c>false</c>.  If it can, then it
+            is set to <c>true</c>. This can be used to control the visibility of UI to add more calls.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#onCanAddCallChanged(boolean)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.onCanAddCallChanged(boolean)</code>.</a>
@@ -462,6 +857,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onConnectionEvent", "(Landroid/telecom/Call;Ljava/lang/String;Landroid/os/Bundle;)V", "GetOnConnectionEvent_Landroid_telecom_Call_Ljava_lang_String_Landroid_os_Bundle_Handler", ApiSince=25)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onConnectionEvent", "(Landroid/telecom/Call;Ljava/lang/String;Landroid/os/Bundle;)V", "GetOnConnectionEvent_Landroid_telecom_Call_Ljava_lang_String_Landroid_os_Bundle_Handler", ApiSince=25)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android25.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android25.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -479,9 +878,56 @@
         <summary>Unused; to handle connection events issued by a <c>ConnectionService</c>, implement the
             <c>android.telecom.Call.Callback#onConnectionEvent(Call, String, Bundle)</c> callback.</summary>
         <remarks>
+          <para>Unused; to handle connection events issued by a <c>ConnectionService</c>, implement the
+            <c>android.telecom.Call.Callback#onConnectionEvent(Call, String, Bundle)</c> callback.</para>
+          <para>See <c>Connection#sendConnectionEvent(String, Bundle)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#onConnectionEvent(android.telecom.Call,%20java.lang.String,%20android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.onConnectionEvent(android.telecom.Call, java.lang.String, android.os.Bundle)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="OnMuteStateChanged">
+      <MemberSignature Language="C#" Value="public virtual void OnMuteStateChanged (bool isMuted);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance void OnMuteStateChanged(bool isMuted) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Telecom.InCallService.OnMuteStateChanged(System.Boolean)" />
+      <MemberSignature Language="F#" Value="abstract member OnMuteStateChanged : bool -&gt; unit&#xA;override this.OnMuteStateChanged : bool -&gt; unit" Usage="inCallService.OnMuteStateChanged isMuted" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("onMuteStateChanged", "(Z)V", "GetOnMuteStateChanged_ZHandler", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("onMuteStateChanged", "(Z)V", "GetOnMuteStateChanged_ZHandler", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="isMuted" Type="System.Boolean" />
+      </Parameters>
+      <Docs>
+        <param name="isMuted">The current mute state.</param>
+        <summary>Called when the mute state changes.</summary>
+        <remarks>
+          <para>Called when the mute state changes.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/telecom/InCallService#onMuteStateChanged(boolean)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.onMuteStateChanged(boolean)</code>.</a>
             </format>
           </para>
           <para>
@@ -507,6 +953,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onSilenceRinger", "()V", "GetOnSilenceRingerHandler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onSilenceRinger", "()V", "GetOnSilenceRingerHandler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -515,6 +965,7 @@
       <Docs>
         <summary>Called to silence the ringer if a ringing call exists.</summary>
         <remarks>
+          <para>Called to silence the ringer if a ringing call exists.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#onSilenceRinger()" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.onSilenceRinger()</code>.</a>
@@ -543,6 +994,14 @@
           <AttributeName Language="C#">[Android.Runtime.Register("requestBluetoothAudio", "(Landroid/bluetooth/BluetoothDevice;)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("requestBluetoothAudio", "(Landroid/bluetooth/BluetoothDevice;)V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -557,6 +1016,57 @@
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#requestBluetoothAudio(android.bluetooth.BluetoothDevice)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.requestBluetoothAudio(android.bluetooth.BluetoothDevice)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="RequestCallEndpointChange">
+      <MemberSignature Language="C#" Value="public void RequestCallEndpointChange (Android.Telecom.CallEndpoint endpoint, Java.Util.Concurrent.IExecutor executor, Android.OS.IOutcomeReceiver callback);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void RequestCallEndpointChange(class Android.Telecom.CallEndpoint endpoint, class Java.Util.Concurrent.IExecutor executor, class Android.OS.IOutcomeReceiver callback) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Telecom.InCallService.RequestCallEndpointChange(Android.Telecom.CallEndpoint,Java.Util.Concurrent.IExecutor,Android.OS.IOutcomeReceiver)" />
+      <MemberSignature Language="F#" Value="member this.RequestCallEndpointChange : Android.Telecom.CallEndpoint * Java.Util.Concurrent.IExecutor * Android.OS.IOutcomeReceiver -&gt; unit" Usage="inCallService.RequestCallEndpointChange (endpoint, executor, callback)" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("requestCallEndpointChange", "(Landroid/telecom/CallEndpoint;Ljava/util/concurrent/Executor;Landroid/os/OutcomeReceiver;)V", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("requestCallEndpointChange", "(Landroid/telecom/CallEndpoint;Ljava/util/concurrent/Executor;Landroid/os/OutcomeReceiver;)V", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="endpoint" Type="Android.Telecom.CallEndpoint" />
+        <Parameter Name="executor" Type="Java.Util.Concurrent.IExecutor" />
+        <Parameter Name="callback" Type="Android.OS.IOutcomeReceiver" />
+      </Parameters>
+      <Docs>
+        <param name="endpoint">The call endpoint to use.</param>
+        <param name="executor">The executor of where the callback will execute.</param>
+        <param name="callback">The callback to notify the result of the endpoint change.</param>
+        <summary>Request audio routing to a specific CallEndpoint.</summary>
+        <remarks>
+          <para>Request audio routing to a specific CallEndpoint. Clients should not define their own
+            CallEndpoint when requesting a change. Instead, the new endpoint should be one of the valid
+            endpoints provided by <c>#onAvailableCallEndpointsChanged(List)</c>.
+            When this request is honored, there will be change to the <c>#getCurrentCallEndpoint()</c>.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/telecom/InCallService#requestCallEndpointChange(android.telecom.CallEndpoint,%20java.util.concurrent.Executor,%20android.os.OutcomeReceiver%3Cjava.lang.Void,%20android.telecom.CallEndpointException%3E)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.requestCallEndpointChange(android.telecom.CallEndpoint, java.util.concurrent.Executor, android.os.OutcomeReceiver&lt;java.lang.Void, android.telecom.CallEndpointException&gt;)</code>.</a>
             </format>
           </para>
           <para>
@@ -582,6 +1092,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("SERVICE_INTERFACE", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("SERVICE_INTERFACE", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -589,9 +1103,68 @@
       <Docs>
         <summary>The <c>Intent</c> that must be declared as handled by the service.</summary>
         <remarks>
+          <para>The <c>Intent</c> that must be declared as handled by the service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#SERVICE_INTERFACE" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.SERVICE_INTERFACE</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="SetAudioRoute">
+      <MemberSignature Language="C#" Value="public void SetAudioRoute (Android.Telecom.CallAudioRoute route);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void SetAudioRoute(valuetype Android.Telecom.CallAudioRoute route) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Telecom.InCallService.SetAudioRoute(Android.Telecom.CallAudioRoute)" />
+      <MemberSignature Language="F#" Value="member this.SetAudioRoute : Android.Telecom.CallAudioRoute -&gt; unit" Usage="inCallService.SetAudioRoute route" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("setAudioRoute", "(I)V", "", ApiSince=23)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("setAudioRoute", "(I)V", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="route" Type="Android.Telecom.CallAudioRoute">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[Android.Runtime.GeneratedEnum]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.GeneratedEnum&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+      </Parameters>
+      <Docs>
+        <param name="route">The audio route to use.</param>
+        <summary>Sets the audio route (speaker, bluetooth, etc.</summary>
+        <remarks>
+          <para>Sets the audio route (speaker, bluetooth, etc...).  When this request is honored, there will
+            be change to the <c>#getCallAudioState()</c>.</para>
+          <para>This member is deprecated. Use <c>#requestCallEndpointChange(CallEndpoint, Executor, OutcomeReceiver)</c>
+            instead.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/telecom/InCallService#setAudioRoute(int)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.setAudioRoute(int)</code>.</a>
             </format>
           </para>
           <para>
@@ -614,8 +1187,16 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
-          <AttributeName Language="C#">[Android.Runtime.Register("setAudioRoute", "(I)V", "", ApiSince=23)]</AttributeName>
-          <AttributeName Language="F#">[&lt;Android.Runtime.Register("setAudioRoute", "(I)V", "", ApiSince=23)&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Obsolete("Incorrect enum parameter, use the overload that takes a CallAudioRoute parameter instead.")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("Incorrect enum parameter, use the overload that takes a CallAudioRoute parameter instead.")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -663,6 +1244,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setMuted", "(Z)V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setMuted", "(Z)V", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -675,6 +1260,8 @@
           <c>true</c> if the microphone should be muted; <c>false</c> otherwise.</param>
         <summary>Sets the microphone mute state.</summary>
         <remarks>
+          <para>Sets the microphone mute state. When this request is honored, there will be change to
+            the <c>#getCallAudioState()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/InCallService#setMuted(boolean)" title="Reference documentation">Java documentation for <code>android.telecom.InCallService.setMuted(boolean)</code>.</a>

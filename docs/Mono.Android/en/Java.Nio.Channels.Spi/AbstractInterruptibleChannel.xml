@@ -39,6 +39,40 @@
   <Docs since="1">
     <summary>Base implementation class for interruptible channels.</summary>
     <remarks>
+      <para>Base implementation class for interruptible channels.</para>
+      <para>This class encapsulates the low-level machinery required to implement
+            the asynchronous closing and interruption of channels.  A concrete channel
+            class must invoke the <c>#begin begin</c> and <c>#end end</c> methods
+            before and after, respectively, invoking an I/O operation that might block
+            indefinitely.  In order to ensure that the <c>#end end</c> method is always
+            invoked, these methods should be used within a
+            <c>try</c>&amp;nbsp;...&amp;nbsp;<c>finally</c> block:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">boolean completed = false;
+            try {
+                begin();
+                completed = ...;    // Perform blocking I/O operation
+                return ...;         // Return result
+            } finally {
+                end(completed);
+            }</code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>The <c>completed</c> argument to the <c>#end end</c> method tells
+            whether or not the I/O operation actually completed, that is, whether it had
+            any effect that would be visible to the invoker.  In the case of an
+            operation that reads bytes, for example, this argument should be
+            <c>true</c> if, and only if, some bytes were actually transferred into the
+            invoker's target buffer.</para>
+      <para>A concrete channel class must also implement the <c>#implCloseChannel implCloseChannel</c> method in such a way that if it is
+            invoked while another thread is blocked in a native I/O operation upon the
+            channel then that operation will immediately return, either by throwing an
+            exception or by returning normally.  If a thread is interrupted or the
+            channel upon which it is blocked is asynchronously closed then the channel's
+            <c>#end end</c> method will throw the appropriate exception.</para>
+      <para>This class performs the synchronization required to implement the <c>java.nio.channels.Channel</c> specification.  Implementations of the <c>#implCloseChannel implCloseChannel</c> method need not synchronize against
+            other threads that might be attempting to close the channel.</para>
+      <para>Added in 1.4.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/nio/channels/spi/AbstractInterruptibleChannel" title="Reference documentation">Java documentation for <code>java.nio.channels.spi.AbstractInterruptibleChannel</code>.</a>
@@ -59,8 +93,8 @@
       <MemberSignature Language="DocId" Value="M:Java.Nio.Channels.Spi.AbstractInterruptibleChannel.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -72,6 +106,7 @@
       <Docs>
         <summary>Initializes a new instance of this class.</summary>
         <remarks>
+          <para>Initializes a new instance of this class.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/nio/channels/spi/AbstractInterruptibleChannel#AbstractInterruptibleChannel()" title="Reference documentation">Java documentation for <code>java.nio.channels.spi.AbstractInterruptibleChannel.AbstractInterruptibleChannel()</code>.</a>
@@ -93,8 +128,8 @@
       <MemberSignature Language="F#" Value="new Java.Nio.Channels.Spi.AbstractInterruptibleChannel : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Nio.Channels.Spi.AbstractInterruptibleChannel" Usage="new Java.Nio.Channels.Spi.AbstractInterruptibleChannel (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -116,8 +151,8 @@
       <MemberSignature Language="F#" Value="member this.Begin : unit -&gt; unit" Usage="abstractInterruptibleChannel.Begin " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -132,6 +167,11 @@
       <Docs>
         <summary>Marks the beginning of an I/O operation that might block indefinitely.</summary>
         <remarks>
+          <para>Marks the beginning of an I/O operation that might block indefinitely.</para>
+          <para>This method should be invoked in tandem with the <c>#end end</c>
+            method, using a <c>try</c>&amp;nbsp;...&amp;nbsp;<c>finally</c> block as
+            shown above, in order to implement asynchronous
+            closing and interruption for this channel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/nio/channels/spi/AbstractInterruptibleChannel#begin()" title="Reference documentation">Java documentation for <code>java.nio.channels.spi.AbstractInterruptibleChannel.begin()</code>.</a>
@@ -157,8 +197,8 @@
         <InterfaceMember>M:Java.Nio.Channels.IInterruptibleChannel.Close</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -173,6 +213,11 @@
       <Docs>
         <summary>Closes this channel.</summary>
         <remarks>
+          <para>Closes this channel.</para>
+          <para>If the channel has already been closed then this method returns
+            immediately.  Otherwise it marks the channel as closed and then invokes
+            the <c>#implCloseChannel implCloseChannel</c> method in order to
+            complete the close operation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/nio/channels/spi/AbstractInterruptibleChannel#close()" title="Reference documentation">Java documentation for <code>java.nio.channels.spi.AbstractInterruptibleChannel.close()</code>.</a>
@@ -196,8 +241,8 @@
       <MemberSignature Language="F#" Value="member this.End : bool -&gt; unit" Usage="abstractInterruptibleChannel.End completed" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -218,6 +263,11 @@
                     the operation's invoker</param>
         <summary>Marks the end of an I/O operation that might block indefinitely.</summary>
         <remarks>
+          <para>Marks the end of an I/O operation that might block indefinitely.</para>
+          <para>This method should be invoked in tandem with the <c>#begin
+            begin</c> method, using a <c>try</c>&amp;nbsp;...&amp;nbsp;<c>finally</c> block
+            as shown above, in order to implement asynchronous
+            closing and interruption for this channel.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/nio/channels/spi/AbstractInterruptibleChannel#end(boolean)" title="Reference documentation">Java documentation for <code>java.nio.channels.spi.AbstractInterruptibleChannel.end(boolean)</code>.</a>
@@ -244,8 +294,8 @@
       <MemberSignature Language="F#" Value="abstract member ImplCloseChannel : unit -&gt; unit" Usage="abstractInterruptibleChannel.ImplCloseChannel " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -260,6 +310,14 @@
       <Docs>
         <summary>Closes this channel.</summary>
         <remarks>
+          <para>Closes this channel.</para>
+          <para>This method is invoked by the <c>#close close</c> method in order
+            to perform the actual work of closing the channel.  This method is only
+            invoked if the channel has not yet been closed, and it is never invoked
+            more than once.</para>
+          <para>An implementation of this method must arrange for any other thread
+            that is blocked in an I/O operation upon this channel to return
+            immediately, either by throwing an exception or by returning normally.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/nio/channels/spi/AbstractInterruptibleChannel#implCloseChannel()" title="Reference documentation">Java documentation for <code>java.nio.channels.spi.AbstractInterruptibleChannel.implCloseChannel()</code>.</a>
@@ -286,8 +344,8 @@
         <InterfaceMember>P:Java.Nio.Channels.IChannel.IsOpen</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -348,8 +406,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Nio.Channels.Spi.AbstractInterruptibleChannel.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -379,8 +437,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Nio.Channels.Spi.AbstractInterruptibleChannel.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

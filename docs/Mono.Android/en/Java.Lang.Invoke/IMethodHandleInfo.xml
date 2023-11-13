@@ -1,6 +1,6 @@
 <Type Name="IMethodHandleInfo" FullName="Java.Lang.Invoke.IMethodHandleInfo">
   <TypeSignature Language="C#" Value="public interface IMethodHandleInfo : Android.Runtime.IJavaObject, IDisposable, Java.Interop.IJavaPeerable" />
-  <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract IMethodHandleInfo implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
+  <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract beforefieldinit IMethodHandleInfo implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Lang.Invoke.IMethodHandleInfo" />
   <TypeSignature Language="F#" Value="type IMethodHandleInfo = interface&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
@@ -28,6 +28,93 @@
     <summary>A symbolic reference obtained by cracking a direct method handle
             into its consitutent symbolic parts.</summary>
     <remarks>
+      <para>A symbolic reference obtained by cracking a direct method handle
+            into its consitutent symbolic parts.
+            To crack a direct method handle, call <c>Lookup#revealDirect Lookup.revealDirect</c>.
+            &lt;h1&gt;"directmh"&gt;Direct Method Handles&lt;/h1&gt;
+            A &lt;em&gt;direct method handle&lt;/em&gt; represents a method, constructor, or field without
+            any intervening argument bindings or other transformations.
+            The method, constructor, or field referred to by a direct method handle is called
+            its &lt;em&gt;underlying member&lt;/em&gt;.
+            Direct method handles may be obtained in any of these ways:
+            &lt;ul&gt;
+            &lt;li&gt;By executing an <c>ldc</c> instruction on a <c>CONSTANT_MethodHandle</c> constant.
+                (See the Java Virtual Machine Specification, sections 4.4.8 and 5.4.3.)
+            &lt;li&gt;By calling one of the Lookup Factory Methods,
+                such as <c>Lookup#findVirtual Lookup.findVirtual</c>,
+                to resolve a symbolic reference into a method handle.
+                A symbolic reference consists of a class, name string, and type.
+            &lt;li&gt;By calling the factory method <c>Lookup#unreflect Lookup.unreflect</c>
+                or <c>Lookup#unreflectSpecial Lookup.unreflectSpecial</c>
+                to convert a <c>Method</c> into a method handle.
+            &lt;li&gt;By calling the factory method <c>Lookup#unreflectConstructor Lookup.unreflectConstructor</c>
+                to convert a <c>Constructor</c> into a method handle.
+            &lt;li&gt;By calling the factory method <c>Lookup#unreflectGetter Lookup.unreflectGetter</c>
+                or <c>Lookup#unreflectSetter Lookup.unreflectSetter</c>
+                to convert a <c>Field</c> into a method handle.
+            &lt;/ul&gt;
+            
+            &lt;h1&gt;Restrictions on Cracking&lt;/h1&gt;
+            Given a suitable <c>Lookup</c> object, it is possible to crack any direct method handle
+            to recover a symbolic reference for the underlying method, constructor, or field.
+            Cracking must be done via a <c>Lookup</c> object equivalent to that which created
+            the target method handle, or which has enough access permissions to recreate
+            an equivalent method handle.</para>
+      <para>If the underlying method is caller sensitive,
+            the direct method handle will have been "bound" to a particular caller class, the
+            java.lang.invoke.MethodHandles.Lookup#lookupClass() lookup class
+            of the lookup object used to create it.
+            Cracking this method handle with a different lookup class will fail
+            even if the underlying method is public (like <c>Class.forName</c>).</para>
+      <para>The requirement of lookup object matching provides a "fast fail" behavior
+            for programs which may otherwise trust erroneous revelation of a method
+            handle with symbolic information (or caller binding) from an unexpected scope.
+            Use <c>java.lang.invoke.MethodHandles#reflectAs</c> to override this limitation.
+            
+            &lt;h1&gt;"refkinds"&gt;Reference kinds&lt;/h1&gt;
+            The Lookup Factory Methods
+            correspond to all major use cases for methods, constructors, and fields.
+            These use cases may be distinguished using small integers as follows:
+            &lt;table border=1 cellpadding=5 summary="reference kinds"&gt;
+            &lt;tr&gt;&lt;th&gt;reference kind&lt;/th&gt;&lt;th&gt;descriptive name&lt;/th&gt;&lt;th&gt;scope&lt;/th&gt;&lt;th&gt;member&lt;/th&gt;&lt;th&gt;behavior&lt;/th&gt;&lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;<c>1</c>&lt;/td&gt;&lt;td&gt;<c>REF_getField</c>&lt;/td&gt;&lt;td&gt;<c>class</c>&lt;/td&gt;
+                &lt;td&gt;<c>FT f;</c>&lt;/td&gt;&lt;td&gt;<c>(T) this.f;</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;<c>2</c>&lt;/td&gt;&lt;td&gt;<c>REF_getStatic</c>&lt;/td&gt;&lt;td&gt;<c>class</c> or <c>interface</c>&lt;/td&gt;
+                &lt;td&gt;<c>static</c>&lt;br&gt;<c>FT f;</c>&lt;/td&gt;&lt;td&gt;<c>(T) C.f;</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;<c>3</c>&lt;/td&gt;&lt;td&gt;<c>REF_putField</c>&lt;/td&gt;&lt;td&gt;<c>class</c>&lt;/td&gt;
+                &lt;td&gt;<c>FT f;</c>&lt;/td&gt;&lt;td&gt;<c>this.f = x;</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;<c>4</c>&lt;/td&gt;&lt;td&gt;<c>REF_putStatic</c>&lt;/td&gt;&lt;td&gt;<c>class</c>&lt;/td&gt;
+                &lt;td&gt;<c>static</c>&lt;br&gt;<c>FT f;</c>&lt;/td&gt;&lt;td&gt;<c>C.f = arg;</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;<c>5</c>&lt;/td&gt;&lt;td&gt;<c>REF_invokeVirtual</c>&lt;/td&gt;&lt;td&gt;<c>class</c>&lt;/td&gt;
+                &lt;td&gt;<c>T m(A*);</c>&lt;/td&gt;&lt;td&gt;<c>(T) this.m(arg*);</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;<c>6</c>&lt;/td&gt;&lt;td&gt;<c>REF_invokeStatic</c>&lt;/td&gt;&lt;td&gt;<c>class</c> or <c>interface</c>&lt;/td&gt;
+                &lt;td&gt;<c>static</c>&lt;br&gt;<c>T m(A*);</c>&lt;/td&gt;&lt;td&gt;<c>(T) C.m(arg*);</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;<c>7</c>&lt;/td&gt;&lt;td&gt;<c>REF_invokeSpecial</c>&lt;/td&gt;&lt;td&gt;<c>class</c> or <c>interface</c>&lt;/td&gt;
+                &lt;td&gt;<c>T m(A*);</c>&lt;/td&gt;&lt;td&gt;<c>(T) super.m(arg*);</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;<c>8</c>&lt;/td&gt;&lt;td&gt;<c>REF_newInvokeSpecial</c>&lt;/td&gt;&lt;td&gt;<c>class</c>&lt;/td&gt;
+                &lt;td&gt;<c>C(A*);</c>&lt;/td&gt;&lt;td&gt;<c>new C(arg*);</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+                &lt;td&gt;<c>9</c>&lt;/td&gt;&lt;td&gt;<c>REF_invokeInterface</c>&lt;/td&gt;&lt;td&gt;<c>interface</c>&lt;/td&gt;
+                &lt;td&gt;<c>T m(A*);</c>&lt;/td&gt;&lt;td&gt;<c>(T) this.m(arg*);</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;/table&gt;</para>
+      <para>Added in 1.8.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/lang/invoke/MethodHandleInfo" title="Reference documentation">Java documentation for <code>java.lang.invoke.MethodHandleInfo</code>.</a>
@@ -56,6 +143,10 @@
           <AttributeName Language="C#">[get: Android.Runtime.Register("getDeclaringClass", "()Ljava/lang/Class;", "GetGetDeclaringClassHandler:Java.Lang.Invoke.IMethodHandleInfoInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getDeclaringClass", "()Ljava/lang/Class;", "GetGetDeclaringClassHandler:Java.Lang.Invoke.IMethodHandleInfoInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Class</ReturnType>
@@ -80,6 +171,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isVarArgs", "()Z", "GetIsVarArgsHandler:Java.Lang.Invoke.IMethodHandleInfo, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isVarArgs", "()Z", "GetIsVarArgsHandler:Java.Lang.Invoke.IMethodHandleInfo, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
@@ -92,6 +187,8 @@
         <value>
           <c>true</c> if and only if the underlying member was declared with variable arity.</value>
         <remarks>
+          <para>Determines if the underlying member was a variable arity method or constructor.
+            Such members are represented by method handles that are varargs collectors.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MethodHandleInfo#isVarArgs()" title="Reference documentation">Java documentation for <code>java.lang.invoke.MethodHandleInfo.isVarArgs()</code>.</a>
@@ -120,6 +217,10 @@
           <AttributeName Language="C#">[get: Android.Runtime.Register("getMethodType", "()Ljava/lang/invoke/MethodType;", "GetGetMethodTypeHandler:Java.Lang.Invoke.IMethodHandleInfoInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getMethodType", "()Ljava/lang/invoke/MethodType;", "GetGetMethodTypeHandler:Java.Lang.Invoke.IMethodHandleInfoInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Invoke.MethodType</ReturnType>
@@ -146,6 +247,10 @@
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getModifiers", "()I", "GetGetModifiersHandler:Java.Lang.Invoke.IMethodHandleInfoInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getModifiers", "()I", "GetGetModifiersHandler:Java.Lang.Invoke.IMethodHandleInfoInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -174,6 +279,10 @@
           <AttributeName Language="C#">[get: Android.Runtime.Register("getName", "()Ljava/lang/String;", "GetGetNameHandler:Java.Lang.Invoke.IMethodHandleInfoInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getName", "()Ljava/lang/String;", "GetGetNameHandler:Java.Lang.Invoke.IMethodHandleInfoInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -200,6 +309,10 @@
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getReferenceKind", "()I", "GetGetReferenceKindHandler:Java.Lang.Invoke.IMethodHandleInfoInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getReferenceKind", "()I", "GetGetReferenceKindHandler:Java.Lang.Invoke.IMethodHandleInfoInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -228,6 +341,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("referenceKindToString", "(I)Ljava/lang/String;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("referenceKindToString", "(I)Ljava/lang/String;", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -245,9 +362,12 @@
       <Docs>
         <param name="referenceKind">an integer code for a kind of reference used to access a class member</param>
         <summary>Returns the descriptive name of the given reference kind,
-            as defined in the "MethodHandleInfo.</summary>
+            as defined in the table above.</summary>
         <returns>a mixed-case string such as <c>"getField"</c></returns>
         <remarks>
+          <para>Returns the descriptive name of the given reference kind,
+            as defined in the table above.
+            The conventional prefix "REF_" is omitted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MethodHandleInfo#referenceKindToString(int)" title="Reference documentation">Java documentation for <code>java.lang.invoke.MethodHandleInfo.referenceKindToString(int)</code>.</a>
@@ -277,8 +397,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("refKindIsField", "(I)Z", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -296,9 +420,14 @@
       </Parameters>
       <Docs>
         <param name="refKind">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. This internal method was accidentally added to API 26 and must not be used. No
+                        replacement is available but it is possible to replicate using information from
+                        the table above, e.g.
+                        <c>refKind &gt;= 1 &amp;&amp; refKind &lt;= 4</c>.  There are no guarantees that this logic
+                        will work if future versions extend the table.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MethodHandleInfo#refKindIsField(int)" title="Reference documentation">Java documentation for <code>java.lang.invoke.MethodHandleInfo.refKindIsField(int)</code>.</a>
@@ -328,8 +457,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("refKindIsValid", "(I)Z", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -347,9 +480,14 @@
       </Parameters>
       <Docs>
         <param name="refKind">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. This internal method was accidentally added to API 26 and must not be used. No
+                        replacement is available but it is possible to replicate using information from
+                        the table above, e.g.
+                        <c>refKind &gt;= 1 &amp;&amp; refKind &lt;= 9</c>. There are no guarantees that this logic
+                        will work if future versions extend the table.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MethodHandleInfo#refKindIsValid(int)" title="Reference documentation">Java documentation for <code>java.lang.invoke.MethodHandleInfo.refKindIsValid(int)</code>.</a>
@@ -379,8 +517,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("refKindName", "(I)Ljava/lang/String;", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -398,9 +540,11 @@
       </Parameters>
       <Docs>
         <param name="refKind">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. This internal method was accidentally added to API 26 and must not be used. Use
+                        <c>MethodHandleInfo#referenceKindToString(int)</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MethodHandleInfo#refKindName(int)" title="Reference documentation">Java documentation for <code>java.lang.invoke.MethodHandleInfo.refKindName(int)</code>.</a>
@@ -432,6 +576,10 @@
         <Attribute>
           <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T extends java.lang.reflect.Member" })]</AttributeName>
           <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T extends java.lang.reflect.Member" })&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -475,6 +623,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("toString", "(ILjava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/String;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("toString", "(ILjava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/String;", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -501,6 +653,18 @@
             given the four parts of its symbolic reference.</summary>
         <returns>a string of the form <c>"RK C.N:MT"</c></returns>
         <remarks>
+          <para>Returns a string representation for a <c>MethodHandleInfo</c>,
+            given the four parts of its symbolic reference.
+            This is defined to be of the form <c>"RK C.N:MT"</c>, where <c>RK</c> is the
+            #referenceKindToString reference kind string for <c>kind</c>,
+            <c>C</c> is the java.lang.Class#getName name of <c>defc</c><c>N</c> is the <c>name</c>, and
+            <c>MT</c> is the <c>type</c>.
+            These four values may be obtained from the
+            #getReferenceKind reference kind,
+            #getDeclaringClass declaring class,
+            #getName member name,
+            and #getMethodType method type
+            of a <c>MethodHandleInfo</c> object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MethodHandleInfo#toString(int,%20java.lang.Class%3C?%3E,%20java.lang.String,%20java.lang.invoke.MethodType)" title="Reference documentation">Java documentation for <code>java.lang.invoke.MethodHandleInfo.toString(int, java.lang.Class&lt;?&gt;, java.lang.String, java.lang.invoke.MethodType)</code>.</a>

@@ -16,10 +16,104 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/provider/BlockedNumberContract", ApiSince=24, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/provider/BlockedNumberContract", ApiSince=24, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>The contract between the blockednumber provider and applications.</summary>
     <remarks>
+      <para>The contract between the blockednumber provider and applications. Contains definitions for
+            the supported URIs and columns.</para>
+      <para>&lt;h3&gt; Overview &lt;/h3&gt;</para>
+      <para>The content provider exposes a table containing blocked numbers. The columns and URIs for
+            accessing this table are defined by the <c>BlockedNumbers</c> class. Messages, and calls from
+            blocked numbers are discarded by the platform. Notifications upon provider changes can be
+            received using a <c>android.database.ContentObserver</c>.</para>
+      <para>The platform will not block messages, and calls from emergency numbers as defined by
+            <c>android.telephony.PhoneNumberUtils#isEmergencyNumber(String)</c>. If the user contacts
+            emergency services, number blocking is disabled by the platform for a duration defined by
+            <c>android.telephony.CarrierConfigManager#KEY_DURATION_BLOCKING_DISABLED_AFTER_EMERGENCY_INT</c>.</para>
+      <para>&lt;h3&gt; Permissions &lt;/h3&gt;</para>
+      <para>Only the system, the default SMS application, and the default phone app
+            (See <c>android.telecom.TelecomManager#getDefaultDialerPackage()</c>), and carrier apps
+            (See <c>android.service.carrier.CarrierService</c>) can read, and write to the blockednumber
+            provider. However, <c>#canCurrentUserBlockNumbers(Context)</c> can be accessed by any
+            application.</para>
+      <para>&lt;h3&gt; Data &lt;/h3&gt;</para>
+      <para>Other than regular phone numbers, the blocked number provider can also store addresses (such
+            as email) from which a user can receive messages, and calls. The blocked numbers are stored
+            in the <c>BlockedNumbers#COLUMN_ORIGINAL_NUMBER</c> column. A normalized version of phone
+            numbers (if normalization is possible) is stored in <c>BlockedNumbers#COLUMN_E164_NUMBER</c>
+            column. The platform blocks calls, and messages from an address if it is present in in the
+            <c>BlockedNumbers#COLUMN_ORIGINAL_NUMBER</c> column or if the E164 version of the address
+            matches the <c>BlockedNumbers#COLUMN_E164_NUMBER</c> column.</para>
+      <para>&lt;h3&gt; Operations &lt;/h3&gt;
+            &lt;dl&gt;
+            &lt;dt&gt;&lt;b&gt;Insert&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <para>
+        <c>BlockedNumbers#COLUMN_ORIGINAL_NUMBER</c> is a required column that needs to be populated.
+            Apps can optionally provide the <c>BlockedNumbers#COLUMN_E164_NUMBER</c> which is the phone
+            number's E164 representation. The provider automatically populates this column if the app does
+            not provide it. Note that this column is not populated if normalization fails or if the address
+            is not a phone number (eg: email).</para>
+      <para>Attempting to insert an existing blocked number (same
+            <c>BlockedNumbers#COLUMN_ORIGINAL_NUMBER</c> column) will result in replacing the existing
+            blocked number.</para>
+      <para>Examples:</para>
+      <code lang="text/java">ContentValues values = new ContentValues();
+            values.put(BlockedNumbers.COLUMN_ORIGINAL_NUMBER, "1234567890");
+            Uri uri = getContentResolver().insert(BlockedNumbers.CONTENT_URI, values);
+            </code>
+      <code lang="text/java">ContentValues values = new ContentValues();
+            values.put(BlockedNumbers.COLUMN_ORIGINAL_NUMBER, "1234567890");
+            values.put(BlockedNumbers.COLUMN_E164_NUMBER, "+11234567890");
+            Uri uri = getContentResolver().insert(BlockedNumbers.CONTENT_URI, values);
+            </code>
+      <code lang="text/java">ContentValues values = new ContentValues();
+            values.put(BlockedNumbers.COLUMN_ORIGINAL_NUMBER, "12345@abdcde.com");
+            Uri uri = getContentResolver().insert(BlockedNumbers.CONTENT_URI, values);
+            </code>
+      <para>&lt;/p&gt;
+            &lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Update&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <para>Updates are not supported. Use Delete, and Insert instead.</para>
+      <para>&lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Delete&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <para>Deletions can be performed as follows:</para>
+      <code lang="text/java">ContentValues values = new ContentValues();
+            values.put(BlockedNumbers.COLUMN_ORIGINAL_NUMBER, "1234567890");
+            Uri uri = getContentResolver().insert(BlockedNumbers.CONTENT_URI, values);
+            getContentResolver().delete(uri, null, null);
+            </code>
+      <para>To check if a particular number is blocked, use the method
+            <c>#isBlocked(Context, String)</c>.
+            &lt;/p&gt;
+            &lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Query&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <para>All blocked numbers can be enumerated as follows:</para>
+      <code lang="text/java">Cursor c = getContentResolver().query(BlockedNumbers.CONTENT_URI,
+                     new String[]{BlockedNumbers.COLUMN_ID, BlockedNumbers.COLUMN_ORIGINAL_NUMBER,
+                     BlockedNumbers.COLUMN_E164_NUMBER}, null, null, null);
+            </code>
+      <para>&lt;/p&gt;
+            &lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Unblock&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <para>Use the method <c>#unblock(Context, String)</c> to unblock numbers.</para>
+      <para>&lt;/dd&gt;
+            
+            &lt;h3&gt; Multi-user &lt;/h3&gt;</para>
+      <para>Apps must use the method <c>#canCurrentUserBlockNumbers(Context)</c> before performing any
+            operation on the blocked number provider. If <c>#canCurrentUserBlockNumbers(Context)</c> returns
+            <c>false</c>, all operations on the provider will fail with a <c>SecurityException</c>. The
+            platform will block calls, and messages from numbers in the provider independent of the current
+            user.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/provider/BlockedNumberContract" title="Reference documentation">Java documentation for <code>android.provider.BlockedNumberContract</code>.</a>
@@ -71,6 +165,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("AUTHORITY", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("AUTHORITY", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -78,6 +176,7 @@
       <Docs>
         <summary>The authority for the blocked number provider</summary>
         <remarks>
+          <para>The authority for the blocked number provider</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/BlockedNumberContract#AUTHORITY" title="Reference documentation">Java documentation for <code>android.provider.BlockedNumberContract.AUTHORITY</code>.</a>
@@ -95,7 +194,7 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? AuthorityUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri AuthorityUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.BlockedNumberContract.AuthorityUri" />
-      <MemberSignature Language="F#" Value="member this.AuthorityUri : Android.Net.Uri" Usage="Android.Provider.BlockedNumberContract.AuthorityUri" />
+      <MemberSignature Language="F#" Value="static member AuthorityUri : Android.Net.Uri" Usage="Android.Provider.BlockedNumberContract.AuthorityUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -106,6 +205,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("AUTHORITY_URI", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("AUTHORITY_URI", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Net.Uri</ReturnType>
@@ -114,6 +217,7 @@
         <summary>A content:// style uri to the authority for the blocked number provider</summary>
         <value>To be added.</value>
         <remarks>
+          <para>A content:// style uri to the authority for the blocked number provider</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/BlockedNumberContract#AUTHORITY_URI" title="Reference documentation">Java documentation for <code>android.provider.BlockedNumberContract.AUTHORITY_URI</code>.</a>
@@ -142,6 +246,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("canCurrentUserBlockNumbers", "(Landroid/content/Context;)Z", "", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("canCurrentUserBlockNumbers", "(Landroid/content/Context;)Z", "", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -155,6 +263,8 @@
         <returns>
           <c>true</c> if the current user can block numbers.</returns>
         <remarks>
+          <para>Checks if blocking numbers is supported for the current user.</para>
+          <para>Typically, blocking numbers is only supported for one user at a time.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/BlockedNumberContract#canCurrentUserBlockNumbers(android.content.Context)" title="Reference documentation">Java documentation for <code>android.provider.BlockedNumberContract.canCurrentUserBlockNumbers(android.content.Context)</code>.</a>
@@ -183,6 +293,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("isBlocked", "(Landroid/content/Context;Ljava/lang/String;)Z", "", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("isBlocked", "(Landroid/content/Context;Ljava/lang/String;)Z", "", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -198,6 +312,12 @@
         <returns>
           <c>true</c> if the <c>phoneNumber</c> is blocked.</returns>
         <remarks>
+          <para>Returns whether a given number is in the blocked list.</para>
+          <para>This matches the <c>phoneNumber</c> against the
+            <c>BlockedNumbers#COLUMN_ORIGINAL_NUMBER</c> column, and the E164 representation of the
+            <c>phoneNumber</c> with the <c>BlockedNumbers#COLUMN_E164_NUMBER</c> column.</para>
+          <para>Note that if the <c>#canCurrentUserBlockNumbers</c> is <c>false</c> for the user
+            context <c>context</c>, this method will throw a <c>SecurityException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/BlockedNumberContract#isBlocked(android.content.Context,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.BlockedNumberContract.isBlocked(android.content.Context, java.lang.String)</code>.</a>
@@ -319,6 +439,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("unblock", "(Landroid/content/Context;Ljava/lang/String;)I", "", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("unblock", "(Landroid/content/Context;Ljava/lang/String;)I", "", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -333,6 +457,16 @@
         <summary>Unblocks the <c>phoneNumber</c> if it is blocked.</summary>
         <returns>the number of rows deleted in the blocked number provider as a result of unblock.</returns>
         <remarks>
+          <para>Unblocks the <c>phoneNumber</c> if it is blocked.</para>
+          <para>This deletes all rows where the <c>phoneNumber</c> matches the
+            <c>BlockedNumbers#COLUMN_ORIGINAL_NUMBER</c> column or the E164 representation of the
+            <c>phoneNumber</c> matches the <c>BlockedNumbers#COLUMN_E164_NUMBER</c> column.</para>
+          <para>To delete rows based on exact match with specific columns such as
+            <c>BlockedNumbers#COLUMN_ID</c> use
+            <c>android.content.ContentProvider#delete(Uri, String, String[])</c> with
+            <c>BlockedNumbers#CONTENT_URI</c> URI.</para>
+          <para>Note that if the <c>#canCurrentUserBlockNumbers</c> is <c>false</c> for the user
+            context <c>context</c>, this method will throw a <c>SecurityException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/BlockedNumberContract#unblock(android.content.Context,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.BlockedNumberContract.unblock(android.content.Context, java.lang.String)</code>.</a>

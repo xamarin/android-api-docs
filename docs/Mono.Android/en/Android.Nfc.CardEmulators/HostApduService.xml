@@ -22,6 +22,124 @@
             extended to emulate an NFC card inside an Android
             service component.</summary>
     <remarks>
+      <para>HostApduService is a convenience <c>Service</c> class that can be
+            extended to emulate an NFC card inside an Android
+            service component.
+            
+            &lt;div class="special reference"&gt;
+            &lt;h3&gt;Developer Guide&lt;/h3&gt;
+            For a general introduction to card emulation, see
+            <see href="https://developer.android.com/guide/topics/connectivity/nfc/hce.html">
+            Host-based Card Emulation</see>.</para>
+      <para>&lt;/div&gt;
+            
+            &lt;h3&gt;NFC Protocols&lt;/h3&gt;</para>
+      <para>Cards emulated by this class are based on the NFC-Forum ISO-DEP
+            protocol (based on ISO/IEC 14443-4) and support processing
+            command Application Protocol Data Units (APDUs) as
+            defined in the ISO/IEC 7816-4 specification.
+            
+            &lt;h3&gt;Service selection&lt;/h3&gt;</para>
+      <para>When a remote NFC device wants to talk to your
+            service, it sends a so-called
+            "SELECT AID" APDU as defined in the ISO/IEC 7816-4 specification.
+            The AID is an application identifier defined in ISO/IEC 7816-4.</para>
+      <para>The registration procedure for AIDs is defined in the
+            ISO/IEC 7816-5 specification. If you don't want to register an
+            AID, you are free to use AIDs in the proprietary range:
+            bits 8-5 of the first byte must each be set to '1'. For example,
+            "0xF00102030405" is a proprietary AID. If you do use proprietary
+            AIDs, it is recommended to choose an AID of at least 6 bytes,
+            to reduce the risk of collisions with other applications that
+            might be using proprietary AIDs as well.
+            
+            &lt;h3&gt;AID groups&lt;/h3&gt;</para>
+      <para>In some cases, a service may need to register multiple AIDs
+            to implement a certain application, and it needs to be sure
+            that it is the default handler for all of these AIDs (as opposed
+            to some AIDs in the group going to another service).</para>
+      <para>An AID group is a list of AIDs that should be considered as
+            belonging together by the OS. For all AIDs in an AID group, the
+            OS will guarantee one of the following:
+            &lt;ul&gt;
+            &lt;li&gt;All AIDs in the group are routed to this service
+            &lt;li&gt;No AIDs in the group are routed to this service
+            &lt;/ul&gt;
+            In other words, there is no in-between state, where some AIDs
+            in the group can be routed to this service, and some to another.
+            &lt;h3&gt;AID groups and categories&lt;/h3&gt;</para>
+      <para>Each AID group can be associated with a category. This allows
+            the Android OS to classify services, and it allows the user to
+            set defaults at the category level instead of the AID level.</para>
+      <para>You can use
+            <c>CardEmulation#isDefaultServiceForCategory(android.content.ComponentName, String)</c>
+            to determine if your service is the default handler for a category.</para>
+      <para>In this version of the platform, the only known categories
+            are <c>CardEmulation#CATEGORY_PAYMENT</c> and <c>CardEmulation#CATEGORY_OTHER</c>.
+            AID groups without a category, or with a category that is not recognized
+            by the current platform version, will automatically be
+            grouped into the <c>CardEmulation#CATEGORY_OTHER</c> category.
+            &lt;h3&gt;Service AID registration&lt;/h3&gt;</para>
+      <para>To tell the platform which AIDs groups
+            are requested by this service, a <c>#SERVICE_META_DATA</c>
+            entry must be included in the declaration of the service. An
+            example of a HostApduService manifest declaration is shown below:</para>
+      <code lang="text/java">&amp;lt;service android:name=".MyHostApduService" android:exported="true" android:permission="android.permission.BIND_NFC_SERVICE"&amp;gt;
+                &amp;lt;intent-filter&amp;gt;
+                    &amp;lt;action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE"/&amp;gt;
+                &amp;lt;/intent-filter&amp;gt;
+                &amp;lt;meta-data android:name="android.nfc.cardemulation.host_apdu_ervice" android:resource="@xml/apduservice"/&amp;gt;
+            &amp;lt;/service&amp;gt;</code>
+      <para>This meta-data tag points to an apduservice.xml file.
+            An example of this file with a single AID group declaration is shown below:</para>
+      <code lang="text/java">&amp;lt;host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+                      android:description="@string/servicedesc" android:requireDeviceUnlock="false"&amp;gt;
+                  &amp;lt;aid-group android:description="@string/aiddescription" android:category="other"&gt;
+                      &amp;lt;aid-filter android:name="F0010203040506"/&amp;gt;
+                      &amp;lt;aid-filter android:name="F0394148148100"/&amp;gt;
+                  &amp;lt;/aid-group&amp;gt;
+            &amp;lt;/host-apdu-service&amp;gt;
+            </code>
+      <para>The <c>android.R.styleable#HostApduService &amp;lt;host-apdu-service&amp;gt;</c> is required
+            to contain a
+            <c>android.R.styleable#HostApduService_description &amp;lt;android:description&amp;gt;</c>
+            attribute that contains a user-friendly description of the service that may be shown in UI.
+            The
+            <c>android.R.styleable#HostApduService_requireDeviceUnlock &amp;lt;requireDeviceUnlock&amp;gt;</c>
+            attribute can be used to specify that the device must be unlocked before this service
+            can be invoked to handle APDUs.</para>
+      <para>The <c>android.R.styleable#HostApduService &amp;lt;host-apdu-service&amp;gt;</c> must
+            contain one or more <c>android.R.styleable#AidGroup &amp;lt;aid-group&amp;gt;</c> tags.
+            Each <c>android.R.styleable#AidGroup &amp;lt;aid-group&amp;gt;</c> must contain one or
+            more <c>android.R.styleable#AidFilter &amp;lt;aid-filter&amp;gt;</c> tags, each of which
+            contains a single AID. The AID must be specified in hexadecimal format, and contain
+            an even number of characters.
+            &lt;h3&gt;AID conflict resolution&lt;/h3&gt;
+            Multiple HostApduServices may be installed on a single device, and the same AID
+            can be registered by more than one service. The Android platform resolves AID
+            conflicts depending on which category an AID belongs to. Each category may
+            have a different conflict resolution policy. For example, for some categories
+            the user may be able to select a default service in the Android settings UI.
+            For other categories, to policy may be to always ask the user which service
+            is to be invoked in case of conflict.
+            
+            To query the conflict resolution policy for a certain category, see
+            <c>CardEmulation#getSelectionModeForCategory(String)</c>.
+            
+            &lt;h3&gt;Data exchange&lt;/h3&gt;</para>
+      <para>Once the platform has resolved a "SELECT AID" command APDU to a specific
+            service component, the "SELECT AID" command APDU and all subsequent
+            command APDUs will be sent to that service through
+            <c>#processCommandApdu(byte[], Bundle)</c>, until either:
+            &lt;ul&gt;
+            &lt;li&gt;The NFC link is broken&lt;/li&gt;
+            &lt;li&gt;A "SELECT AID" APDU is received which resolves to another service&lt;/li&gt;
+            &lt;/ul&gt;
+            These two scenarios are indicated by a call to <c>#onDeactivated(int)</c>.
+            
+            &lt;p class="note"&gt;Use of this class requires the
+            <c>PackageManager#FEATURE_NFC_HOST_CARD_EMULATION</c> to be present
+            on the device.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostApduService" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostApduService</code>.</a>
@@ -41,8 +159,8 @@
       <MemberSignature Language="DocId" Value="M:Android.Nfc.CardEmulators.HostApduService.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -66,8 +184,8 @@
       <MemberSignature Language="F#" Value="new Android.Nfc.CardEmulators.HostApduService : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Nfc.CardEmulators.HostApduService" Usage="new Android.Nfc.CardEmulators.HostApduService (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -89,8 +207,8 @@
       <MemberSignature Language="F#" Value="val mutable DeactivationDeselected : Android.Nfc.CardEmulators.DeactivationReason" Usage="Android.Nfc.CardEmulators.HostApduService.DeactivationDeselected" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -109,6 +227,13 @@
       <Docs>
         <summary>Reason for <c>#onDeactivated(int)</c>.</summary>
         <remarks>
+          <para>Reason for <c>#onDeactivated(int)</c>.</para>
+          <para>Indicates deactivation was due to a different AID
+            being selected (which implicitly deselects the AID
+            currently active on the logical channel).</para>
+          <para>Note that this next AID may still be resolved to this
+            service, in which case <c>#processCommandApdu(byte[], Bundle)</c>
+            will be called again.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostApduService#DEACTIVATION_DESELECTED" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostApduService.DEACTIVATION_DESELECTED</code>.</a>
@@ -129,8 +254,8 @@
       <MemberSignature Language="F#" Value="val mutable DeactivationLinkLoss : Android.Nfc.CardEmulators.DeactivationReason" Usage="Android.Nfc.CardEmulators.HostApduService.DeactivationLinkLoss" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -149,6 +274,9 @@
       <Docs>
         <summary>Reason for <c>#onDeactivated(int)</c>.</summary>
         <remarks>
+          <para>Reason for <c>#onDeactivated(int)</c>.
+            Indicates deactivation was due to the NFC link
+            being lost.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostApduService#DEACTIVATION_LINK_LOSS" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostApduService.DEACTIVATION_LINK_LOSS</code>.</a>
@@ -200,8 +328,8 @@
       <MemberSignature Language="F#" Value="member this.NotifyUnhandled : unit -&gt; unit" Usage="hostApduService.NotifyUnhandled " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -219,6 +347,23 @@
             for example, because it requires data connectivity
             that is not present at that moment.</summary>
         <remarks>
+          <para>Calling this method allows the service to tell the OS
+            that it won't be able to complete this transaction -
+            for example, because it requires data connectivity
+            that is not present at that moment.</para>
+          <para>The OS may use this indication to give the user a list
+            of alternative applications that can handle the last
+            AID that was selected. If the user would select an
+            application from the list, that action by itself
+            will not cause the default to be changed; the selected
+            application will be invoked for the next tap only.</para>
+          <para>If there are no other applications that can handle
+            this transaction, the OS will show an error dialog
+            indicating your service could not complete the
+            transaction.</para>
+          <para>Note: this method may be called anywhere between
+               the first <c>#processCommandApdu(byte[], Bundle)</c>
+               call and a <c>#onDeactivated(int)</c> call.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostApduService#notifyUnhandled()" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostApduService.notifyUnhandled()</code>.</a>
@@ -239,8 +384,8 @@
       <MemberSignature Language="F#" Value="override this.OnBind : Android.Content.Intent -&gt; Android.OS.IBinder" Usage="hostApduService.OnBind intent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -272,8 +417,8 @@
       <MemberSignature Language="F#" Value="abstract member OnDeactivated : Android.Nfc.CardEmulators.DeactivationReason -&gt; unit" Usage="hostApduService.OnDeactivated reason" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -301,6 +446,10 @@
             &lt;li&gt;A different AID has been selected and was resolved to a different
                 service component</summary>
         <remarks>
+          <para>This method will be called in two possible scenarios:
+            &lt;li&gt;The NFC link has been deactivated or lost
+            &lt;li&gt;A different AID has been selected and was resolved to a different
+                service component</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostApduService#onDeactivated(int)" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostApduService.onDeactivated(int)</code>.</a>
@@ -321,8 +470,8 @@
       <MemberSignature Language="F#" Value="abstract member ProcessCommandApdu : byte[] * Android.OS.Bundle -&gt; byte[]" Usage="hostApduService.ProcessCommandApdu (commandApdu, extras)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -345,6 +494,20 @@
         <returns>a byte-array containing the response APDU, or null if no
                     response APDU can be sent at this point.</returns>
         <remarks>
+          <para>This method will be called when a command APDU has been received
+            from a remote device. A response APDU can be provided directly
+            by returning a byte-array in this method. Note that in general
+            response APDUs must be sent as quickly as possible, given the fact
+            that the user is likely holding their device over an NFC reader
+            when this method is called.
+            
+            &lt;p class="note"&gt;If there are multiple services that have registered for the same
+            AIDs in their meta-data entry, you will only get called if the user has
+            explicitly selected your service, either as a default or just for the next tap.
+            
+            &lt;p class="note"&gt;This method is running on the main thread of your application.
+            If you cannot return a response APDU immediately, return null
+            and use the <c>#sendResponseApdu(byte[])</c> method later.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostApduService#processCommandApdu(byte[],%20android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostApduService.processCommandApdu(byte[], android.os.Bundle)</code>.</a>
@@ -365,8 +528,8 @@
       <MemberSignature Language="F#" Value="member this.SendResponseApdu : byte[] -&gt; unit" Usage="hostApduService.SendResponseApdu responseApdu" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -384,6 +547,8 @@
         <param name="responseApdu">A byte-array containing the reponse APDU.</param>
         <summary>Sends a response APDU back to the remote device.</summary>
         <remarks>
+          <para>Sends a response APDU back to the remote device.</para>
+          <para>Note: this method may be called from any thread and will not block.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostApduService#sendResponseApdu(byte[])" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostApduService.sendResponseApdu(byte[])</code>.</a>
@@ -404,8 +569,8 @@
       <MemberSignature Language="F#" Value="val mutable ServiceInterface : string" Usage="Android.Nfc.CardEmulators.HostApduService.ServiceInterface" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -419,6 +584,7 @@
       <Docs>
         <summary>The <c>Intent</c> action that must be declared as handled by the service.</summary>
         <remarks>
+          <para>The <c>Intent</c> action that must be declared as handled by the service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostApduService#SERVICE_INTERFACE" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostApduService.SERVICE_INTERFACE</code>.</a>
@@ -439,8 +605,8 @@
       <MemberSignature Language="F#" Value="val mutable ServiceMetaData : string" Usage="Android.Nfc.CardEmulators.HostApduService.ServiceMetaData" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -455,6 +621,8 @@
         <summary>The name of the meta-data element that contains
             more information about this service.</summary>
         <remarks>
+          <para>The name of the meta-data element that contains
+            more information about this service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/cardemulation/HostApduService#SERVICE_META_DATA" title="Reference documentation">Java documentation for <code>android.nfc.cardemulation.HostApduService.SERVICE_META_DATA</code>.</a>
@@ -475,8 +643,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Nfc.CardEmulators.HostApduService.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -506,8 +674,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Nfc.CardEmulators.HostApduService.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

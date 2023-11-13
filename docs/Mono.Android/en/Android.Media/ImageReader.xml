@@ -34,6 +34,22 @@
     <summary>The ImageReader class allows direct application access to image data
             rendered into a <c>android.view.Surface</c></summary>
     <remarks>
+      <para>The ImageReader class allows direct application access to image data
+            rendered into a <c>android.view.Surface</c></para>
+      <para>Several Android media API classes accept Surface objects as targets to
+            render to, including <c>MediaPlayer</c>, <c>MediaCodec</c>,
+            <c>android.hardware.camera2.CameraDevice</c>, <c>ImageWriter</c> and
+            <c>android.renderscript.Allocation RenderScript Allocations</c>. The image
+            sizes and formats that can be used with each source vary, and should be
+            checked in the documentation for the specific API.</para>
+      <para>The image data is encapsulated in <c>Image</c> objects, and multiple such
+            objects can be accessed at the same time, up to the number specified by the
+            <c>maxImages</c> constructor parameter. New images sent to an ImageReader
+            through its <c>Surface</c> are queued until accessed through the <c>#acquireLatestImage</c>
+            or <c>#acquireNextImage</c> call. Due to memory limits, an image source will
+            eventually stall or drop Images in trying to render to the Surface if the
+            ImageReader does not obtain and release Images at a rate equal to the
+            production rate.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/media/ImageReader" title="Reference documentation">Java documentation for <code>android.media.ImageReader</code>.</a>
@@ -54,8 +70,8 @@
       <MemberSignature Language="F#" Value="new Android.Media.ImageReader : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Media.ImageReader" Usage="new Android.Media.ImageReader (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -77,8 +93,8 @@
       <MemberSignature Language="F#" Value="abstract member AcquireLatestImage : unit -&gt; Android.Media.Image&#xA;override this.AcquireLatestImage : unit -&gt; Android.Media.Image" Usage="imageReader.AcquireLatestImage " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -95,6 +111,25 @@
             <c>Image images</c>.</summary>
         <returns>latest frame of image data, or <c>null</c> if no image data is available.</returns>
         <remarks>
+          <para>Acquire the latest <c>Image</c> from the ImageReader's queue, dropping older
+            <c>Image images</c>. Returns <c>null</c> if no new image is available.</para>
+          <para>This operation will acquire all the images possible from the ImageReader,
+            but <c>#close</c> all images that aren't the latest. This function is
+            recommended to use over <c>#acquireNextImage</c> for most use-cases, as it's
+            more suited for real-time processing.</para>
+          <para>Note that <c>#getMaxImages maxImages</c> should be at least 2 for
+            <c>#acquireLatestImage</c> to be any different than <c>#acquireNextImage</c> -
+            discarding all-but-the-newest <c>Image</c> requires temporarily acquiring two
+            <c>Image Images</c> at once. Or more generally, calling <c>#acquireLatestImage</c>
+            with less than two images of margin, that is
+            <c>(maxImages - currentAcquiredImages &lt; 2)</c> will not discard as expected.</para>
+          <para>This operation will fail by throwing an <c>IllegalStateException</c> if
+            <c>maxImages</c> have been acquired with <c>#acquireLatestImage</c> or
+            <c>#acquireNextImage</c>. In particular a sequence of <c>#acquireLatestImage</c>
+            calls greater than <c>#getMaxImages</c> without calling <c>Image#close</c> in-between
+            will exhaust the underlying queue. At such a time, <c>IllegalStateException</c>
+            will be thrown until more images are
+            released with <c>Image#close</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#acquireLatestImage()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.acquireLatestImage()</code>.</a>
@@ -117,8 +152,8 @@
       <MemberSignature Language="F#" Value="abstract member AcquireNextImage : unit -&gt; Android.Media.Image&#xA;override this.AcquireNextImage : unit -&gt; Android.Media.Image" Usage="imageReader.AcquireNextImage " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -134,6 +169,22 @@
         <summary>Acquire the next Image from the ImageReader's queue.</summary>
         <returns>a new frame of image data, or <c>null</c> if no image data is available.</returns>
         <remarks>
+          <para>Acquire the next Image from the ImageReader's queue. Returns <c>null</c> if
+            no new image is available.</para>
+          <para>
+            <i>Warning:</i> Consider using <c>#acquireLatestImage()</c> instead, as it will
+            automatically release older images, and allow slower-running processing routines to catch
+            up to the newest frame. Usage of <c>#acquireNextImage</c> is recommended for
+            batch/background processing. Incorrectly using this function can cause images to appear
+            with an ever-increasing delay, followed by a complete stall where no new images seem to
+            appear.</para>
+          <para>This operation will fail by throwing an <c>IllegalStateException</c> if
+            <c>maxImages</c> have been acquired with <c>#acquireNextImage</c> or
+            <c>#acquireLatestImage</c>. In particular a sequence of <c>#acquireNextImage</c> or
+            <c>#acquireLatestImage</c> calls greater than <c>#getMaxImages maxImages</c> without
+            calling <c>Image#close</c> in-between will exhaust the underlying queue. At such a time,
+            <c>IllegalStateException</c> will be thrown until more images are released with
+            <c>Image#close</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#acquireNextImage()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.acquireNextImage()</code>.</a>
@@ -159,8 +210,8 @@
         <InterfaceMember>M:Java.Lang.IAutoCloseable.Close</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -175,6 +226,14 @@
       <Docs>
         <summary>Free up all the resources associated with this ImageReader.</summary>
         <remarks>
+          <para>Free up all the resources associated with this ImageReader.</para>
+          <para>After calling this method, this ImageReader can not be used. Calling
+            any methods on this ImageReader and Images previously provided by
+            <c>#acquireNextImage</c> or <c>#acquireLatestImage</c>
+            will result in an <c>IllegalStateException</c>, and attempting to read from
+            <c>ByteBuffer ByteBuffers</c> returned by an earlier
+            <c>Image.Plane#getBuffer Plane#getBuffer</c> call will
+            have undefined behavior.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#close()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.close()</code>.</a>
@@ -200,6 +259,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getDataSpace", "()I", "GetGetDataSpaceHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getDataSpace", "()I", "GetGetDataSpaceHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -211,6 +274,9 @@
         <summary>The default dataspace of <c>Image Images</c>.</summary>
         <value>the expected dataspace of an Image.</value>
         <remarks>
+          <para>The default dataspace of <c>Image Images</c>.</para>
+          <para>Use this function if the ImageReader instance is created by builder pattern
+            <c>ImageReader.Builder</c> and <c>Builder#setDefaultDataSpace</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#getDataSpace()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.getDataSpace()</code>.</a>
@@ -239,6 +305,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("discardFreeBuffers", "()V", "GetDiscardFreeBuffersHandler", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("discardFreeBuffers", "()V", "GetDiscardFreeBuffersHandler", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -247,6 +317,16 @@
       <Docs>
         <summary>Discard any free buffers owned by this ImageReader.</summary>
         <remarks>
+          <para>Discard any free buffers owned by this ImageReader.</para>
+          <para>Generally, the ImageReader caches buffers for reuse once they have been
+            allocated, for best performance. However, sometimes it may be important to
+            release all the cached, unused buffers to save on memory.</para>
+          <para>Calling this method will discard all free cached buffers. This does not include any buffers
+            associated with Images acquired from the ImageReader, any filled buffers waiting to be
+            acquired, and any buffers currently in use by the source rendering buffers into the
+            ImageReader's Surface.</para>
+          <para>The ImageReader continues to be usable after this call, but may need to reallocate buffers
+            when more buffers are needed for rendering.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#discardFreeBuffers()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.discardFreeBuffers()</code>.</a>
@@ -272,6 +352,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getHardwareBufferFormat", "()I", "GetGetHardwareBufferFormatHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getHardwareBufferFormat", "()I", "GetGetHardwareBufferFormatHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -283,6 +367,10 @@
         <summary>The default <c>HardwareBuffer</c> format of <c>Image Images</c>.</summary>
         <value>the expected <c>HardwareBuffer</c> format of an Image.</value>
         <remarks>
+          <para>The default <c>HardwareBuffer</c> format of <c>Image Images</c>.</para>
+          <para>Use this function if the ImageReader instance is created by builder pattern
+            <c>ImageReader.Builder</c> and using <c>Builder#setDefaultHardwareBufferFormat</c> and
+            <c>Builder#setDefaultDataSpace</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#getHardwareBufferFormat()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.getHardwareBufferFormat()</code>.</a>
@@ -303,8 +391,8 @@
       <MemberSignature Language="F#" Value="member this.Height : int" Usage="Android.Media.ImageReader.Height" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -319,6 +407,10 @@
         <summary>The default height of <c>Image Images</c>, in pixels.</summary>
         <value>the expected height of an Image</value>
         <remarks>
+          <para>The default height of <c>Image Images</c>, in pixels.</para>
+          <para>The height may be overridden by the producer sending buffers to this
+            ImageReader's Surface. If so, the actual height of the images can be
+            found using <c>Image#getHeight</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#getHeight()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.getHeight()</code>.</a>
@@ -339,8 +431,8 @@
       <MemberSignature Language="F#" Value="member this.ImageFormat : Android.Graphics.ImageFormatType" Usage="Android.Media.ImageReader.ImageFormat" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -355,6 +447,17 @@
         <summary>The default <c>ImageFormat image format</c> of <c>Image Images</c>.</summary>
         <value>the expected format of an Image</value>
         <remarks>
+          <para>The default <c>ImageFormat image format</c> of <c>Image Images</c>.</para>
+          <para>Some color formats may be overridden by the producer sending buffers to
+            this ImageReader's Surface if the default color format allows. ImageReader
+            guarantees that all <c>Image Images</c> acquired from ImageReader
+            (for example, with <c>#acquireNextImage</c>) will have a "compatible"
+            format to what was specified in <c>#newInstance</c>.
+            As of now, each format is only compatible to itself.
+            The actual format of the images can be found using <c>Image#getFormat</c>.</para>
+          <para>Use this function if the ImageReader instance is created by factory method
+            <c>newInstance</c> function or by builder pattern <c>ImageReader.Builder</c> and using
+            <c>Builder#setImageFormat</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#getImageFormat()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.getImageFormat()</code>.</a>
@@ -410,8 +513,8 @@
       <MemberSignature Language="F#" Value="member this.MaxImages : int" Usage="Android.Media.ImageReader.MaxImages" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -427,6 +530,14 @@
             with <c>#acquireNextImage</c>).</summary>
         <value>Maximum number of images for this ImageReader.</value>
         <remarks>
+          <para>Maximum number of images that can be acquired from the ImageReader by any time (for example,
+            with <c>#acquireNextImage</c>).</para>
+          <para>An image is considered acquired after it's returned by a function from ImageReader, and
+            until the Image is <c>Image#close closed</c> to release the image back to the ImageReader.</para>
+          <para>Attempting to acquire more than <c>maxImages</c> concurrently will result in the
+            acquire function throwing a <c>IllegalStateException</c>. Furthermore,
+            while the max number of images have been acquired by the ImageReader user, the producer
+            enqueueing additional images may stall until at least one image has been released.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#getMaxImages()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.getMaxImages()</code>.</a>
@@ -448,8 +559,8 @@
       <MemberSignature Language="F#" Value="static member NewInstance : int * int * Android.Graphics.ImageFormatType * int -&gt; Android.Media.ImageReader" Usage="Android.Media.ImageReader.NewInstance (width, height, format, maxImages)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -492,6 +603,27 @@
         <summary>Create a new reader for images of the desired size and format.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create a new reader for images of the desired size and format.</para>
+          <para>The <c>maxImages</c> parameter determines the maximum number of
+            <c>Image</c> objects that can be be acquired from the
+            <c>ImageReader</c> simultaneously. Requesting more buffers will use up
+            more memory, so it is important to use only the minimum number necessary
+            for the use case.</para>
+          <para>The valid sizes and formats depend on the source of the image data.</para>
+          <para>If the <c>format</c> is <c>ImageFormat#PRIVATE PRIVATE</c>, the created
+            <c>ImageReader</c> will produce images that are not directly accessible
+            by the application. The application can still acquire images from this
+            <c>ImageReader</c>, and send them to the
+            <c>android.hardware.camera2.CameraDevice camera</c> for reprocessing via
+            <c>ImageWriter</c> interface. However, the <c>Image#getPlanes()
+            getPlanes()</c> will return an empty array for <c>ImageFormat#PRIVATE
+            PRIVATE</c> format images. The application can check if an existing reader's
+            format by calling <c>#getImageFormat()</c>.</para>
+          <para>
+            <c>ImageFormat#PRIVATE PRIVATE</c> format <c>ImageReader
+            ImageReaders</c> are more efficient to use when application access to image
+            data is not necessary, compared to ImageReaders using other format such
+            as <c>ImageFormat#YUV_420_888 YUV_420_888</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#newInstance(int,%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.ImageReader.newInstance(int, int, int, int)</code>.</a>
@@ -520,6 +652,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("newInstance", "(IIIIJ)Landroid/media/ImageReader;", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("newInstance", "(IIIIJ)Landroid/media/ImageReader;", "", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -558,6 +694,71 @@
         <summary>Create a new reader for images of the desired size, format and consumer usage flag.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create a new reader for images of the desired size, format and consumer usage flag.</para>
+          <para>The <c>maxImages</c> parameter determines the maximum number of <c>Image</c> objects that
+            can be be acquired from the <c>ImageReader</c> simultaneously. Requesting more buffers will
+            use up more memory, so it is important to use only the minimum number necessary for the use
+            case.</para>
+          <para>The valid sizes and formats depend on the source of the image data.</para>
+          <para>The format and usage flag combination describes how the buffer will be used by
+            consumer end-points. For example, if the application intends to send the images to
+            <c>android.media.MediaCodec</c> or <c>android.media.MediaRecorder</c> for hardware video
+            encoding, the format and usage flag combination needs to be
+            <c>ImageFormat#PRIVATE PRIVATE</c> and <c>HardwareBuffer#USAGE_VIDEO_ENCODE</c>. When an
+            <c>ImageReader</c> object is created with a valid size and such format/usage flag
+            combination, the application can send the <c>Image images</c> to an <c>ImageWriter</c> that
+            is created with the input <c>android.view.Surface</c> provided by the
+            <c>android.media.MediaCodec</c> or <c>android.media.MediaRecorder</c>.</para>
+          <para>If the <c>format</c> is <c>ImageFormat#PRIVATE PRIVATE</c>, the created <c>ImageReader</c>
+            will produce images that are not directly accessible by the application. The application can
+            still acquire images from this <c>ImageReader</c>, and send them to the
+            <c>android.hardware.camera2.CameraDevice camera</c> for reprocessing, or to the
+            <c>android.media.MediaCodec</c> / <c>android.media.MediaRecorder</c> for hardware video
+            encoding via <c>ImageWriter</c> interface. However, the <c>Image#getPlanes()
+            getPlanes()</c> will return an empty array for <c>ImageFormat#PRIVATE PRIVATE</c> format
+            images. The application can check if an existing reader's format by calling
+            <c>#getImageFormat()</c>.</para>
+          <para>
+            <c>ImageFormat#PRIVATE PRIVATE</c> format <c>ImageReader ImageReaders</c> are more
+            efficient to use when application access to image data is not necessary, compared to
+            ImageReaders using other format such as <c>ImageFormat#YUV_420_888 YUV_420_888</c>.</para>
+          <para>Note that not all format and usage flag combinations are supported by the
+            <c>ImageReader</c>. Below are the supported combinations by the <c>ImageReader</c>
+            (assuming the consumer end-points support the such image consumption, e.g., hardware video
+            encoding).
+            &lt;table&gt;
+            &lt;tr&gt;
+              &lt;th&gt;Format&lt;/th&gt;
+              &lt;th&gt;Compatible usage flags&lt;/th&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;non-<c>android.graphics.ImageFormat#PRIVATE PRIVATE</c> formats defined by
+              <c>android.graphics.ImageFormat ImageFormat</c> or
+              <c>android.graphics.PixelFormat PixelFormat</c>&lt;/td&gt;
+              &lt;td&gt;<c>HardwareBuffer#USAGE_CPU_READ_RARELY</c> or
+              <c>HardwareBuffer#USAGE_CPU_READ_OFTEN</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;<c>android.graphics.ImageFormat#PRIVATE</c>&lt;/td&gt;
+              &lt;td&gt;<c>HardwareBuffer#USAGE_VIDEO_ENCODE</c> or
+              <c>HardwareBuffer#USAGE_GPU_SAMPLED_IMAGE</c>, or combined&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;/table&gt;
+            Using other combinations may result in <c>IllegalArgumentException</c>. Additionally,
+            specifying <c>HardwareBuffer#USAGE_CPU_WRITE_RARELY</c> or
+            <c>HardwareBuffer#USAGE_CPU_WRITE_OFTEN</c> and writing to the ImageReader's buffers
+            might break assumptions made by some producers, and should be used with caution.</para>
+          <para>If the <c>ImageReader</c> is used as an output target for a <c>android.hardware.camera2.CameraDevice</c>, and if the usage flag contains
+            <c>HardwareBuffer#USAGE_VIDEO_ENCODE</c>, the timestamps of the
+            <c>Image images</c> produced by the <c>ImageReader</c> won't be in the same timebase as
+            <c>android.os.SystemClock#elapsedRealtimeNanos</c>, even if
+            <c>android.hardware.camera2.CameraCharacteristics#SENSOR_INFO_TIMESTAMP_SOURCE</c> is
+            <c>android.hardware.camera2.CameraCharacteristics#SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME</c>.
+            Instead, the timestamps will be roughly in the same timebase as in
+            <c>android.os.SystemClock#uptimeMillis</c>, so that A/V synchronization could work for
+            video recording. In this case, the timestamps from the <c>ImageReader</c> with
+            <c>HardwareBuffer#USAGE_VIDEO_ENCODE</c> usage flag may not be directly comparable with
+            timestamps of other streams or capture result metadata.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#newInstance(int,%20int,%20int,%20int,%20long)" title="Reference documentation">Java documentation for <code>android.media.ImageReader.newInstance(int, int, int, int, long)</code>.</a>
@@ -578,8 +779,8 @@
       <MemberSignature Language="F#" Value="abstract member SetOnImageAvailableListener : Android.Media.ImageReader.IOnImageAvailableListener * Android.OS.Handler -&gt; unit&#xA;override this.SetOnImageAvailableListener : Android.Media.ImageReader.IOnImageAvailableListener * Android.OS.Handler -&gt; unit" Usage="imageReader.SetOnImageAvailableListener (listener, handler)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -623,8 +824,8 @@
       <MemberSignature Language="F#" Value="member this.Surface : Android.Views.Surface" Usage="Android.Media.ImageReader.Surface" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -640,6 +841,16 @@
             <c>ImageReader</c>.</summary>
         <value>A <c>Surface</c> to use for a drawing target for various APIs.</value>
         <remarks>
+          <para>Get a <c>Surface</c> that can be used to produce <c>Image Images</c> for this
+            <c>ImageReader</c>.</para>
+          <para>Until valid image data is rendered into this <c>Surface</c>, the
+            <c>#acquireNextImage</c> method will return <c>null</c>. Only one source
+            can be producing data into this Surface at the same time, although the
+            same <c>Surface</c> can be reused with a different API once the first source is
+            disconnected from the <c>Surface</c>.</para>
+          <para>Please note that holding on to the Surface object returned by this method is not enough
+            to keep its parent ImageReader from being reclaimed. In that sense, a Surface acts like a
+            <c>java.lang.ref.WeakReference weak reference</c> to the ImageReader that provides it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#getSurface()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.getSurface()</code>.</a>
@@ -660,8 +871,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Media.ImageReader.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -691,8 +902,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Media.ImageReader.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -727,6 +938,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getUsage", "()J", "GetGetUsageHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getUsage", "()J", "GetGetUsageHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -738,6 +953,7 @@
         <summary>The usage flag of images that can be produced by the ImageReader.</summary>
         <value>The usage flag of the images for this ImageReader.</value>
         <remarks>
+          <para>The usage flag of images that can be produced by the ImageReader.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#getUsage()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.getUsage()</code>.</a>
@@ -758,8 +974,8 @@
       <MemberSignature Language="F#" Value="member this.Width : int" Usage="Android.Media.ImageReader.Width" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -774,6 +990,10 @@
         <summary>The default width of <c>Image Images</c>, in pixels.</summary>
         <value>the expected width of an Image</value>
         <remarks>
+          <para>The default width of <c>Image Images</c>, in pixels.</para>
+          <para>The width may be overridden by the producer sending buffers to this
+            ImageReader's Surface. If so, the actual width of the images can be
+            found using <c>Image#getWidth</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageReader#getWidth()" title="Reference documentation">Java documentation for <code>android.media.ImageReader.getWidth()</code>.</a>

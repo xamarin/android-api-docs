@@ -24,6 +24,39 @@
   <Docs since="12">
     <summary>A cache that holds strong references to a limited number of values.</summary>
     <remarks>
+      <para>A cache that holds strong references to a limited number of values. Each time
+            a value is accessed, it is moved to the head of a queue. When a value is
+            added to a full cache, the value at the end of that queue is evicted and may
+            become eligible for garbage collection.</para>
+      <para>If your cached values hold resources that need to be explicitly released,
+            override <c>#entryRemoved</c>.</para>
+      <para>If a cache miss should be computed on demand for the corresponding keys,
+            override <c>#create</c>. This simplifies the calling code, allowing it to
+            assume a value will always be returned, even when there's a cache miss.</para>
+      <para>By default, the cache size is measured in the number of entries. Override
+            <c>#sizeOf</c> to size the cache in different units. For example, this cache
+            is limited to 4MiB of bitmaps:</para>
+      <code lang="text/java">{@code
+              int cacheSize = 4 * 1024 * 1024; // 4MiB
+              LruCache&lt;String, Bitmap&gt; bitmapCache = new LruCache&lt;String, Bitmap&gt;(cacheSize) {
+                  protected int sizeOf(String key, Bitmap value) {
+                      return value.getByteCount();
+                  }
+              }}</code>
+      <para>This class is thread-safe. Perform multiple cache operations atomically by
+            synchronizing on the cache:</para>
+      <code lang="text/java">{@code
+              synchronized (cache) {
+                if (cache.get(key) == null) {
+                    cache.put(key, value);
+                }
+              }}</code>
+      <para>This class does not allow null to be used as a key or value. A return
+            value of null from <c>#get</c>, <c>#put</c> or <c>#remove</c> is
+            unambiguous: the key was not in the cache.</para>
+      <para>This class appeared in Android 3.1 (Honeycomb MR1); it's available as part
+            of <see href="http://developer.android.com/sdk/compatibility-library.html">Android's
+            Support Package</see> for earlier releases.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/util/LruCache" title="Reference documentation">Java documentation for <code>android.util.LruCache</code>.</a>
@@ -45,8 +78,8 @@
       <MemberSignature Language="F#" Value="new Android.Util.LruCache : int -&gt; Android.Util.LruCache" Usage="new Android.Util.LruCache maxSize" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -85,8 +118,8 @@
       <MemberSignature Language="F#" Value="new Android.Util.LruCache : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Util.LruCache" Usage="new Android.Util.LruCache (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -108,8 +141,8 @@
       <MemberSignature Language="F#" Value="abstract member Create : Java.Lang.Object -&gt; Java.Lang.Object&#xA;override this.Create : Java.Lang.Object -&gt; Java.Lang.Object" Usage="lruCache.Create key" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -128,6 +161,17 @@
         <summary>Called after a cache miss to compute a value for the corresponding key.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Called after a cache miss to compute a value for the corresponding key.
+            Returns the computed value or null if no value can be computed. The
+            default implementation returns null.</para>
+          <para>The method is called without synchronization: other threads may
+            access the cache while this method is executing.</para>
+          <para>If a value for <c>key</c> exists in the cache when this method
+            returns, the created value will be released with <c>#entryRemoved</c>
+            and discarded. This can occur when multiple threads request the same key
+            at the same time (causing multiple values to be created), or when one
+            thread calls <c>#put</c> while another is creating a value for the same
+            key.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#create(K)" title="Reference documentation">Java documentation for <code>android.util.LruCache.create(K)</code>.</a>
@@ -148,8 +192,8 @@
       <MemberSignature Language="F#" Value="member this.CreateCount : unit -&gt; int" Usage="lruCache.CreateCount " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -165,6 +209,7 @@
         <summary>Returns the number of times <c>#create(Object)</c> returned a value.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the number of times <c>#create(Object)</c> returned a value.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#createCount()" title="Reference documentation">Java documentation for <code>android.util.LruCache.createCount()</code>.</a>
@@ -186,8 +231,8 @@
       <MemberSignature Language="F#" Value="abstract member EntryRemoved : bool * Java.Lang.Object * Java.Lang.Object * Java.Lang.Object -&gt; unit&#xA;override this.EntryRemoved : bool * Java.Lang.Object * Java.Lang.Object * Java.Lang.Object -&gt; unit" Usage="lruCache.EntryRemoved (evicted, key, oldValue, newValue)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -214,6 +259,12 @@
                 an eviction or a <c>#remove</c>.</param>
         <summary>Called for entries that have been evicted or removed.</summary>
         <remarks>
+          <para>Called for entries that have been evicted or removed. This method is
+            invoked when a value is evicted to make space, removed by a call to
+            <c>#remove</c>, or replaced by a call to <c>#put</c>. The default
+            implementation does nothing.</para>
+          <para>The method is called without synchronization: other threads may
+            access the cache while this method is executing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#entryRemoved(boolean,%20K,%20V,%20V)" title="Reference documentation">Java documentation for <code>android.util.LruCache.entryRemoved(boolean, K, V, V)</code>.</a>
@@ -234,8 +285,8 @@
       <MemberSignature Language="F#" Value="member this.EvictAll : unit -&gt; unit" Usage="lruCache.EvictAll " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -250,6 +301,7 @@
       <Docs>
         <summary>Clear the cache, calling <c>#entryRemoved</c> on each removed entry.</summary>
         <remarks>
+          <para>Clear the cache, calling <c>#entryRemoved</c> on each removed entry.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#evictAll()" title="Reference documentation">Java documentation for <code>android.util.LruCache.evictAll()</code>.</a>
@@ -271,8 +323,8 @@
       <MemberSignature Language="F#" Value="member this.EvictionCount : unit -&gt; int" Usage="lruCache.EvictionCount " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -288,6 +340,7 @@
         <summary>Returns the number of values that have been evicted.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the number of values that have been evicted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#evictionCount()" title="Reference documentation">Java documentation for <code>android.util.LruCache.evictionCount()</code>.</a>
@@ -309,8 +362,8 @@
       <MemberSignature Language="F#" Value="member this.Get : Java.Lang.Object -&gt; Java.Lang.Object" Usage="lruCache.Get key" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -330,6 +383,10 @@
             created by <c>#create</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the value for <c>key</c> if it exists in the cache or can be
+            created by <c>#create</c>. If a value was returned, it is moved to the
+            head of the queue. This returns null if a value is not cached and cannot
+            be created.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#get(K)" title="Reference documentation">Java documentation for <code>android.util.LruCache.get(K)</code>.</a>
@@ -350,8 +407,8 @@
       <MemberSignature Language="F#" Value="member this.HitCount : unit -&gt; int" Usage="lruCache.HitCount " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -368,6 +425,8 @@
             already present in the cache.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the number of times <c>#get</c> returned a value that was
+            already present in the cache.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#hitCount()" title="Reference documentation">Java documentation for <code>android.util.LruCache.hitCount()</code>.</a>
@@ -420,8 +479,8 @@
       <MemberSignature Language="F#" Value="member this.MaxSize : unit -&gt; int" Usage="lruCache.MaxSize " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -438,6 +497,9 @@
             number of entries in the cache.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>For caches that do not override <c>#sizeOf</c>, this returns the maximum
+            number of entries in the cache. For all other caches, this returns the
+            maximum sum of the sizes of the entries in this cache.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#maxSize()" title="Reference documentation">Java documentation for <code>android.util.LruCache.maxSize()</code>.</a>
@@ -459,8 +521,8 @@
       <MemberSignature Language="F#" Value="member this.MissCount : unit -&gt; int" Usage="lruCache.MissCount " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -477,6 +539,8 @@
             value to be created.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the number of times <c>#get</c> returned null or required a new
+            value to be created.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#missCount()" title="Reference documentation">Java documentation for <code>android.util.LruCache.missCount()</code>.</a>
@@ -498,8 +562,8 @@
       <MemberSignature Language="F#" Value="member this.Put : Java.Lang.Object * Java.Lang.Object -&gt; Java.Lang.Object" Usage="lruCache.Put (key, value)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -520,6 +584,8 @@
         <summary>Caches <c>value</c> for <c>key</c>.</summary>
         <returns>the previous value mapped by <c>key</c>.</returns>
         <remarks>
+          <para>Caches <c>value</c> for <c>key</c>. The value is moved to the head of
+            the queue.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#put(K,%20V)" title="Reference documentation">Java documentation for <code>android.util.LruCache.put(K, V)</code>.</a>
@@ -540,8 +606,8 @@
       <MemberSignature Language="F#" Value="member this.PutCount : unit -&gt; int" Usage="lruCache.PutCount " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -557,6 +623,7 @@
         <summary>Returns the number of times <c>#put</c> was called.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the number of times <c>#put</c> was called.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#putCount()" title="Reference documentation">Java documentation for <code>android.util.LruCache.putCount()</code>.</a>
@@ -578,8 +645,8 @@
       <MemberSignature Language="F#" Value="member this.Remove : Java.Lang.Object -&gt; Java.Lang.Object" Usage="lruCache.Remove key" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -598,6 +665,7 @@
         <summary>Removes the entry for <c>key</c> if it exists.</summary>
         <returns>the previous value mapped by <c>key</c>.</returns>
         <remarks>
+          <para>Removes the entry for <c>key</c> if it exists.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#remove(K)" title="Reference documentation">Java documentation for <code>android.util.LruCache.remove(K)</code>.</a>
@@ -618,8 +686,8 @@
       <MemberSignature Language="F#" Value="abstract member Resize : int -&gt; unit&#xA;override this.Resize : int -&gt; unit" Usage="lruCache.Resize maxSize" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -637,6 +705,7 @@
         <param name="maxSize">The new maximum size.</param>
         <summary>Sets the size of the cache.</summary>
         <remarks>
+          <para>Sets the size of the cache.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#resize(int)" title="Reference documentation">Java documentation for <code>android.util.LruCache.resize(int)</code>.</a>
@@ -657,8 +726,8 @@
       <MemberSignature Language="F#" Value="member this.Size : unit -&gt; int" Usage="lruCache.Size " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -675,6 +744,9 @@
             of entries in the cache.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>For caches that do not override <c>#sizeOf</c>, this returns the number
+            of entries in the cache. For all other caches, this returns the sum of
+            the sizes of the entries in this cache.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#size()" title="Reference documentation">Java documentation for <code>android.util.LruCache.size()</code>.</a>
@@ -696,8 +768,8 @@
       <MemberSignature Language="F#" Value="abstract member SizeOf : Java.Lang.Object * Java.Lang.Object -&gt; int&#xA;override this.SizeOf : Java.Lang.Object * Java.Lang.Object -&gt; int" Usage="lruCache.SizeOf (key, value)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -719,6 +791,10 @@
             user-defined units.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the size of the entry for <c>key</c> and <c>value</c> in
+            user-defined units.  The default implementation returns 1 so that size
+            is the number of entries and max size is the maximum number of entries.</para>
+          <para>An entry's size must not change while it is in the cache.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#sizeOf(K,%20V)" title="Reference documentation">Java documentation for <code>android.util.LruCache.sizeOf(K, V)</code>.</a>
@@ -739,8 +815,8 @@
       <MemberSignature Language="F#" Value="member this.Snapshot : unit -&gt; System.Collections.IDictionary" Usage="lruCache.Snapshot " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -757,6 +833,8 @@
             recently accessed to most recently accessed.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a copy of the current contents of the cache, ordered from least
+            recently accessed to most recently accessed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#snapshot()" title="Reference documentation">Java documentation for <code>android.util.LruCache.snapshot()</code>.</a>
@@ -778,8 +856,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Util.LruCache.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -809,8 +887,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Util.LruCache.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -840,8 +918,8 @@
       <MemberSignature Language="F#" Value="override this.ToString : unit -&gt; string" Usage="lruCache.ToString " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -870,8 +948,8 @@
       <MemberSignature Language="F#" Value="abstract member TrimToSize : int -&gt; unit&#xA;override this.TrimToSize : int -&gt; unit" Usage="lruCache.TrimToSize maxSize" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -891,6 +969,8 @@
         <summary>Remove the eldest entries until the total of remaining entries is at or
             below the requested size.</summary>
         <remarks>
+          <para>Remove the eldest entries until the total of remaining entries is at or
+            below the requested size.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/util/LruCache#trimToSize(int)" title="Reference documentation">Java documentation for <code>android.util.LruCache.trimToSize(int)</code>.</a>

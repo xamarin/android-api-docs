@@ -36,6 +36,1384 @@
   <Docs since="1">
     <summary>An interpreter for printf-style format strings.</summary>
     <remarks>
+      <para>An interpreter for printf-style format strings.  This class provides support
+            for layout justification and alignment, common formats for numeric, string,
+            and date/time data, and locale-specific output.  Common Java types such as
+            <c>byte</c>, <c>java.math.BigDecimal BigDecimal</c>, and <c>Calendar</c>
+            are supported.  Limited formatting customization for arbitrary user types is
+            provided through the <c>Formattable</c> interface.</para>
+      <para>Formatters are not necessarily safe for multithreaded access.  Thread
+            safety is optional and is the responsibility of users of methods in this
+            class.</para>
+      <para>Formatted printing for the Java language is heavily inspired by C's
+            <c>printf</c>.  Although the format strings are similar to C, some
+            customizations have been made to accommodate the Java language and exploit
+            some of its features.  Also, Java formatting is more strict than C's; for
+            example, if a conversion is incompatible with a flag, an exception will be
+            thrown.  In C inapplicable flags are silently ignored.  The format strings
+            are thus intended to be recognizable to C programmers but not necessarily
+            completely compatible with those in C.</para>
+      <para>Examples of expected usage:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">StringBuilder sb = new StringBuilder();
+              // Send all output to the Appendable object sb
+              Formatter formatter = new Formatter(sb, Locale.US);
+            
+              // Explicit argument indices may be used to re-order output.
+              formatter.format("%4$2s %3$2s %2$2s %1$2s", "a", "b", "c", "d")
+              // -&amp;gt; " d  c  b  a"
+            
+              // Optional locale as the first argument can be used to get
+              // locale-specific formatting of numbers.  The precision and width can be
+              // given to round and align the value.
+              formatter.format(Locale.FRANCE, "e = %+10.4f", Math.E);
+              // -&amp;gt; "e =    +2,7183"
+            
+              // The '(' numeric flag may be used to format negative numbers with
+              // parentheses rather than a minus sign.  Group separators are
+              // automatically inserted.
+              formatter.format("Amount gained or lost since last statement: $ %(,.2f",
+                               balanceDelta);
+              // -&amp;gt; "Amount gained or lost since last statement: $ (6,217.58)"
+            </code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>Convenience methods for common formatting requests exist as illustrated
+            by the following invocations:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">// Writes a formatted string to System.out.
+              System.out.format("Local time: %tT", Calendar.getInstance());
+              // -&amp;gt; "Local time: 13:34:18"
+            
+              // Writes formatted output to System.err.
+              System.err.printf("Unable to open file '%1$s': %2$s",
+                                fileName, exception.getMessage());
+              // -&amp;gt; "Unable to open file 'food': No such file or directory"
+            </code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>Like C's <c>sprintf(3)</c>, Strings may be formatted using the static
+            method <c>String#format(String,Object...) String.format</c>:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">// Format a string containing a date.
+              import java.util.Calendar;
+              import java.util.GregorianCalendar;
+              import static java.util.Calendar.*;
+            
+              Calendar c = new GregorianCalendar(1995, MAY, 23);
+              String s = String.format("Duke's Birthday: %1$tb %1$te, %1$tY", c);
+              // -&amp;gt; s == "Duke's Birthday: May 23, 1995"
+            </code>
+      <para>&lt;/blockquote&gt;
+            
+            &lt;h3&gt;"org"&gt;Organization&lt;/h3&gt;</para>
+      <para>This specification is divided into two sections.  The first section, Summary, covers the basic formatting concepts.  This
+            section is intended for users who want to get started quickly and are
+            familiar with formatted printing in other programming languages.  The second
+            section, Details, covers the specific implementation
+            details.  It is intended for users who want more precise specification of
+            formatting behavior.
+            
+            &lt;h3&gt;"summary"&gt;Summary&lt;/h3&gt;</para>
+      <para>This section is intended to provide a brief overview of formatting
+            concepts.  For precise behavioral details, refer to the Details section.
+            
+            &lt;h4&gt;"syntax"&gt;Format String Syntax&lt;/h4&gt;</para>
+      <para>Every method which produces formatted output requires a <i>format
+            string</i> and an <i>argument list</i>.  The format string is a <c>String</c> which may contain fixed text and one or more embedded <i>format
+            specifiers</i>.  Consider the following example:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">Calendar c = ...;
+              String s = String.format("Duke's Birthday: %1$tm %1$te,%1$tY", c);
+            </code>
+      <para>&lt;/blockquote&gt;
+            
+            This format string is the first argument to the <c>format</c> method.  It
+            contains three format specifiers "<c>%1$tm</c>", "<c>%1$te</c>", and
+            "<c>%1$tY</c>" which indicate how the arguments should be processed and
+            where they should be inserted in the text.  The remaining portions of the
+            format string are fixed text including <c>"Dukes Birthday: "</c> and any
+            other spaces or punctuation.
+            
+            The argument list consists of all arguments passed to the method after the
+            format string.  In the above example, the argument list is of size one and
+            consists of the <c>java.util.Calendar Calendar</c> object <c>c</c>.
+            
+            &lt;ul&gt;
+            
+            &lt;li&gt; The format specifiers for general, character, and numeric types have
+            the following syntax:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">%[argument_index$][flags][width][.precision]conversion
+            </code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>The optional <i>argument_index</i> is a decimal integer indicating the
+            position of the argument in the argument list.  The first argument is
+            referenced by "<c>1$</c>", the second by "<c>2$</c>", etc.</para>
+      <para>The optional <i>flags</i> is a set of characters that modify the output
+            format.  The set of valid flags depends on the conversion.</para>
+      <para>The optional <i>width</i> is a positive decimal integer indicating
+            the minimum number of characters to be written to the output.</para>
+      <para>The optional <i>precision</i> is a non-negative decimal integer usually
+            used to restrict the number of characters.  The specific behavior depends on
+            the conversion.</para>
+      <para>The required <i>conversion</i> is a character indicating how the
+            argument should be formatted.  The set of valid conversions for a given
+            argument depends on the argument's data type.
+            
+            &lt;li&gt; The format specifiers for types which are used to represents dates and
+            times have the following syntax:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">%[argument_index$][flags][width]conversion
+            </code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>The optional <i>argument_index</i>, <i>flags</i> and <i>width</i> are
+            defined as above.</para>
+      <para>The required <i>conversion</i> is a two character sequence.  The first
+            character is <c>'t'</c> or <c>'T'</c>.  The second character indicates
+            the format to be used.  These characters are similar to but not completely
+            identical to those defined by GNU <c>date</c> and POSIX
+            <c>strftime(3c)</c>.
+            
+            &lt;li&gt; The format specifiers which do not correspond to arguments have the
+            following syntax:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">%[flags][width]conversion
+            </code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>The optional <i>flags</i> and <i>width</i> is defined as above.</para>
+      <para>The required <i>conversion</i> is a character indicating content to be
+            inserted in the output.
+            
+            &lt;/ul&gt;
+            
+            &lt;h4&gt; Conversions &lt;/h4&gt;</para>
+      <para>Conversions are divided into the following categories:
+            
+            &lt;ol&gt;
+            
+            &lt;li&gt; &lt;b&gt;General&lt;/b&gt; - may be applied to any argument
+            type
+            
+            &lt;li&gt; &lt;b&gt;Character&lt;/b&gt; - may be applied to basic types which represent
+            Unicode characters: <c>char</c>, <c>Character</c>, <c>byte</c>, <c>Byte</c>, <c>short</c>, and <c>Short</c>. This conversion may also be
+            applied to the types <c>int</c> and <c>Integer</c> when <c>Character#isValidCodePoint</c> returns <c>true</c>&lt;li&gt; &lt;b&gt;Numeric&lt;/b&gt;
+            
+            &lt;ol&gt;
+            
+            &lt;li&gt; &lt;b&gt;Integral&lt;/b&gt; - may be applied to Java integral types: <c>byte</c>,
+            <c>Byte</c>, <c>short</c>, <c>Short</c>, <c>int</c> and <c>Integer</c>, <c>long</c>, <c>Long</c>, and <c>java.math.BigInteger
+            BigInteger</c> (but not <c>char</c> or <c>Character</c>)
+            
+            &lt;li&gt;&lt;b&gt;Floating Point&lt;/b&gt; - may be applied to Java floating-point types:
+            <c>float</c>, <c>Float</c>, <c>double</c>, <c>Double</c>, and <c>java.math.BigDecimal BigDecimal</c>&lt;/ol&gt;
+            
+            &lt;li&gt; &lt;b&gt;Date/Time&lt;/b&gt; - may be applied to Java types which are capable of
+            encoding a date or time: <c>long</c>, <c>Long</c>, <c>Calendar</c>,
+            <c>Date</c> and <c>TemporalAccessor TemporalAccessor</c>&lt;li&gt; &lt;b&gt;Percent&lt;/b&gt; - produces a literal <c>'%'</c>
+            (<c>'&amp;#92;u0025'</c>)
+            
+            &lt;li&gt; &lt;b&gt;Line Separator&lt;/b&gt; - produces the platform-specific line separator
+            
+            &lt;/ol&gt;</para>
+      <para>For category <i>General</i>, <i>Character</i>, <i>Numberic</i>,
+            <i>Integral</i> and <i>Date/Time</i> conversion, unless otherwise specified,
+            if the argument <i>arg</i> is <c>null</c>, then the result is "<c>null</c>".</para>
+      <para>The following table summarizes the supported conversions.  Conversions
+            denoted by an upper-case character (i.e. <c>'B'</c>, <c>'H'</c>,
+            <c>'S'</c>, <c>'C'</c>, <c>'X'</c>, <c>'E'</c>, <c>'G'</c>,
+            <c>'A'</c>, and <c>'T'</c>) are the same as those for the corresponding
+            lower-case conversion characters except that the result is converted to
+            upper case according to the rules of the prevailing <c>java.util.Locale
+            Locale</c>. If there is no explicit locale specified, either at the
+            construction of the instance or as a parameter to its method
+            invocation, then the <c>java.util.Locale.Category#FORMAT default locale</c>
+            is used.
+            
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;genConv&lt;/caption&gt;
+            &lt;thead&gt;
+            &lt;tr&gt;&lt;th scope="col" style="vertical-align:bottom"&gt; Conversion
+                &lt;th scope="col" style="vertical-align:bottom"&gt; Argument Category
+                &lt;th scope="col" style="vertical-align:bottom"&gt; Description
+            &lt;/thead&gt;
+            &lt;tbody&gt;
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'b'</c>, <c>'B'</c>&lt;td style="vertical-align:top"&gt; general
+                &lt;td&gt; If the argument <i>arg</i> is <c>null</c>, then the result is
+                "<c>false</c>".  If <i>arg</i> is a <c>boolean</c> or <c>Boolean</c>, then the result is the string returned by <c>String#valueOf(boolean) String.valueOf(arg)</c>.  Otherwise, the result is
+                "true".
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'h'</c>, <c>'H'</c>&lt;td style="vertical-align:top"&gt; general
+                &lt;td&gt; The result is obtained by invoking
+                <c>Integer.toHexString(arg.hashCode())</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'s'</c>, <c>'S'</c>&lt;td style="vertical-align:top"&gt; general
+                &lt;td&gt; If <i>arg</i> implements <c>Formattable</c>, then
+                <c>Formattable#formatTo arg.formatTo</c> is invoked. Otherwise, the
+                result is obtained by invoking <c>arg.toString()</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'c'</c>, <c>'C'</c>&lt;td style="vertical-align:top"&gt; character
+                &lt;td&gt; The result is a Unicode character
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'d'</c>&lt;td style="vertical-align:top"&gt; integral
+                &lt;td&gt; The result is formatted as a decimal integer
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'o'</c>&lt;td style="vertical-align:top"&gt; integral
+                &lt;td&gt; The result is formatted as an octal integer
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'x'</c>, <c>'X'</c>&lt;td style="vertical-align:top"&gt; integral
+                &lt;td&gt; The result is formatted as a hexadecimal integer
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'e'</c>, <c>'E'</c>&lt;td style="vertical-align:top"&gt; floating point
+                &lt;td&gt; The result is formatted as a decimal number in computerized
+                scientific notation
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'f'</c>&lt;td style="vertical-align:top"&gt; floating point
+                &lt;td&gt; The result is formatted as a decimal number
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'g'</c>, <c>'G'</c>&lt;td style="vertical-align:top"&gt; floating point
+                &lt;td&gt; The result is formatted using computerized scientific notation or
+                decimal format, depending on the precision and the value after rounding.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'a'</c>, <c>'A'</c>&lt;td style="vertical-align:top"&gt; floating point
+                &lt;td&gt; The result is formatted as a hexadecimal floating-point number with
+                a significand and an exponent. This conversion is &lt;b&gt;not&lt;/b&gt; supported
+                for the <c>BigDecimal</c> type despite the latter's being in the
+                <i>floating point</i> argument category.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'t'</c>, <c>'T'</c>&lt;td style="vertical-align:top"&gt; date/time
+                &lt;td&gt; Prefix for date and time conversion characters.  See Date/Time Conversions.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'%'</c>&lt;td style="vertical-align:top"&gt; percent
+                &lt;td&gt; The result is a literal <c>'%'</c> (<c>'&amp;#92;u0025'</c>)
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'n'</c>&lt;td style="vertical-align:top"&gt; line separator
+                &lt;td&gt; The result is the platform-specific line separator
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>Any characters not explicitly defined as conversions are illegal and are
+            reserved for future extensions.
+            
+            &lt;h4&gt;"dt"&gt;Date/Time Conversions&lt;/h4&gt;</para>
+      <para>The following date and time conversion suffix characters are defined for
+            the <c>'t'</c> and <c>'T'</c> conversions.  The types are similar to but
+            not completely identical to those defined by GNU <c>date</c> and POSIX
+            <c>strftime(3c)</c>.  Additional conversion types are provided to access
+            Java-specific functionality (e.g. <c>'L'</c> for milliseconds within the
+            second).</para>
+      <para>The following conversion characters are used for formatting times:
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;time&lt;/caption&gt;
+            &lt;tbody&gt;
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'H'</c>&lt;td&gt; Hour of the day for the 24-hour clock, formatted as two digits with
+                a leading zero as necessary i.e. <c>00 - 23</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'I'</c>&lt;td&gt; Hour for the 12-hour clock, formatted as two digits with a leading
+                zero as necessary, i.e.  <c>01 - 12</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'k'</c>&lt;td&gt; Hour of the day for the 24-hour clock, i.e. <c>0 - 23</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'l'</c>&lt;td&gt; Hour for the 12-hour clock, i.e. <c>1 - 12</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'M'</c>&lt;td&gt; Minute within the hour formatted as two digits with a leading zero
+                as necessary, i.e.  <c>00 - 59</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'S'</c>&lt;td&gt; Seconds within the minute, formatted as two digits with a leading
+                zero as necessary, i.e. <c>00 - 60</c> ("<c>60</c>" is a special
+                value required to support leap seconds).
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'L'</c>&lt;td&gt; Millisecond within the second formatted as three digits with
+                leading zeros as necessary, i.e. <c>000 - 999</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'N'</c>&lt;td&gt; Nanosecond within the second, formatted as nine digits with leading
+                zeros as necessary, i.e. <c>000000000 - 999999999</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'p'</c>&lt;td&gt; Locale-specific java.text.DateFormatSymbols#getAmPmStrings morning or afternoon marker
+                in lower case, e.g."<c>am</c>" or "<c>pm</c>". Use of the conversion
+                prefix <c>'T'</c> forces this output to upper case.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'z'</c>&lt;td&gt; <see href="http://www.ietf.org/rfc/rfc0822.txt">RFC 822</see>
+                style numeric time zone offset from GMT, e.g. <c>-0800</c>.  This
+                value will be adjusted as necessary for Daylight Saving Time.  For
+                <c>long</c>, <c>Long</c>, and <c>Date</c> the time zone used is
+                the TimeZone#getDefault() default time zone for this
+                instance of the Java virtual machine.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'Z'</c>&lt;td&gt; A string representing the abbreviation for the time zone.  This
+                value will be adjusted as necessary for Daylight Saving Time.  For
+                <c>long</c>, <c>Long</c>, and <c>Date</c> the  time zone used is
+                the TimeZone#getDefault() default time zone for this
+                instance of the Java virtual machine.  The Formatter's locale will
+                supersede the locale of the argument (if any).
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'s'</c>&lt;td&gt; Seconds since the beginning of the epoch starting at 1 January 1970
+                <c>00:00:00</c> UTC, i.e. <c>Long.MIN_VALUE/1000</c> to
+                <c>Long.MAX_VALUE/1000</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'Q'</c>&lt;td&gt; Milliseconds since the beginning of the epoch starting at 1 January
+                1970 <c>00:00:00</c> UTC, i.e. <c>Long.MIN_VALUE</c> to
+                <c>Long.MAX_VALUE</c>.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>The following conversion characters are used for formatting dates:
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;date&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'B'</c>&lt;td&gt; Locale-specific java.text.DateFormatSymbols#getMonths
+                full month name, e.g. <c>"January"</c>, <c>"February"</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'b'</c>&lt;td&gt; Locale-specific java.text.DateFormatSymbols#getShortMonths abbreviated month name,
+                e.g. <c>"Jan"</c>, <c>"Feb"</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'h'</c>&lt;td&gt; Same as <c>'b'</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'A'</c>&lt;td&gt; Locale-specific full name of the java.text.DateFormatSymbols#getWeekdays day of the week,
+                e.g. <c>"Sunday"</c>, <c>"Monday"</c>&lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'a'</c>&lt;td&gt; Locale-specific short name of the java.text.DateFormatSymbols#getShortWeekdays day of the week,
+                e.g. <c>"Sun"</c>, <c>"Mon"</c>&lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'C'</c>&lt;td&gt; Four-digit year divided by <c>100</c>, formatted as two digits
+                with leading zero as necessary, i.e. <c>00 - 99</c>&lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'Y'</c>&lt;td&gt; Year, formatted as at least four digits with leading zeros as
+                necessary, e.g. <c>0092</c> equals <c>92</c> CE for the Gregorian
+                calendar.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'y'</c>&lt;td&gt; Last two digits of the year, formatted with leading zeros as
+                necessary, i.e. <c>00 - 99</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'j'</c>&lt;td&gt; Day of year, formatted as three digits with leading zeros as
+                necessary, e.g. <c>001 - 366</c> for the Gregorian calendar.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'m'</c>&lt;td&gt; Month, formatted as two digits with leading zeros as necessary,
+                i.e. <c>01 - 13</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'d'</c>&lt;td&gt; Day of month, formatted as two digits with leading zeros as
+                necessary, i.e. <c>01 - 31</c>&lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'e'</c>&lt;td&gt; Day of month, formatted as two digits, i.e. <c>1 - 31</c>.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>The following conversion characters are used for formatting common
+            date/time compositions.
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;composites&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'R'</c>&lt;td&gt; Time formatted for the 24-hour clock as <c>"%tH:%tM"</c>&lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'T'</c>&lt;td&gt; Time formatted for the 24-hour clock as <c>"%tH:%tM:%tS"</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'r'</c>&lt;td&gt; Time formatted for the 12-hour clock as <c>"%tI:%tM:%tS %Tp"</c>.
+                The location of the morning or afternoon marker (<c>'%Tp'</c>) may be
+                locale-dependent.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'D'</c>&lt;td&gt; Date formatted as <c>"%tm/%td/%ty"</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'F'</c>&lt;td&gt; <see href="http://www.w3.org/TR/NOTE-datetime">ISO 8601</see>
+                complete date formatted as <c>"%tY-%tm-%td"</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'c'</c>&lt;td&gt; Date and time formatted as <c>"%ta %tb %td %tT %tZ %tY"</c>,
+                e.g. <c>"Sun Jul 20 16:17:00 EDT 1969"</c>.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>Any characters not explicitly defined as date/time conversion suffixes
+            are illegal and are reserved for future extensions.
+            
+            &lt;h4&gt; Flags &lt;/h4&gt;</para>
+      <para>The following table summarizes the supported flags.  <i>y</i> means the
+            flag is supported for the indicated argument types.
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;genConv&lt;/caption&gt;
+            &lt;thead&gt;
+            &lt;tr&gt;&lt;th scope="col" style="vertical-align:bottom"&gt; Flag &lt;th scope="col" style="vertical-align:bottom"&gt; General
+                &lt;th scope="col" style="vertical-align:bottom"&gt; Character &lt;th scope="col" style="vertical-align:bottom"&gt; Integral
+                &lt;th scope="col" style="vertical-align:bottom"&gt; Floating Point
+                &lt;th scope="col" style="vertical-align:bottom"&gt; Date/Time
+                &lt;th scope="col" style="vertical-align:bottom"&gt; Description
+            &lt;/thead&gt;
+            &lt;tbody&gt;
+            &lt;tr&gt;&lt;th scope="row"&gt; '-' &lt;td style="text-align:center; vertical-align:top"&gt; y
+                &lt;td style="text-align:center; vertical-align:top"&gt; y
+                &lt;td style="text-align:center; vertical-align:top"&gt; y
+                &lt;td style="text-align:center; vertical-align:top"&gt; y
+                &lt;td style="text-align:center; vertical-align:top"&gt; y
+                &lt;td&gt; The result will be left-justified.
+            
+            &lt;tr&gt;&lt;th scope="row"&gt; '#' &lt;td style="text-align:center; vertical-align:top"&gt; y&lt;sup&gt;1&lt;/sup&gt;
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; y&lt;sup&gt;3&lt;/sup&gt;
+                &lt;td style="text-align:center; vertical-align:top"&gt; y
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td&gt; The result should use a conversion-dependent alternate form
+            
+            &lt;tr&gt;&lt;th scope="row"&gt; '+' &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; y&lt;sup&gt;4&lt;/sup&gt;
+                &lt;td style="text-align:center; vertical-align:top"&gt; y
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td&gt; The result will always include a sign
+            
+            &lt;tr&gt;&lt;th scope="row"&gt; '&amp;nbsp;&amp;nbsp;' &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; y&lt;sup&gt;4&lt;/sup&gt;
+                &lt;td style="text-align:center; vertical-align:top"&gt; y
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td&gt; The result will include a leading space for positive values
+            
+            &lt;tr&gt;&lt;th scope="row"&gt; '0' &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; y
+                &lt;td style="text-align:center; vertical-align:top"&gt; y
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td&gt; The result will be zero-padded
+            
+            &lt;tr&gt;&lt;th scope="row"&gt; ',' &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; y&lt;sup&gt;2&lt;/sup&gt;
+                &lt;td style="text-align:center; vertical-align:top"&gt; y&lt;sup&gt;5&lt;/sup&gt;
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td&gt; The result will include locale-specific java.text.DecimalFormatSymbols#getGroupingSeparator grouping separators&lt;tr&gt;&lt;th scope="row"&gt; '(' &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; -
+                &lt;td style="text-align:center; vertical-align:top"&gt; y&lt;sup&gt;4&lt;/sup&gt;
+                &lt;td style="text-align:center; vertical-align:top"&gt; y&lt;sup&gt;5&lt;/sup&gt;
+                &lt;td style="text-align:center"&gt; -
+                &lt;td&gt; The result will enclose negative numbers in parentheses
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>&lt;sup&gt;1&lt;/sup&gt; Depends on the definition of <c>Formattable</c>.</para>
+      <para>&lt;sup&gt;2&lt;/sup&gt; For <c>'d'</c> conversion only.</para>
+      <para>&lt;sup&gt;3&lt;/sup&gt; For <c>'o'</c>, <c>'x'</c>, and <c>'X'</c>
+            conversions only.</para>
+      <para>&lt;sup&gt;4&lt;/sup&gt; For <c>'d'</c>, <c>'o'</c>, <c>'x'</c>, and
+            <c>'X'</c> conversions applied to <c>java.math.BigInteger BigInteger</c>
+            or <c>'d'</c> applied to <c>byte</c>, <c>Byte</c>, <c>short</c>, <c>Short</c>, <c>int</c> and <c>Integer</c>, <c>long</c>, and <c>Long</c>.</para>
+      <para>&lt;sup&gt;5&lt;/sup&gt; For <c>'e'</c>, <c>'E'</c>, <c>'f'</c>,
+            <c>'g'</c>, and <c>'G'</c> conversions only.</para>
+      <para>Any characters not explicitly defined as flags are illegal and are
+            reserved for future extensions.
+            
+            &lt;h4&gt; Width &lt;/h4&gt;</para>
+      <para>The width is the minimum number of characters to be written to the
+            output.  For the line separator conversion, width is not applicable; if it
+            is provided, an exception will be thrown.
+            
+            &lt;h4&gt; Precision &lt;/h4&gt;</para>
+      <para>For general argument types, the precision is the maximum number of
+            characters to be written to the output.</para>
+      <para>For the floating-point conversions <c>'a'</c>, <c>'A'</c>, <c>'e'</c>,
+            <c>'E'</c>, and <c>'f'</c> the precision is the number of digits after the
+            radix point.  If the conversion is <c>'g'</c> or <c>'G'</c>, then the
+            precision is the total number of digits in the resulting magnitude after
+            rounding.</para>
+      <para>For character, integral, and date/time argument types and the percent
+            and line separator conversions, the precision is not applicable; if a
+            precision is provided, an exception will be thrown.
+            
+            &lt;h4&gt; Argument Index &lt;/h4&gt;</para>
+      <para>The argument index is a decimal integer indicating the position of the
+            argument in the argument list.  The first argument is referenced by
+            "<c>1$</c>", the second by "<c>2$</c>", etc.</para>
+      <para>Another way to reference arguments by position is to use the
+            <c>'&lt;'</c> (<c>'&amp;#92;u003c'</c>) flag, which causes the argument for
+            the previous format specifier to be re-used.  For example, the following two
+            statements would produce identical strings:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">Calendar c = ...;
+              String s1 = String.format("Duke's Birthday: %1$tm %1$te,%1$tY", c);
+            
+              String s2 = String.format("Duke's Birthday: %1$tm %&amp;lt;te,%&amp;lt;tY", c);
+            </code>
+      <para>&lt;/blockquote&gt;
+            
+            &lt;hr&gt;
+            &lt;h3&gt;"detail"&gt;Details&lt;/h3&gt;</para>
+      <para>This section is intended to provide behavioral details for formatting,
+            including conditions and exceptions, supported data types, localization, and
+            interactions between flags, conversions, and data types.  For an overview of
+            formatting concepts, refer to the Summary</para>
+      <para>Any characters not explicitly defined as conversions, date/time
+            conversion suffixes, or flags are illegal and are reserved for
+            future extensions.  Use of such a character in a format string will
+            cause an <c>UnknownFormatConversionException</c> or <c>UnknownFormatFlagsException</c> to be thrown.</para>
+      <para>If the format specifier contains a width or precision with an invalid
+            value or which is otherwise unsupported, then a <c>IllegalFormatWidthException</c> or <c>IllegalFormatPrecisionException</c>
+            respectively will be thrown.</para>
+      <para>If a format specifier contains a conversion character that is not
+            applicable to the corresponding argument, then an <c>IllegalFormatConversionException</c> will be thrown.</para>
+      <para>All specified exceptions may be thrown by any of the <c>format</c>
+            methods of <c>Formatter</c> as well as by any <c>format</c> convenience
+            methods such as <c>String#format(String,Object...) String.format</c> and
+            <c>java.io.PrintStream#printf(String,Object...) PrintStream.printf</c>.</para>
+      <para>For category <i>General</i>, <i>Character</i>, <i>Numberic</i>,
+            <i>Integral</i> and <i>Date/Time</i> conversion, unless otherwise specified,
+            if the argument <i>arg</i> is <c>null</c>, then the result is "<c>null</c>".</para>
+      <para>Conversions denoted by an upper-case character (i.e. <c>'B'</c>,
+            <c>'H'</c>, <c>'S'</c>, <c>'C'</c>, <c>'X'</c>, <c>'E'</c>,
+            <c>'G'</c>, <c>'A'</c>, and <c>'T'</c>) are the same as those for the
+            corresponding lower-case conversion characters except that the result is
+            converted to upper case according to the rules of the prevailing <c>java.util.Locale Locale</c>. If there is no explicit locale specified,
+            either at the construction of the instance or as a parameter to its method
+            invocation, then the <c>java.util.Locale.Category#FORMAT default locale</c>
+            is used.
+            
+            &lt;h4&gt;"dgen"&gt;General&lt;/h4&gt;</para>
+      <para>The following general conversions may be applied to any argument type:
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;dgConv&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'b'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0062'</c>&lt;td&gt; Produces either "<c>true</c>" or "<c>false</c>" as returned by
+                <c>Boolean#toString(boolean)</c>.</para>
+      <para>If the argument is <c>null</c>, then the result is
+                "<c>false</c>".  If the argument is a <c>boolean</c> or <c>Boolean</c>, then the result is the string returned by <c>String#valueOf(boolean) String.valueOf()</c>.  Otherwise, the result is
+                "<c>true</c>".</para>
+      <para>If the <c>'#'</c> flag is given, then a <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'B'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0042'</c>&lt;td&gt; The upper-case variant of <c>'b'</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'h'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0068'</c>&lt;td&gt; Produces a string representing the hash code value of the object.</para>
+      <para>The result is obtained by invoking
+                <c>Integer.toHexString(arg.hashCode())</c>.</para>
+      <para>If the <c>'#'</c> flag is given, then a <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'H'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0048'</c>&lt;td&gt; The upper-case variant of <c>'h'</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'s'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0073'</c>&lt;td&gt; Produces a string.</para>
+      <para>If the argument implements <c>Formattable</c>, then
+                its <c>Formattable#formatTo formatTo</c> method is invoked.
+                Otherwise, the result is obtained by invoking the argument's
+                <c>toString()</c> method.</para>
+      <para>If the <c>'#'</c> flag is given and the argument is not a <c>Formattable</c> , then a <c>FormatFlagsConversionMismatchException</c>
+                will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'S'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0053'</c>&lt;td&gt; The upper-case variant of <c>'s'</c>.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>The following "dFlags"&gt;flags apply to general conversions:
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;dFlags&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'-'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u002d'</c>&lt;td&gt; Left justifies the output.  Spaces (<c>'&amp;#92;u0020'</c>) will be
+                added at the end of the converted value as required to fill the minimum
+                width of the field.  If the width is not provided, then a <c>MissingFormatWidthException</c> will be thrown.  If this flag is not given
+                then the output will be right-justified.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'#'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0023'</c>&lt;td&gt; Requires the output use an alternate form.  The definition of the
+                form is specified by the conversion.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>The "genWidth"&gt;width is the minimum number of characters to
+            be written to the
+            output.  If the length of the converted value is less than the width then
+            the output will be padded by <c>'&amp;nbsp;&amp;nbsp;'</c> (<c>'&amp;#92;u0020'</c>)
+            until the total number of characters equals the width.  The padding is on
+            the left by default.  If the <c>'-'</c> flag is given, then the padding
+            will be on the right.  If the width is not specified then there is no
+            minimum.</para>
+      <para>The precision is the maximum number of characters to be written to the
+            output.  The precision is applied before the width, thus the output will be
+            truncated to <c>precision</c> characters even if the width is greater than
+            the precision.  If the precision is not specified then there is no explicit
+            limit on the number of characters.
+            
+            &lt;h4&gt;"dchar"&gt;Character&lt;/h4&gt;
+            
+            This conversion may be applied to <c>char</c> and <c>Character</c>.  It
+            may also be applied to the types <c>byte</c>, <c>Byte</c>,
+            <c>short</c>, and <c>Short</c>, <c>int</c> and <c>Integer</c> when
+            <c>Character#isValidCodePoint</c> returns <c>true</c>.  If it returns
+            <c>false</c> then an <c>IllegalFormatCodePointException</c> will be
+            thrown.
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;charConv&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'c'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0063'</c>&lt;td&gt; Formats the argument as a Unicode character as described in Unicode Character
+                Representation.  This may be more than one 16-bit <c>char</c> in
+                the case where the argument represents a supplementary character.</para>
+      <para>If the <c>'#'</c> flag is given, then a <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'C'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0043'</c>&lt;td&gt; The upper-case variant of <c>'c'</c>.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>The <c>'-'</c> flag defined for General
+            conversions applies.  If the <c>'#'</c> flag is given, then a <c>FormatFlagsConversionMismatchException</c> will be thrown.</para>
+      <para>The width is defined as for General conversions.</para>
+      <para>The precision is not applicable.  If the precision is specified then an
+            <c>IllegalFormatPrecisionException</c> will be thrown.
+            
+            &lt;h4&gt;"dnum"&gt;Numeric&lt;/h4&gt;</para>
+      <para>Numeric conversions are divided into the following categories:
+            
+            &lt;ol&gt;
+            
+            &lt;li&gt; &lt;b&gt;Byte, Short, Integer, and Long&lt;/b&gt;&lt;li&gt; &lt;b&gt;BigInteger&lt;/b&gt;&lt;li&gt; &lt;b&gt;Float and Double&lt;/b&gt;&lt;li&gt; &lt;b&gt;BigDecimal&lt;/b&gt;&lt;/ol&gt;</para>
+      <para>Numeric types will be formatted according to the following algorithm:</para>
+      <para>&lt;b&gt;"L10nAlgorithm"&gt; Number Localization Algorithm&lt;/b&gt;</para>
+      <para>After digits are obtained for the integer part, fractional part, and
+            exponent (as appropriate for the data type), the following transformation
+            is applied:
+            
+            &lt;ol&gt;
+            
+            &lt;li&gt; Each digit character <i>d</i> in the string is replaced by a
+            locale-specific digit computed relative to the current locale's
+            java.text.DecimalFormatSymbols#getZeroDigit() zero digit<i>z</i>; that is <i>d&amp;nbsp;-&amp;nbsp;</i><c>'0'</c><i>&amp;nbsp;+&amp;nbsp;z</i>.
+            
+            &lt;li&gt; If a decimal separator is present, a locale-specific java.text.DecimalFormatSymbols#getDecimalSeparator decimal separator is
+            substituted.
+            
+            &lt;li&gt; If the <c>','</c> (<c>'&amp;#92;u002c'</c>)
+            "L10nGroup"&gt;flag is given, then the locale-specific java.text.DecimalFormatSymbols#getGroupingSeparator grouping separator is
+            inserted by scanning the integer part of the string from least significant
+            to most significant digits and inserting a separator at intervals defined by
+            the locale's java.text.DecimalFormat#getGroupingSize() grouping
+            size.
+            
+            &lt;li&gt; If the <c>'0'</c> flag is given, then the locale-specific java.text.DecimalFormatSymbols#getZeroDigit() zero digits are inserted
+            after the sign character, if any, and before the first non-zero digit, until
+            the length of the string is equal to the requested field width.
+            
+            &lt;li&gt; If the value is negative and the <c>'('</c> flag is given, then a
+            <c>'('</c> (<c>'&amp;#92;u0028'</c>) is prepended and a <c>')'</c>
+            (<c>'&amp;#92;u0029'</c>) is appended.
+            
+            &lt;li&gt; If the value is negative (or floating-point negative zero) and
+            <c>'('</c> flag is not given, then a <c>'-'</c> (<c>'&amp;#92;u002d'</c>)
+            is prepended.
+            
+            &lt;li&gt; If the <c>'+'</c> flag is given and the value is positive or zero (or
+            floating-point positive zero), then a <c>'+'</c> (<c>'&amp;#92;u002b'</c>)
+            will be prepended.
+            
+            &lt;/ol&gt;</para>
+      <para>If the value is NaN or positive infinity the literal strings "NaN" or
+            "Infinity" respectively, will be output.  If the value is negative infinity,
+            then the output will be "(Infinity)" if the <c>'('</c> flag is given
+            otherwise the output will be "-Infinity".  These values are not localized.</para>
+      <para>"dnint"&gt;&lt;b&gt; Byte, Short, Integer, and Long &lt;/b&gt;</para>
+      <para>The following conversions may be applied to <c>byte</c>, <c>Byte</c>,
+            <c>short</c>, <c>Short</c>, <c>int</c> and <c>Integer</c>,
+            <c>long</c>, and <c>Long</c>.
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;IntConv&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'d'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0064'</c>&lt;td&gt; Formats the argument as a decimal integer. The localization algorithm is applied.</para>
+      <para>If the <c>'0'</c> flag is given and the value is negative, then
+                the zero padding will occur after the sign.</para>
+      <para>If the <c>'#'</c> flag is given then a <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'o'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u006f'</c>&lt;td&gt; Formats the argument as an integer in base eight.  No localization
+                is applied.</para>
+      <para>If <i>x</i> is negative then the result will be an unsigned value
+                generated by adding 2&lt;sup&gt;n&lt;/sup&gt; to the value where <c>n</c> is the
+                number of bits in the type as returned by the static <c>SIZE</c> field
+                in the Byte#SIZE Byte, Short#SIZE Short,
+                Integer#SIZE Integer, or Long#SIZE Long
+                classes as appropriate.</para>
+      <para>If the <c>'#'</c> flag is given then the output will always begin
+                with the radix indicator <c>'0'</c>.</para>
+      <para>If the <c>'0'</c> flag is given then the output will be padded
+                with leading zeros to the field width following any indication of sign.</para>
+      <para>If <c>'('</c>, <c>'+'</c>, '&amp;nbsp;&amp;nbsp;', or <c>','</c> flags
+                are given then a <c>FormatFlagsConversionMismatchException</c> will be
+                thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'x'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0078'</c>&lt;td&gt; Formats the argument as an integer in base sixteen. No
+                localization is applied.</para>
+      <para>If <i>x</i> is negative then the result will be an unsigned value
+                generated by adding 2&lt;sup&gt;n&lt;/sup&gt; to the value where <c>n</c> is the
+                number of bits in the type as returned by the static <c>SIZE</c> field
+                in the Byte#SIZE Byte, Short#SIZE Short,
+                Integer#SIZE Integer, or Long#SIZE Long
+                classes as appropriate.</para>
+      <para>If the <c>'#'</c> flag is given then the output will always begin
+                with the radix indicator <c>"0x"</c>.</para>
+      <para>If the <c>'0'</c> flag is given then the output will be padded to
+                the field width with leading zeros after the radix indicator or sign (if
+                present).</para>
+      <para>If <c>'('</c>, <c>'&amp;nbsp;&amp;nbsp;'</c>, <c>'+'</c>, or
+                <c>','</c> flags are given then a <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'X'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0058'</c>&lt;td&gt; The upper-case variant of <c>'x'</c>.  The entire string
+                representing the number will be converted to String#toUpperCase upper case including the <c>'x'</c> (if any) and
+                all hexadecimal digits <c>'a'</c> - <c>'f'</c>
+                (<c>'&amp;#92;u0061'</c> -  <c>'&amp;#92;u0066'</c>).
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>If the conversion is <c>'o'</c>, <c>'x'</c>, or <c>'X'</c> and
+            both the <c>'#'</c> and the <c>'0'</c> flags are given, then result will
+            contain the radix indicator (<c>'0'</c> for octal and <c>"0x"</c> or
+            <c>"0X"</c> for hexadecimal), some number of zeros (based on the width),
+            and the value.</para>
+      <para>If the <c>'-'</c> flag is not given, then the space padding will occur
+            before the sign.</para>
+      <para>The following "intFlags"&gt;flags apply to numeric integral
+            conversions:
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;intFlags&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'+'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u002b'</c>&lt;td&gt; Requires the output to include a positive sign for all positive
+                numbers.  If this flag is not given then only negative values will
+                include a sign.</para>
+      <para>If both the <c>'+'</c> and <c>'&amp;nbsp;&amp;nbsp;'</c> flags are given
+                then an <c>IllegalFormatFlagsException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'&amp;nbsp;&amp;nbsp;'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0020'</c>&lt;td&gt; Requires the output to include a single extra space
+                (<c>'&amp;#92;u0020'</c>) for non-negative values.</para>
+      <para>If both the <c>'+'</c> and <c>'&amp;nbsp;&amp;nbsp;'</c> flags are given
+                then an <c>IllegalFormatFlagsException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'0'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0030'</c>&lt;td&gt; Requires the output to be padded with leading java.text.DecimalFormatSymbols#getZeroDigit zeros to the minimum field
+                width following any sign or radix indicator except when converting NaN
+                or infinity.  If the width is not provided, then a <c>MissingFormatWidthException</c> will be thrown.</para>
+      <para>If both the <c>'-'</c> and <c>'0'</c> flags are given then an
+                <c>IllegalFormatFlagsException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>','</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u002c'</c>&lt;td&gt; Requires the output to include the locale-specific java.text.DecimalFormatSymbols#getGroupingSeparator group separators as
+                described in the "group" section of the
+                localization algorithm.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'('</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0028'</c>&lt;td&gt; Requires the output to prepend a <c>'('</c>
+                (<c>'&amp;#92;u0028'</c>) and append a <c>')'</c>
+                (<c>'&amp;#92;u0029'</c>) to negative values.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>If no "intdFlags"&gt;flags are given the default formatting is
+            as follows:
+            
+            &lt;ul&gt;
+            
+            &lt;li&gt; The output is right-justified within the <c>width</c>&lt;li&gt; Negative numbers begin with a <c>'-'</c> (<c>'&amp;#92;u002d'</c>)
+            
+            &lt;li&gt; Positive numbers and zero do not include a sign or extra leading
+            space
+            
+            &lt;li&gt; No grouping separators are included
+            
+            &lt;/ul&gt;</para>
+      <para>The "intWidth"&gt;width is the minimum number of characters to
+            be written to the output.  This includes any signs, digits, grouping
+            separators, radix indicator, and parentheses.  If the length of the
+            converted value is less than the width then the output will be padded by
+            spaces (<c>'&amp;#92;u0020'</c>) until the total number of characters equals
+            width.  The padding is on the left by default.  If <c>'-'</c> flag is
+            given then the padding will be on the right.  If width is not specified then
+            there is no minimum.</para>
+      <para>The precision is not applicable.  If precision is specified then an
+            <c>IllegalFormatPrecisionException</c> will be thrown.</para>
+      <para>"dnbint"&gt;&lt;b&gt; BigInteger &lt;/b&gt;</para>
+      <para>The following conversions may be applied to <c>java.math.BigInteger</c>.
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;bIntConv&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'d'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0064'</c>&lt;td&gt; Requires the output to be formatted as a decimal integer. The localization algorithm is applied.</para>
+      <para>If the <c>'#'</c> flag is given <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'o'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u006f'</c>&lt;td&gt; Requires the output to be formatted as an integer in base eight.
+                No localization is applied.</para>
+      <para>If <i>x</i> is negative then the result will be a signed value
+                beginning with <c>'-'</c> (<c>'&amp;#92;u002d'</c>).  Signed output is
+                allowed for this type because unlike the primitive types it is not
+                possible to create an unsigned equivalent without assuming an explicit
+                data-type size.</para>
+      <para>If <i>x</i> is positive or zero and the <c>'+'</c> flag is given
+                then the result will begin with <c>'+'</c> (<c>'&amp;#92;u002b'</c>).</para>
+      <para>If the <c>'#'</c> flag is given then the output will always begin
+                with <c>'0'</c> prefix.</para>
+      <para>If the <c>'0'</c> flag is given then the output will be padded
+                with leading zeros to the field width following any indication of sign.</para>
+      <para>If the <c>','</c> flag is given then a <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'x'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0078'</c>&lt;td&gt; Requires the output to be formatted as an integer in base
+                sixteen.  No localization is applied.</para>
+      <para>If <i>x</i> is negative then the result will be a signed value
+                beginning with <c>'-'</c> (<c>'&amp;#92;u002d'</c>).  Signed output is
+                allowed for this type because unlike the primitive types it is not
+                possible to create an unsigned equivalent without assuming an explicit
+                data-type size.</para>
+      <para>If <i>x</i> is positive or zero and the <c>'+'</c> flag is given
+                then the result will begin with <c>'+'</c> (<c>'&amp;#92;u002b'</c>).</para>
+      <para>If the <c>'#'</c> flag is given then the output will always begin
+                with the radix indicator <c>"0x"</c>.</para>
+      <para>If the <c>'0'</c> flag is given then the output will be padded to
+                the field width with leading zeros after the radix indicator or sign (if
+                present).</para>
+      <para>If the <c>','</c> flag is given then a <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'X'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0058'</c>&lt;td&gt; The upper-case variant of <c>'x'</c>.  The entire string
+                representing the number will be converted to String#toUpperCase upper case including the <c>'x'</c> (if any) and
+                all hexadecimal digits <c>'a'</c> - <c>'f'</c>
+                (<c>'&amp;#92;u0061'</c> - <c>'&amp;#92;u0066'</c>).
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>If the conversion is <c>'o'</c>, <c>'x'</c>, or <c>'X'</c> and
+            both the <c>'#'</c> and the <c>'0'</c> flags are given, then result will
+            contain the base indicator (<c>'0'</c> for octal and <c>"0x"</c> or
+            <c>"0X"</c> for hexadecimal), some number of zeros (based on the width),
+            and the value.</para>
+      <para>If the <c>'0'</c> flag is given and the value is negative, then the
+            zero padding will occur after the sign.</para>
+      <para>If the <c>'-'</c> flag is not given, then the space padding will occur
+            before the sign.</para>
+      <para>All flags defined for Byte, Short, Integer, and
+            Long apply.  The default behavior when no flags are
+            given is the same as for Byte, Short, Integer, and Long.</para>
+      <para>The specification of width is the same as
+            defined for Byte, Short, Integer, and Long.</para>
+      <para>The precision is not applicable.  If precision is specified then an
+            <c>IllegalFormatPrecisionException</c> will be thrown.</para>
+      <para>"dndec"&gt;&lt;b&gt; Float and Double&lt;/b&gt;</para>
+      <para>The following conversions may be applied to <c>float</c>, <c>Float</c>, <c>double</c> and <c>Double</c>.
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;floatConv&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'e'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0065'</c>&lt;td&gt; Requires the output to be formatted using "scientific"&gt;computerized scientific notation.  The localization algorithm is applied.</para>
+      <para>The formatting of the magnitude <i>m</i> depends upon its value.</para>
+      <para>If <i>m</i> is NaN or infinite, the literal strings "NaN" or
+                "Infinity", respectively, will be output.  These values are not
+                localized.</para>
+      <para>If <i>m</i> is positive-zero or negative-zero, then the exponent
+                will be <c>"+00"</c>.</para>
+      <para>Otherwise, the result is a string that represents the sign and
+                magnitude (absolute value) of the argument.  The formatting of the sign
+                is described in the localization
+                algorithm. The formatting of the magnitude <i>m</i> depends upon its
+                value.</para>
+      <para>Let <i>n</i> be the unique integer such that 10&lt;sup&gt;<i>n</i>&lt;/sup&gt;
+                &amp;lt;= <i>m</i> &amp;lt; 10&lt;sup&gt;<i>n</i>+1&lt;/sup&gt;; then let <i>a</i> be the
+                mathematically exact quotient of <i>m</i> and 10&lt;sup&gt;<i>n</i>&lt;/sup&gt; so
+                that 1 &amp;lt;= <i>a</i> &amp;lt; 10. The magnitude is then represented as the
+                integer part of <i>a</i>, as a single decimal digit, followed by the
+                decimal separator followed by decimal digits representing the fractional
+                part of <i>a</i>, followed by the lower-case locale-specific java.text.DecimalFormatSymbols#getExponentSeparator exponent separator
+                (e.g. <c>'e'</c>), followed by the sign of the exponent, followed
+                by a representation of <i>n</i> as a decimal integer, as produced by the
+                method <c>Long#toString(long, int)</c>, and zero-padded to include at
+                least two digits.</para>
+      <para>The number of digits in the result for the fractional part of
+                <i>m</i> or <i>a</i> is equal to the precision.  If the precision is not
+                specified then the default value is <c>6</c>. If the precision is less
+                than the number of digits which would appear after the decimal point in
+                the string returned by <c>Float#toString(float)</c> or <c>Double#toString(double)</c> respectively, then the value will be rounded
+                using the java.math.RoundingMode#HALF_UP round half up
+                algorithm.  Otherwise, zeros may be appended to reach the precision.
+                For a canonical representation of the value, use <c>Float#toString(float)</c> or <c>Double#toString(double)</c> as
+                appropriate.</para>
+      <para>If the <c>','</c> flag is given, then an <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'E'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0045'</c>&lt;td&gt; The upper-case variant of <c>'e'</c>.  The exponent symbol
+                will be the upper-case locale-specific java.text.DecimalFormatSymbols#getExponentSeparator exponent separator
+                (e.g. <c>'E'</c>).
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'g'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0067'</c>&lt;td&gt; Requires the output to be formatted in general scientific notation
+                as described below. The localization
+                algorithm is applied.</para>
+      <para>After rounding for the precision, the formatting of the resulting
+                magnitude <i>m</i> depends on its value.</para>
+      <para>If <i>m</i> is greater than or equal to 10&lt;sup&gt;-4&lt;/sup&gt; but less
+                than 10&lt;sup&gt;precision&lt;/sup&gt; then it is represented in <i>decimal format</i>.</para>
+      <para>If <i>m</i> is less than 10&lt;sup&gt;-4&lt;/sup&gt; or greater than or equal to
+                10&lt;sup&gt;precision&lt;/sup&gt;, then it is represented in <i>computerized scientific notation</i>.</para>
+      <para>The total number of significant digits in <i>m</i> is equal to the
+                precision.  If the precision is not specified, then the default value is
+                <c>6</c>.  If the precision is <c>0</c>, then it is taken to be
+                <c>1</c>.</para>
+      <para>If the <c>'#'</c> flag is given then an <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'G'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0047'</c>&lt;td&gt; The upper-case variant of <c>'g'</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'f'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0066'</c>&lt;td&gt; Requires the output to be formatted using "decimal"&gt;decimal
+                format.  The localization algorithm is
+                applied.</para>
+      <para>The result is a string that represents the sign and magnitude
+                (absolute value) of the argument.  The formatting of the sign is
+                described in the localization
+                algorithm. The formatting of the magnitude <i>m</i> depends upon its
+                value.</para>
+      <para>If <i>m</i> NaN or infinite, the literal strings "NaN" or
+                "Infinity", respectively, will be output.  These values are not
+                localized.</para>
+      <para>The magnitude is formatted as the integer part of <i>m</i>, with no
+                leading zeroes, followed by the decimal separator followed by one or
+                more decimal digits representing the fractional part of <i>m</i>.</para>
+      <para>The number of digits in the result for the fractional part of
+                <i>m</i> or <i>a</i> is equal to the precision.  If the precision is not
+                specified then the default value is <c>6</c>. If the precision is less
+                than the number of digits which would appear after the decimal point in
+                the string returned by <c>Float#toString(float)</c> or <c>Double#toString(double)</c> respectively, then the value will be rounded
+                using the java.math.RoundingMode#HALF_UP round half up
+                algorithm.  Otherwise, zeros may be appended to reach the precision.
+                For a canonical representation of the value, use <c>Float#toString(float)</c> or <c>Double#toString(double)</c> as
+                appropriate.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'a'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0061'</c>&lt;td&gt; Requires the output to be formatted in hexadecimal exponential
+                form.  No localization is applied.</para>
+      <para>The result is a string that represents the sign and magnitude
+                (absolute value) of the argument <i>x</i>.</para>
+      <para>If <i>x</i> is negative or a negative-zero value then the result
+                will begin with <c>'-'</c> (<c>'&amp;#92;u002d'</c>).</para>
+      <para>If <i>x</i> is positive or a positive-zero value and the
+                <c>'+'</c> flag is given then the result will begin with <c>'+'</c>
+                (<c>'&amp;#92;u002b'</c>).</para>
+      <para>The formatting of the magnitude <i>m</i> depends upon its value.
+            
+                &lt;ul&gt;
+            
+                &lt;li&gt; If the value is NaN or infinite, the literal strings "NaN" or
+                "Infinity", respectively, will be output.
+            
+                &lt;li&gt; If <i>m</i> is zero then it is represented by the string
+                <c>"0x0.0p0"</c>.
+            
+                &lt;li&gt; If <i>m</i> is a <c>double</c> value with a normalized
+                representation then substrings are used to represent the significand and
+                exponent fields.  The significand is represented by the characters
+                <c>"0x1."</c> followed by the hexadecimal representation of the rest
+                of the significand as a fraction.  The exponent is represented by
+                <c>'p'</c> (<c>'&amp;#92;u0070'</c>) followed by a decimal string of the
+                unbiased exponent as if produced by invoking <c>Integer#toString(int) Integer.toString</c> on the exponent value.  If the
+                precision is specified, the value is rounded to the given number of
+                hexadecimal digits.
+            
+                &lt;li&gt; If <i>m</i> is a <c>double</c> value with a subnormal
+                representation then, unless the precision is specified to be in the range
+                1 through 12, inclusive, the significand is represented by the characters
+                <c>'0x0.'</c> followed by the hexadecimal representation of the rest of
+                the significand as a fraction, and the exponent represented by
+                <c>'p-1022'</c>.  If the precision is in the interval
+                [1,&amp;nbsp;12], the subnormal value is normalized such that it
+                begins with the characters <c>'0x1.'</c>, rounded to the number of
+                hexadecimal digits of precision, and the exponent adjusted
+                accordingly.  Note that there must be at least one nonzero digit in a
+                subnormal significand.
+            
+                &lt;/ul&gt;</para>
+      <para>If the <c>'('</c> or <c>','</c> flags are given, then a <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'A'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0041'</c>&lt;td&gt; The upper-case variant of <c>'a'</c>.  The entire string
+                representing the number will be converted to upper case including the
+                <c>'x'</c> (<c>'&amp;#92;u0078'</c>) and <c>'p'</c>
+                (<c>'&amp;#92;u0070'</c> and all hexadecimal digits <c>'a'</c> -
+                <c>'f'</c> (<c>'&amp;#92;u0061'</c> - <c>'&amp;#92;u0066'</c>).
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>All flags defined for Byte, Short, Integer, and
+            Long apply.</para>
+      <para>If the <c>'#'</c> flag is given, then the decimal separator will
+            always be present.</para>
+      <para>If no "floatdFlags"&gt;flags are given the default formatting
+            is as follows:
+            
+            &lt;ul&gt;
+            
+            &lt;li&gt; The output is right-justified within the <c>width</c>&lt;li&gt; Negative numbers begin with a <c>'-'</c>&lt;li&gt; Positive numbers and positive zero do not include a sign or extra
+            leading space
+            
+            &lt;li&gt; No grouping separators are included
+            
+            &lt;li&gt; The decimal separator will only appear if a digit follows it
+            
+            &lt;/ul&gt;</para>
+      <para>The "floatDWidth"&gt;width is the minimum number of characters
+            to be written to the output.  This includes any signs, digits, grouping
+            separators, decimal separators, exponential symbol, radix indicator,
+            parentheses, and strings representing infinity and NaN as applicable.  If
+            the length of the converted value is less than the width then the output
+            will be padded by spaces (<c>'&amp;#92;u0020'</c>) until the total number of
+            characters equals width.  The padding is on the left by default.  If the
+            <c>'-'</c> flag is given then the padding will be on the right.  If width
+            is not specified then there is no minimum.</para>
+      <para>If the "floatDPrec"&gt;conversion is <c>'e'</c>,
+            <c>'E'</c> or <c>'f'</c>, then the precision is the number of digits
+            after the decimal separator.  If the precision is not specified, then it is
+            assumed to be <c>6</c>.</para>
+      <para>If the conversion is <c>'g'</c> or <c>'G'</c>, then the precision is
+            the total number of significant digits in the resulting magnitude after
+            rounding.  If the precision is not specified, then the default value is
+            <c>6</c>.  If the precision is <c>0</c>, then it is taken to be
+            <c>1</c>.</para>
+      <para>If the conversion is <c>'a'</c> or <c>'A'</c>, then the precision
+            is the number of hexadecimal digits after the radix point.  If the
+            precision is not provided, then all of the digits as returned by <c>Double#toHexString(double)</c> will be output.</para>
+      <para>"dnbdec"&gt;&lt;b&gt; BigDecimal &lt;/b&gt;</para>
+      <para>The following conversions may be applied <c>java.math.BigDecimal
+            BigDecimal</c>.
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;floatConv&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'e'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0065'</c>&lt;td&gt; Requires the output to be formatted using "bscientific"&gt;computerized scientific notation.  The localization algorithm is applied.</para>
+      <para>The formatting of the magnitude <i>m</i> depends upon its value.</para>
+      <para>If <i>m</i> is positive-zero or negative-zero, then the exponent
+                will be <c>"+00"</c>.</para>
+      <para>Otherwise, the result is a string that represents the sign and
+                magnitude (absolute value) of the argument.  The formatting of the sign
+                is described in the localization
+                algorithm. The formatting of the magnitude <i>m</i> depends upon its
+                value.</para>
+      <para>Let <i>n</i> be the unique integer such that 10&lt;sup&gt;<i>n</i>&lt;/sup&gt;
+                &amp;lt;= <i>m</i> &amp;lt; 10&lt;sup&gt;<i>n</i>+1&lt;/sup&gt;; then let <i>a</i> be the
+                mathematically exact quotient of <i>m</i> and 10&lt;sup&gt;<i>n</i>&lt;/sup&gt; so
+                that 1 &amp;lt;= <i>a</i> &amp;lt; 10. The magnitude is then represented as the
+                integer part of <i>a</i>, as a single decimal digit, followed by the
+                decimal separator followed by decimal digits representing the fractional
+                part of <i>a</i>, followed by the exponent symbol <c>'e'</c>
+                (<c>'&amp;#92;u0065'</c>), followed by the sign of the exponent, followed
+                by a representation of <i>n</i> as a decimal integer, as produced by the
+                method <c>Long#toString(long, int)</c>, and zero-padded to include at
+                least two digits.</para>
+      <para>The number of digits in the result for the fractional part of
+                <i>m</i> or <i>a</i> is equal to the precision.  If the precision is not
+                specified then the default value is <c>6</c>.  If the precision is
+                less than the number of digits to the right of the decimal point then
+                the value will be rounded using the
+                java.math.RoundingMode#HALF_UP round half up
+                algorithm.  Otherwise, zeros may be appended to reach the precision.
+                For a canonical representation of the value, use <c>BigDecimal#toString()</c>.</para>
+      <para>If the <c>','</c> flag is given, then an <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'E'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0045'</c>&lt;td&gt; The upper-case variant of <c>'e'</c>.  The exponent symbol
+                will be <c>'E'</c> (<c>'&amp;#92;u0045'</c>).
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'g'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0067'</c>&lt;td&gt; Requires the output to be formatted in general scientific notation
+                as described below. The localization
+                algorithm is applied.</para>
+      <para>After rounding for the precision, the formatting of the resulting
+                magnitude <i>m</i> depends on its value.</para>
+      <para>If <i>m</i> is greater than or equal to 10&lt;sup&gt;-4&lt;/sup&gt; but less
+                than 10&lt;sup&gt;precision&lt;/sup&gt; then it is represented in <i>decimal format</i>.</para>
+      <para>If <i>m</i> is less than 10&lt;sup&gt;-4&lt;/sup&gt; or greater than or equal to
+                10&lt;sup&gt;precision&lt;/sup&gt;, then it is represented in <i>computerized scientific notation</i>.</para>
+      <para>The total number of significant digits in <i>m</i> is equal to the
+                precision.  If the precision is not specified, then the default value is
+                <c>6</c>.  If the precision is <c>0</c>, then it is taken to be
+                <c>1</c>.</para>
+      <para>If the <c>'#'</c> flag is given then an <c>FormatFlagsConversionMismatchException</c> will be thrown.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'G'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0047'</c>&lt;td&gt; The upper-case variant of <c>'g'</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'f'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0066'</c>&lt;td&gt; Requires the output to be formatted using "bdecimal"&gt;decimal
+                format.  The localization algorithm is
+                applied.</para>
+      <para>The result is a string that represents the sign and magnitude
+                (absolute value) of the argument.  The formatting of the sign is
+                described in the localization
+                algorithm. The formatting of the magnitude <i>m</i> depends upon its
+                value.</para>
+      <para>The magnitude is formatted as the integer part of <i>m</i>, with no
+                leading zeroes, followed by the decimal separator followed by one or
+                more decimal digits representing the fractional part of <i>m</i>.</para>
+      <para>The number of digits in the result for the fractional part of
+                <i>m</i> or <i>a</i> is equal to the precision. If the precision is not
+                specified then the default value is <c>6</c>.  If the precision is
+                less than the number of digits to the right of the decimal point
+                then the value will be rounded using the
+                java.math.RoundingMode#HALF_UP round half up
+                algorithm.  Otherwise, zeros may be appended to reach the precision.
+                For a canonical representation of the value, use <c>BigDecimal#toString()</c>.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>All flags defined for Byte, Short, Integer, and
+            Long apply.</para>
+      <para>If the <c>'#'</c> flag is given, then the decimal separator will
+            always be present.</para>
+      <para>The default behavior when no flags are
+            given is the same as for Float and Double.</para>
+      <para>The specification of width and precision is the same as defined for Float and
+            Double.
+            
+            &lt;h4&gt;"ddt"&gt;Date/Time&lt;/h4&gt;</para>
+      <para>This conversion may be applied to <c>long</c>, <c>Long</c>, <c>Calendar</c>, <c>Date</c> and <c>TemporalAccessor TemporalAccessor</c>&lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;DTConv&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'t'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0074'</c>&lt;td&gt; Prefix for date and time conversion characters.
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'T'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0054'</c>&lt;td&gt; The upper-case variant of <c>'t'</c>.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>The following date and time conversion character suffixes are defined
+            for the <c>'t'</c> and <c>'T'</c> conversions.  The types are similar to
+            but not completely identical to those defined by GNU <c>date</c> and
+            POSIX <c>strftime(3c)</c>.  Additional conversion types are provided to
+            access Java-specific functionality (e.g. <c>'L'</c> for milliseconds
+            within the second).</para>
+      <para>The following conversion characters are used for formatting times:
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;time&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt; <c>'H'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0048'</c>&lt;td&gt; Hour of the day for the 24-hour clock, formatted as two digits with
+                a leading zero as necessary i.e. <c>00 - 23</c>. <c>00</c>
+                corresponds to midnight.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'I'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0049'</c>&lt;td&gt; Hour for the 12-hour clock, formatted as two digits with a leading
+                zero as necessary, i.e.  <c>01 - 12</c>.  <c>01</c> corresponds to
+                one o'clock (either morning or afternoon).
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'k'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u006b'</c>&lt;td&gt; Hour of the day for the 24-hour clock, i.e. <c>0 - 23</c>.
+                <c>0</c> corresponds to midnight.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'l'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u006c'</c>&lt;td&gt; Hour for the 12-hour clock, i.e. <c>1 - 12</c>.  <c>1</c>
+                corresponds to one o'clock (either morning or afternoon).
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'M'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u004d'</c>&lt;td&gt; Minute within the hour formatted as two digits with a leading zero
+                as necessary, i.e.  <c>00 - 59</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'S'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0053'</c>&lt;td&gt; Seconds within the minute, formatted as two digits with a leading
+                zero as necessary, i.e. <c>00 - 60</c> ("<c>60</c>" is a special
+                value required to support leap seconds).
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'L'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u004c'</c>&lt;td&gt; Millisecond within the second formatted as three digits with
+                leading zeros as necessary, i.e. <c>000 - 999</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'N'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u004e'</c>&lt;td&gt; Nanosecond within the second, formatted as nine digits with leading
+                zeros as necessary, i.e. <c>000000000 - 999999999</c>.  The precision
+                of this value is limited by the resolution of the underlying operating
+                system or hardware.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'p'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0070'</c>&lt;td&gt; Locale-specific java.text.DateFormatSymbols#getAmPmStrings morning or afternoon marker
+                in lower case, e.g."<c>am</c>" or "<c>pm</c>".  Use of the
+                conversion prefix <c>'T'</c> forces this output to upper case.  (Note
+                that <c>'p'</c> produces lower-case output.  This is different from
+                GNU <c>date</c> and POSIX <c>strftime(3c)</c> which produce
+                upper-case output.)
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'z'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u007a'</c>&lt;td&gt; <see href="http://www.ietf.org/rfc/rfc0822.txt">RFC 822</see>
+                style numeric time zone offset from GMT, e.g. <c>-0800</c>.  This
+                value will be adjusted as necessary for Daylight Saving Time.  For
+                <c>long</c>, <c>Long</c>, and <c>Date</c> the time zone used is
+                the TimeZone#getDefault() default time zone for this
+                instance of the Java virtual machine.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'Z'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u005a'</c>&lt;td&gt; A string representing the abbreviation for the time zone.  This
+                value will be adjusted as necessary for Daylight Saving Time.  For
+                <c>long</c>, <c>Long</c>, and <c>Date</c> the time zone used is
+                the TimeZone#getDefault() default time zone for this
+                instance of the Java virtual machine.  The Formatter's locale will
+                supersede the locale of the argument (if any).
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'s'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0073'</c>&lt;td&gt; Seconds since the beginning of the epoch starting at 1 January 1970
+                <c>00:00:00</c> UTC, i.e. <c>Long.MIN_VALUE/1000</c> to
+                <c>Long.MAX_VALUE/1000</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'Q'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u004f'</c>&lt;td&gt; Milliseconds since the beginning of the epoch starting at 1 January
+                1970 <c>00:00:00</c> UTC, i.e. <c>Long.MIN_VALUE</c> to
+                <c>Long.MAX_VALUE</c>. The precision of this value is limited by
+                the resolution of the underlying operating system or hardware.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>The following conversion characters are used for formatting dates:
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;date&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'B'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0042'</c>&lt;td&gt; Locale-specific java.text.DateFormatSymbols#getMonths
+                full month name, e.g. <c>"January"</c>, <c>"February"</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'b'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0062'</c>&lt;td&gt; Locale-specific java.text.DateFormatSymbols#getShortMonths abbreviated month name,
+                e.g. <c>"Jan"</c>, <c>"Feb"</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'h'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0068'</c>&lt;td&gt; Same as <c>'b'</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'A'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0041'</c>&lt;td&gt; Locale-specific full name of the java.text.DateFormatSymbols#getWeekdays day of the week,
+                e.g. <c>"Sunday"</c>, <c>"Monday"</c>&lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'a'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0061'</c>&lt;td&gt; Locale-specific short name of the java.text.DateFormatSymbols#getShortWeekdays day of the week,
+                e.g. <c>"Sun"</c>, <c>"Mon"</c>&lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'C'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0043'</c>&lt;td&gt; Four-digit year divided by <c>100</c>, formatted as two digits
+                with leading zero as necessary, i.e. <c>00 - 99</c>&lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'Y'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0059'</c>&lt;td&gt; Year, formatted to at least
+                four digits with leading zeros as necessary, e.g. <c>0092</c> equals
+                <c>92</c> CE for the Gregorian calendar.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'y'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0079'</c>&lt;td&gt; Last two digits of the year, formatted with leading zeros as
+                necessary, i.e. <c>00 - 99</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'j'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u006a'</c>&lt;td&gt; Day of year, formatted as three digits with leading zeros as
+                necessary, e.g. <c>001 - 366</c> for the Gregorian calendar.
+                <c>001</c> corresponds to the first day of the year.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'m'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u006d'</c>&lt;td&gt; Month, formatted as two digits with leading zeros as necessary,
+                i.e. <c>01 - 13</c>, where "<c>01</c>" is the first month of the
+                year and ("<c>13</c>" is a special value required to support lunar
+                calendars).
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'d'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0064'</c>&lt;td&gt; Day of month, formatted as two digits with leading zeros as
+                necessary, i.e. <c>01 - 31</c>, where "<c>01</c>" is the first day
+                of the month.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'e'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0065'</c>&lt;td&gt; Day of month, formatted as two digits, i.e. <c>1 - 31</c> where
+                "<c>1</c>" is the first day of the month.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>The following conversion characters are used for formatting common
+            date/time compositions.
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;composites&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'R'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0052'</c>&lt;td&gt; Time formatted for the 24-hour clock as <c>"%tH:%tM"</c>&lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'T'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0054'</c>&lt;td&gt; Time formatted for the 24-hour clock as <c>"%tH:%tM:%tS"</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'r'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0072'</c>&lt;td&gt; Time formatted for the 12-hour clock as <c>"%tI:%tM:%tS
+                %Tp"</c>.  The location of the morning or afternoon marker
+                (<c>'%Tp'</c>) may be locale-dependent.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'D'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0044'</c>&lt;td&gt; Date formatted as <c>"%tm/%td/%ty"</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'F'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0046'</c>&lt;td&gt; <see href="http://www.w3.org/TR/NOTE-datetime">ISO 8601</see>
+                complete date formatted as <c>"%tY-%tm-%td"</c>.
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'c'</c>&lt;td style="vertical-align:top"&gt; <c>'&amp;#92;u0063'</c>&lt;td&gt; Date and time formatted as <c>"%ta %tb %td %tT %tZ %tY"</c>,
+                e.g. <c>"Sun Jul 20 16:17:00 EDT 1969"</c>.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>The <c>'-'</c> flag defined for General
+            conversions applies.  If the <c>'#'</c> flag is given, then a <c>FormatFlagsConversionMismatchException</c> will be thrown.</para>
+      <para>The width is the minimum number of characters to
+            be written to the output.  If the length of the converted value is less than
+            the <c>width</c> then the output will be padded by spaces
+            (<c>'&amp;#92;u0020'</c>) until the total number of characters equals width.
+            The padding is on the left by default.  If the <c>'-'</c> flag is given
+            then the padding will be on the right.  If width is not specified then there
+            is no minimum.</para>
+      <para>The precision is not applicable.  If the precision is specified then an
+            <c>IllegalFormatPrecisionException</c> will be thrown.
+            
+            &lt;h4&gt;"dper"&gt;Percent&lt;/h4&gt;</para>
+      <para>The conversion does not correspond to any argument.
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;DTConv&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'%'</c>&lt;td&gt; The result is a literal <c>'%'</c> (<c>'&amp;#92;u0025'</c>)</para>
+      <para>The width is the minimum number of characters to
+            be written to the output including the <c>'%'</c>.  If the length of the
+            converted value is less than the <c>width</c> then the output will be
+            padded by spaces (<c>'&amp;#92;u0020'</c>) until the total number of
+            characters equals width.  The padding is on the left.  If width is not
+            specified then just the <c>'%'</c> is output.</para>
+      <para>The <c>'-'</c> flag defined for General
+            conversions applies.  If any other flags are provided, then a
+            <c>FormatFlagsConversionMismatchException</c> will be thrown.</para>
+      <para>The precision is not applicable.  If the precision is specified an
+            <c>IllegalFormatPrecisionException</c> will be thrown.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;
+            
+            &lt;h4&gt;"dls"&gt;Line Separator&lt;/h4&gt;</para>
+      <para>The conversion does not correspond to any argument.
+            
+            &lt;table class="striped"&gt;
+            &lt;caption style="display:none"&gt;DTConv&lt;/caption&gt;
+            &lt;tbody&gt;
+            
+            &lt;tr&gt;&lt;th scope="row" style="vertical-align:top"&gt;<c>'n'</c>&lt;td&gt; the platform-specific line separator as returned by <c>System#lineSeparator()</c>.
+            
+            &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>Flags, width, and precision are not applicable.  If any are provided an
+            <c>IllegalFormatFlagsException</c>, <c>IllegalFormatWidthException</c>,
+            and <c>IllegalFormatPrecisionException</c>, respectively will be thrown.
+            
+            &lt;h4&gt;"dpos"&gt;Argument Index&lt;/h4&gt;</para>
+      <para>Format specifiers can reference arguments in three ways:
+            
+            &lt;ul&gt;
+            
+            &lt;li&gt; <i>Explicit indexing</i> is used when the format specifier contains an
+            argument index.  The argument index is a decimal integer indicating the
+            position of the argument in the argument list.  The first argument is
+            referenced by "<c>1$</c>", the second by "<c>2$</c>", etc.  An argument
+            may be referenced more than once.</para>
+      <para>For example:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">formatter.format("%4$s %3$s %2$s %1$s %4$s %3$s %2$s %1$s",
+                               "a", "b", "c", "d")
+              // -&amp;gt; "d c b a d c b a"
+            </code>
+      <para>&lt;/blockquote&gt;
+            
+            &lt;li&gt; <i>Relative indexing</i> is used when the format specifier contains a
+            <c>'&lt;'</c> (<c>'&amp;#92;u003c'</c>) flag which causes the argument for
+            the previous format specifier to be re-used.  If there is no previous
+            argument, then a <c>MissingFormatArgumentException</c> is thrown.
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">formatter.format("%s %s %&amp;lt;s %&amp;lt;s", "a", "b", "c", "d")
+               // -&amp;gt; "a b b b"
+               // "c" and "d" are ignored because they are not referenced
+            </code>
+      <para>&lt;/blockquote&gt;
+            
+            &lt;li&gt; <i>Ordinary indexing</i> is used when the format specifier contains
+            neither an argument index nor a <c>'&lt;'</c> flag.  Each format specifier
+            which uses ordinary indexing is assigned a sequential implicit index into
+            argument list which is independent of the indices used by explicit or
+            relative indexing.
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">formatter.format("%s %s %s %s", "a", "b", "c", "d")
+              // -&amp;gt; "a b c d"
+            </code>
+      <para>&lt;/blockquote&gt;
+            
+            &lt;/ul&gt;</para>
+      <para>It is possible to have a format string which uses all forms of indexing,
+            for example:
+            
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">formatter.format("%2$s %s %&amp;lt;s %s", "a", "b", "c", "d")
+              // -&amp;gt; "b a a b"
+              // "c" and "d" are ignored because they are not referenced
+            </code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>The maximum number of arguments is limited by the maximum dimension of a
+            Java array as defined by
+            &lt;cite&gt;The Java&amp;trade; Virtual Machine Specification&lt;/cite&gt;.
+            If the argument index does not correspond to an
+            available argument, then a <c>MissingFormatArgumentException</c> is thrown.</para>
+      <para>If there are more arguments than format specifiers, the extra arguments
+            are ignored.</para>
+      <para>Unless otherwise specified, passing a <c>null</c> argument to any
+            method or constructor in this class will cause a <c>NullPointerException</c> to be thrown.</para>
+      <para>Added in 1.5.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/Formatter" title="Reference documentation">Java documentation for <code>java.util.Formatter</code>.</a>
@@ -56,8 +1434,8 @@
       <MemberSignature Language="DocId" Value="M:Java.Util.Formatter.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -69,6 +1447,12 @@
       <Docs>
         <summary>Constructs a new formatter.</summary>
         <remarks>
+          <para>Constructs a new formatter.</para>
+          <para>The destination of the formatted output is a <c>StringBuilder</c>
+            which may be retrieved by invoking <c>#out out()</c> and whose
+            current content may be converted into a string by invoking <c>#toString toString()</c>.  The locale used is the Locale#getDefault(Locale.Category) default locale for
+            Locale.Category#FORMAT formatting for this instance of the Java
+            virtual machine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter()" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter()</code>.</a>
@@ -90,8 +1474,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : Java.IO.File -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter file" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -109,6 +1493,12 @@
                     file and is buffered.</param>
         <summary>Constructs a new formatter with the specified file.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified file.</para>
+          <para>The charset used is the java.nio.charset.Charset#defaultCharset() default charset for this
+            instance of the Java virtual machine.</para>
+          <para>The locale used is the Locale#getDefault(Locale.Category) default locale for
+            Locale.Category#FORMAT formatting for this instance of the Java
+            virtual machine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.io.File)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.io.File)</code>.</a>
@@ -134,8 +1524,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : Java.IO.PrintStream -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter ps" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -150,6 +1540,13 @@
         <param name="ps">The stream to use as the destination of this formatter.</param>
         <summary>Constructs a new formatter with the specified print stream.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified print stream.</para>
+          <para>The locale used is the Locale#getDefault(Locale.Category) default locale for
+            Locale.Category#FORMAT formatting for this instance of the Java
+            virtual machine.</para>
+          <para>Characters are written to the given <c>java.io.PrintStream
+            PrintStream</c> object and are therefore encoded using that object's
+            charset.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.io.PrintStream)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.io.PrintStream)</code>.</a>
@@ -171,8 +1568,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : Java.Lang.IAppendable -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter a" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -188,6 +1585,10 @@
                     <c>null</c> then a <c>StringBuilder</c> will be created.</param>
         <summary>Constructs a new formatter with the specified destination.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified destination.</para>
+          <para>The locale used is the Locale#getDefault(Locale.Category) default locale for
+            Locale.Category#FORMAT formatting for this instance of the Java
+            virtual machine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.lang.Appendable)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.lang.Appendable)</code>.</a>
@@ -209,8 +1610,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : Java.Util.Locale -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter l" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -227,6 +1628,11 @@
                     is applied.</param>
         <summary>Constructs a new formatter with the specified locale.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified locale.</para>
+          <para>The destination of the formatted output is a <c>StringBuilder</c>
+            which may be retrieved by invoking <c>#out out()</c> and whose current
+            content may be converted into a string by invoking <c>#toString
+            toString()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.util.Locale)</code>.</a>
@@ -248,8 +1654,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : System.IO.Stream -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter os" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -265,6 +1671,12 @@
                     The output will be buffered.</param>
         <summary>Constructs a new formatter with the specified output stream.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified output stream.</para>
+          <para>The charset used is the java.nio.charset.Charset#defaultCharset() default charset for this
+            instance of the Java virtual machine.</para>
+          <para>The locale used is the Locale#getDefault(Locale.Category) default locale for
+            Locale.Category#FORMAT formatting for this instance of the Java
+            virtual machine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.io.OutputStream)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.io.OutputStream)</code>.</a>
@@ -286,8 +1698,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : string -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter fileName" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -305,6 +1717,12 @@
                     will be written to the file and is buffered.</param>
         <summary>Constructs a new formatter with the specified file name.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified file name.</para>
+          <para>The charset used is the java.nio.charset.Charset#defaultCharset() default charset for this
+            instance of the Java virtual machine.</para>
+          <para>The locale used is the Locale#getDefault(Locale.Category) default locale for
+            Locale.Category#FORMAT formatting for this instance of the Java
+            virtual machine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.lang.String)</code>.</a>
@@ -330,8 +1748,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : Java.IO.File * string -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter (file, csn)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -352,6 +1770,10 @@
                     charset</param>
         <summary>Constructs a new formatter with the specified file and charset.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified file and charset.</para>
+          <para>The locale used is the Locale#getDefault(Locale.Category) default locale for
+            Locale.Category#FORMAT formatting for this instance of the Java
+            virtual machine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.io.File,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.io.File, java.lang.String)</code>.</a>
@@ -378,8 +1800,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : Java.Lang.IAppendable * Java.Util.Locale -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter (a, l)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -399,6 +1821,7 @@
                     is applied.</param>
         <summary>Constructs a new formatter with the specified destination and locale.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified destination and locale.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.lang.Appendable,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.lang.Appendable, java.util.Locale)</code>.</a>
@@ -420,8 +1843,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : System.IO.Stream * string -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter (os, csn)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -441,6 +1864,11 @@
         <summary>Constructs a new formatter with the specified output stream and
             charset.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified output stream and
+            charset.</para>
+          <para>The locale used is the Locale#getDefault(Locale.Category) default locale for
+            Locale.Category#FORMAT formatting for this instance of the Java
+            virtual machine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.io.OutputStream,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.io.OutputStream, java.lang.String)</code>.</a>
@@ -464,8 +1892,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : string * string -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter (fileName, csn)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -486,6 +1914,10 @@
                     charset</param>
         <summary>Constructs a new formatter with the specified file name and charset.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified file name and charset.</para>
+          <para>The locale used is the Locale#getDefault(Locale.Category) default locale for
+            Locale.Category#FORMAT formatting for this instance of the Java
+            virtual machine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.lang.String, java.lang.String)</code>.</a>
@@ -506,14 +1938,66 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="C#" Value="public Formatter (Java.IO.File? file, Java.Nio.Charset.Charset? charset, Java.Util.Locale? l);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(class Java.IO.File file, class Java.Nio.Charset.Charset charset, class Java.Util.Locale l) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Util.Formatter.#ctor(Java.IO.File,Java.Nio.Charset.Charset,Java.Util.Locale)" />
+      <MemberSignature Language="F#" Value="new Java.Util.Formatter : Java.IO.File * Java.Nio.Charset.Charset * Java.Util.Locale -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter (file, charset, l)" />
+      <MemberType>Constructor</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/io/File;Ljava/nio/charset/Charset;Ljava/util/Locale;)V", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/io/File;Ljava/nio/charset/Charset;Ljava/util/Locale;)V", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <Parameters>
+        <Parameter Name="file" Type="Java.IO.File" />
+        <Parameter Name="charset" Type="Java.Nio.Charset.Charset" />
+        <Parameter Name="l" Type="Java.Util.Locale" />
+      </Parameters>
+      <Docs>
+        <param name="file">The file to use as the destination of this formatter.  If the
+                    file exists then it will be truncated to zero size; otherwise,
+                    a new file will be created.  The output will be written to the
+                    file and is buffered.</param>
+        <param name="charset">A java.nio.charset.Charset charset</param>
+        <param name="l">The java.util.Locale locale to apply during
+                    formatting.  If <c>l</c> is <c>null</c> then no localization
+                    is applied.</param>
+        <summary>Constructs a new formatter with the specified file, charset, and
+            locale.</summary>
+        <remarks>
+          <para>Constructs a new formatter with the specified file, charset, and
+            locale.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.io.File,%20java.nio.charset.Charset,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.io.File, java.nio.charset.Charset, java.util.Locale)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName=".ctor">
       <MemberSignature Language="C#" Value="public Formatter (Java.IO.File? file, string? csn, Java.Util.Locale? l);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(class Java.IO.File file, string csn, class Java.Util.Locale l) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Formatter.#ctor(Java.IO.File,System.String,Java.Util.Locale)" />
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : Java.IO.File * string * Java.Util.Locale -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter (file, csn, l)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -539,6 +2023,8 @@
         <summary>Constructs a new formatter with the specified file, charset, and
             locale.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified file, charset, and
+            locale.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.io.File,%20java.lang.String,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.io.File, java.lang.String, java.util.Locale)</code>.</a>
@@ -559,14 +2045,64 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="C#" Value="public Formatter (System.IO.Stream? os, Java.Nio.Charset.Charset? charset, Java.Util.Locale? l);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(class System.IO.Stream os, class Java.Nio.Charset.Charset charset, class Java.Util.Locale l) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Util.Formatter.#ctor(System.IO.Stream,Java.Nio.Charset.Charset,Java.Util.Locale)" />
+      <MemberSignature Language="F#" Value="new Java.Util.Formatter : System.IO.Stream * Java.Nio.Charset.Charset * Java.Util.Locale -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter (os, charset, l)" />
+      <MemberType>Constructor</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/io/OutputStream;Ljava/nio/charset/Charset;Ljava/util/Locale;)V", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/io/OutputStream;Ljava/nio/charset/Charset;Ljava/util/Locale;)V", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <Parameters>
+        <Parameter Name="os" Type="System.IO.Stream" />
+        <Parameter Name="charset" Type="Java.Nio.Charset.Charset" />
+        <Parameter Name="l" Type="Java.Util.Locale" />
+      </Parameters>
+      <Docs>
+        <param name="os">The output stream to use as the destination of this formatter.
+                    The output will be buffered.</param>
+        <param name="charset">A java.nio.charset.Charset charset</param>
+        <param name="l">The java.util.Locale locale to apply during
+                    formatting.  If <c>l</c> is <c>null</c> then no localization
+                    is applied.</param>
+        <summary>Constructs a new formatter with the specified output stream, charset,
+            and locale.</summary>
+        <remarks>
+          <para>Constructs a new formatter with the specified output stream, charset,
+            and locale.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.io.OutputStream,%20java.nio.charset.Charset,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.io.OutputStream, java.nio.charset.Charset, java.util.Locale)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName=".ctor">
       <MemberSignature Language="C#" Value="public Formatter (System.IO.Stream? os, string? csn, Java.Util.Locale? l);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(class System.IO.Stream os, string csn, class Java.Util.Locale l) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Formatter.#ctor(System.IO.Stream,System.String,Java.Util.Locale)" />
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : System.IO.Stream * string * Java.Util.Locale -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter (os, csn, l)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -590,6 +2126,8 @@
         <summary>Constructs a new formatter with the specified output stream, charset,
             and locale.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified output stream, charset,
+            and locale.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.io.OutputStream,%20java.lang.String,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.io.OutputStream, java.lang.String, java.util.Locale)</code>.</a>
@@ -607,14 +2145,66 @@
       </Docs>
     </Member>
     <Member MemberName=".ctor">
+      <MemberSignature Language="C#" Value="public Formatter (string? fileName, Java.Nio.Charset.Charset? charset, Java.Util.Locale? l);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(string fileName, class Java.Nio.Charset.Charset charset, class Java.Util.Locale l) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Java.Util.Formatter.#ctor(System.String,Java.Nio.Charset.Charset,Java.Util.Locale)" />
+      <MemberSignature Language="F#" Value="new Java.Util.Formatter : string * Java.Nio.Charset.Charset * Java.Util.Locale -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter (fileName, charset, l)" />
+      <MemberType>Constructor</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/lang/String;Ljava/nio/charset/Charset;Ljava/util/Locale;)V", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/lang/String;Ljava/nio/charset/Charset;Ljava/util/Locale;)V", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <Parameters>
+        <Parameter Name="fileName" Type="System.String" />
+        <Parameter Name="charset" Type="Java.Nio.Charset.Charset" />
+        <Parameter Name="l" Type="Java.Util.Locale" />
+      </Parameters>
+      <Docs>
+        <param name="fileName">The name of the file to use as the destination of this
+                    formatter.  If the file exists then it will be truncated to
+                    zero size; otherwise, a new file will be created.  The output
+                    will be written to the file and is buffered.</param>
+        <param name="charset">A java.nio.charset.Charset charset</param>
+        <param name="l">The java.util.Locale locale to apply during
+                    formatting.  If <c>l</c> is <c>null</c> then no localization
+                    is applied.</param>
+        <summary>Constructs a new formatter with the specified file name, charset, and
+            locale.</summary>
+        <remarks>
+          <para>Constructs a new formatter with the specified file name, charset, and
+            locale.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.lang.String,%20java.nio.charset.Charset,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.lang.String, java.nio.charset.Charset, java.util.Locale)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName=".ctor">
       <MemberSignature Language="C#" Value="public Formatter (string? fileName, string? csn, Java.Util.Locale? l);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig specialname rtspecialname instance void .ctor(string fileName, string csn, class Java.Util.Locale l) cil managed" />
       <MemberSignature Language="DocId" Value="M:Java.Util.Formatter.#ctor(System.String,System.String,Java.Util.Locale)" />
       <MemberSignature Language="F#" Value="new Java.Util.Formatter : string * string * Java.Util.Locale -&gt; Java.Util.Formatter" Usage="new Java.Util.Formatter (fileName, csn, l)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -640,6 +2230,8 @@
         <summary>Constructs a new formatter with the specified file name, charset, and
             locale.</summary>
         <remarks>
+          <para>Constructs a new formatter with the specified file name, charset, and
+            locale.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#Formatter(java.lang.String,%20java.lang.String,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.Formatter.Formatter(java.lang.String, java.lang.String, java.util.Locale)</code>.</a>
@@ -669,8 +2261,8 @@
         <InterfaceMember>M:Java.IO.ICloseable.Close</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -685,6 +2277,12 @@
       <Docs>
         <summary>Closes this formatter.</summary>
         <remarks>
+          <para>Closes this formatter.  If the destination implements the <c>java.io.Closeable</c> interface, its <c>close</c> method will be invoked.</para>
+          <para>Closing a formatter allows it to release resources it may be holding
+            (such as open files).  If the formatter is already closed, then invoking
+            this method has no effect.</para>
+          <para>Attempting to invoke any methods except <c>#ioException()</c> in
+            this formatter after it has been closed will result in a <c>FormatterClosedException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#close()" title="Reference documentation">Java documentation for <code>java.util.Formatter.close()</code>.</a>
@@ -709,8 +2307,8 @@
         <InterfaceMember>M:Java.IO.IFlushable.Flush</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -725,6 +2323,9 @@
       <Docs>
         <summary>Flushes this formatter.</summary>
         <remarks>
+          <para>Flushes this formatter.  If the destination implements the <c>java.io.Flushable</c> interface, its <c>flush</c> method will be invoked.</para>
+          <para>Flushing a formatter writes any buffered output in the destination
+            to the underlying stream.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#flush()" title="Reference documentation">Java documentation for <code>java.util.Formatter.flush()</code>.</a>
@@ -748,8 +2349,8 @@
       <MemberSignature Language="F#" Value="member this.Format : string * Java.Lang.Object[] -&gt; Java.Util.Formatter" Usage="formatter.Format (format, args)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -803,8 +2404,8 @@
       <MemberSignature Language="F#" Value="member this.Format : Java.Util.Locale * string * Java.Lang.Object[] -&gt; Java.Util.Formatter" Usage="formatter.Format (l, format, args)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -860,8 +2461,8 @@
       <MemberSignature Language="F#" Value="member this.IoException : unit -&gt; Java.IO.IOException" Usage="formatter.IoException " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -878,6 +2479,9 @@
         <returns>The last exception thrown by the Appendable or <c>null</c> if
                      no such exception exists.</returns>
         <remarks>
+          <para>Returns the <c>IOException</c> last thrown by this formatter's <c>Appendable</c>.</para>
+          <para>If the destination's <c>append()</c> method never throws
+            <c>IOException</c>, then this method will always return <c>null</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#ioException()" title="Reference documentation">Java documentation for <code>java.util.Formatter.ioException()</code>.</a>
@@ -933,8 +2537,8 @@
       <MemberSignature Language="F#" Value="member this.Locale : unit -&gt; Java.Util.Locale" Usage="formatter.Locale " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -952,6 +2556,9 @@
           <c>null</c> if no localization is applied, otherwise a
                      locale</returns>
         <remarks>
+          <para>Returns the locale set by the construction of this formatter.</para>
+          <para>The <c>#format(java.util.Locale,String,Object...) format</c> method
+            for this object which has a locale argument does not change this value.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#locale()" title="Reference documentation">Java documentation for <code>java.util.Formatter.locale()</code>.</a>
@@ -975,8 +2582,8 @@
       <MemberSignature Language="F#" Value="member this.Out : unit -&gt; Java.Lang.IAppendable" Usage="formatter.Out " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -992,6 +2599,7 @@
         <summary>Returns the destination for the output.</summary>
         <returns>The destination for the output</returns>
         <remarks>
+          <para>Returns the destination for the output.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/Formatter#out()" title="Reference documentation">Java documentation for <code>java.util.Formatter.out()</code>.</a>
@@ -1015,8 +2623,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Formatter.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1046,8 +2654,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Formatter.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

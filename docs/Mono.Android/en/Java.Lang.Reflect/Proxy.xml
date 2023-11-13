@@ -37,6 +37,173 @@
             dynamic proxy classes created by those methods.</summary>
     <remarks>
       <para>
+        <c>Proxy</c> provides static methods for creating dynamic proxy
+            classes and instances, and it is also the superclass of all
+            dynamic proxy classes created by those methods.</para>
+      <para>To create a proxy for some interface <c>Foo</c>:</para>
+      <code lang="text/java">InvocationHandler handler = new MyInvocationHandler(...);
+                Class&amp;lt;?&amp;gt; proxyClass = Proxy.getProxyClass(Foo.class.getClassLoader(), Foo.class);
+                Foo f = (Foo) proxyClass.getConstructor(InvocationHandler.class).
+                                newInstance(handler);
+            </code>
+      <para>or more simply:</para>
+      <code lang="text/java">Foo f = (Foo) Proxy.newProxyInstance(Foo.class.getClassLoader(),
+                                                     new Class&amp;lt;?&amp;gt;[] { Foo.class },
+                                                     handler);
+            </code>
+      <para>A <i>dynamic proxy class</i> (simply referred to as a <i>proxy
+            class</i> below) is a class that implements a list of interfaces
+            specified at runtime when the class is created, with behavior as
+            described below.
+            
+            A <i>proxy interface</i> is such an interface that is implemented
+            by a proxy class.
+            
+            A <i>proxy instance</i> is an instance of a proxy class.
+            
+            Each proxy instance has an associated <i>invocation handler</i>
+            object, which implements the interface <c>InvocationHandler</c>.
+            A method invocation on a proxy instance through one of its proxy
+            interfaces will be dispatched to the <c>InvocationHandler#invoke
+            invoke</c> method of the instance's invocation handler, passing the proxy
+            instance, a <c>java.lang.reflect.Method</c> object identifying
+            the method that was invoked, and an array of type <c>Object</c>
+            containing the arguments.  The invocation handler processes the
+            encoded method invocation as appropriate and the result that it
+            returns will be returned as the result of the method invocation on
+            the proxy instance.</para>
+      <para>A proxy class has the following properties:
+            
+            &lt;ul&gt;
+            &lt;li&gt;Proxy classes are &lt;em&gt;public, final, and not abstract&lt;/em&gt; if
+            all proxy interfaces are public.&lt;/li&gt;
+            
+            &lt;li&gt;Proxy classes are &lt;em&gt;non-public, final, and not abstract&lt;/em&gt; if
+            any of the proxy interfaces is non-public.&lt;/li&gt;
+            
+            &lt;li&gt;The unqualified name of a proxy class is unspecified.  The space
+            of class names that begin with the string <c>"$Proxy"</c>
+            should be, however, reserved for proxy classes.
+            
+            &lt;li&gt;A proxy class extends <c>java.lang.reflect.Proxy</c>.
+            
+            &lt;li&gt;A proxy class implements exactly the interfaces specified at its
+            creation, in the same order.
+            
+            &lt;li&gt;If a proxy class implements a non-public interface, then it will
+            be defined in the same package as that interface.  Otherwise, the
+            package of a proxy class is also unspecified.  Note that package
+            sealing will not prevent a proxy class from being successfully defined
+            in a particular package at runtime, and neither will classes already
+            defined by the same class loader and the same package with particular
+            signers.
+            
+            &lt;li&gt;Since a proxy class implements all of the interfaces specified at
+            its creation, invoking <c>getInterfaces</c> on its
+            <c>Class</c> object will return an array containing the same
+            list of interfaces (in the order specified at its creation), invoking
+            <c>getMethods</c> on its <c>Class</c> object will return
+            an array of <c>Method</c> objects that include all of the
+            methods in those interfaces, and invoking <c>getMethod</c> will
+            find methods in the proxy interfaces as would be expected.
+            
+            &lt;li&gt;The <c>Proxy#isProxyClass Proxy.isProxyClass</c> method will
+            return true if it is passed a proxy class-- a class returned by
+            <c>Proxy.getProxyClass</c> or the class of an object returned by
+            <c>Proxy.newProxyInstance</c>-- and false otherwise.
+            
+            &lt;li&gt;The <c>java.security.ProtectionDomain</c> of a proxy class
+            is the same as that of system classes loaded by the bootstrap class
+            loader, such as <c>java.lang.Object</c>, because the code for a
+            proxy class is generated by trusted system code.  This protection
+            domain will typically be granted
+            <c>java.security.AllPermission</c>.
+            
+            &lt;li&gt;Each proxy class has one public constructor that takes one argument,
+            an implementation of the interface <c>InvocationHandler</c>, to set
+            the invocation handler for a proxy instance.  Rather than having to use
+            the reflection API to access the public constructor, a proxy instance
+            can be also be created by calling the <c>Proxy#newProxyInstance
+            Proxy.newProxyInstance</c> method, which combines the actions of calling
+            <c>Proxy#getProxyClass Proxy.getProxyClass</c> with invoking the
+            constructor with an invocation handler.
+            &lt;/ul&gt;</para>
+      <para>A proxy instance has the following properties:
+            
+            &lt;ul&gt;
+            &lt;li&gt;Given a proxy instance <c>proxy</c> and one of the
+            interfaces implemented by its proxy class <c>Foo</c>, the
+            following expression will return true:</para>
+      <code lang="text/java">{@code proxy instanceof Foo}
+            </code>
+      <para>and the following cast operation will succeed (rather than throwing
+            a <c>ClassCastException</c>):</para>
+      <code lang="text/java">{@code (Foo) proxy}
+            </code>
+      <para>&lt;li&gt;Each proxy instance has an associated invocation handler, the one
+            that was passed to its constructor.  The static
+            <c>Proxy#getInvocationHandler Proxy.getInvocationHandler</c> method
+            will return the invocation handler associated with the proxy instance
+            passed as its argument.
+            
+            &lt;li&gt;An interface method invocation on a proxy instance will be
+            encoded and dispatched to the invocation handler's <c>InvocationHandler#invoke invoke</c> method as described in the
+            documentation for that method.
+            
+            &lt;li&gt;An invocation of the <c>hashCode</c>,
+            <c>equals</c>, or <c>toString</c> methods declared in
+            <c>java.lang.Object</c> on a proxy instance will be encoded and
+            dispatched to the invocation handler's <c>invoke</c> method in
+            the same manner as interface method invocations are encoded and
+            dispatched, as described above.  The declaring class of the
+            <c>Method</c> object passed to <c>invoke</c> will be
+            <c>java.lang.Object</c>.  Other public methods of a proxy
+            instance inherited from <c>java.lang.Object</c> are not
+            overridden by a proxy class, so invocations of those methods behave
+            like they do for instances of <c>java.lang.Object</c>.
+            &lt;/ul&gt;
+            
+            &lt;h3&gt;Methods Duplicated in Multiple Proxy Interfaces&lt;/h3&gt;</para>
+      <para>When two or more interfaces of a proxy class contain a method with
+            the same name and parameter signature, the order of the proxy class's
+            interfaces becomes significant.  When such a <i>duplicate method</i>
+            is invoked on a proxy instance, the <c>Method</c> object passed
+            to the invocation handler will not necessarily be the one whose
+            declaring class is assignable from the reference type of the interface
+            that the proxy's method was invoked through.  This limitation exists
+            because the corresponding method implementation in the generated proxy
+            class cannot determine which interface it was invoked through.
+            Therefore, when a duplicate method is invoked on a proxy instance,
+            the <c>Method</c> object for the method in the foremost interface
+            that contains the method (either directly or inherited through a
+            superinterface) in the proxy class's list of interfaces is passed to
+            the invocation handler's <c>invoke</c> method, regardless of the
+            reference type through which the method invocation occurred.</para>
+      <para>If a proxy interface contains a method with the same name and
+            parameter signature as the <c>hashCode</c>, <c>equals</c>,
+            or <c>toString</c> methods of <c>java.lang.Object</c>,
+            when such a method is invoked on a proxy instance, the
+            <c>Method</c> object passed to the invocation handler will have
+            <c>java.lang.Object</c> as its declaring class.  In other words,
+            the public, non-final methods of <c>java.lang.Object</c>
+            logically precede all of the proxy interfaces for the determination of
+            which <c>Method</c> object to pass to the invocation handler.</para>
+      <para>Note also that when a duplicate method is dispatched to an
+            invocation handler, the <c>invoke</c> method may only throw
+            checked exception types that are assignable to one of the exception
+            types in the <c>throws</c> clause of the method in <i>all</i> of
+            the proxy interfaces that it can be invoked through.  If the
+            <c>invoke</c> method throws a checked exception that is not
+            assignable to any of the exception types declared by the method in one
+            of the proxy interfaces that it can be invoked through, then an
+            unchecked <c>UndeclaredThrowableException</c> will be thrown by
+            the invocation on the proxy instance.  This restriction means that not
+            all of the exception types returned by invoking
+            <c>getExceptionTypes</c> on the <c>Method</c> object
+            passed to the <c>invoke</c> method can necessarily be thrown
+            successfully by the <c>invoke</c> method.</para>
+      <para>Added in 1.3.</para>
+      <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/lang/reflect/Proxy" title="Reference documentation">Java documentation for <code>java.lang.reflect.Proxy</code>.</a>
         </format>
@@ -57,8 +224,8 @@
       <MemberSignature Language="F#" Value="new Java.Lang.Reflect.Proxy : Java.Lang.Reflect.IInvocationHandler -&gt; Java.Lang.Reflect.Proxy" Usage="new Java.Lang.Reflect.Proxy h" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -75,6 +242,9 @@
             (typically, a dynamic proxy class) with the specified value
             for its invocation handler.</summary>
         <remarks>
+          <para>Constructs a new <c>Proxy</c> instance from a subclass
+            (typically, a dynamic proxy class) with the specified value
+            for its invocation handler.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/reflect/Proxy#Proxy(java.lang.reflect.InvocationHandler)" title="Reference documentation">Java documentation for <code>java.lang.reflect.Proxy.Proxy(java.lang.reflect.InvocationHandler)</code>.</a>
@@ -96,8 +266,8 @@
       <MemberSignature Language="F#" Value="new Java.Lang.Reflect.Proxy : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Lang.Reflect.Proxy" Usage="new Java.Lang.Reflect.Proxy (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -119,8 +289,8 @@
       <MemberSignature Language="F#" Value="static member GetInvocationHandler : Java.Lang.Object -&gt; Java.Lang.Reflect.IInvocationHandler" Usage="Java.Lang.Reflect.Proxy.GetInvocationHandler proxy" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -139,6 +309,7 @@
         <summary>Returns the invocation handler for the specified proxy instance.</summary>
         <returns>the invocation handler for the proxy instance</returns>
         <remarks>
+          <para>Returns the invocation handler for the specified proxy instance.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/reflect/Proxy#getInvocationHandler(java.lang.Object)" title="Reference documentation">Java documentation for <code>java.lang.reflect.Proxy.getInvocationHandler(java.lang.Object)</code>.</a>
@@ -162,8 +333,8 @@
       <MemberSignature Language="F#" Value="static member GetProxyClass : Java.Lang.ClassLoader * Java.Lang.Class[] -&gt; Java.Lang.Class" Usage="Java.Lang.Reflect.Proxy.GetProxyClass (loader, interfaces)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -214,8 +385,8 @@
       <MemberSignature Language="F#" Value="member this.H : Java.Lang.Reflect.IInvocationHandler with get, set" Usage="Java.Lang.Reflect.Proxy.H" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -230,6 +401,7 @@
         <summary>the invocation handler for this proxy instance.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>the invocation handler for this proxy instance.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/reflect/Proxy#h" title="Reference documentation">Java documentation for <code>java.lang.reflect.Proxy.h</code>.</a>
@@ -251,8 +423,8 @@
       <MemberSignature Language="F#" Value="static member IsProxyClass : Java.Lang.Class -&gt; bool" Usage="Java.Lang.Reflect.Proxy.IsProxyClass cl" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -275,6 +447,12 @@
           <c>true</c> if the class is a proxy class and
                      <c>false</c> otherwise</returns>
         <remarks>
+          <para>Returns true if and only if the specified class was dynamically
+            generated to be a proxy class using the <c>getProxyClass</c>
+            method or the <c>newProxyInstance</c> method.</para>
+          <para>The reliability of this method is important for the ability
+            to use it to make security decisions, so its implementation should
+            not just test if the class in question extends <c>Proxy</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/reflect/Proxy#isProxyClass(java.lang.Class%3C?%3E)" title="Reference documentation">Java documentation for <code>java.lang.reflect.Proxy.isProxyClass(java.lang.Class&lt;?&gt;)</code>.</a>
@@ -329,8 +507,8 @@
       <MemberSignature Language="F#" Value="static member NewProxyInstance : Java.Lang.ClassLoader * Java.Lang.Class[] * Java.Lang.Reflect.IInvocationHandler -&gt; Java.Lang.Object" Usage="Java.Lang.Reflect.Proxy.NewProxyInstance (loader, interfaces, h)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -358,6 +536,13 @@
                      proxy class that is defined by the specified class loader
                      and that implements the specified interfaces</returns>
         <remarks>
+          <para>Returns an instance of a proxy class for the specified interfaces
+            that dispatches method invocations to the specified invocation
+            handler.</para>
+          <para>
+            <c>Proxy.newProxyInstance</c> throws
+            <c>IllegalArgumentException</c> for the same reasons that
+            <c>Proxy.getProxyClass</c> does.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/reflect/Proxy#newProxyInstance(java.lang.ClassLoader,%20java.lang.Class%3C?%3E[],%20java.lang.reflect.InvocationHandler)" title="Reference documentation">Java documentation for <code>java.lang.reflect.Proxy.newProxyInstance(java.lang.ClassLoader, java.lang.Class&lt;?&gt;[], java.lang.reflect.InvocationHandler)</code>.</a>
@@ -378,8 +563,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Lang.Reflect.Proxy.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -409,8 +594,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Lang.Reflect.Proxy.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

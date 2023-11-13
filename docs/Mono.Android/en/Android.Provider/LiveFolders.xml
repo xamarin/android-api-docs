@@ -25,6 +25,155 @@
     <summary>A LiveFolder is a special folder whose content is provided by a
             <c>android.content.ContentProvider</c>.</summary>
     <remarks>
+      <para>A LiveFolder is a special folder whose content is provided by a
+            <c>android.content.ContentProvider</c>. To create a live folder, two components
+            are required:</para>
+      <para>&lt;ul&gt;
+             &lt;li&gt;An activity that can respond to the intent action <c>#ACTION_CREATE_LIVE_FOLDER</c>. The
+             activity is responsible for creating the live folder.&lt;/li&gt;
+             &lt;li&gt;A <c>android.content.ContentProvider</c> to provide the live folder items.&lt;/li&gt;
+            &lt;/ul&gt;
+            
+            &lt;h3&gt;Lifecycle&lt;/h3&gt;</para>
+      <para>When a user wants to create a live folder, the system looks for all activities with the
+            intent filter action <c>#ACTION_CREATE_LIVE_FOLDER</c> and presents the list to the user.
+            When the user chooses one of the activities, the activity is invoked with the
+            <c>#ACTION_CREATE_LIVE_FOLDER</c> action. The activity then creates the live folder and
+            passes it back to the system by setting it as an
+            <c>android.app.Activity#setResult(int, android.content.Intent) activity result</c>. The
+            live folder is described by a content provider URI, a name, an icon and a display mode.
+            Finally, when the user opens the live folder, the system queries the content provider
+            to retrieve the folder's content.</para>
+      <para>&lt;h3&gt;Setting up the live folder activity&lt;/h3&gt;</para>
+      <para>The following code sample shows how to write an activity that creates a live folder:</para>
+      <code lang="text/java">public static class MyLiveFolder extends Activity {
+                public static final Uri CONTENT_URI = Uri.parse("content://my.app/live");
+            
+                protected void onCreate(Bundle savedInstanceState) {
+                    super.onCreate(savedInstanceState);
+            
+                    final Intent intent = getIntent();
+                    final String action = intent.getAction();
+            
+                    if (LiveFolders.ACTION_CREATE_LIVE_FOLDER.equals(action)) {
+                        setResult(RESULT_OK, createLiveFolder(this, CONTENT_URI, "My LiveFolder",
+                                R.drawable.ic_launcher_contacts_phones));
+                    } else {
+                        setResult(RESULT_CANCELED);
+                    }
+            
+                    finish();
+                }
+            
+                private static Intent createLiveFolder(Context context, Uri uri, String name,
+                        int icon) {
+            
+                    final Intent intent = new Intent();
+            
+                    intent.setData(uri);
+                    intent.putExtra(LiveFolders.EXTRA_LIVE_FOLDER_NAME, name);
+                    intent.putExtra(LiveFolders.EXTRA_LIVE_FOLDER_ICON,
+                            Intent.ShortcutIconResource.fromContext(context, icon));
+                    intent.putExtra(LiveFolders.EXTRA_LIVE_FOLDER_DISPLAY_MODE, LiveFolders.DISPLAY_MODE_LIST);
+            
+                    return intent;
+                }
+            }
+            </code>
+      <para>The live folder is described by an <c>android.content.Intent</c> as follows:</para>
+      <para>&lt;table border="2" width="85%" align="center" frame="hsides" rules="rows"&gt;
+                &lt;thead&gt;
+                &lt;tr&gt;&lt;th&gt;Component&lt;/th&gt; &lt;th&gt;Type&lt;/th&gt; &lt;th&gt;Description&lt;/th&gt; &lt;th&gt;Required&lt;/th&gt;&lt;/tr&gt;
+                &lt;/thead&gt;
+            
+                &lt;tbody&gt;
+                &lt;tr&gt;&lt;th&gt;URI&lt;/th&gt;
+                    &lt;td&gt;URI&lt;/td&gt;
+                    &lt;td&gt;The ContentProvider URI&lt;/td&gt;
+                    &lt;td align="center"&gt;Yes&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;&lt;th&gt;<c>#EXTRA_LIVE_FOLDER_NAME</c>&lt;/th&gt;
+                    &lt;td&gt;Extra String&lt;/td&gt;
+                    &lt;td&gt;The name of the live folder&lt;/td&gt;
+                    &lt;td align="center"&gt;Yes&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;&lt;th&gt;<c>#EXTRA_LIVE_FOLDER_ICON</c>&lt;/th&gt;
+                    &lt;td&gt;Extra <c>android.content.Intent.ShortcutIconResource</c>&lt;/td&gt;
+                    &lt;td&gt;The icon of the live folder&lt;/td&gt;
+                    &lt;td align="center"&gt;Yes&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;&lt;th&gt;<c>#EXTRA_LIVE_FOLDER_DISPLAY_MODE</c>&lt;/th&gt;
+                    &lt;td&gt;Extra int&lt;/td&gt;
+                    &lt;td&gt;The display mode of the live folder. The value must be either
+                    <c>#DISPLAY_MODE_GRID</c> or <c>#DISPLAY_MODE_LIST</c>.&lt;/td&gt;
+                    &lt;td align="center"&gt;Yes&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;&lt;th&gt;<c>#EXTRA_LIVE_FOLDER_BASE_INTENT</c>&lt;/th&gt;
+                    &lt;td&gt;Extra Intent&lt;/td&gt;
+                    &lt;td&gt;When the user clicks an item inside a live folder, the system will either fire
+                    the intent associated with that item or, if present, the live folder's base intent
+                    with the id of the item appended to the base intent's URI.&lt;/td&gt;
+                    &lt;td align="center"&gt;No&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;/tbody&gt;
+            &lt;/table&gt;
+            
+            &lt;h3&gt;Setting up the content provider&lt;/h3&gt;</para>
+      <para>The live folder's content provider must, upon query, return a <c>android.database.Cursor</c>
+            whose columns match the following names:</para>
+      <para>&lt;table border="2" width="85%" align="center" frame="hsides" rules="rows"&gt;
+                &lt;thead&gt;
+                &lt;tr&gt;&lt;th&gt;Column&lt;/th&gt; &lt;th&gt;Type&lt;/th&gt; &lt;th&gt;Description&lt;/th&gt; &lt;th&gt;Required&lt;/th&gt;&lt;/tr&gt;
+                &lt;/thead&gt;
+            
+                &lt;tbody&gt;
+                &lt;tr&gt;&lt;th&gt;<c>#NAME</c>&lt;/th&gt;
+                    &lt;td&gt;String&lt;/td&gt;
+                    &lt;td&gt;The name of the item&lt;/td&gt;
+                    &lt;td align="center"&gt;Yes&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;&lt;th&gt;<c>#DESCRIPTION</c>&lt;/th&gt;
+                    &lt;td&gt;String&lt;/td&gt;
+                    &lt;td&gt;The description of the item. The description is ignored when the live folder's
+                    display mode is <c>#DISPLAY_MODE_GRID</c>.&lt;/td&gt;
+                    &lt;td align="center"&gt;No&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;&lt;th&gt;<c>#INTENT</c>&lt;/th&gt;
+                    &lt;td&gt;<c>android.content.Intent</c>&lt;/td&gt;
+                    &lt;td&gt;The intent to fire when the item is clicked. Ignored when the live folder defines
+                    a base intent.&lt;/td&gt;
+                    &lt;td align="center"&gt;No&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;&lt;th&gt;<c>#ICON_BITMAP</c>&lt;/th&gt;
+                    &lt;td&gt;Bitmap&lt;/td&gt;
+                    &lt;td&gt;The icon for the item. When this column value is not null, the values for the
+                    columns <c>#ICON_PACKAGE</c> and <c>#ICON_RESOURCE</c> must be null.&lt;/td&gt;
+                    &lt;td align="center"&gt;No&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;&lt;th&gt;<c>#ICON_PACKAGE</c>&lt;/th&gt;
+                    &lt;td&gt;String&lt;/td&gt;
+                    &lt;td&gt;The package of the item's icon. When this value is not null, the value for the
+                    column <c>#ICON_RESOURCE</c> must be specified and the value for the column
+                    <c>#ICON_BITMAP</c> must be null.&lt;/td&gt;
+                    &lt;td align="center"&gt;No&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;&lt;th&gt;<c>#ICON_RESOURCE</c>&lt;/th&gt;
+                    &lt;td&gt;String&lt;/td&gt;
+                    &lt;td&gt;The resource name of the item's icon. When this value is not null, the value for the
+                    column <c>#ICON_PACKAGE</c> must be specified and the value for the column
+                    <c>#ICON_BITMAP</c> must be null.&lt;/td&gt;
+                    &lt;td align="center"&gt;No&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>This member is deprecated. Live folders are no longer supported by Android.  These have been
+            replaced by the new
+            <see href="https://developer.android.com/guide/topics/appwidgets/index.html#collections">AppWidget Collection</see>
+            APIs introduced in <c>android.os.Build.VERSION_CODES#HONEYCOMB</c>.  These provide
+            all of the features of live folders plus many more.  The use of live folders is greatly
+            discouraged because of security issues they introduce -- publishing a live folder requires
+            making all data show for the live folder available to all applications with no
+            permissions protecting it.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/provider/LiveFolders" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders</code>.</a>
@@ -46,8 +195,8 @@
       <MemberSignature Language="F#" Value="val mutable ActionCreateLiveFolder : string" Usage="Android.Provider.LiveFolders.ActionCreateLiveFolder" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -65,6 +214,14 @@
       <Docs>
         <summary>Activity Action: Creates a live folder.</summary>
         <remarks>
+          <para>Activity Action: Creates a live folder.</para>
+          <para>Input: Nothing.</para>
+          <para>Output: An Intent representing the live folder. The intent must contain four
+            extras: EXTRA_LIVE_FOLDER_NAME (value: String),
+            EXTRA_LIVE_FOLDER_ICON (value: ShortcutIconResource),
+            EXTRA_LIVE_FOLDER_URI (value: String) and
+            EXTRA_LIVE_FOLDER_DISPLAY_MODE (value: int). The Intent can optionnally contain
+            EXTRA_LIVE_FOLDER_BASE_INTENT (value: Intent).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#ACTION_CREATE_LIVE_FOLDER" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.ACTION_CREATE_LIVE_FOLDER</code>.</a>
@@ -90,8 +247,8 @@
       <MemberSignature Language="F#" Value="val mutable Description : string" Usage="Android.Provider.LiveFolders.Description" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -109,6 +266,11 @@
       <Docs>
         <summary>Content provider column.</summary>
         <remarks>
+          <para>Content provider column.</para>
+          <para>Description of the live folder item. This value is ignored if the
+            live folder's display mode is <c>LiveFolders#DISPLAY_MODE_GRID</c>.</para>
+          <para>Optional.</para>
+          <para>Type: String.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#DESCRIPTION" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.DESCRIPTION</code>.</a>
@@ -131,8 +293,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraLiveFolderBaseIntent : string" Usage="Android.Provider.LiveFolders.ExtraLiveFolderBaseIntent" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -150,6 +312,7 @@
       <Docs>
         <summary>The name of the extra used to define the base Intent of a live folder.</summary>
         <remarks>
+          <para>The name of the extra used to define the base Intent of a live folder.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#EXTRA_LIVE_FOLDER_BASE_INTENT" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.EXTRA_LIVE_FOLDER_BASE_INTENT</code>.</a>
@@ -172,8 +335,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraLiveFolderDisplayMode : string" Usage="Android.Provider.LiveFolders.ExtraLiveFolderDisplayMode" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -191,6 +354,7 @@
       <Docs>
         <summary>The name of the extra used to define the display mode of a live folder.</summary>
         <remarks>
+          <para>The name of the extra used to define the display mode of a live folder.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#EXTRA_LIVE_FOLDER_DISPLAY_MODE" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.EXTRA_LIVE_FOLDER_DISPLAY_MODE</code>.</a>
@@ -213,8 +377,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraLiveFolderIcon : string" Usage="Android.Provider.LiveFolders.ExtraLiveFolderIcon" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -232,6 +396,7 @@
       <Docs>
         <summary>The name of the extra used to define the icon of a live folder.</summary>
         <remarks>
+          <para>The name of the extra used to define the icon of a live folder.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#EXTRA_LIVE_FOLDER_ICON" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.EXTRA_LIVE_FOLDER_ICON</code>.</a>
@@ -254,8 +419,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraLiveFolderName : string" Usage="Android.Provider.LiveFolders.ExtraLiveFolderName" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -273,6 +438,7 @@
       <Docs>
         <summary>The name of the extra used to define the name of a live folder.</summary>
         <remarks>
+          <para>The name of the extra used to define the name of a live folder.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#EXTRA_LIVE_FOLDER_NAME" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.EXTRA_LIVE_FOLDER_NAME</code>.</a>
@@ -295,8 +461,8 @@
       <MemberSignature Language="F#" Value="val mutable IconBitmap : string" Usage="Android.Provider.LiveFolders.IconBitmap" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -314,6 +480,10 @@
       <Docs>
         <summary>Content provider column.</summary>
         <remarks>
+          <para>Content provider column.</para>
+          <para>Icon of the live folder item, as a custom bitmap.</para>
+          <para>Optional.</para>
+          <para>Type: <c>android.graphics.Bitmap</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#ICON_BITMAP" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.ICON_BITMAP</code>.</a>
@@ -335,8 +505,8 @@
       <MemberSignature Language="F#" Value="val mutable IconPackage : string" Usage="Android.Provider.LiveFolders.IconPackage" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -354,6 +524,12 @@
       <Docs>
         <summary>Content provider column.</summary>
         <remarks>
+          <para>Content provider column.</para>
+          <para>Package where to find the icon of the live folder item. This value can be
+            obtained easily using
+            <c>android.content.Intent.ShortcutIconResource#fromContext(android.content.Context, int)</c>.</para>
+          <para>Optional.</para>
+          <para>Type: String.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#ICON_PACKAGE" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.ICON_PACKAGE</code>.</a>
@@ -376,8 +552,8 @@
       <MemberSignature Language="F#" Value="val mutable IconResource : string" Usage="Android.Provider.LiveFolders.IconResource" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -395,6 +571,11 @@
       <Docs>
         <summary>Content provider column.</summary>
         <remarks>
+          <para>Content provider column.</para>
+          <para>Resource name of the live folder item. This value can be obtained easily using
+            <c>android.content.Intent.ShortcutIconResource#fromContext(android.content.Context, int)</c>.</para>
+          <para>Optional.</para>
+          <para>Type: String.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#ICON_RESOURCE" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.ICON_RESOURCE</code>.</a>
@@ -417,8 +598,8 @@
       <MemberSignature Language="F#" Value="val mutable Intent : string" Usage="Android.Provider.LiveFolders.Intent" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -436,6 +617,10 @@
       <Docs>
         <summary>Content provider column.</summary>
         <remarks>
+          <para>Content provider column.</para>
+          <para>Intent of the live folder item.</para>
+          <para>Optional if the live folder has a base intent.</para>
+          <para>Type: <c>android.content.Intent</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#INTENT" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.INTENT</code>.</a>
@@ -489,8 +674,8 @@
       <MemberSignature Language="F#" Value="val mutable Name : string" Usage="Android.Provider.LiveFolders.Name" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -508,6 +693,10 @@
       <Docs>
         <summary>Content provider column.</summary>
         <remarks>
+          <para>Content provider column.</para>
+          <para>Name of the live folder item.</para>
+          <para>Required.</para>
+          <para>Type: String.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/LiveFolders#NAME" title="Reference documentation">Java documentation for <code>android.provider.LiveFolders.NAME</code>.</a>
@@ -529,8 +718,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Provider.LiveFolders.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -560,8 +749,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Provider.LiveFolders.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

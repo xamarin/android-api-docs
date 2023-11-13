@@ -20,6 +20,202 @@
   <Docs since="18">
     <summary>MediaMuxer facilitates muxing elementary streams.</summary>
     <remarks>
+      <para>MediaMuxer facilitates muxing elementary streams. Currently MediaMuxer supports MP4, Webm
+            and 3GP file as the output. It also supports muxing B-frames in MP4 since Android Nougat.</para>
+      <para>It is generally used like this:</para>
+      <code lang="text/java">MediaMuxer muxer = new MediaMuxer("temp.mp4", OutputFormat.MUXER_OUTPUT_MPEG_4);
+            // More often, the MediaFormat will be retrieved from MediaCodec.getOutputFormat()
+            // or MediaExtractor.getTrackFormat().
+            MediaFormat audioFormat = new MediaFormat(...);
+            MediaFormat videoFormat = new MediaFormat(...);
+            int audioTrackIndex = muxer.addTrack(audioFormat);
+            int videoTrackIndex = muxer.addTrack(videoFormat);
+            ByteBuffer inputBuffer = ByteBuffer.allocate(bufferSize);
+            boolean finished = false;
+            BufferInfo bufferInfo = new BufferInfo();
+            
+            muxer.start();
+            while(!finished) {
+              // getInputBuffer() will fill the inputBuffer with one frame of encoded
+              // sample from either MediaCodec or MediaExtractor, set isAudioSample to
+              // true when the sample is audio data, set up all the fields of bufferInfo,
+              // and return true if there are no more samples.
+              finished = getInputBuffer(inputBuffer, isAudioSample, bufferInfo);
+              if (!finished) {
+                int currentTrackIndex = isAudioSample ? audioTrackIndex : videoTrackIndex;
+                muxer.writeSampleData(currentTrackIndex, inputBuffer, bufferInfo);
+              }
+            };
+            muxer.stop();
+            muxer.release();
+            </code>
+      <para>&lt;h4&gt;Metadata Track&lt;/h4&gt;</para>
+      <para>Per-frame metadata carries information that correlates with video or audio to facilitate offline
+              processing. For example, gyro signals from the sensor can help video stabilization when doing
+              offline processing. Metadata tracks are only supported when multiplexing to the MP4 container
+              format. When adding a new metadata track, the MIME type format must start with prefix
+              "application/" (for example, "application/gyro"). The format of the metadata is
+              application-defined. Metadata timestamps must be in the same time base as video and audio
+              timestamps. The generated MP4 file uses TextMetaDataSampleEntry (defined in section 12.3.3.2 of
+              the ISOBMFF specification) to signal the metadata's MIME type.</para>
+      <code lang="text/java">MediaMuxer muxer = new MediaMuxer("temp.mp4", OutputFormat.MUXER_OUTPUT_MPEG_4);
+               // SetUp Video/Audio Tracks.
+               MediaFormat audioFormat = new MediaFormat(...);
+               MediaFormat videoFormat = new MediaFormat(...);
+               int audioTrackIndex = muxer.addTrack(audioFormat);
+               int videoTrackIndex = muxer.addTrack(videoFormat);
+            
+               // Setup Metadata Track
+               MediaFormat metadataFormat = new MediaFormat(...);
+               metadataFormat.setString(KEY_MIME, "application/gyro");
+               int metadataTrackIndex = muxer.addTrack(metadataFormat);
+            
+               muxer.start();
+               while(..) {
+                   // Allocate bytebuffer and write gyro data(x,y,z) into it.
+                   ByteBuffer metaData = ByteBuffer.allocate(bufferSize);
+                   metaData.putFloat(x);
+                   metaData.putFloat(y);
+                   metaData.putFloat(z);
+                   BufferInfo metaInfo = new BufferInfo();
+                   // Associate this metadata with the video frame by setting
+                   // the same timestamp as the video frame.
+                   metaInfo.presentationTimeUs = currentVideoTrackTimeUs;
+                   metaInfo.offset = 0;
+                   metaInfo.flags = 0;
+                   metaInfo.size = bufferSize;
+                   muxer.writeSampleData(metadataTrackIndex, metaData, metaInfo);
+               };
+               muxer.stop();
+               muxer.release();
+             }</code>
+      <para>&lt;h2 id=History&gt;"History"&gt;Features and API History&lt;/h2&gt;</para>
+      <para>The following table summarizes the feature support in different API version and containers.
+             For API version numbers, see <c>android.os.Build.VERSION_CODES</c>.
+            
+             &lt;style&gt;
+             .api &gt; tr &gt; th, .api &gt; tr &gt; td { text-align: center; padding: 4px 4px; }
+             .api &gt; tr &gt; th     { vertical-align: bottom; }
+             .api &gt; tr &gt; td     { vertical-align: middle; }
+             .sml &gt; tr &gt; th, .sml &gt; tr &gt; td { text-align: center; padding: 2px 4px; }
+             .fn { text-align: center; }&lt;/style&gt;
+            
+             &lt;table align="right" style="width: 0%"&gt;
+              &lt;thead&gt;
+               &lt;tbody class=api&gt;
+                &lt;tr&gt;&lt;th&gt;Symbol&lt;/th&gt;
+                &lt;th&gt;Meaning&lt;/th&gt;&lt;/tr&gt;
+               &lt;/tbody&gt;
+              &lt;/thead&gt;
+              &lt;tbody class=sml&gt;
+               &lt;tr&gt;&lt;td&gt;&amp;#9679;&lt;/td&gt;&lt;td&gt;Supported&lt;/td&gt;&lt;/tr&gt;
+               &lt;tr&gt;&lt;td&gt;&amp;#9675;&lt;/td&gt;&lt;td&gt;Not supported&lt;/td&gt;&lt;/tr&gt;
+               &lt;tr&gt;&lt;td&gt;&amp;#9639;&lt;/td&gt;&lt;td&gt;Supported in MP4/WebM/3GP&lt;/td&gt;&lt;/tr&gt;
+               &lt;tr&gt;&lt;td&gt;&amp;#8277;&lt;/td&gt;&lt;td&gt;Only Supported in MP4&lt;/td&gt;&lt;/tr&gt;
+              &lt;/tbody&gt;
+             &lt;/table&gt;
+            &lt;table align="center" style="width: 100%;"&gt;
+              &lt;thead class=api&gt;
+               &lt;tr&gt;
+                &lt;th rowspan=2&gt;Feature&lt;/th&gt;
+                &lt;th colspan="24"&gt;SDK Version&lt;/th&gt;
+               &lt;/tr&gt;
+               &lt;tr&gt;
+                &lt;th&gt;18&lt;/th&gt;
+                &lt;th&gt;19&lt;/th&gt;
+                &lt;th&gt;20&lt;/th&gt;
+                &lt;th&gt;21&lt;/th&gt;
+                &lt;th&gt;22&lt;/th&gt;
+                &lt;th&gt;23&lt;/th&gt;
+                &lt;th&gt;24&lt;/th&gt;
+                &lt;th&gt;25&lt;/th&gt;
+                &lt;th&gt;26+&lt;/th&gt;
+               &lt;/tr&gt;
+              &lt;/thead&gt;
+             &lt;tbody class=api&gt;
+               &lt;tr&gt;
+                &lt;td align="center"&gt;MP4 container&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+               &lt;/tr&gt;
+                &lt;td align="center"&gt;WebM container&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+               &lt;/tr&gt;
+                &lt;td align="center"&gt;3GP container&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9679;&lt;/td&gt;
+               &lt;/tr&gt;
+                &lt;td align="center"&gt;Muxing B-Frames(bi-directional predicted frames)&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#8277;&lt;/td&gt;
+                &lt;td&gt;&amp;#8277;&lt;/td&gt;
+                &lt;td&gt;&amp;#8277;&lt;/td&gt;
+               &lt;/tr&gt;
+               &lt;/tr&gt;
+                &lt;td align="center"&gt;Muxing Single Video/Audio Track&lt;/td&gt;
+                &lt;td&gt;&amp;#9639;&lt;/td&gt;
+                &lt;td&gt;&amp;#9639;&lt;/td&gt;
+                &lt;td&gt;&amp;#9639;&lt;/td&gt;
+                &lt;td&gt;&amp;#9639;&lt;/td&gt;
+                &lt;td&gt;&amp;#9639;&lt;/td&gt;
+                &lt;td&gt;&amp;#9639;&lt;/td&gt;
+                &lt;td&gt;&amp;#9639;&lt;/td&gt;
+                &lt;td&gt;&amp;#9639;&lt;/td&gt;
+                &lt;td&gt;&amp;#9639;&lt;/td&gt;
+               &lt;/tr&gt;
+               &lt;/tr&gt;
+                &lt;td align="center"&gt;Muxing Multiple Video/Audio Tracks&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#8277;&lt;/td&gt;
+               &lt;/tr&gt;
+               &lt;/tr&gt;
+                &lt;td align="center"&gt;Muxing Metadata Tracks&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#9675;&lt;/td&gt;
+                &lt;td&gt;&amp;#8277;&lt;/td&gt;
+               &lt;/tr&gt;
+               &lt;/tbody&gt;
+             &lt;/table&gt;</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/media/MediaMuxer" title="Reference documentation">Java documentation for <code>android.media.MediaMuxer</code>.</a>
@@ -49,6 +245,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/io/FileDescriptor;I)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/io/FileDescriptor;I)V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters>
         <Parameter Name="fd" Type="Java.IO.FileDescriptor" />
@@ -62,10 +262,17 @@
         </Parameter>
       </Parameters>
       <Docs>
-        <param name="fd">The FileDescriptor of the output media file.</param>
+        <param name="fd">The FileDescriptor of the output media file. If <c>format</c> is
+            <c>OutputFormat#MUXER_OUTPUT_WEBM</c>, <c>fd</c> must be open in read-write mode.
+            Otherwise, write mode is sufficient, but read-write is also accepted.</param>
         <param name="format">The format of the output media file.</param>
-        <summary>Constructor.</summary>
+        <summary>Creates a media muxer that writes to the specified FileDescriptor.</summary>
         <remarks>
+          <para>Creates a media muxer that writes to the specified FileDescriptor.</para>
+          <para>The caller must not use the file referenced by the specified <c>fd</c> before calling
+            <c>#stop</c>.</para>
+          <para>It is the caller's responsibility to close the file descriptor, which is safe to do so
+            as soon as this call returns.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaMuxer#MediaMuxer(java.io.FileDescriptor,%20int)" title="Reference documentation">Java documentation for <code>android.media.MediaMuxer.MediaMuxer(java.io.FileDescriptor, int)</code>.</a>
@@ -86,8 +293,8 @@
       <MemberSignature Language="F#" Value="new Android.Media.MediaMuxer : string * Android.Media.MuxerOutputType -&gt; Android.Media.MediaMuxer" Usage="new Android.Media.MediaMuxer (path, format)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -109,8 +316,10 @@
       <Docs>
         <param name="path">The path of the output media file.</param>
         <param name="format">The format of the output media file.</param>
-        <summary>Constructor.</summary>
+        <summary>Creates a media muxer that writes to the specified path.</summary>
         <remarks>
+          <para>Creates a media muxer that writes to the specified path.</para>
+          <para>The caller must not use the file <c>path</c> before calling <c>#stop</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaMuxer#MediaMuxer(java.lang.String,%20int)" title="Reference documentation">Java documentation for <code>android.media.MediaMuxer.MediaMuxer(java.lang.String, int)</code>.</a>
@@ -134,8 +343,8 @@
       <MemberSignature Language="F#" Value="member this.AddTrack : Android.Media.MediaFormat -&gt; int" Usage="mediaMuxer.AddTrack format" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -156,6 +365,118 @@
         <returns>The track index for this newly added track, and it should be used
             in the <c>#writeSampleData</c>.</returns>
         <remarks>
+          <para>Adds a track with the specified format.</para>
+          <para>The following table summarizes support for specific format keys across android releases.
+            Keys marked with '+:' are required.
+            
+            &lt;table style="width: 0%"&gt;
+             &lt;thead&gt;
+              &lt;tr&gt;
+               &lt;th rowspan=2&gt;OS Version(s)&lt;/th&gt;
+               &lt;td colspan=3&gt;<c>MediaFormat</c> keys used for&lt;/th&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;th&gt;All Tracks&lt;/th&gt;
+               &lt;th&gt;Audio Tracks&lt;/th&gt;
+               &lt;th&gt;Video Tracks&lt;/th&gt;
+              &lt;/tr&gt;
+             &lt;/thead&gt;
+             &lt;tbody&gt;
+              &lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#JELLY_BEAN_MR2</c>&lt;/td&gt;
+               &lt;td rowspan=7&gt;+: <c>MediaFormat#KEY_MIME</c>&lt;/td&gt;
+               &lt;td rowspan=3&gt;+: <c>MediaFormat#KEY_SAMPLE_RATE</c>,&lt;br&gt;
+                   +: <c>MediaFormat#KEY_CHANNEL_COUNT</c>,&lt;br&gt;
+                   +: &lt;strong&gt;codec-specific data&lt;sup&gt;AAC&lt;/sup&gt;&lt;/strong&gt;&lt;/td&gt;
+               &lt;td rowspan=5&gt;+: <c>MediaFormat#KEY_WIDTH</c>,&lt;br&gt;
+                   +: <c>MediaFormat#KEY_HEIGHT</c>,&lt;br&gt;
+                   no <c>KEY_ROTATION</c>,
+                   use <c>#setOrientationHint setOrientationHint()</c>&lt;sup&gt;.mp4&lt;/sup&gt;,&lt;br&gt;
+                   +: &lt;strong&gt;codec-specific data&lt;sup&gt;AVC, MPEG4&lt;/sup&gt;&lt;/strong&gt;&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#KITKAT</c>&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#KITKAT_WATCH</c>&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#LOLLIPOP</c>&lt;/td&gt;
+               &lt;td rowspan=4&gt;as above, plus&lt;br&gt;
+                   +: &lt;strong&gt;codec-specific data&lt;sup&gt;Vorbis &amp; .webm&lt;/sup&gt;&lt;/strong&gt;&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#LOLLIPOP_MR1</c>&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#M</c>&lt;/td&gt;
+               &lt;td&gt;as above, plus&lt;br&gt;
+                   <c>MediaFormat#KEY_BIT_RATE</c>&lt;sup&gt;AAC&lt;/sup&gt;&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#N</c>&lt;/td&gt;
+               &lt;td&gt;as above, plus&lt;br&gt;
+                   &lt;!-- {link MediaFormat#KEY_MAX_BIT_RATE}&lt;sup&gt;AAC, MPEG4&lt;/sup&gt;,&lt;br&gt; --&gt;
+                   <c>MediaFormat#KEY_BIT_RATE</c>&lt;sup&gt;MPEG4&lt;/sup&gt;,&lt;br&gt;
+                   <c>MediaFormat#KEY_HDR_STATIC_INFO</c>&lt;sup&gt;#, .webm&lt;/sup&gt;,&lt;br&gt;
+                   <c>MediaFormat#KEY_COLOR_STANDARD</c>&lt;sup&gt;#&lt;/sup&gt;,&lt;br&gt;
+                   <c>MediaFormat#KEY_COLOR_TRANSFER</c>&lt;sup&gt;#&lt;/sup&gt;,&lt;br&gt;
+                   <c>MediaFormat#KEY_COLOR_RANGE</c>&lt;sup&gt;#&lt;/sup&gt;,&lt;br&gt;
+                   +: &lt;strong&gt;codec-specific data&lt;sup&gt;HEVC&lt;/sup&gt;&lt;/strong&gt;,&lt;br&gt;
+                   codec-specific data&lt;sup&gt;VP9&lt;/sup&gt;&lt;/td&gt;
+              &lt;/tr&gt;
+              &lt;tr&gt;
+               &lt;td colspan=4&gt;
+                &lt;p class=note&gt;&lt;strong&gt;Notes:&lt;/strong&gt;&lt;br&gt;
+                 #: storing into container metadata.&lt;br&gt;
+                 .mp4, .webm&amp;hellip;: for listed containers&lt;br&gt;
+                 MPEG4, AAC&amp;hellip;: for listed codecs
+               &lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td colspan=4&gt;
+                &lt;p class=note&gt;Note that the codec-specific data for the track must be specified using
+                this method. Furthermore, codec-specific data must not be passed/specified via the
+                <c>#writeSampleData writeSampleData()</c> call.
+               &lt;/td&gt;
+              &lt;/tr&gt;
+             &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+          <para>The following table summarizes codec support for containers across android releases:
+            
+            &lt;table style="width: 0%"&gt;
+             &lt;thead&gt;
+              &lt;tr&gt;
+               &lt;th rowspan=2&gt;OS Version(s)&lt;/th&gt;
+               &lt;td colspan=3&gt;Codec support&lt;/th&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;th&gt;OutputFormat#MUXER_OUTPUT_MPEG_4 MP4&lt;/th&gt;
+               &lt;th&gt;OutputFormat#MUXER_OUTPUT_WEBM WEBM&lt;/th&gt;
+              &lt;/tr&gt;
+             &lt;/thead&gt;
+             &lt;tbody&gt;
+              &lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#JELLY_BEAN_MR2</c>&lt;/td&gt;
+               &lt;td rowspan=6&gt;<c>MediaFormat#MIMETYPE_AUDIO_AAC AAC</c>,&lt;br&gt;
+                   <c>MediaFormat#MIMETYPE_AUDIO_AMR_NB NB-AMR</c>,&lt;br&gt;
+                   <c>MediaFormat#MIMETYPE_AUDIO_AMR_WB WB-AMR</c>,&lt;br&gt;
+                   <c>MediaFormat#MIMETYPE_VIDEO_H263 H.263</c>,&lt;br&gt;
+                   <c>MediaFormat#MIMETYPE_VIDEO_MPEG4 MPEG-4</c>,&lt;br&gt;
+                   <c>MediaFormat#MIMETYPE_VIDEO_AVC AVC</c> (H.264)&lt;/td&gt;
+               &lt;td rowspan=3&gt;Not supported&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#KITKAT</c>&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#KITKAT_WATCH</c>&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#LOLLIPOP</c>&lt;/td&gt;
+               &lt;td rowspan=3&gt;<c>MediaFormat#MIMETYPE_AUDIO_VORBIS Vorbis</c>,&lt;br&gt;
+                   <c>MediaFormat#MIMETYPE_VIDEO_VP8 VP8</c>&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#LOLLIPOP_MR1</c>&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#M</c>&lt;/td&gt;
+              &lt;/tr&gt;&lt;tr&gt;
+               &lt;td&gt;<c>android.os.Build.VERSION_CODES#N</c>&lt;/td&gt;
+               &lt;td&gt;as above, plus&lt;br&gt;
+                   <c>MediaFormat#MIMETYPE_VIDEO_HEVC HEVC</c> (H.265)&lt;/td&gt;
+               &lt;td&gt;as above, plus&lt;br&gt;
+                   <c>MediaFormat#MIMETYPE_VIDEO_VP9 VP9</c>&lt;/td&gt;
+              &lt;/tr&gt;
+             &lt;/tbody&gt;
+            &lt;/table&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaMuxer#addTrack(android.media.MediaFormat)" title="Reference documentation">Java documentation for <code>android.media.MediaMuxer.addTrack(android.media.MediaFormat)</code>.</a>
@@ -208,8 +529,8 @@
       <MemberSignature Language="F#" Value="member this.Release : unit -&gt; unit" Usage="mediaMuxer.Release " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -226,6 +547,9 @@
             instead of relying on the garbage collector to do this for you at
             some point in the future.</summary>
         <remarks>
+          <para>Make sure you call this when you're done to free up any resources
+            instead of relying on the garbage collector to do this for you at
+            some point in the future.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaMuxer#release()" title="Reference documentation">Java documentation for <code>android.media.MediaMuxer.release()</code>.</a>
@@ -247,8 +571,8 @@
       <MemberSignature Language="F#" Value="member this.SetLocation : single * single -&gt; unit" Usage="mediaMuxer.SetLocation (latitude, longitude)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -270,6 +594,11 @@
             [-180, 180].</param>
         <summary>Set and store the geodata (latitude and longitude) in the output file.</summary>
         <remarks>
+          <para>Set and store the geodata (latitude and longitude) in the output file.
+            This method should be called before <c>#start</c>. The geodata is stored
+            in udta box if the output format is
+            <c>OutputFormat#MUXER_OUTPUT_MPEG_4</c>, and is ignored for other output
+            formats. The geodata is stored according to ISO-6709 standard.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaMuxer#setLocation(float,%20float)" title="Reference documentation">Java documentation for <code>android.media.MediaMuxer.setLocation(float, float)</code>.</a>
@@ -295,8 +624,8 @@
       <MemberSignature Language="F#" Value="member this.SetOrientationHint : int -&gt; unit" Usage="mediaMuxer.SetOrientationHint degrees" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -315,6 +644,15 @@
             The supported angles are 0, 90, 180, and 270 degrees.</param>
         <summary>Sets the orientation hint for output video playback.</summary>
         <remarks>
+          <para>Sets the orientation hint for output video playback.</para>
+          <para>This method should be called before <c>#start</c>. Calling this
+            method will not rotate the video frame when muxer is generating the file,
+            but add a composition matrix containing the rotation angle in the output
+            video if the output format is
+            <c>OutputFormat#MUXER_OUTPUT_MPEG_4</c> so that a video player can
+            choose the proper orientation for playback. Note that some video players
+            may choose to ignore the composition matrix in a video during playback.
+            By default, the rotation degree is 0.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaMuxer#setOrientationHint(int)" title="Reference documentation">Java documentation for <code>android.media.MediaMuxer.setOrientationHint(int)</code>.</a>
@@ -336,8 +674,8 @@
       <MemberSignature Language="F#" Value="member this.Start : unit -&gt; unit" Usage="mediaMuxer.Start " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -352,6 +690,9 @@
       <Docs>
         <summary>Starts the muxer.</summary>
         <remarks>
+          <para>Starts the muxer.</para>
+          <para>Make sure this is called after <c>#addTrack</c> and before
+            <c>#writeSampleData</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaMuxer#start()" title="Reference documentation">Java documentation for <code>android.media.MediaMuxer.start()</code>.</a>
@@ -373,8 +714,8 @@
       <MemberSignature Language="F#" Value="member this.Stop : unit -&gt; unit" Usage="mediaMuxer.Stop " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -389,6 +730,8 @@
       <Docs>
         <summary>Stops the muxer.</summary>
         <remarks>
+          <para>Stops the muxer.</para>
+          <para>Once the muxer stops, it can not be restarted.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaMuxer#stop()" title="Reference documentation">Java documentation for <code>android.media.MediaMuxer.stop()</code>.</a>
@@ -410,8 +753,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Media.MediaMuxer.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -441,8 +784,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Media.MediaMuxer.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -472,8 +815,8 @@
       <MemberSignature Language="F#" Value="member this.WriteSampleData : int * Java.Nio.ByteBuffer * Android.Media.MediaCodec.BufferInfo -&gt; unit" Usage="mediaMuxer.WriteSampleData (trackIndex, byteBuf, bufferInfo)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

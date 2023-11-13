@@ -21,6 +21,194 @@
     <summary>Constants for the contacts table, which contains a record per aggregate
             of raw contacts representing the same person.</summary>
     <remarks>
+      <para>Constants for the contacts table, which contains a record per aggregate
+            of raw contacts representing the same person.
+            &lt;h3&gt;Operations&lt;/h3&gt;
+            &lt;dl&gt;
+            &lt;dt&gt;&lt;b&gt;Insert&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;A Contact cannot be created explicitly. When a raw contact is
+            inserted, the provider will first try to find a Contact representing the
+            same person. If one is found, the raw contact's
+            <c>RawContacts#CONTACT_ID</c> column gets the _ID of the aggregate
+            Contact. If no match is found, the provider automatically inserts a new
+            Contact and puts its _ID into the <c>RawContacts#CONTACT_ID</c> column
+            of the newly inserted raw contact.&lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Update&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;Only certain columns of Contact are modifiable:
+            <c>#STARRED</c>, <c>#CUSTOM_RINGTONE</c>, <c>#SEND_TO_VOICEMAIL</c>. Changing any of
+            these columns on the Contact also changes them on all constituent raw
+            contacts.&lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Delete&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;Be careful with deleting Contacts! Deleting an aggregate contact
+            deletes all constituent raw contacts. The corresponding sync adapters
+            will notice the deletions of their respective raw contacts and remove
+            them from their back end storage.&lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Query&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;
+            &lt;ul&gt;
+            &lt;li&gt;If you need to read an individual contact, consider using
+            <c>#CONTENT_LOOKUP_URI</c> instead of <c>#CONTENT_URI</c>.&lt;/li&gt;
+            &lt;li&gt;If you need to look up a contact by the phone number, use
+            <c>PhoneLookup#CONTENT_FILTER_URI PhoneLookup.CONTENT_FILTER_URI</c>,
+            which is optimized for this purpose.&lt;/li&gt;
+            &lt;li&gt;If you need to look up a contact by partial name, e.g. to produce
+            filter-as-you-type suggestions, use the <c>#CONTENT_FILTER_URI</c> URI.
+            &lt;li&gt;If you need to look up a contact by some data element like email
+            address, nickname, etc, use a query against the <c>ContactsContract.Data</c> table.
+            The result will contain contact ID, name etc.
+            &lt;/ul&gt;
+            &lt;/dd&gt;
+            &lt;/dl&gt;
+            &lt;h2&gt;Columns&lt;/h2&gt;
+            &lt;table class="jd-sumtable"&gt;
+            &lt;tr&gt;
+            &lt;th colspan='4'&gt;Contacts&lt;/th&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#_ID</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;Row ID. Consider using <c>#LOOKUP_KEY</c> instead.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#LOOKUP_KEY</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;An opaque value that contains hints on how to find the contact if its
+            row id changed as a result of a sync or aggregation.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;NAME_RAW_CONTACT_ID&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The ID of the raw contact that contributes the display name
+            to the aggregate contact. During aggregation one of the constituent
+            raw contacts is chosen using a heuristic: a longer name or a name
+            with more diacritic marks or more upper case characters is chosen.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;DISPLAY_NAME_PRIMARY&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The display name for the contact. It is the display name
+            contributed by the raw contact referred to by the NAME_RAW_CONTACT_ID
+            column.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#PHOTO_ID</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;Reference to the row in the <c>ContactsContract.Data</c> table holding the photo.
+            That row has the mime type
+            <c>CommonDataKinds.Photo#CONTENT_ITEM_TYPE</c>. The value of this field
+            is computed automatically based on the
+            <c>CommonDataKinds.Photo#IS_SUPER_PRIMARY</c> field of the data rows of
+            that mime type.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#PHOTO_URI</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;A URI that can be used to retrieve the contact's full-size photo. This
+            column is the preferred method of retrieving the contact photo.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#PHOTO_THUMBNAIL_URI</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;A URI that can be used to retrieve the thumbnail of contact's photo.  This
+            column is the preferred method of retrieving the contact photo.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#IN_VISIBLE_GROUP</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;An indicator of whether this contact is supposed to be visible in the
+            UI. "1" if the contact has at least one raw contact that belongs to a
+            visible group; "0" otherwise.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#HAS_PHONE_NUMBER</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;An indicator of whether this contact has at least one phone number.
+            "1" if there is at least one phone number, "0" otherwise.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#STARRED</c>&lt;/td&gt;
+            &lt;td&gt;read/write&lt;/td&gt;
+            &lt;td&gt;An indicator for favorite contacts: '1' if favorite, '0' otherwise.
+            When raw contacts are aggregated, this field is automatically computed:
+            if any constituent raw contacts are starred, then this field is set to
+            '1'. Setting this field automatically changes the corresponding field on
+            all constituent raw contacts.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#CUSTOM_RINGTONE</c>&lt;/td&gt;
+            &lt;td&gt;read/write&lt;/td&gt;
+            &lt;td&gt;A custom ringtone associated with a contact. Typically this is the
+            URI returned by an activity launched with the
+            <c>android.media.RingtoneManager#ACTION_RINGTONE_PICKER</c> intent.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#SEND_TO_VOICEMAIL</c>&lt;/td&gt;
+            &lt;td&gt;read/write&lt;/td&gt;
+            &lt;td&gt;An indicator of whether calls from this contact should be forwarded
+            directly to voice mail ('1') or not ('0'). When raw contacts are
+            aggregated, this field is automatically computed: if <i>all</i>
+            constituent raw contacts have SEND_TO_VOICEMAIL=1, then this field is set
+            to '1'. Setting this field automatically changes the corresponding field
+            on all constituent raw contacts.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_PRESENCE</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;Contact IM presence status. See <c>StatusUpdates</c> for individual
+            status definitions. Automatically computed as the highest presence of all
+            constituent raw contacts. The provider may choose not to store this value
+            in persistent storage. The expectation is that presence status will be
+            updated on a regular basis.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_STATUS</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;Contact's latest status update. Automatically computed as the latest
+            of all constituent raw contacts' status updates.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_STATUS_TIMESTAMP</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The absolute time in milliseconds when the latest status was
+            inserted/updated.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_STATUS_RES_PACKAGE</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt; The package containing resources for this status: label and icon.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_STATUS_LABEL</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The resource ID of the label describing the source of contact status,
+            e.g. "Google Talk". This resource is scoped by the
+            <c>#CONTACT_STATUS_RES_PACKAGE</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_STATUS_ICON</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The resource ID of the icon for the source of contact status. This
+            resource is scoped by the <c>#CONTACT_STATUS_RES_PACKAGE</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;/table&gt;</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts</code>.</a>
@@ -42,8 +230,8 @@
       <MemberSignature Language="F#" Value="new Android.Provider.ContactsContract.Contacts : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Provider.ContactsContract.Contacts" Usage="new Android.Provider.ContactsContract.Contacts (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -62,11 +250,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentFilterUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentFilterUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.ContentFilterUri" />
-      <MemberSignature Language="F#" Value="member this.ContentFilterUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentFilterUri" />
+      <MemberSignature Language="F#" Value="static member ContentFilterUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentFilterUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -82,6 +270,10 @@
             <c>#CONTENT_URI</c> URI.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The content:// style URI used for "type-to-filter" functionality on the
+            <c>#CONTENT_URI</c> URI. The filter string will be used to match
+            various parts of the contact name. The filter argument should be passed
+            as an additional path segment after this URI.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_FILTER_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_FILTER_URI</code>.</a>
@@ -100,11 +292,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentFrequentUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentFrequentUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.ContentFrequentUri" />
-      <MemberSignature Language="F#" Value="member this.ContentFrequentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentFrequentUri" />
+      <MemberSignature Language="F#" Value="static member ContentFrequentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentFrequentUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -112,8 +304,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("CONTENT_FREQUENT_URI")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -123,6 +315,15 @@
         <summary>The content:// style URI for showing a list of frequently contacted people.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The content:// style URI for showing a list of frequently contacted people.</para>
+          <para>This member is deprecated. Frequent contacts are no longer supported as of
+            Android version <c>android.os.Build.VERSION_CODES#Q</c>.
+            This URI always returns an empty cursor.
+            
+            &lt;p class="caution"&gt;&lt;b&gt;Caution: &lt;/b&gt;If you publish your app to the Google Play Store, this
+            field doesn't sort results based on contacts frequency. For more information, see the
+            Contacts Provider
+            page.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_FREQUENT_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_FREQUENT_URI</code>.</a>
@@ -140,11 +341,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentGroupUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentGroupUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.ContentGroupUri" />
-      <MemberSignature Language="F#" Value="member this.ContentGroupUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentGroupUri" />
+      <MemberSignature Language="F#" Value="static member ContentGroupUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentGroupUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -172,8 +373,8 @@
       <MemberSignature Language="F#" Value="val mutable ContentItemType : string" Usage="Android.Provider.ContactsContract.Contacts.ContentItemType" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -188,6 +389,8 @@
         <summary>The MIME type of a <c>#CONTENT_URI</c> subdirectory of a single
             person.</summary>
         <remarks>
+          <para>The MIME type of a <c>#CONTENT_URI</c> subdirectory of a single
+            person.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_ITEM_TYPE" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_ITEM_TYPE</code>.</a>
@@ -206,11 +409,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentLookupUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentLookupUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.ContentLookupUri" />
-      <MemberSignature Language="F#" Value="member this.ContentLookupUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentLookupUri" />
+      <MemberSignature Language="F#" Value="static member ContentLookupUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentLookupUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -226,6 +429,18 @@
             shortcuts or otherwise create long-term links to contacts.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>A content:// style URI for this table that should be used to create
+            shortcuts or otherwise create long-term links to contacts. This URI
+            should always be followed by a "/" and the contact's <c>#LOOKUP_KEY</c>.
+            It can optionally also have a "/" and last known contact ID appended after
+            that. This "complete" format is an important optimization and is highly recommended.</para>
+          <para>As long as the contact's row ID remains the same, this URI is
+            equivalent to <c>#CONTENT_URI</c>. If the contact's row ID changes
+            as a result of a sync or aggregation, this URI will look up the
+            contact using indirect information (sync IDs or constituent raw
+            contacts).</para>
+          <para>Lookup key should be appended unencoded - it is stored in the encoded
+            form, ready for use in a URI.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_LOOKUP_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_LOOKUP_URI</code>.</a>
@@ -244,11 +459,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentMultiVcardUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentMultiVcardUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.ContentMultiVcardUri" />
-      <MemberSignature Language="F#" Value="member this.ContentMultiVcardUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentMultiVcardUri" />
+      <MemberSignature Language="F#" Value="static member ContentMultiVcardUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentMultiVcardUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -265,6 +480,41 @@
             <c>Uri#withAppendedPath(Uri, String)</c>.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Base <c>Uri</c> for referencing multiple <c>Contacts</c> entry,
+            created by appending <c>#LOOKUP_KEY</c> using
+            <c>Uri#withAppendedPath(Uri, String)</c>. The lookup keys have to be
+            joined with the colon (":") separator, and the resulting string encoded.
+            
+            Provides <c>OpenableColumns</c> columns when queried, or returns the
+            referenced contact formatted as a vCard when opened through
+            <c>ContentResolver#openAssetFileDescriptor(Uri, String)</c>.</para>
+          <para>Usage example:
+            &lt;dl&gt;
+            &lt;dt&gt;The following code snippet creates a multi-vcard URI that references all the
+            contacts in a user's database.&lt;/dt&gt;
+            &lt;dd&gt;</para>
+          <code lang="text/java">public Uri getAllContactsVcardUri() {
+                Cursor cursor = getActivity().getContentResolver().query(Contacts.CONTENT_URI,
+                    new String[] {Contacts.LOOKUP_KEY}, null, null, null);
+                if (cursor == null) {
+                    return null;
+                }
+                try {
+                    StringBuilder uriListBuilder = new StringBuilder();
+                    int index = 0;
+                    while (cursor.moveToNext()) {
+                        if (index != 0) uriListBuilder.append(':');
+                        uriListBuilder.append(cursor.getString(0));
+                        index++;
+                    }
+                    return Uri.withAppendedPath(Contacts.CONTENT_MULTI_VCARD_URI,
+                            Uri.encode(uriListBuilder.toString()));
+                } finally {
+                    cursor.close();
+                }
+            }
+            </code>
+          <para>&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_MULTI_VCARD_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_MULTI_VCARD_URI</code>.</a>
@@ -282,11 +532,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentStrequentFilterUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentStrequentFilterUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.ContentStrequentFilterUri" />
-      <MemberSignature Language="F#" Value="member this.ContentStrequentFilterUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentStrequentFilterUri" />
+      <MemberSignature Language="F#" Value="static member ContentStrequentFilterUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentStrequentFilterUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -302,6 +552,15 @@
             <c>#CONTENT_STREQUENT_URI</c> URI.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The content:// style URI used for "type-to-filter" functionality on the
+            <c>#CONTENT_STREQUENT_URI</c> URI. The filter string will be used to match
+            various parts of the contact name. The filter argument should be passed
+            as an additional path segment after this URI.
+            
+            &lt;p class="caution"&gt;&lt;b&gt;Caution: &lt;/b&gt;If you publish your app to the Google Play Store, this
+            field doesn't sort results based on contacts frequency. For more information, see the
+            Contacts Provider
+            page.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_STREQUENT_FILTER_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_STREQUENT_FILTER_URI</code>.</a>
@@ -320,11 +579,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentStrequentUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentStrequentUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.ContentStrequentUri" />
-      <MemberSignature Language="F#" Value="member this.ContentStrequentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentStrequentUri" />
+      <MemberSignature Language="F#" Value="static member ContentStrequentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentStrequentUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -340,6 +599,15 @@
             <c>ContactsContract.Data</c>, filtered to include only starred contacts.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The content:// style URI for this table joined with useful data from
+            <c>ContactsContract.Data</c>, filtered to include only starred contacts.
+            Frequent contacts are no longer included in the result as of
+            Android version <c>android.os.Build.VERSION_CODES#Q</c>.
+            
+            &lt;p class="caution"&gt;&lt;b&gt;Caution: &lt;/b&gt;If you publish your app to the Google Play Store, this
+            field doesn't sort results based on contacts frequency. For more information, see the
+            Contacts Provider
+            page.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_STREQUENT_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_STREQUENT_URI</code>.</a>
@@ -361,8 +629,8 @@
       <MemberSignature Language="F#" Value="val mutable ContentType : string" Usage="Android.Provider.ContactsContract.Contacts.ContentType" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -377,6 +645,8 @@
         <summary>The MIME type of <c>#CONTENT_URI</c> providing a directory of
             people.</summary>
         <remarks>
+          <para>The MIME type of <c>#CONTENT_URI</c> providing a directory of
+            people.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_TYPE" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_TYPE</code>.</a>
@@ -395,11 +665,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.ContentUri" />
-      <MemberSignature Language="F#" Value="member this.ContentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentUri" />
+      <MemberSignature Language="F#" Value="static member ContentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -414,6 +684,7 @@
         <summary>The content:// style URI for this table</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The content:// style URI for this table</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_URI</code>.</a>
@@ -435,8 +706,8 @@
       <MemberSignature Language="F#" Value="val mutable ContentVcardType : string" Usage="Android.Provider.ContactsContract.Contacts.ContentVcardType" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -451,6 +722,8 @@
         <summary>The MIME type of a <c>#CONTENT_URI</c> subdirectory of a single
             person.</summary>
         <remarks>
+          <para>The MIME type of a <c>#CONTENT_URI</c> subdirectory of a single
+            person.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_VCARD_TYPE" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_VCARD_TYPE</code>.</a>
@@ -469,11 +742,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentVcardUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentVcardUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.ContentVcardUri" />
-      <MemberSignature Language="F#" Value="member this.ContentVcardUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentVcardUri" />
+      <MemberSignature Language="F#" Value="static member ContentVcardUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.ContentVcardUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -490,6 +763,12 @@
             <c>Uri#withAppendedPath(Uri, String)</c>.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Base <c>Uri</c> for referencing a single <c>Contacts</c> entry,
+            created by appending <c>#LOOKUP_KEY</c> using
+            <c>Uri#withAppendedPath(Uri, String)</c>. Provides
+            <c>OpenableColumns</c> columns when queried, or returns the
+            referenced contact formatted as a vCard when opened through
+            <c>ContentResolver#openAssetFileDescriptor(Uri, String)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#CONTENT_VCARD_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.CONTENT_VCARD_URI</code>.</a>
@@ -508,7 +787,7 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? EnterpriseContentFilterUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri EnterpriseContentFilterUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.EnterpriseContentFilterUri" />
-      <MemberSignature Language="F#" Value="member this.EnterpriseContentFilterUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.EnterpriseContentFilterUri" />
+      <MemberSignature Language="F#" Value="static member EnterpriseContentFilterUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.EnterpriseContentFilterUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -519,6 +798,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("ENTERPRISE_CONTENT_FILTER_URI", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("ENTERPRISE_CONTENT_FILTER_URI", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Net.Uri</ReturnType>
@@ -528,9 +811,76 @@
             columns.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>It supports the similar semantics as <c>#CONTENT_FILTER_URI</c> and returns the same
+            columns. This URI requires <c>ContactsContract#DIRECTORY_PARAM_KEY</c> in parameters,
+            otherwise it will throw IllegalArgumentException. The passed directory can belong either
+            to the calling user or to a managed profile that is linked to it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#ENTERPRISE_CONTENT_FILTER_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.ENTERPRISE_CONTENT_FILTER_URI</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="EnterpriseContentUri">
+      <MemberSignature Language="C#" Value="public static Android.Net.Uri EnterpriseContentUri { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri EnterpriseContentUri" />
+      <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Contacts.EnterpriseContentUri" />
+      <MemberSignature Language="F#" Value="static member EnterpriseContentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.EnterpriseContentUri" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("ENTERPRISE_CONTENT_URI", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("ENTERPRISE_CONTENT_URI", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Net.Uri</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>URI used for getting all contacts from both the calling user and the managed profile
+            that is linked to it.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para>URI used for getting all contacts from both the calling user and the managed profile
+            that is linked to it.</para>
+          <para>It supports the same semantics as <c>#CONTENT_URI</c> and returns the same columns.&lt;br&gt;
+            If the calling user has no managed profile, it behaves in the exact same way as
+            <c>#CONTENT_URI</c>.&lt;br&gt;
+            If there is a managed profile linked to the calling user, it will return merged results
+            from both.</para>
+          <para>Note: this query returns the calling user results before the managed profile results,
+            and this order is not affected by the sorting parameter.</para>
+          <para>If a result is from the managed profile, the following changes are made to the data:
+            &lt;ul&gt;
+                &lt;li&gt;<c>#PHOTO_THUMBNAIL_URI</c> and <c>#PHOTO_URI</c> will be rewritten to special
+                URIs. Use <c>ContentResolver#openAssetFileDescriptor</c> or its siblings to
+                load pictures from them.
+                &lt;li&gt;<c>#PHOTO_ID</c> and <c>#PHOTO_FILE_ID</c> will be set to null. Don't use them.
+                &lt;li&gt;<c>#_ID</c> and <c>#LOOKUP_KEY</c> will be replaced with artificial values.
+                These values will be consistent across multiple queries, but do not use them in
+                places that do not explicitly say they accept them. If they are used in the
+                <c>selection</c> param in <c>android.content.ContentProvider#query</c>, the result
+                is undefined.
+                &lt;li&gt;In order to tell whether a contact is from the managed profile, use
+                <c>ContactsContract.Contacts#isEnterpriseContactId(long)</c>.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#ENTERPRISE_CONTENT_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.ENTERPRISE_CONTENT_URI</code>.</a>
             </format>
           </para>
           <para>
@@ -548,8 +898,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraAddressBookIndex : string" Usage="Android.Provider.ContactsContract.Contacts.ExtraAddressBookIndex" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -574,8 +924,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraAddressBookIndexCounts : string" Usage="Android.Provider.ContactsContract.Contacts.ExtraAddressBookIndexCounts" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -600,8 +950,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraAddressBookIndexTitles : string" Usage="Android.Provider.ContactsContract.Contacts.ExtraAddressBookIndexTitles" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -626,8 +976,8 @@
       <MemberSignature Language="F#" Value="static member GetLookupUri : Android.Content.ContentResolver * Android.Net.Uri -&gt; Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.GetLookupUri (resolver, contactUri)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -650,6 +1000,8 @@
             requested <c>Contacts</c> entry.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Builds a <c>#CONTENT_LOOKUP_URI</c> style <c>Uri</c> describing the
+            requested <c>Contacts</c> entry.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#getLookupUri(android.content.ContentResolver,%20android.net.Uri)" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.getLookupUri(android.content.ContentResolver, android.net.Uri)</code>.</a>
@@ -671,8 +1023,8 @@
       <MemberSignature Language="F#" Value="static member GetLookupUri : int64 * string -&gt; Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.GetLookupUri (contactId, lookupKey)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -694,6 +1046,10 @@
             given <c>ContactsContract.Contacts#_ID</c> and <c>#LOOKUP_KEY</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Build a <c>#CONTENT_LOOKUP_URI</c> lookup <c>Uri</c> using the
+            given <c>ContactsContract.Contacts#_ID</c> and <c>#LOOKUP_KEY</c>.</para>
+          <para>Returns null if unable to construct a valid lookup URI from the
+            provided parameters.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#getLookupUri(long,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.getLookupUri(long, java.lang.String)</code>.</a>
@@ -715,8 +1071,8 @@
       <MemberSignature Language="F#" Value="static member IsEnterpriseContactId : int64 -&gt; bool" Usage="Android.Provider.ContactsContract.Contacts.IsEnterpriseContactId contactId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -732,9 +1088,12 @@
       </Parameters>
       <Docs>
         <param name="contactId">To be added.</param>
-        <summary>Return TRUE if a contact ID is from the contacts provider on the enterprise profile.</summary>
+        <summary>Return <c>true</c> if a contact ID is from the contacts provider on the managed profile.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return <c>true</c> if a contact ID is from the contacts provider on the managed profile.
+            
+            <c>PhoneLookup#ENTERPRISE_CONTENT_FILTER_URI</c> and similar APIs may return such IDs.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#isEnterpriseContactId(long)" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.isEnterpriseContactId(long)</code>.</a>
@@ -786,8 +1145,8 @@
       <MemberSignature Language="F#" Value="static member LookupContact : Android.Content.ContentResolver * Android.Net.Uri -&gt; Android.Net.Uri" Usage="Android.Provider.ContactsContract.Contacts.LookupContact (resolver, lookupUri)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -808,6 +1167,8 @@
         <summary>Computes a content URI (see <c>#CONTENT_URI</c>) given a lookup URI.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Computes a content URI (see <c>#CONTENT_URI</c>) given a lookup URI.</para>
+          <para>Returns null if the contact cannot be found.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#lookupContact(android.content.ContentResolver,%20android.net.Uri)" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.lookupContact(android.content.ContentResolver, android.net.Uri)</code>.</a>
@@ -829,8 +1190,8 @@
       <MemberSignature Language="F#" Value="static member MarkAsContacted : Android.Content.ContentResolver * int64 -&gt; unit" Usage="Android.Provider.ContactsContract.Contacts.MarkAsContacted (resolver, contactId)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -854,6 +1215,18 @@
         <param name="contactId">the person who was contacted</param>
         <summary>Mark a contact as having been contacted.</summary>
         <remarks>
+          <para>Mark a contact as having been contacted. Updates two fields:
+            <c>#TIMES_CONTACTED</c> and <c>#LAST_TIME_CONTACTED</c>. The
+            TIMES_CONTACTED field is incremented by 1 and the LAST_TIME_CONTACTED
+            field is populated with the current system time.
+            
+            &lt;p class="caution"&gt;&lt;b&gt;Caution: &lt;/b&gt;If you publish your app to the Google Play Store,
+            this field is obsolete, regardless of Android version. For more information, see the
+            Contacts Provider
+            page.&lt;/p&gt;</para>
+          <para>This member is deprecated. Contacts affinity information is no longer supported as of
+            Android version <c>android.os.Build.VERSION_CODES#Q</c>. This method
+            is no-op.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#markAsContacted(android.content.ContentResolver,%20long)" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.markAsContacted(android.content.ContentResolver, long)</code>.</a>
@@ -875,8 +1248,8 @@
       <MemberSignature Language="F#" Value="static member OpenContactPhotoInputStream : Android.Content.ContentResolver * Android.Net.Uri -&gt; System.IO.Stream" Usage="Android.Provider.ContactsContract.Contacts.OpenContactPhotoInputStream (cr, contactUri)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -899,6 +1272,8 @@
             photo as a byte stream.</summary>
         <returns>an InputStream of the photo, or null if no photo is present</returns>
         <remarks>
+          <para>Opens an InputStream for the contacts's thumbnail photo and returns the
+            photo as a byte stream.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#openContactPhotoInputStream(android.content.ContentResolver,%20android.net.Uri)" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.openContactPhotoInputStream(android.content.ContentResolver, android.net.Uri)</code>.</a>
@@ -921,8 +1296,8 @@
       <MemberSignature Language="F#" Value="static member OpenContactPhotoInputStream : Android.Content.ContentResolver * Android.Net.Uri * bool -&gt; System.IO.Stream" Usage="Android.Provider.ContactsContract.Contacts.OpenContactPhotoInputStream (cr, contactUri, preferHighres)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -948,6 +1323,8 @@
             photo as a byte stream.</summary>
         <returns>an InputStream of the photo, or null if no photo is present</returns>
         <remarks>
+          <para>Opens an InputStream for the contacts's photo and returns the
+            photo as a byte stream.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#openContactPhotoInputStream(android.content.ContentResolver,%20android.net.Uri,%20boolean)" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.openContactPhotoInputStream(android.content.ContentResolver, android.net.Uri, boolean)</code>.</a>
@@ -977,6 +1354,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("QUERY_PARAMETER_VCARD_NO_PHOTO", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("QUERY_PARAMETER_VCARD_NO_PHOTO", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -986,6 +1367,11 @@
             and <c>#CONTENT_MULTI_VCARD_URI</c> to indicate that the returned
             vcard should not contain a photo.</summary>
         <remarks>
+          <para>Boolean parameter that may be used with <c>#CONTENT_VCARD_URI</c>
+            and <c>#CONTENT_MULTI_VCARD_URI</c> to indicate that the returned
+            vcard should not contain a photo.
+            
+            This is useful for obtaining a space efficient vcard.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Contacts#QUERY_PARAMETER_VCARD_NO_PHOTO" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Contacts.QUERY_PARAMETER_VCARD_NO_PHOTO</code>.</a>
@@ -1006,8 +1392,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Provider.ContactsContract.Contacts.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1037,8 +1423,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Provider.ContactsContract.Contacts.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

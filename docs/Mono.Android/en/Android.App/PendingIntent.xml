@@ -33,6 +33,56 @@
   <Docs since="1">
     <summary>A description of an Intent and target action to perform with it.</summary>
     <remarks>
+      <para>A description of an Intent and target action to perform with it.  Instances
+            of this class are created with <c>#getActivity</c>, <c>#getActivities</c>,
+            <c>#getBroadcast</c>, and <c>#getService</c>; the returned object can be
+            handed to other applications so that they can perform the action you
+            described on your behalf at a later time.</para>
+      <para>By giving a PendingIntent to another application,
+            you are granting it the right to perform the operation you have specified
+            as if the other application was yourself (with the same permissions and
+            identity).  As such, you should be careful about how you build the PendingIntent:
+            almost always, for example, the base Intent you supply should have the component
+            name explicitly set to one of your own components, to ensure it is ultimately
+            sent there and nowhere else.</para>
+      <para>A PendingIntent itself is simply a reference to a token maintained by
+            the system describing the original data used to retrieve it.  This means
+            that, even if its owning application's process is killed, the
+            PendingIntent itself will remain usable from other processes that
+            have been given it.  If the creating application later re-retrieves the
+            same kind of PendingIntent (same operation, same Intent action, data,
+            categories, and components, and same flags), it will receive a PendingIntent
+            representing the same token if that is still valid, and can thus call
+            <c>#cancel</c> to remove it.</para>
+      <para>Because of this behavior, it is important to know when two Intents
+            are considered to be the same for purposes of retrieving a PendingIntent.
+            A common mistake people make is to create multiple PendingIntent objects
+            with Intents that only vary in their "extra" contents, expecting to get
+            a different PendingIntent each time.  This does &lt;em&gt;not&lt;/em&gt; happen.  The
+            parts of the Intent that are used for matching are the same ones defined
+            by <c>Intent#filterEquals(Intent) Intent.filterEquals</c>.  If you use two
+            Intent objects that are equivalent as per
+            <c>Intent#filterEquals(Intent) Intent.filterEquals</c>, then you will get
+            the same PendingIntent for both of them.</para>
+      <para>There are two typical ways to deal with this.</para>
+      <para>If you truly need multiple distinct PendingIntent objects active at
+            the same time (such as to use as two notifications that are both shown
+            at the same time), then you will need to ensure there is something that
+            is different about them to associate them with different PendingIntents.
+            This may be any of the Intent attributes considered by
+            <c>Intent#filterEquals(Intent) Intent.filterEquals</c>, or different
+            request code integers supplied to <c>#getActivity</c>, <c>#getActivities</c>,
+            <c>#getBroadcast</c>, or <c>#getService</c>.</para>
+      <para>If you only need one PendingIntent active at a time for any of the
+            Intents you will use, then you can alternatively use the flags
+            <c>#FLAG_CANCEL_CURRENT</c> or <c>#FLAG_UPDATE_CURRENT</c> to either
+            cancel or modify whatever current PendingIntent is associated with the
+            Intent you are supplying.</para>
+      <para>Also note that flags like <c>#FLAG_ONE_SHOT</c> or <c>#FLAG_IMMUTABLE</c> describe the
+            PendingIntent instance and thus, are used to identify it. Any calls to retrieve or modify a
+            PendingIntent created with these flags will also require these flags to be supplied in
+            conjunction with others. E.g. To retrieve an existing PendingIntent created with
+            FLAG_ONE_SHOT, &lt;b&gt;both&lt;/b&gt; FLAG_ONE_SHOT and FLAG_NO_CREATE need to be supplied.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/app/PendingIntent" title="Reference documentation">Java documentation for <code>android.app.PendingIntent</code>.</a>
@@ -54,8 +104,8 @@
       <MemberSignature Language="F#" Value="member this.Cancel : unit -&gt; unit" Usage="pendingIntent.Cancel " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -70,6 +120,8 @@
       <Docs>
         <summary>Cancel a currently active PendingIntent.</summary>
         <remarks>
+          <para>Cancel a currently active PendingIntent.  Only the original application
+            owning a PendingIntent can cancel it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#cancel()" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.cancel()</code>.</a>
@@ -88,11 +140,11 @@
       <MemberSignature Language="C#" Value="public static Android.OS.IParcelableCreator? Creator { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.OS.IParcelableCreator Creator" />
       <MemberSignature Language="DocId" Value="P:Android.App.PendingIntent.Creator" />
-      <MemberSignature Language="F#" Value="member this.Creator : Android.OS.IParcelableCreator" Usage="Android.App.PendingIntent.Creator" />
+      <MemberSignature Language="F#" Value="static member Creator : Android.OS.IParcelableCreator" Usage="Android.App.PendingIntent.Creator" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -120,8 +172,8 @@
       <MemberSignature Language="F#" Value="member this.CreatorPackage : string" Usage="Android.App.PendingIntent.CreatorPackage" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -138,6 +190,19 @@
             sending the Intent.</summary>
         <value>The package name of the PendingIntent.</value>
         <remarks>
+          <para>Return the package name of the application that created this
+            PendingIntent, that is the identity under which you will actually be
+            sending the Intent.  The returned string is supplied by the system, so
+            that an application can not spoof its package.
+            
+            &lt;p class="note"&gt;Be careful about how you use this.  All this tells you is
+            who created the PendingIntent.  It does &lt;strong&gt;not&lt;/strong&gt; tell you who
+            handed the PendingIntent to you: that is, PendingIntent objects are intended to be
+            passed between applications, so the PendingIntent you receive from an application
+            could actually be one it received from another application, meaning the result
+            you get here will identify the original application.  Because of this, you should
+            only use this information to identify who you expect to be interacting with
+            through a <c>#send</c> call, not who gave you the PendingIntent.&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getCreatorPackage()" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getCreatorPackage()</code>.</a>
@@ -159,8 +224,8 @@
       <MemberSignature Language="F#" Value="member this.CreatorUid : int" Usage="Android.App.PendingIntent.CreatorUid" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -178,6 +243,19 @@
         <value>The uid of the PendingIntent, or -1 if there is
             none associated with it.</value>
         <remarks>
+          <para>Return the uid of the application that created this
+            PendingIntent, that is the identity under which you will actually be
+            sending the Intent.  The returned integer is supplied by the system, so
+            that an application can not spoof its uid.
+            
+            &lt;p class="note"&gt;Be careful about how you use this.  All this tells you is
+            who created the PendingIntent.  It does &lt;strong&gt;not&lt;/strong&gt; tell you who
+            handed the PendingIntent to you: that is, PendingIntent objects are intended to be
+            passed between applications, so the PendingIntent you receive from an application
+            could actually be one it received from another application, meaning the result
+            you get here will identify the original application.  Because of this, you should
+            only use this information to identify who you expect to be interacting with
+            through a <c>#send</c> call, not who gave you the PendingIntent.&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getCreatorUid()" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getCreatorUid()</code>.</a>
@@ -199,8 +277,8 @@
       <MemberSignature Language="F#" Value="member this.CreatorUserHandle : Android.OS.UserHandle" Usage="Android.App.PendingIntent.CreatorUserHandle" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -217,6 +295,21 @@
             sending the Intent.</summary>
         <value>The user handle of the PendingIntent</value>
         <remarks>
+          <para>Return the user handle of the application that created this
+            PendingIntent, that is the user under which you will actually be
+            sending the Intent.  The returned UserHandle is supplied by the system, so
+            that an application can not spoof its user.  See
+            <c>android.os.Process#myUserHandle() Process.myUserHandle()</c> for
+            more explanation of user handles.
+            
+            &lt;p class="note"&gt;Be careful about how you use this.  All this tells you is
+            who created the PendingIntent.  It does &lt;strong&gt;not&lt;/strong&gt; tell you who
+            handed the PendingIntent to you: that is, PendingIntent objects are intended to be
+            passed between applications, so the PendingIntent you receive from an application
+            could actually be one it received from another application, meaning the result
+            you get here will identify the original application.  Because of this, you should
+            only use this information to identify who you expect to be interacting with
+            through a <c>#send</c> call, not who gave you the PendingIntent.&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getCreatorUserHandle()" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getCreatorUserHandle()</code>.</a>
@@ -241,8 +334,8 @@
         <InterfaceMember>M:Android.OS.IParcelable.DescribeContents</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -262,6 +355,66 @@
           <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 1" />
+      </Docs>
+    </Member>
+    <Member MemberName="FlagAllowUnsafeImplicitIntent">
+      <MemberSignature Language="C#" Value="public const Android.App.PendingIntentFlags FlagAllowUnsafeImplicitIntent = 16777216;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.App.PendingIntentFlags FlagAllowUnsafeImplicitIntent = (16777216)" />
+      <MemberSignature Language="DocId" Value="F:Android.App.PendingIntent.FlagAllowUnsafeImplicitIntent" />
+      <MemberSignature Language="F#" Value="val mutable FlagAllowUnsafeImplicitIntent : Android.App.PendingIntentFlags" Usage="Android.App.PendingIntent.FlagAllowUnsafeImplicitIntent" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.App.PendingIntentFlags enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.App.PendingIntentFlags enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.App.PendingIntentFlags</ReturnType>
+      </ReturnValue>
+      <MemberValue>16777216</MemberValue>
+      <Docs>
+        <summary>Flag indicating that the created PendingIntent with <c>#FLAG_MUTABLE</c>
+            is allowed to have an unsafe implicit Intent within.</summary>
+        <remarks>
+          <para>Flag indicating that the created PendingIntent with <c>#FLAG_MUTABLE</c>
+            is allowed to have an unsafe implicit Intent within.</para>
+          <para>Starting with
+            <c>android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE</c>, for apps that
+            target SDK <c>android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE</c> or
+            higher, creation of a PendingIntent with <c>#FLAG_MUTABLE</c> and an
+            implicit Intent within will throw an <c>IllegalArgumentException</c>
+            for security reasons. To bypass this check, use
+            <c>#FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT</c> when creating a PendingIntent.
+            However, it is strongly recommended to not to use this flag and make the
+            Intent explicit or the PendingIntent immutable, thereby making the Intent
+            safe.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/app/PendingIntent#FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
       </Docs>
     </Member>
     <Member MemberName="FlagMutable">
@@ -286,6 +439,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.App.PendingIntentFlags enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.App.PendingIntentFlags enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.PendingIntentFlags</ReturnType>
@@ -294,6 +451,14 @@
       <Docs>
         <summary>Flag indicating that the created PendingIntent should be mutable.</summary>
         <remarks>
+          <para>Flag indicating that the created PendingIntent should be mutable.
+            This flag cannot be combined with <c>#FLAG_IMMUTABLE</c>.</para>
+          <para>Up until
+            <c>android.os.Build.VERSION_CODES#R</c>, PendingIntents are assumed to
+            be mutable by default, unless <c>#FLAG_IMMUTABLE</c> is set. Starting
+            with <c>android.os.Build.VERSION_CODES#S</c>, it will be required to
+            explicitly specify the mutability of PendingIntents on creation with
+            either (</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#FLAG_MUTABLE" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.FLAG_MUTABLE</code>.</a>
@@ -314,8 +479,8 @@
       <MemberSignature Language="F#" Value="static member GetActivities : Android.Content.Context * int * Android.Content.Intent[] * Android.App.PendingIntentFlags -&gt; Android.App.PendingIntent" Usage="Android.App.PendingIntent.GetActivities (context, requestCode, intents, flags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -355,6 +520,35 @@
             parameters.  May return null only if <c>#FLAG_NO_CREATE</c> has been
             supplied.</returns>
         <remarks>
+          <para>Like <c>#getActivity(Context, int, Intent, int)</c>, but allows an
+            array of Intents to be supplied.  The last Intent in the array is
+            taken as the primary key for the PendingIntent, like the single Intent
+            given to <c>#getActivity(Context, int, Intent, int)</c>.  Upon sending
+            the resulting PendingIntent, all of the Intents are started in the same
+            way as they would be by passing them to <c>Context#startActivities(Intent[])</c>.
+            
+            &lt;p class="note"&gt;
+            The &lt;em&gt;first&lt;/em&gt; intent in the array will be started outside of the context of an
+            existing activity, so you must use the <c>Intent#FLAG_ACTIVITY_NEW_TASK
+            Intent.FLAG_ACTIVITY_NEW_TASK</c> launch flag in the Intent.  (Activities after
+            the first in the array are started in the context of the previous activity
+            in the array, so FLAG_ACTIVITY_NEW_TASK is not needed nor desired for them.)
+            &lt;/p&gt;
+            
+            &lt;p class="note"&gt;
+            The &lt;em&gt;last&lt;/em&gt; intent in the array represents the key for the
+            PendingIntent.  In other words, it is the significant element for matching
+            (as done with the single intent given to <c>#getActivity(Context, int, Intent, int)</c>,
+            its content will be the subject of replacement by
+            <c>#send(Context, int, Intent)</c> and <c>#FLAG_UPDATE_CURRENT</c>, etc.
+            This is because it is the most specific of the supplied intents, and the
+            UI the user actually sees when the intents are started.
+            &lt;/p&gt;
+            
+            &lt;p class="note"&gt;For security reasons, the <c>android.content.Intent</c> objects
+            you supply here should almost always be &lt;em&gt;explicit intents&lt;/em&gt;,
+            that is specify an explicit component to be delivered to through
+            <c>Intent#setClass(android.content.Context, Class) Intent.setClass</c>&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getActivities(android.content.Context,%20int,%20android.content.Intent[],%20int)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getActivities(android.content.Context, int, android.content.Intent[], int)</code>.</a>
@@ -376,8 +570,8 @@
       <MemberSignature Language="F#" Value="static member GetActivities : Android.Content.Context * int * Android.Content.Intent[] * Android.App.PendingIntentFlags * Android.OS.Bundle -&gt; Android.App.PendingIntent" Usage="Android.App.PendingIntent.GetActivities (context, requestCode, intents, flags, options)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -419,6 +613,35 @@
             parameters.  May return null only if <c>#FLAG_NO_CREATE</c> has been
             supplied.</returns>
         <remarks>
+          <para>Like <c>#getActivity(Context, int, Intent, int)</c>, but allows an
+            array of Intents to be supplied.  The last Intent in the array is
+            taken as the primary key for the PendingIntent, like the single Intent
+            given to <c>#getActivity(Context, int, Intent, int)</c>.  Upon sending
+            the resulting PendingIntent, all of the Intents are started in the same
+            way as they would be by passing them to <c>Context#startActivities(Intent[])</c>.
+            
+            &lt;p class="note"&gt;
+            The &lt;em&gt;first&lt;/em&gt; intent in the array will be started outside of the context of an
+            existing activity, so you must use the <c>Intent#FLAG_ACTIVITY_NEW_TASK
+            Intent.FLAG_ACTIVITY_NEW_TASK</c> launch flag in the Intent.  (Activities after
+            the first in the array are started in the context of the previous activity
+            in the array, so FLAG_ACTIVITY_NEW_TASK is not needed nor desired for them.)
+            &lt;/p&gt;
+            
+            &lt;p class="note"&gt;
+            The &lt;em&gt;last&lt;/em&gt; intent in the array represents the key for the
+            PendingIntent.  In other words, it is the significant element for matching
+            (as done with the single intent given to <c>#getActivity(Context, int, Intent, int)</c>,
+            its content will be the subject of replacement by
+            <c>#send(Context, int, Intent)</c> and <c>#FLAG_UPDATE_CURRENT</c>, etc.
+            This is because it is the most specific of the supplied intents, and the
+            UI the user actually sees when the intents are started.
+            &lt;/p&gt;
+            
+            &lt;p class="note"&gt;For security reasons, the <c>android.content.Intent</c> objects
+            you supply here should almost always be &lt;em&gt;explicit intents&lt;/em&gt;,
+            that is specify an explicit component to be delivered to through
+            <c>Intent#setClass(android.content.Context, Class) Intent.setClass</c>&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getActivities(android.content.Context,%20int,%20android.content.Intent[],%20int,%20android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getActivities(android.content.Context, int, android.content.Intent[], int, android.os.Bundle)</code>.</a>
@@ -440,8 +663,8 @@
       <MemberSignature Language="F#" Value="static member GetActivity : Android.Content.Context * int * Android.Content.Intent * Android.App.PendingIntentFlags -&gt; Android.App.PendingIntent" Usage="Android.App.PendingIntent.GetActivity (context, requestCode, intent, flags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -481,6 +704,16 @@
             parameters.  May return null only if <c>#FLAG_NO_CREATE</c> has been
             supplied.</returns>
         <remarks>
+          <para>Retrieve a PendingIntent that will start a new activity, like calling
+            <c>Context#startActivity(Intent) Context.startActivity(Intent)</c>.
+            Note that the activity will be started outside of the context of an
+            existing activity, so you must use the <c>Intent#FLAG_ACTIVITY_NEW_TASK
+            Intent.FLAG_ACTIVITY_NEW_TASK</c> launch flag in the Intent.
+            
+            &lt;p class="note"&gt;For security reasons, the <c>android.content.Intent</c>
+            you supply here should almost always be an &lt;em&gt;explicit intent&lt;/em&gt;,
+            that is specify an explicit component to be delivered to through
+            <c>Intent#setClass(android.content.Context, Class) Intent.setClass</c>&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getActivity(android.content.Context,%20int,%20android.content.Intent,%20int)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getActivity(android.content.Context, int, android.content.Intent, int)</code>.</a>
@@ -502,8 +735,8 @@
       <MemberSignature Language="F#" Value="static member GetActivity : Android.Content.Context * int * Android.Content.Intent * Android.App.PendingIntentFlags * Android.OS.Bundle -&gt; Android.App.PendingIntent" Usage="Android.App.PendingIntent.GetActivity (context, requestCode, intent, flags, options)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -546,6 +779,16 @@
             parameters.  May return null only if <c>#FLAG_NO_CREATE</c> has been
             supplied.</returns>
         <remarks>
+          <para>Retrieve a PendingIntent that will start a new activity, like calling
+            <c>Context#startActivity(Intent) Context.startActivity(Intent)</c>.
+            Note that the activity will be started outside of the context of an
+            existing activity, so you must use the <c>Intent#FLAG_ACTIVITY_NEW_TASK
+            Intent.FLAG_ACTIVITY_NEW_TASK</c> launch flag in the Intent.
+            
+            &lt;p class="note"&gt;For security reasons, the <c>android.content.Intent</c>
+            you supply here should almost always be an &lt;em&gt;explicit intent&lt;/em&gt;,
+            that is specify an explicit component to be delivered to through
+            <c>Intent#setClass(android.content.Context, Class) Intent.setClass</c>&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getActivity(android.content.Context,%20int,%20android.content.Intent,%20int,%20android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getActivity(android.content.Context, int, android.content.Intent, int, android.os.Bundle)</code>.</a>
@@ -567,8 +810,8 @@
       <MemberSignature Language="F#" Value="static member GetBroadcast : Android.Content.Context * int * Android.Content.Intent * Android.App.PendingIntentFlags -&gt; Android.App.PendingIntent" Usage="Android.App.PendingIntent.GetBroadcast (context, requestCode, intent, flags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -608,6 +851,13 @@
             parameters.  May return null only if <c>#FLAG_NO_CREATE</c> has been
             supplied.</returns>
         <remarks>
+          <para>Retrieve a PendingIntent that will perform a broadcast, like calling
+            <c>Context#sendBroadcast(Intent) Context.sendBroadcast()</c>.
+            
+            &lt;p class="note"&gt;For security reasons, the <c>android.content.Intent</c>
+            you supply here should almost always be an &lt;em&gt;explicit intent&lt;/em&gt;,
+            that is specify an explicit component to be delivered to through
+            <c>Intent#setClass(android.content.Context, Class) Intent.setClass</c>&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getBroadcast(android.content.Context,%20int,%20android.content.Intent,%20int)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getBroadcast(android.content.Context, int, android.content.Intent, int)</code>.</a>
@@ -636,6 +886,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getForegroundService", "(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getForegroundService", "(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -670,6 +924,14 @@
             parameters.  May return null only if <c>#FLAG_NO_CREATE</c> has been
             supplied.</returns>
         <remarks>
+          <para>Retrieve a PendingIntent that will start a foreground service, like calling
+            <c>Context#startForegroundService Context.startForegroundService()</c>.  The start
+            arguments given to the service will come from the extras of the Intent.
+            
+            &lt;p class="note"&gt;For security reasons, the <c>android.content.Intent</c>
+            you supply here should almost always be an &lt;em&gt;explicit intent&lt;/em&gt;,
+            that is specify an explicit component to be delivered to through
+            <c>Intent#setClass(android.content.Context, Class) Intent.setClass</c>&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getForegroundService(android.content.Context,%20int,%20android.content.Intent,%20int)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getForegroundService(android.content.Context, int, android.content.Intent, int)</code>.</a>
@@ -690,8 +952,8 @@
       <MemberSignature Language="F#" Value="static member GetService : Android.Content.Context * int * Android.Content.Intent * Android.App.PendingIntentFlags -&gt; Android.App.PendingIntent" Usage="Android.App.PendingIntent.GetService (context, requestCode, intent, flags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -731,6 +993,14 @@
             parameters.  May return null only if <c>#FLAG_NO_CREATE</c> has been
             supplied.</returns>
         <remarks>
+          <para>Retrieve a PendingIntent that will start a service, like calling
+            <c>Context#startService Context.startService()</c>.  The start
+            arguments given to the service will come from the extras of the Intent.
+            
+            &lt;p class="note"&gt;For security reasons, the <c>android.content.Intent</c>
+            you supply here should almost always be an &lt;em&gt;explicit intent&lt;/em&gt;,
+            that is specify an explicit component to be delivered to through
+            <c>Intent#setClass(android.content.Context, Class) Intent.setClass</c>&lt;/p&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getService(android.content.Context,%20int,%20android.content.Intent,%20int)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getService(android.content.Context, int, android.content.Intent, int)</code>.</a>
@@ -752,8 +1022,8 @@
       <MemberSignature Language="F#" Value="member this.IntentSender : Android.Content.IntentSender" Usage="Android.App.PendingIntent.IntentSender" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -768,6 +1038,7 @@
         <summary>Retrieve a IntentSender object that wraps the existing sender of the PendingIntent</summary>
         <value>Returns a IntentSender object that wraps the sender of PendingIntent</value>
         <remarks>
+          <para>Retrieve a IntentSender object that wraps the existing sender of the PendingIntent</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getIntentSender()" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getIntentSender()</code>.</a>
@@ -793,6 +1064,10 @@
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isActivity", "()Z", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isActivity", "()Z", "", ApiSince=31)&gt;]</AttributeName>
@@ -831,6 +1106,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isBroadcast", "()Z", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isBroadcast", "()Z", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
@@ -866,6 +1145,10 @@
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isForegroundService", "()Z", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isForegroundService", "()Z", "", ApiSince=31)&gt;]</AttributeName>
@@ -903,6 +1186,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isImmutable", "()Z", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isImmutable", "()Z", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
@@ -914,6 +1201,7 @@
         <summary>Check if this PendingIntent is marked with <c>#FLAG_IMMUTABLE</c>.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Check if this PendingIntent is marked with <c>#FLAG_IMMUTABLE</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#isImmutable()" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.isImmutable()</code>.</a>
@@ -938,6 +1226,10 @@
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isService", "()Z", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isService", "()Z", "", ApiSince=31)&gt;]</AttributeName>
@@ -1004,8 +1296,8 @@
       <MemberSignature Language="F#" Value="static member ReadPendingIntentOrNullFromParcel : Android.OS.Parcel -&gt; Android.App.PendingIntent" Usage="Android.App.PendingIntent.ReadPendingIntentOrNullFromParcel in" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1026,6 +1318,9 @@
         <returns>Returns the PendingIntent read from the Parcel, or null if null had
             been written.</returns>
         <remarks>
+          <para>Convenience function for reading either a PendingIntent or null pointer from
+            a Parcel.  You must have previously written the PendingIntent with
+            <c>#writePendingIntentOrNullToParcel</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#readPendingIntentOrNullFromParcel(android.os.Parcel)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.readPendingIntentOrNullFromParcel(android.os.Parcel)</code>.</a>
@@ -1047,8 +1342,8 @@
       <MemberSignature Language="F#" Value="member this.Send : unit -&gt; unit" Usage="pendingIntent.Send " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1063,6 +1358,7 @@
       <Docs>
         <summary>Perform the operation associated with this PendingIntent.</summary>
         <remarks>
+          <para>Perform the operation associated with this PendingIntent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#send()" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.send()</code>.</a>
@@ -1088,8 +1384,8 @@
       <MemberSignature Language="F#" Value="member this.Send : Android.App.Result -&gt; unit" Usage="pendingIntent.Send code" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1114,6 +1410,7 @@
         <param name="code">Result code to supply back to the PendingIntent's target.</param>
         <summary>Perform the operation associated with this PendingIntent.</summary>
         <remarks>
+          <para>Perform the operation associated with this PendingIntent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#send(int)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.send(int)</code>.</a>
@@ -1133,14 +1430,62 @@
       </Docs>
     </Member>
     <Member MemberName="Send">
+      <MemberSignature Language="C#" Value="public void Send (Android.OS.Bundle? options);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void Send(class Android.OS.Bundle options) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.App.PendingIntent.Send(Android.OS.Bundle)" />
+      <MemberSignature Language="F#" Value="member this.Send : Android.OS.Bundle -&gt; unit" Usage="pendingIntent.Send options" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("send", "(Landroid/os/Bundle;)V", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("send", "(Landroid/os/Bundle;)V", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Void</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="options" Type="Android.OS.Bundle" />
+      </Parameters>
+      <Docs>
+        <param name="options">Additional options the caller would like to provide to modify the
+            sending behavior.  May be built from an <c>ActivityOptions</c> to apply to an
+            activity start.</param>
+        <summary>Perform the operation associated with this PendingIntent, supplying additional
+            options for the operation.</summary>
+        <remarks>
+          <para>Perform the operation associated with this PendingIntent, supplying additional
+            options for the operation.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/app/PendingIntent#send(android.os.Bundle)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.send(android.os.Bundle)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Send">
       <MemberSignature Language="C#" Value="public void Send (Android.App.Result code, Android.App.PendingIntent.IOnFinished? onFinished, Android.OS.Handler? handler);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance void Send(valuetype Android.App.Result code, class Android.App.PendingIntent/IOnFinished onFinished, class Android.OS.Handler handler) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.PendingIntent.Send(Android.App.Result,Android.App.PendingIntent.IOnFinished,Android.OS.Handler)" />
       <MemberSignature Language="F#" Value="member this.Send : Android.App.Result * Android.App.PendingIntent.IOnFinished * Android.OS.Handler -&gt; unit" Usage="pendingIntent.Send (code, onFinished, handler)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1197,8 +1542,8 @@
       <MemberSignature Language="F#" Value="member this.Send : Android.Content.Context * Android.App.Result * Android.Content.Intent -&gt; unit" Usage="pendingIntent.Send (context, code, intent)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1231,6 +1576,8 @@
         <summary>Perform the operation associated with this PendingIntent, allowing the
             caller to specify information about the Intent to use.</summary>
         <remarks>
+          <para>Perform the operation associated with this PendingIntent, allowing the
+            caller to specify information about the Intent to use.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#send(android.content.Context,%20int,%20android.content.Intent)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.send(android.content.Context, int, android.content.Intent)</code>.</a>
@@ -1256,8 +1603,8 @@
       <MemberSignature Language="F#" Value="member this.Send : Android.Content.Context * Android.App.Result * Android.Content.Intent * Android.App.PendingIntent.IOnFinished * Android.OS.Handler -&gt; unit" Usage="pendingIntent.Send (context, code, intent, onFinished, handler)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1326,8 +1673,8 @@
       <MemberSignature Language="F#" Value="member this.Send : Android.Content.Context * Android.App.Result * Android.Content.Intent * Android.App.PendingIntent.IOnFinished * Android.OS.Handler * string -&gt; unit" Usage="pendingIntent.Send (context, code, intent, onFinished, handler, requiredPermission)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1410,6 +1757,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("send", "(Landroid/content/Context;ILandroid/content/Intent;Landroid/app/PendingIntent$OnFinished;Landroid/os/Handler;Ljava/lang/String;Landroid/os/Bundle;)V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("send", "(Landroid/content/Context;ILandroid/content/Intent;Landroid/app/PendingIntent$OnFinished;Landroid/os/Handler;Ljava/lang/String;Landroid/os/Bundle;)V", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1460,8 +1811,8 @@
       <MemberSignature Language="F#" Value="member this.TargetPackage : string" Usage="Android.App.PendingIntent.TargetPackage" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1477,10 +1828,10 @@
         <ReturnType>System.String</ReturnType>
       </ReturnValue>
       <Docs>
-        <summary>
-        </summary>
+        <summary>This member is deprecated.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>This member is deprecated. Renamed to <c>#getCreatorPackage()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#getTargetPackage()" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.getTargetPackage()</code>.</a>
@@ -1502,8 +1853,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.App.PendingIntent.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1533,8 +1884,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.App.PendingIntent.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1564,8 +1915,8 @@
       <MemberSignature Language="F#" Value="static member WritePendingIntentOrNullToParcel : Android.App.PendingIntent * Android.OS.Parcel -&gt; unit" Usage="Android.App.PendingIntent.WritePendingIntentOrNullToParcel (sender, out)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1586,6 +1937,9 @@
         <summary>Convenience function for writing either a PendingIntent or null pointer to
             a Parcel.</summary>
         <remarks>
+          <para>Convenience function for writing either a PendingIntent or null pointer to
+            a Parcel.  You must use this with <c>#readPendingIntentOrNullFromParcel</c>
+            for later reading it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/PendingIntent#writePendingIntentOrNullToParcel(android.app.PendingIntent,%20android.os.Parcel)" title="Reference documentation">Java documentation for <code>android.app.PendingIntent.writePendingIntentOrNullToParcel(android.app.PendingIntent, android.os.Parcel)</code>.</a>
@@ -1610,8 +1964,8 @@
         <InterfaceMember>M:Android.OS.IParcelable.WriteToParcel(Android.OS.Parcel,Android.OS.ParcelableWriteFlags)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

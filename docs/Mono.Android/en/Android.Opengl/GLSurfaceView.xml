@@ -37,6 +37,106 @@
     <summary>An implementation of SurfaceView that uses the dedicated surface for
             displaying OpenGL rendering.</summary>
     <remarks>
+      <para>An implementation of SurfaceView that uses the dedicated surface for
+            displaying OpenGL rendering.</para>
+      <para>A GLSurfaceView provides the following features:</para>
+      <para>&lt;ul&gt;
+            &lt;li&gt;Manages a surface, which is a special piece of memory that can be
+            composited into the Android view system.
+            &lt;li&gt;Manages an EGL display, which enables OpenGL to render into a surface.
+            &lt;li&gt;Accepts a user-provided Renderer object that does the actual rendering.
+            &lt;li&gt;Renders on a dedicated thread to decouple rendering performance from the
+            UI thread.
+            &lt;li&gt;Supports both on-demand and continuous rendering.
+            &lt;li&gt;Optionally wraps, traces, and/or error-checks the renderer's OpenGL calls.
+            &lt;/ul&gt;
+            
+            &lt;div class="special reference"&gt;
+            &lt;h3&gt;Developer Guides&lt;/h3&gt;</para>
+      <para>For more information about how to use OpenGL, read the
+            <see href="https://developer.android.com/guide/topics/graphics/opengl.html">OpenGL</see> developer guide.</para>
+      <para>&lt;/div&gt;
+            
+            &lt;h3&gt;Using GLSurfaceView&lt;/h3&gt;</para>
+      <para>Typically you use GLSurfaceView by subclassing it and overriding one or more of the
+            View system input event methods. If your application does not need to override event
+            methods then GLSurfaceView can be used as-is. For the most part
+            GLSurfaceView behavior is customized by calling "set" methods rather than by subclassing.
+            For example, unlike a regular View, drawing is delegated to a separate Renderer object which
+            is registered with the GLSurfaceView
+            using the <c>#setRenderer(Renderer)</c> call.</para>
+      <para>&lt;h3&gt;Initializing GLSurfaceView&lt;/h3&gt;
+            All you have to do to initialize a GLSurfaceView is call <c>#setRenderer(Renderer)</c>.
+            However, if desired, you can modify the default behavior of GLSurfaceView by calling one or
+            more of these methods before calling setRenderer:
+            &lt;ul&gt;
+            &lt;li&gt;<c>#setDebugFlags(int)</c>&lt;li&gt;<c>#setEGLConfigChooser(boolean)</c>&lt;li&gt;<c>#setEGLConfigChooser(EGLConfigChooser)</c>&lt;li&gt;<c>#setEGLConfigChooser(int, int, int, int, int, int)</c>&lt;li&gt;<c>#setGLWrapper(GLWrapper)</c>&lt;/ul&gt;</para>
+      <para>&lt;h4&gt;Specifying the android.view.Surface&lt;/h4&gt;
+            By default GLSurfaceView will create a PixelFormat.RGB_888 format surface. If a translucent
+            surface is required, call getHolder().setFormat(PixelFormat.TRANSLUCENT).
+            The exact format of a TRANSLUCENT surface is device dependent, but it will be
+            a 32-bit-per-pixel surface with 8 bits per component.</para>
+      <para>&lt;h4&gt;Choosing an EGL Configuration&lt;/h4&gt;
+            A given Android device may support multiple EGLConfig rendering configurations.
+            The available configurations may differ in how many channels of data are present, as
+            well as how many bits are allocated to each channel. Therefore, the first thing
+            GLSurfaceView has to do when starting to render is choose what EGLConfig to use.</para>
+      <para>By default GLSurfaceView chooses a EGLConfig that has an RGB_888 pixel format,
+            with at least a 16-bit depth buffer and no stencil.</para>
+      <para>If you would prefer a different EGLConfig
+            you can override the default behavior by calling one of the
+            setEGLConfigChooser methods.</para>
+      <para>&lt;h4&gt;Debug Behavior&lt;/h4&gt;
+            You can optionally modify the behavior of GLSurfaceView by calling
+            one or more of the debugging methods <c>#setDebugFlags(int)</c>,
+            and <c>#setGLWrapper</c>. These methods may be called before and/or after setRenderer, but
+            typically they are called before setRenderer so that they take effect immediately.</para>
+      <para>&lt;h4&gt;Setting a Renderer&lt;/h4&gt;
+            Finally, you must call <c>#setRenderer</c> to register a <c>Renderer</c>.
+            The renderer is
+            responsible for doing the actual OpenGL rendering.</para>
+      <para>&lt;h3&gt;Rendering Mode&lt;/h3&gt;
+            Once the renderer is set, you can control whether the renderer draws
+            continuously or on-demand by calling
+            <c>#setRenderMode</c>. The default is continuous rendering.</para>
+      <para>&lt;h3&gt;Activity Life-cycle&lt;/h3&gt;
+            A GLSurfaceView must be notified when to pause and resume rendering. GLSurfaceView clients
+            are required to call <c>#onPause()</c> when the activity stops and
+            <c>#onResume()</c> when the activity starts. These calls allow GLSurfaceView to
+            pause and resume the rendering thread, and also allow GLSurfaceView to release and recreate
+            the OpenGL display.</para>
+      <para>&lt;h3&gt;Handling events&lt;/h3&gt;</para>
+      <para>To handle an event you will typically subclass GLSurfaceView and override the
+            appropriate method, just as you would with any other View. However, when handling
+            the event, you may need to communicate with the Renderer object
+            that's running in the rendering thread. You can do this using any
+            standard Java cross-thread communication mechanism. In addition,
+            one relatively easy way to communicate with your renderer is
+            to call
+            <c>#queueEvent(Runnable)</c>. For example:</para>
+      <code lang="text/java">class MyGLSurfaceView extends GLSurfaceView {
+            
+                private MyRenderer mMyRenderer;
+            
+                public void start() {
+                    mMyRenderer = ...;
+                    setRenderer(mMyRenderer);
+                }
+            
+                public boolean onKeyDown(int keyCode, KeyEvent event) {
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
+                        queueEvent(new Runnable() {
+                            // This method will be called on the rendering
+                            // thread:
+                            public void run() {
+                                mMyRenderer.handleDpadCenter();
+                            }});
+                        return true;
+                    }
+                    return super.onKeyDown(keyCode, event);
+                }
+            }
+            </code>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView</code>.</a>
@@ -58,8 +158,8 @@
       <MemberSignature Language="F#" Value="new Android.Opengl.GLSurfaceView : Android.Content.Context -&gt; Android.Opengl.GLSurfaceView" Usage="new Android.Opengl.GLSurfaceView context" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -74,6 +174,8 @@
         <param name="context">To be added.</param>
         <summary>Standard View constructor.</summary>
         <remarks>
+          <para>Standard View constructor. In order to render something, you
+            must call <c>#setRenderer</c> to register a renderer.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#GLSurfaceView(android.content.Context)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.GLSurfaceView(android.content.Context)</code>.</a>
@@ -95,8 +197,8 @@
       <MemberSignature Language="F#" Value="new Android.Opengl.GLSurfaceView : Android.Content.Context * Android.Util.IAttributeSet -&gt; Android.Opengl.GLSurfaceView" Usage="new Android.Opengl.GLSurfaceView (context, attrs)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -113,6 +215,8 @@
         <param name="attrs">To be added.</param>
         <summary>Standard View constructor.</summary>
         <remarks>
+          <para>Standard View constructor. In order to render something, you
+            must call <c>#setRenderer</c> to register a renderer.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#GLSurfaceView(android.content.Context,%20android.util.AttributeSet)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.GLSurfaceView(android.content.Context, android.util.AttributeSet)</code>.</a>
@@ -134,8 +238,8 @@
       <MemberSignature Language="F#" Value="new Android.Opengl.GLSurfaceView : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Opengl.GLSurfaceView" Usage="new Android.Opengl.GLSurfaceView (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -161,8 +265,8 @@
         <InterfaceMember>F:Android.Views.ISurfaceHolderCallback2.cb_surfaceRedrawNeededAsync_Landroid_view_SurfaceHolder_Ljava_lang_Runnable_</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -182,6 +286,9 @@
         <summary>Check glError() after every GL call and throw an exception if glError indicates
             that an error has occurred.</summary>
         <remarks>
+          <para>Check glError() after every GL call and throw an exception if glError indicates
+            that an error has occurred. This can be used to help track down which OpenGL ES call
+            is causing an error.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#DEBUG_CHECK_GL_ERROR" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.DEBUG_CHECK_GL_ERROR</code>.</a>
@@ -195,7 +302,6 @@
         </remarks>
         <since version="Added in API level 3" />
         <altmember cref="P:Android.Opengl.GLSurfaceView.DebugFlags" />
-        <altmember cref="P:Android.Opengl.GLSurfaceView.DebugFlags" />
       </Docs>
     </Member>
     <Member MemberName="DebugFlags">
@@ -205,8 +311,8 @@
       <MemberSignature Language="F#" Value="member this.DebugFlags : Android.Opengl.DebugFlags with get, set" Usage="Android.Opengl.GLSurfaceView.DebugFlags" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -227,12 +333,17 @@
         <value>the current value of the debug flags.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Get the current value of the debug flags.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#getDebugFlags()" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.getDebugFlags()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the debug flags to a new value. The value is
+            constructed by OR-together zero or more
+            of the DEBUG_CHECK_* constants. The debug flags take effect
+            whenever a surface is created. The default value is zero.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#setDebugFlags(int)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.setDebugFlags(int)</code>.</a>
@@ -260,8 +371,8 @@
         <InterfaceMember>F:Android.Views.ISurfaceHolderCallback2.cb_surfaceRedrawNeededAsync_Landroid_view_SurfaceHolder_Ljava_lang_Runnable_</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -280,6 +391,7 @@
       <Docs>
         <summary>Log GL calls to the system log at "verbose" level with tag "GLSurfaceView".</summary>
         <remarks>
+          <para>Log GL calls to the system log at "verbose" level with tag "GLSurfaceView".</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#DEBUG_LOG_GL_CALLS" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.DEBUG_LOG_GL_CALLS</code>.</a>
@@ -292,7 +404,6 @@
                     <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 3" />
-        <altmember cref="P:Android.Opengl.GLSurfaceView.DebugFlags" />
         <altmember cref="P:Android.Opengl.GLSurfaceView.DebugFlags" />
       </Docs>
     </Member>
@@ -337,8 +448,8 @@
       <MemberSignature Language="F#" Value="abstract member OnPause : unit -&gt; unit&#xA;override this.OnPause : unit -&gt; unit" Usage="gLSurfaceView.OnPause " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -354,6 +465,14 @@
         <summary>Pause the rendering thread, optionally tearing down the EGL context
             depending upon the value of <c>#setPreserveEGLContextOnPause(boolean)</c>.</summary>
         <remarks>
+          <para>Pause the rendering thread, optionally tearing down the EGL context
+            depending upon the value of <c>#setPreserveEGLContextOnPause(boolean)</c>.
+            
+            This method should be called when it is no longer desirable for the
+            GLSurfaceView to continue rendering, such as in response to
+            <c>android.app.Activity#onStop Activity.onStop</c>.
+            
+            Must not be called before a renderer has been set.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#onPause()" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.onPause()</code>.</a>
@@ -375,8 +494,8 @@
       <MemberSignature Language="F#" Value="abstract member OnResume : unit -&gt; unit&#xA;override this.OnResume : unit -&gt; unit" Usage="gLSurfaceView.OnResume " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -391,6 +510,13 @@
       <Docs>
         <summary>Resumes the rendering thread, re-creating the OpenGL context if necessary.</summary>
         <remarks>
+          <para>Resumes the rendering thread, re-creating the OpenGL context if necessary. It
+            is the counterpart to <c>#onPause()</c>.
+            
+            This method should typically be called in
+            <c>android.app.Activity#onStart Activity.onStart</c>.
+            
+            Must not be called before a renderer has been set.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#onResume()" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.onResume()</code>.</a>
@@ -412,8 +538,8 @@
       <MemberSignature Language="F#" Value="member this.PreserveEGLContextOnPause : bool with get, set" Usage="Android.Opengl.GLSurfaceView.PreserveEGLContextOnPause" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -441,6 +567,17 @@
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Control whether the EGL context is preserved when the GLSurfaceView is paused and
+            resumed.</para>
+          <para>If set to true, then the EGL context may be preserved when the GLSurfaceView is paused.</para>
+          <para>Prior to API level 11, whether the EGL context is actually preserved or not
+            depends upon whether the Android device can support an arbitrary number of
+            EGL contexts or not. Devices that can only support a limited number of EGL
+            contexts must release the EGL context in order to allow multiple applications
+            to share the GPU.</para>
+          <para>If set to false, the EGL context will be released when the GLSurfaceView is paused,
+            and recreated when the GLSurfaceView is resumed.</para>
+          <para>The default is false.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#setPreserveEGLContextOnPause(boolean)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.setPreserveEGLContextOnPause(boolean)</code>.</a>
@@ -462,8 +599,8 @@
       <MemberSignature Language="F#" Value="abstract member QueueEvent : Java.Lang.IRunnable -&gt; unit&#xA;override this.QueueEvent : Java.Lang.IRunnable -&gt; unit" Usage="gLSurfaceView.QueueEvent r" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -481,6 +618,9 @@
         <param name="r">the runnable to be run on the GL rendering thread.</param>
         <summary>Queue a runnable to be run on the GL rendering thread.</summary>
         <remarks>
+          <para>Queue a runnable to be run on the GL rendering thread. This can be used
+            to communicate with the Renderer on the rendering thread.
+            Must not be called before a renderer has been set.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#queueEvent(java.lang.Runnable)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.queueEvent(java.lang.Runnable)</code>.</a>
@@ -502,8 +642,8 @@
       <MemberSignature Language="F#" Value="member this.QueueEvent : Action -&gt; unit" Usage="gLSurfaceView.QueueEvent r" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -526,8 +666,8 @@
       <MemberSignature Language="F#" Value="member this.RenderMode : Android.Opengl.Rendermode with get, set" Usage="Android.Opengl.GLSurfaceView.RenderMode" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -548,12 +688,22 @@
         <value>the current rendering mode.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Get the current rendering mode. May be called
+            from any thread. Must not be called before a renderer has been set.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#getRenderMode()" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.getRenderMode()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the rendering mode. When renderMode is
+            RENDERMODE_CONTINUOUSLY, the renderer is called
+            repeatedly to re-render the scene. When renderMode
+            is RENDERMODE_WHEN_DIRTY, the renderer only rendered when the surface
+            is created, or when <c>#requestRender</c> is called. Defaults to RENDERMODE_CONTINUOUSLY.</para>
+          <para>Using RENDERMODE_WHEN_DIRTY can improve battery life and overall system performance
+            by allowing the GPU and CPU to idle when the view does not need to be updated.</para>
+          <para>This method can only be called after <c>#setRenderer(Renderer)</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#setRenderMode(int)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.setRenderMode(int)</code>.</a>
@@ -566,8 +716,6 @@
                     <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 3" />
-        <altmember cref="F:Android.Opengl.GLSurfaceView.RendermodeContinuously" />
-        <altmember cref="F:Android.Opengl.GLSurfaceView.RendermodeWhenDirty" />
         <altmember cref="F:Android.Opengl.GLSurfaceView.RendermodeContinuously" />
         <altmember cref="F:Android.Opengl.GLSurfaceView.RendermodeWhenDirty" />
       </Docs>
@@ -583,8 +731,8 @@
         <InterfaceMember>F:Android.Views.ISurfaceHolderCallback2.cb_surfaceRedrawNeededAsync_Landroid_view_SurfaceHolder_Ljava_lang_Runnable_</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -604,6 +752,8 @@
         <summary>The renderer is called
             continuously to re-render the scene.</summary>
         <remarks>
+          <para>The renderer is called
+            continuously to re-render the scene.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#RENDERMODE_CONTINUOUSLY" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.RENDERMODE_CONTINUOUSLY</code>.</a>
@@ -616,7 +766,6 @@
                     <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
         <since version="Added in API level 3" />
-        <altmember cref="P:Android.Opengl.GLSurfaceView.RenderMode" />
         <altmember cref="P:Android.Opengl.GLSurfaceView.RenderMode" />
       </Docs>
     </Member>
@@ -631,8 +780,8 @@
         <InterfaceMember>F:Android.Views.ISurfaceHolderCallback2.cb_surfaceRedrawNeededAsync_Landroid_view_SurfaceHolder_Ljava_lang_Runnable_</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -652,6 +801,8 @@
         <summary>The renderer only renders
             when the surface is created, or when <c>#requestRender</c> is called.</summary>
         <remarks>
+          <para>The renderer only renders
+            when the surface is created, or when <c>#requestRender</c> is called.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#RENDERMODE_WHEN_DIRTY" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.RENDERMODE_WHEN_DIRTY</code>.</a>
@@ -665,7 +816,6 @@
         </remarks>
         <since version="Added in API level 3" />
         <altmember cref="P:Android.Opengl.GLSurfaceView.RenderMode" />
-        <altmember cref="P:Android.Opengl.GLSurfaceView.RenderMode" />
         <altmember cref="M:Android.Opengl.GLSurfaceView.RequestRender" />
       </Docs>
     </Member>
@@ -676,8 +826,8 @@
       <MemberSignature Language="F#" Value="abstract member RequestRender : unit -&gt; unit&#xA;override this.RequestRender : unit -&gt; unit" Usage="gLSurfaceView.RequestRender " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -692,6 +842,11 @@
       <Docs>
         <summary>Request that the renderer render a frame.</summary>
         <remarks>
+          <para>Request that the renderer render a frame.
+            This method is typically used when the render mode has been set to
+            <c>#RENDERMODE_WHEN_DIRTY</c>, so that frames are only rendered on demand.
+            May be called
+            from any thread. Must not be called before a renderer has been set.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#requestRender()" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.requestRender()</code>.</a>
@@ -713,8 +868,8 @@
       <MemberSignature Language="F#" Value="abstract member SetEGLConfigChooser : Android.Opengl.GLSurfaceView.IEGLConfigChooser -&gt; unit&#xA;override this.SetEGLConfigChooser : Android.Opengl.GLSurfaceView.IEGLConfigChooser -&gt; unit" Usage="gLSurfaceView.SetEGLConfigChooser configChooser" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -755,8 +910,8 @@
       <MemberSignature Language="F#" Value="abstract member SetEGLConfigChooser : bool -&gt; unit&#xA;override this.SetEGLConfigChooser : bool -&gt; unit" Usage="gLSurfaceView.SetEGLConfigChooser needDepth" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -776,6 +931,15 @@
             as close to 16-bit RGB as possible, with or without an optional depth
             buffer as close to 16-bits as possible.</summary>
         <remarks>
+          <para>Install a config chooser which will choose a config
+            as close to 16-bit RGB as possible, with or without an optional depth
+            buffer as close to 16-bits as possible.</para>
+          <para>If this method is
+            called, it must be called before <c>#setRenderer(Renderer)</c>
+            is called.</para>
+          <para>If no setEGLConfigChooser method is called, then by default the
+            view will choose an RGB_888 surface with a depth buffer depth of
+            at least 16 bits.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#setEGLConfigChooser(boolean)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.setEGLConfigChooser(boolean)</code>.</a>
@@ -797,8 +961,8 @@
       <MemberSignature Language="F#" Value="abstract member SetEGLConfigChooser : int * int * int * int * int * int -&gt; unit&#xA;override this.SetEGLConfigChooser : int * int * int * int * int * int -&gt; unit" Usage="gLSurfaceView.SetEGLConfigChooser (redSize, greenSize, blueSize, alphaSize, depthSize, stencilSize)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -828,6 +992,15 @@
             with at least the specified depthSize and stencilSize,
             and exactly the specified redSize, greenSize, blueSize and alphaSize.</summary>
         <remarks>
+          <para>Install a config chooser which will choose a config
+            with at least the specified depthSize and stencilSize,
+            and exactly the specified redSize, greenSize, blueSize and alphaSize.</para>
+          <para>If this method is
+            called, it must be called before <c>#setRenderer(Renderer)</c>
+            is called.</para>
+          <para>If no setEGLConfigChooser method is called, then by default the
+            view will choose an RGB_888 surface with a depth buffer depth of
+            at least 16 bits.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#setEGLConfigChooser(int,%20int,%20int,%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.setEGLConfigChooser(int, int, int, int, int, int)</code>.</a>
@@ -849,8 +1022,8 @@
       <MemberSignature Language="F#" Value="abstract member SetEGLContextClientVersion : int -&gt; unit&#xA;override this.SetEGLContextClientVersion : int -&gt; unit" Usage="gLSurfaceView.SetEGLContextClientVersion version" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -869,6 +1042,18 @@
         <summary>Inform the default EGLContextFactory and default EGLConfigChooser
             which EGLContext client version to pick.</summary>
         <remarks>
+          <para>Inform the default EGLContextFactory and default EGLConfigChooser
+            which EGLContext client version to pick.</para>
+          <para>Use this method to create an OpenGL ES 2.0-compatible context.
+            Example:</para>
+          <code lang="text/java">public MyView(Context context) {
+                    super(context);
+                    setEGLContextClientVersion(2); // Pick an OpenGL ES 2.0 context.
+                    setRenderer(new MyRenderer());
+                }
+            </code>
+          <para>Note: Activities which require OpenGL ES 2.0 should indicate this by
+            setting</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#setEGLContextClientVersion(int)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.setEGLContextClientVersion(int)</code>.</a>
@@ -890,8 +1075,8 @@
       <MemberSignature Language="F#" Value="abstract member SetEGLContextFactory : Android.Opengl.GLSurfaceView.IEGLContextFactory -&gt; unit&#xA;override this.SetEGLContextFactory : Android.Opengl.GLSurfaceView.IEGLContextFactory -&gt; unit" Usage="gLSurfaceView.SetEGLContextFactory factory" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -930,8 +1115,8 @@
       <MemberSignature Language="F#" Value="abstract member SetEGLWindowSurfaceFactory : Android.Opengl.GLSurfaceView.IEGLWindowSurfaceFactory -&gt; unit&#xA;override this.SetEGLWindowSurfaceFactory : Android.Opengl.GLSurfaceView.IEGLWindowSurfaceFactory -&gt; unit" Usage="gLSurfaceView.SetEGLWindowSurfaceFactory factory" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -970,8 +1155,8 @@
       <MemberSignature Language="F#" Value="abstract member SetGLWrapper : Android.Opengl.GLSurfaceView.IGLWrapper -&gt; unit&#xA;override this.SetGLWrapper : Android.Opengl.GLSurfaceView.IGLWrapper -&gt; unit" Usage="gLSurfaceView.SetGLWrapper glWrapper" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1010,8 +1195,8 @@
       <MemberSignature Language="F#" Value="abstract member SetRenderer : Android.Opengl.GLSurfaceView.IRenderer -&gt; unit&#xA;override this.SetRenderer : Android.Opengl.GLSurfaceView.IRenderer -&gt; unit" Usage="gLSurfaceView.SetRenderer renderer" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1053,8 +1238,8 @@
         <InterfaceMember>M:Android.Views.ISurfaceHolderCallback.SurfaceChanged(Android.Views.ISurfaceHolder,Android.Graphics.Format,System.Int32,System.Int32)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1086,6 +1271,8 @@
 </param>
         <summary>This method is part of the SurfaceHolder.</summary>
         <remarks>
+          <para>This method is part of the SurfaceHolder.Callback interface, and is
+            not normally called or subclassed by clients of GLSurfaceView.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#surfaceChanged(android.view.SurfaceHolder,%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.surfaceChanged(android.view.SurfaceHolder, int, int, int)</code>.</a>
@@ -1110,8 +1297,8 @@
         <InterfaceMember>M:Android.Views.ISurfaceHolderCallback.SurfaceCreated(Android.Views.ISurfaceHolder)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1130,6 +1317,8 @@
 </param>
         <summary>This method is part of the SurfaceHolder.</summary>
         <remarks>
+          <para>This method is part of the SurfaceHolder.Callback interface, and is
+            not normally called or subclassed by clients of GLSurfaceView.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#surfaceCreated(android.view.SurfaceHolder)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.surfaceCreated(android.view.SurfaceHolder)</code>.</a>
@@ -1154,8 +1343,8 @@
         <InterfaceMember>M:Android.Views.ISurfaceHolderCallback.SurfaceDestroyed(Android.Views.ISurfaceHolder)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1174,6 +1363,8 @@
 </param>
         <summary>This method is part of the SurfaceHolder.</summary>
         <remarks>
+          <para>This method is part of the SurfaceHolder.Callback interface, and is
+            not normally called or subclassed by clients of GLSurfaceView.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#surfaceDestroyed(android.view.SurfaceHolder)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.surfaceDestroyed(android.view.SurfaceHolder)</code>.</a>
@@ -1207,8 +1398,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("surfaceRedrawNeeded", "(Landroid/view/SurfaceHolder;)V", "GetSurfaceRedrawNeeded_Landroid_view_SurfaceHolder_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1221,6 +1416,8 @@
         <param name="holder">To be added.</param>
         <summary>This method is part of the SurfaceHolder.</summary>
         <remarks>
+          <para>This method is part of the SurfaceHolder.Callback2 interface, and is
+            not normally called or subclassed by clients of GLSurfaceView.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#surfaceRedrawNeeded(android.view.SurfaceHolder)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.surfaceRedrawNeeded(android.view.SurfaceHolder)</code>.</a>
@@ -1252,6 +1449,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("surfaceRedrawNeededAsync", "(Landroid/view/SurfaceHolder;Ljava/lang/Runnable;)V", "GetSurfaceRedrawNeededAsync_Landroid_view_SurfaceHolder_Ljava_lang_Runnable_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("surfaceRedrawNeededAsync", "(Landroid/view/SurfaceHolder;Ljava/lang/Runnable;)V", "GetSurfaceRedrawNeededAsync_Landroid_view_SurfaceHolder_Ljava_lang_Runnable_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1265,6 +1466,8 @@
         <param name="finishDrawing">To be added.</param>
         <summary>This method is part of the SurfaceHolder.</summary>
         <remarks>
+          <para>This method is part of the SurfaceHolder.Callback2 interface, and is
+            not normally called or subclassed by clients of GLSurfaceView.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/opengl/GLSurfaceView#surfaceRedrawNeededAsync(android.view.SurfaceHolder,%20java.lang.Runnable)" title="Reference documentation">Java documentation for <code>android.opengl.GLSurfaceView.surfaceRedrawNeededAsync(android.view.SurfaceHolder, java.lang.Runnable)</code>.</a>
@@ -1285,8 +1488,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Opengl.GLSurfaceView.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1316,8 +1519,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Opengl.GLSurfaceView.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

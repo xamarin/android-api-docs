@@ -1,6 +1,6 @@
 <Type Name="IFileVisitor" FullName="Java.Nio.FileNio.IFileVisitor">
   <TypeSignature Language="C#" Value="public interface IFileVisitor : Android.Runtime.IJavaObject, IDisposable, Java.Interop.IJavaPeerable" />
-  <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract IFileVisitor implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
+  <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract beforefieldinit IFileVisitor implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Java.Nio.FileNio.IFileVisitor" />
   <TypeSignature Language="F#" Value="type IFileVisitor = interface&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
@@ -31,6 +31,66 @@
   <Docs>
     <summary>A visitor of files.</summary>
     <remarks>
+      <para>A visitor of files. An implementation of this interface is provided to the
+            <c>Files#walkFileTree Files.walkFileTree</c> methods to visit each file in
+            a file tree.</para>
+      <para>&lt;b&gt;Usage Examples:&lt;/b&gt;
+            Suppose we want to delete a file tree. In that case, each directory should
+            be deleted after the entries in the directory are deleted.</para>
+      <code lang="text/java">Path start = ...
+                Files.walkFileTree(start, new SimpleFileVisitor&amp;lt;Path&amp;gt;() {
+                    &amp;#64;Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                        throws IOException
+                    {
+                        Files.delete(file);
+                        return FileVisitResult.CONTINUE;
+                    }
+                    &amp;#64;Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException e)
+                        throws IOException
+                    {
+                        if (e == null) {
+                            Files.delete(dir);
+                            return FileVisitResult.CONTINUE;
+                        } else {
+                            // directory iteration failed
+                            throw e;
+                        }
+                    }
+                });
+            </code>
+      <para>Furthermore, suppose we want to copy a file tree to a target location.
+            In that case, symbolic links should be followed and the target directory
+            should be created before the entries in the directory are copied.</para>
+      <code lang="text/java">final Path source = ...
+                final Path target = ...
+            
+                Files.walkFileTree(source, EnumSet.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE,
+                    new SimpleFileVisitor&amp;lt;Path&amp;gt;() {
+                        &amp;#64;Override
+                        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+                            throws IOException
+                        {
+                            Path targetdir = target.resolve(source.relativize(dir));
+                            try {
+                                Files.copy(dir, targetdir);
+                            } catch (FileAlreadyExistsException e) {
+                                 if (!Files.isDirectory(targetdir))
+                                     throw e;
+                            }
+                            return CONTINUE;
+                        }
+                        &amp;#64;Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                            throws IOException
+                        {
+                            Files.copy(file, target.resolve(source.relativize(file)));
+                            return CONTINUE;
+                        }
+                    });
+            </code>
+      <para>Added in 1.7.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/nio/file/FileVisitor" title="Reference documentation">Java documentation for <code>java.nio.file.FileVisitor</code>.</a>
@@ -59,6 +119,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("postVisitDirectory", "(Ljava/lang/Object;Ljava/io/IOException;)Ljava/nio/file/FileVisitResult;", "GetPostVisitDirectory_Ljava_lang_Object_Ljava_io_IOException_Handler:Java.Nio.FileNio.IFileVisitorInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("postVisitDirectory", "(Ljava/lang/Object;Ljava/io/IOException;)Ljava/nio/file/FileVisitResult;", "GetPostVisitDirectory_Ljava_lang_Object_Ljava_io_IOException_Handler:Java.Nio.FileNio.IFileVisitorInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Nio.FileNio.FileVisitResult</ReturnType>
@@ -77,6 +141,11 @@
             descendants, have been visited.</summary>
         <returns>the visit result</returns>
         <remarks>
+          <para>Invoked for a directory after entries in the directory, and all of their
+            descendants, have been visited. This method is also invoked when iteration
+            of the directory completes prematurely (by a <c>#visitFile visitFile</c>
+            method returning <c>FileVisitResult#SKIP_SIBLINGS SKIP_SIBLINGS</c>,
+            or an I/O error when iterating over the directory).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/nio/file/FileVisitor#postVisitDirectory(T,%20java.io.IOException)" title="Reference documentation">Java documentation for <code>java.nio.file.FileVisitor.postVisitDirectory(T, java.io.IOException)</code>.</a>
@@ -105,6 +174,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("preVisitDirectory", "(Ljava/lang/Object;Ljava/nio/file/attribute/BasicFileAttributes;)Ljava/nio/file/FileVisitResult;", "GetPreVisitDirectory_Ljava_lang_Object_Ljava_nio_file_attribute_BasicFileAttributes_Handler:Java.Nio.FileNio.IFileVisitorInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("preVisitDirectory", "(Ljava/lang/Object;Ljava/nio/file/attribute/BasicFileAttributes;)Ljava/nio/file/FileVisitResult;", "GetPreVisitDirectory_Ljava_lang_Object_Ljava_nio_file_attribute_BasicFileAttributes_Handler:Java.Nio.FileNio.IFileVisitorInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Nio.FileNio.FileVisitResult</ReturnType>
@@ -119,6 +192,10 @@
         <summary>Invoked for a directory before entries in the directory are visited.</summary>
         <returns>the visit result</returns>
         <remarks>
+          <para>Invoked for a directory before entries in the directory are visited.</para>
+          <para>If this method returns <c>FileVisitResult#CONTINUE CONTINUE</c>,
+            then entries in the directory are visited. If this method returns <c>FileVisitResult#SKIP_SUBTREE SKIP_SUBTREE</c> or <c>FileVisitResult#SKIP_SIBLINGS SKIP_SIBLINGS</c> then entries in the
+            directory (and any descendants) will not be visited.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/nio/file/FileVisitor#preVisitDirectory(T,%20java.nio.file.attribute.BasicFileAttributes)" title="Reference documentation">Java documentation for <code>java.nio.file.FileVisitor.preVisitDirectory(T, java.nio.file.attribute.BasicFileAttributes)</code>.</a>
@@ -147,6 +224,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("visitFile", "(Ljava/lang/Object;Ljava/nio/file/attribute/BasicFileAttributes;)Ljava/nio/file/FileVisitResult;", "GetVisitFile_Ljava_lang_Object_Ljava_nio_file_attribute_BasicFileAttributes_Handler:Java.Nio.FileNio.IFileVisitorInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("visitFile", "(Ljava/lang/Object;Ljava/nio/file/attribute/BasicFileAttributes;)Ljava/nio/file/FileVisitResult;", "GetVisitFile_Ljava_lang_Object_Ljava_nio_file_attribute_BasicFileAttributes_Handler:Java.Nio.FileNio.IFileVisitorInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Nio.FileNio.FileVisitResult</ReturnType>
@@ -161,6 +242,7 @@
         <summary>Invoked for a file in a directory.</summary>
         <returns>the visit result</returns>
         <remarks>
+          <para>Invoked for a file in a directory.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/nio/file/FileVisitor#visitFile(T,%20java.nio.file.attribute.BasicFileAttributes)" title="Reference documentation">Java documentation for <code>java.nio.file.FileVisitor.visitFile(T, java.nio.file.attribute.BasicFileAttributes)</code>.</a>
@@ -189,6 +271,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("visitFileFailed", "(Ljava/lang/Object;Ljava/io/IOException;)Ljava/nio/file/FileVisitResult;", "GetVisitFileFailed_Ljava_lang_Object_Ljava_io_IOException_Handler:Java.Nio.FileNio.IFileVisitorInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("visitFileFailed", "(Ljava/lang/Object;Ljava/io/IOException;)Ljava/nio/file/FileVisitResult;", "GetVisitFileFailed_Ljava_lang_Object_Ljava_io_IOException_Handler:Java.Nio.FileNio.IFileVisitorInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Nio.FileNio.FileVisitResult</ReturnType>
@@ -203,6 +289,9 @@
         <summary>Invoked for a file that could not be visited.</summary>
         <returns>the visit result</returns>
         <remarks>
+          <para>Invoked for a file that could not be visited. This method is invoked
+            if the file's attributes could not be read, the file is a directory
+            that could not be opened, and other reasons.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/nio/file/FileVisitor#visitFileFailed(T,%20java.io.IOException)" title="Reference documentation">Java documentation for <code>java.nio.file.FileVisitor.visitFileFailed(T, java.io.IOException)</code>.</a>

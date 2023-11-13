@@ -34,6 +34,118 @@
     <summary>Caches HTTP and HTTPS responses to the filesystem so they may be reused,
             saving time and bandwidth.</summary>
     <remarks>
+      <para>Caches HTTP and HTTPS responses to the filesystem so they may be reused,
+            saving time and bandwidth. This class supports <c>java.net.HttpURLConnection</c> and <c>javax.net.ssl.HttpsURLConnection</c>;
+            there is no platform-provided cache for <c>DefaultHttpClient</c> or
+            <c>AndroidHttpClient</c>. Installation and instances are thread
+            safe.
+            
+            &lt;h3&gt;Installing an HTTP response cache&lt;/h3&gt;
+            Enable caching of all of your application's HTTP requests by installing the
+            cache at application startup. For example, this code installs a 10 MiB cache
+            in the <c>android.content.Context#getCacheDir() application-specific
+            cache directory</c> of the filesystem}:</para>
+      <code lang="text/java">{@code
+              protected void onCreate(Bundle savedInstanceState) {
+                  ...
+            
+                  try {
+                      File httpCacheDir = new File(context.getCacheDir(), "http");
+                      long httpCacheSize = 10 * 1024 * 1024; // 10 MiB
+                      HttpResponseCache.install(httpCacheDir, httpCacheSize);
+                  } catch (IOException e) {
+                      Log.i(TAG, "HTTP response cache installation failed:" + e);
+                  }
+              }
+            
+              protected void onStop() {
+                  ...
+            
+                  HttpResponseCache cache = HttpResponseCache.getInstalled();
+                  if (cache != null) {
+                      cache.flush();
+                  }
+              }}</code>
+      <para>This cache will evict entries as necessary to keep its size from exceeding
+            10 MiB. The best cache size is application specific and depends on the size
+            and frequency of the files being downloaded. Increasing the limit may improve
+            the hit rate, but it may also just waste filesystem space!</para>
+      <para>For some applications it may be preferable to create the cache in the
+            external storage directory. &lt;strong&gt;There are no access controls on the
+            external storage directory so it should not be used for caches that could
+            contain private data.&lt;/strong&gt; Although it often has more free space,
+            external storage is optional and&amp;#8212;even if available&amp;#8212;can disappear
+            during use. Retrieve the external cache directory using <c>android.content.Context#getExternalCacheDir()</c>. If this method returns null,
+            your application should fall back to either not caching or caching on
+            non-external storage. If the external storage is removed during use, the
+            cache hit rate will drop to zero and ongoing cache reads will fail.</para>
+      <para>Flushing the cache forces its data to the filesystem. This ensures that
+            all responses written to the cache will be readable the next time the
+            activity starts.
+            
+            &lt;h3&gt;Cache Optimization&lt;/h3&gt;
+            To measure cache effectiveness, this class tracks three statistics:
+            &lt;ul&gt;
+                &lt;li&gt;&lt;strong&gt;<c>#getRequestCount() Request Count:</c>&lt;/strong&gt; the number
+                    of HTTP requests issued since this cache was created.
+                &lt;li&gt;&lt;strong&gt;<c>#getNetworkCount() Network Count:</c>&lt;/strong&gt; the
+                    number of those requests that required network use.
+                &lt;li&gt;&lt;strong&gt;<c>#getHitCount() Hit Count:</c>&lt;/strong&gt; the number of
+                    those requests whose responses were served by the cache.
+            &lt;/ul&gt;
+            Sometimes a request will result in a conditional cache hit. If the cache
+            contains a stale copy of the response, the client will issue a conditional
+            <c>GET</c>. The server will then send either the updated response if it has
+            changed, or a short 'not modified' response if the client's copy is still
+            valid. Such responses increment both the network count and hit count.</para>
+      <para>The best way to improve the cache hit rate is by configuring the web
+            server to return cacheable responses. Although this client honors all <see href="http://www.ietf.org/rfc/rfc2616.txt">HTTP/1.1 (RFC 2068)</see> cache
+            headers, it doesn't cache partial responses.
+            
+            &lt;h3&gt;Force a Network Response&lt;/h3&gt;
+            In some situations, such as after a user clicks a 'refresh' button, it may be
+            necessary to skip the cache, and fetch data directly from the server. To force
+            a full refresh, add the <c>no-cache</c> directive:</para>
+      <code lang="text/java">{@code
+                    connection.addRequestProperty("Cache-Control", "no-cache");
+            }</code>
+      <para>If it is only necessary to force a cached response to be validated by the
+            server, use the more efficient <c>max-age=0</c> instead:</para>
+      <code lang="text/java">{@code
+                    connection.addRequestProperty("Cache-Control", "max-age=0");
+            }</code>
+      <para>&lt;h3&gt;Force a Cache Response&lt;/h3&gt;
+            Sometimes you'll want to show resources if they are available immediately,
+            but not otherwise. This can be used so your application can show
+            <i>something</i> while waiting for the latest data to be downloaded. To
+            restrict a request to locally-cached resources, add the <c>only-if-cached</c> directive:</para>
+      <code lang="text/java">{@code
+                try {
+                    connection.addRequestProperty("Cache-Control", "only-if-cached");
+                    InputStream cached = connection.getInputStream();
+                    // the resource was cached! show it
+                } catch (FileNotFoundException e) {
+                    // the resource was not cached
+                }
+            }</code>
+      <para>This technique works even better in situations where a stale response is
+            better than no response. To permit stale cached responses, use the <c>max-stale</c> directive with the maximum staleness in seconds:</para>
+      <code lang="text/java">{@code
+                    int maxStale = 60 * 60 * 24 * 28; // tolerate 4-weeks stale
+                    connection.addRequestProperty("Cache-Control", "max-stale=" + maxStale);
+            }</code>
+      <para>&lt;h3&gt;Working With Earlier Releases&lt;/h3&gt;
+            This class was added in Android 4.0 (Ice Cream Sandwich). Use reflection to
+            enable the response cache without impacting earlier releases:</para>
+      <code lang="text/java">{@code
+                  try {
+                      File httpCacheDir = new File(context.getCacheDir(), "http");
+                      long httpCacheSize = 10 * 1024 * 1024; // 10 MiB
+                      Class.forName("android.net.http.HttpResponseCache")
+                              .getMethod("install", File.class, long.class)
+                              .invoke(null, httpCacheDir, httpCacheSize);
+                  } catch (Exception httpResponseCacheNotAvailable) {
+                  }}</code>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache</code>.</a>
@@ -58,8 +170,8 @@
         <InterfaceMember>M:Java.IO.ICloseable.Close</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -74,6 +186,8 @@
       <Docs>
         <summary>Uninstalls the cache and releases any active resources.</summary>
         <remarks>
+          <para>Uninstalls the cache and releases any active resources. Stored contents
+            will remain on the filesystem.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache#close()" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache.close()</code>.</a>
@@ -96,8 +210,8 @@
       <MemberSignature Language="F#" Value="member this.Delete : unit -&gt; unit" Usage="httpResponseCache.Delete " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -112,6 +226,7 @@
       <Docs>
         <summary>Uninstalls the cache and deletes all of its stored contents.</summary>
         <remarks>
+          <para>Uninstalls the cache and deletes all of its stored contents.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache#delete()" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache.delete()</code>.</a>
@@ -134,8 +249,8 @@
       <MemberSignature Language="F#" Value="member this.Flush : unit -&gt; unit" Usage="httpResponseCache.Flush " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -150,6 +265,9 @@
       <Docs>
         <summary>Force buffered operations to the filesystem.</summary>
         <remarks>
+          <para>Force buffered operations to the filesystem. This ensures that responses
+            written to the cache will be available the next time the cache is opened,
+            even if this process is killed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache#flush()" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache.flush()</code>.</a>
@@ -171,8 +289,8 @@
       <MemberSignature Language="F#" Value="override this.Get : Java.Net.URI * string * System.Collections.Generic.IDictionary&lt;string, System.Collections.Generic.IList&lt;string&gt;&gt; -&gt; Java.Net.CacheResponse" Usage="httpResponseCache.Get (uri, requestMethod, requestHeaders)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -206,8 +324,8 @@
       <MemberSignature Language="F#" Value="member this.HitCount : int" Usage="Android.Net.Http.HttpResponseCache.HitCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -223,6 +341,9 @@
             cache.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the number of HTTP requests whose response was provided by the
+            cache. This may include conditional <c>GET</c> requests that were
+            validated over the network.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache#getHitCount()" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache.getHitCount()</code>.</a>
@@ -244,8 +365,8 @@
       <MemberSignature Language="F#" Value="static member Install : Java.IO.File * int64 -&gt; Android.Net.Http.HttpResponseCache" Usage="Android.Net.Http.HttpResponseCache.Install (directory, maxSize)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -266,6 +387,7 @@
         <summary>Creates a new HTTP response cache and sets it as the system default cache.</summary>
         <returns>the newly-installed cache</returns>
         <remarks>
+          <para>Creates a new HTTP response cache and sets it as the system default cache.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache#install(java.io.File,%20long)" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache.install(java.io.File, long)</code>.</a>
@@ -288,11 +410,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Http.HttpResponseCache? Installed { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Http.HttpResponseCache Installed" />
       <MemberSignature Language="DocId" Value="P:Android.Net.Http.HttpResponseCache.Installed" />
-      <MemberSignature Language="F#" Value="member this.Installed : Android.Net.Http.HttpResponseCache" Usage="Android.Net.Http.HttpResponseCache.Installed" />
+      <MemberSignature Language="F#" Value="static member Installed : Android.Net.Http.HttpResponseCache" Usage="Android.Net.Http.HttpResponseCache.Installed" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -308,6 +430,8 @@
             there is no cache installed or it is not a <c>HttpResponseCache</c>.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the currently-installed <c>HttpResponseCache</c>, or null if
+            there is no cache installed or it is not a <c>HttpResponseCache</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache#getInstalled()" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache.getInstalled()</code>.</a>
@@ -363,8 +487,8 @@
       <MemberSignature Language="F#" Value="member this.MaxSize : unit -&gt; int64" Usage="httpResponseCache.MaxSize " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -381,6 +505,8 @@
             its data.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the maximum number of bytes that this cache should use to store
+            its data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache#maxSize()" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache.maxSize()</code>.</a>
@@ -402,8 +528,8 @@
       <MemberSignature Language="F#" Value="member this.NetworkCount : int" Usage="Android.Net.Http.HttpResponseCache.NetworkCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -419,6 +545,8 @@
             supply a response or validate a locally cached response.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the number of HTTP requests that required the network to either
+            supply a response or validate a locally cached response.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache#getNetworkCount()" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache.getNetworkCount()</code>.</a>
@@ -440,8 +568,8 @@
       <MemberSignature Language="F#" Value="override this.Put : Java.Net.URI * Java.Net.URLConnection -&gt; Java.Net.CacheRequest" Usage="httpResponseCache.Put (uri, urlConnection)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -475,8 +603,8 @@
       <MemberSignature Language="F#" Value="member this.RequestCount : int" Usage="Android.Net.Http.HttpResponseCache.RequestCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -491,6 +619,9 @@
         <summary>Returns the total number of HTTP requests that were made.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the total number of HTTP requests that were made. This includes
+            both client requests and requests that were made on the client's behalf
+            to handle a redirects and retries.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache#getRequestCount()" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache.getRequestCount()</code>.</a>
@@ -512,8 +643,8 @@
       <MemberSignature Language="F#" Value="member this.Size : unit -&gt; int64" Usage="httpResponseCache.Size " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -530,6 +661,9 @@
             this cache.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the number of bytes currently being used to store the values in
+            this cache. This may be greater than the <c>#maxSize</c> if a background
+            deletion is pending. <c>-1</c> is returned if the size cannot be determined.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/net/http/HttpResponseCache#size()" title="Reference documentation">Java documentation for <code>android.net.http.HttpResponseCache.size()</code>.</a>
@@ -551,8 +685,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Net.Http.HttpResponseCache.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -582,8 +716,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Net.Http.HttpResponseCache.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

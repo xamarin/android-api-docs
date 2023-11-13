@@ -21,6 +21,450 @@
     <summary>Constants for the data table, which contains data points tied to a raw
             contact.</summary>
     <remarks>
+      <para>Constants for the data table, which contains data points tied to a raw
+            contact.  Each row of the data table is typically used to store a single
+            piece of contact
+            information (such as a phone number) and its
+            associated metadata (such as whether it is a work or home number).</para>
+      <para>&lt;h3&gt;Data kinds&lt;/h3&gt;</para>
+      <para>Data is a generic table that can hold any kind of contact data.
+            The kind of data stored in a given row is specified by the row's
+            <c>#MIMETYPE</c> value, which determines the meaning of the
+            generic columns <c>#DATA1</c> through
+            <c>#DATA15</c>.
+            For example, if the data kind is
+            <c>CommonDataKinds.Phone Phone.CONTENT_ITEM_TYPE</c>, then the column
+            <c>#DATA1</c> stores the
+            phone number, but if the data kind is
+            <c>CommonDataKinds.Email Email.CONTENT_ITEM_TYPE</c>, then <c>#DATA1</c>
+            stores the email address.
+            Sync adapters and applications can introduce their own data kinds.</para>
+      <para>ContactsContract defines a small number of pre-defined data kinds, e.g.
+            <c>CommonDataKinds.Phone</c>, <c>CommonDataKinds.Email</c> etc. As a
+            convenience, these classes define data kind specific aliases for DATA1 etc.
+            For example, <c>CommonDataKinds.Phone Phone.NUMBER</c> is the same as
+            <c>ContactsContract.Data Data.DATA1</c>.</para>
+      <para>
+        <c>#DATA1</c> is an indexed column and should be used for the data element that is
+            expected to be most frequently used in query selections. For example, in the
+            case of a row representing email addresses <c>#DATA1</c> should probably
+            be used for the email address itself, while <c>#DATA2</c> etc can be
+            used for auxiliary information like type of email address.</para>
+      <para />
+      <para>By convention, <c>#DATA15</c> is used for storing BLOBs (binary data).</para>
+      <para>The sync adapter for a given account type must correctly handle every data type
+            used in the corresponding raw contacts.  Otherwise it could result in lost or
+            corrupted data.</para>
+      <para>Similarly, you should refrain from introducing new kinds of data for an other
+            party's account types. For example, if you add a data row for
+            "favorite song" to a raw contact owned by a Google account, it will not
+            get synced to the server, because the Google sync adapter does not know
+            how to handle this data kind. Thus new data kinds are typically
+            introduced along with new account types, i.e. new sync adapters.</para>
+      <para>&lt;h3&gt;Batch operations&lt;/h3&gt;</para>
+      <para>Data rows can be inserted/updated/deleted using the traditional
+            <c>ContentResolver#insert</c>, <c>ContentResolver#update</c> and
+            <c>ContentResolver#delete</c> methods, however the newer mechanism based
+            on a batch of <c>ContentProviderOperation</c> will prove to be a better
+            choice in almost all cases. All operations in a batch are executed in a
+            single transaction, which ensures that the phone-side and server-side
+            state of a raw contact are always consistent. Also, the batch-based
+            approach is far more efficient: not only are the database operations
+            faster when executed in a single transaction, but also sending a batch of
+            commands to the content provider saves a lot of time on context switching
+            between your process and the process in which the content provider runs.</para>
+      <para>The flip side of using batched operations is that a large batch may lock
+            up the database for a long time preventing other applications from
+            accessing data and potentially causing ANRs ("Application Not Responding"
+            dialogs.)</para>
+      <para>To avoid such lockups of the database, make sure to insert "yield points"
+            in the batch. A yield point indicates to the content provider that before
+            executing the next operation it can commit the changes that have already
+            been made, yield to other requests, open another transaction and continue
+            processing operations. A yield point will not automatically commit the
+            transaction, but only if there is another request waiting on the
+            database. Normally a sync adapter should insert a yield point at the
+            beginning of each raw contact operation sequence in the batch. See
+            <c>ContentProviderOperation.Builder#withYieldAllowed(boolean)</c>.</para>
+      <para>&lt;h3&gt;Operations&lt;/h3&gt;
+            &lt;dl&gt;
+            &lt;dt&gt;&lt;b&gt;Insert&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <para>An individual data row can be inserted using the traditional
+            <c>ContentResolver#insert(Uri, ContentValues)</c> method. Multiple rows
+            should always be inserted as a batch.</para>
+      <para>An example of a traditional insert:</para>
+      <code lang="text/java">ContentValues values = new ContentValues();
+            values.put(Data.RAW_CONTACT_ID, rawContactId);
+            values.put(Data.MIMETYPE, Phone.CONTENT_ITEM_TYPE);
+            values.put(Phone.NUMBER, "1-800-GOOG-411");
+            values.put(Phone.TYPE, Phone.TYPE_CUSTOM);
+            values.put(Phone.LABEL, "free directory assistance");
+            Uri dataUri = getContentResolver().insert(Data.CONTENT_URI, values);
+            </code>
+      <para>The same done using ContentProviderOperations:</para>
+      <code lang="text/java">ArrayList&amp;lt;ContentProviderOperation&amp;gt; ops =
+                     new ArrayList&amp;lt;ContentProviderOperation&amp;gt;();
+            
+            ops.add(ContentProviderOperation.newInsert(Data.CONTENT_URI)
+                     .withValue(Data.RAW_CONTACT_ID, rawContactId)
+                     .withValue(Data.MIMETYPE, Phone.CONTENT_ITEM_TYPE)
+                     .withValue(Phone.NUMBER, "1-800-GOOG-411")
+                     .withValue(Phone.TYPE, Phone.TYPE_CUSTOM)
+                     .withValue(Phone.LABEL, "free directory assistance")
+                     .build());
+            getContentResolver().applyBatch(ContactsContract.AUTHORITY, ops);
+            </code>
+      <para>&lt;/p&gt;
+            &lt;dt&gt;&lt;b&gt;Update&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <para>Just as with insert, update can be done incrementally or as a batch,
+            the batch mode being the preferred method:</para>
+      <code lang="text/java">ArrayList&amp;lt;ContentProviderOperation&amp;gt; ops =
+                     new ArrayList&amp;lt;ContentProviderOperation&amp;gt;();
+            
+            ops.add(ContentProviderOperation.newUpdate(Data.CONTENT_URI)
+                     .withSelection(Data._ID + "=?", new String[]{String.valueOf(dataId)})
+                     .withValue(Email.DATA, "somebody@android.com")
+                     .build());
+            getContentResolver().applyBatch(ContactsContract.AUTHORITY, ops);
+            </code>
+      <para>&lt;/p&gt;
+            &lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Delete&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <para>Just as with insert and update, deletion can be done either using the
+            <c>ContentResolver#delete</c> method or using a ContentProviderOperation:</para>
+      <code lang="text/java">ArrayList&amp;lt;ContentProviderOperation&amp;gt; ops =
+                     new ArrayList&amp;lt;ContentProviderOperation&amp;gt;();
+            
+            ops.add(ContentProviderOperation.newDelete(Data.CONTENT_URI)
+                     .withSelection(Data._ID + "=?", new String[]{String.valueOf(dataId)})
+                     .build());
+            getContentResolver().applyBatch(ContactsContract.AUTHORITY, ops);
+            </code>
+      <para>&lt;/p&gt;
+            &lt;/dd&gt;
+            &lt;dt&gt;&lt;b&gt;Query&lt;/b&gt;&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <para>&lt;dl&gt;
+            &lt;dt&gt;Finding all Data of a given type for a given contact&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <code lang="text/java">Cursor c = getContentResolver().query(Data.CONTENT_URI,
+                     new String[] {Data._ID, Phone.NUMBER, Phone.TYPE, Phone.LABEL},
+                     Data.CONTACT_ID + &amp;quot;=?&amp;quot; + " AND "
+                             + Data.MIMETYPE + "='" + Phone.CONTENT_ITEM_TYPE + "'",
+                     new String[] {String.valueOf(contactId)}, null);
+            </code>
+      <para>&lt;/p&gt;</para>
+      <para>&lt;/dd&gt;
+            &lt;dt&gt;Finding all Data of a given type for a given raw contact&lt;/dt&gt;
+            &lt;dd&gt;</para>
+      <code lang="text/java">Cursor c = getContentResolver().query(Data.CONTENT_URI,
+                     new String[] {Data._ID, Phone.NUMBER, Phone.TYPE, Phone.LABEL},
+                     Data.RAW_CONTACT_ID + &amp;quot;=?&amp;quot; + " AND "
+                             + Data.MIMETYPE + "='" + Phone.CONTENT_ITEM_TYPE + "'",
+                     new String[] {String.valueOf(rawContactId)}, null);
+            </code>
+      <para>&lt;/dd&gt;
+            &lt;dt&gt;Finding all Data for a given raw contact&lt;/dt&gt;
+            &lt;dd&gt;
+            Most sync adapters will want to read all data rows for a raw contact
+            along with the raw contact itself.  For that you should use the
+            <c>RawContactsEntity</c>. See also <c>RawContacts</c>.
+            &lt;/dd&gt;
+            &lt;/dl&gt;
+            &lt;/p&gt;
+            &lt;/dd&gt;
+            &lt;/dl&gt;
+            &lt;h2&gt;Columns&lt;/h2&gt;</para>
+      <para>Many columns are available via a <c>Data#CONTENT_URI</c> query.  For best performance you
+            should explicitly specify a projection to only those columns that you need.</para>
+      <para>&lt;table class="jd-sumtable"&gt;
+            &lt;tr&gt;
+            &lt;th colspan='4'&gt;Data&lt;/th&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td style="width: 7em;"&gt;long&lt;/td&gt;
+            &lt;td style="width: 20em;"&gt;<c>#_ID</c>&lt;/td&gt;
+            &lt;td style="width: 5em;"&gt;read-only&lt;/td&gt;
+            &lt;td&gt;Row ID. Sync adapter should try to preserve row IDs during updates. In other words,
+            it would be a bad idea to delete and reinsert a data row. A sync adapter should
+            always do an update instead.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#MIMETYPE</c>&lt;/td&gt;
+            &lt;td&gt;read/write-once&lt;/td&gt;
+            &lt;td&gt;</para>
+      <para>The MIME type of the item represented by this row. Examples of common
+            MIME types are:
+            &lt;ul&gt;
+            &lt;li&gt;<c>CommonDataKinds.StructuredName StructuredName.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.Phone Phone.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.Email Email.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.Photo Photo.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.Organization Organization.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.Im Im.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.Nickname Nickname.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.Note Note.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.StructuredPostal StructuredPostal.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.GroupMembership GroupMembership.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.Website Website.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.Event Event.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.Relation Relation.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;li&gt;<c>CommonDataKinds.SipAddress SipAddress.CONTENT_ITEM_TYPE</c>&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#RAW_CONTACT_ID</c>&lt;/td&gt;
+            &lt;td&gt;read/write-once&lt;/td&gt;
+            &lt;td&gt;The id of the row in the <c>RawContacts</c> table that this data belongs to.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#IS_PRIMARY</c>&lt;/td&gt;
+            &lt;td&gt;read/write&lt;/td&gt;
+            &lt;td&gt;Whether this is the primary entry of its kind for the raw contact it belongs to.
+            "1" if true, "0" if false.
+            &lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#IS_SUPER_PRIMARY</c>&lt;/td&gt;
+            &lt;td&gt;read/write&lt;/td&gt;
+            &lt;td&gt;Whether this is the primary entry of its kind for the aggregate
+            contact it belongs to. Any data record that is "super primary" must
+            also be "primary".  For example, the super-primary entry may be
+            interpreted as the default contact value of its kind (for example,
+            the default phone number to use for the contact).&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#DATA_VERSION</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The version of this data record. Whenever the data row changes
+            the version goes up. This value is monotonically increasing.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;Any type&lt;/td&gt;
+            &lt;td&gt;
+            <c>#DATA1</c>&lt;br&gt;
+            <c>#DATA2</c>&lt;br&gt;
+            <c>#DATA3</c>&lt;br&gt;
+            <c>#DATA4</c>&lt;br&gt;
+            <c>#DATA5</c>&lt;br&gt;
+            <c>#DATA6</c>&lt;br&gt;
+            <c>#DATA7</c>&lt;br&gt;
+            <c>#DATA8</c>&lt;br&gt;
+            <c>#DATA9</c>&lt;br&gt;
+            <c>#DATA10</c>&lt;br&gt;
+            <c>#DATA11</c>&lt;br&gt;
+            <c>#DATA12</c>&lt;br&gt;
+            <c>#DATA13</c>&lt;br&gt;
+            <c>#DATA14</c>&lt;br&gt;
+            <c>#DATA15</c>&lt;/td&gt;
+            &lt;td&gt;read/write&lt;/td&gt;
+            &lt;td&gt;</para>
+      <para>Generic data columns.  The meaning of each column is determined by the
+            <c>#MIMETYPE</c>.  By convention, <c>#DATA15</c> is used for storing
+            BLOBs (binary data).</para>
+      <para>Data columns whose meaning is not explicitly defined for a given MIMETYPE
+            should not be used.  There is no guarantee that any sync adapter will
+            preserve them.  Sync adapters themselves should not use such columns either,
+            but should instead use <c>#SYNC1</c>-<c>#SYNC4</c>.</para>
+      <para>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;Any type&lt;/td&gt;
+            &lt;td&gt;
+            <c>#SYNC1</c>&lt;br&gt;
+            <c>#SYNC2</c>&lt;br&gt;
+            <c>#SYNC3</c>&lt;br&gt;
+            <c>#SYNC4</c>&lt;/td&gt;
+            &lt;td&gt;read/write&lt;/td&gt;
+            &lt;td&gt;Generic columns for use by sync adapters. For example, a Photo row
+            may store the image URL in SYNC1, a status (not loaded, loading, loaded, error)
+            in SYNC2, server-side version number in SYNC3 and error code in SYNC4.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;/table&gt;</para>
+      <para>Some columns from the most recent associated status update are also available
+            through an implicit join.</para>
+      <para>&lt;table class="jd-sumtable"&gt;
+            &lt;tr&gt;
+            &lt;th colspan='4'&gt;Join with <c>StatusUpdates</c>&lt;/th&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td style="width: 7em;"&gt;int&lt;/td&gt;
+            &lt;td style="width: 20em;"&gt;<c>#PRESENCE</c>&lt;/td&gt;
+            &lt;td style="width: 5em;"&gt;read-only&lt;/td&gt;
+            &lt;td&gt;IM presence status linked to this data row. Compare with
+            <c>#CONTACT_PRESENCE</c>, which contains the contact's presence across
+            all IM rows. See <c>StatusUpdates</c> for individual status definitions.
+            The provider may choose not to store this value
+            in persistent storage. The expectation is that presence status will be
+            updated on a regular basis.
+            &lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#STATUS</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;Latest status update linked with this data row.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#STATUS_TIMESTAMP</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The absolute time in milliseconds when the latest status was
+            inserted/updated for this data row.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#STATUS_RES_PACKAGE</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The package containing resources for this status: label and icon.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#STATUS_LABEL</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The resource ID of the label describing the source of status update linked
+            to this data row. This resource is scoped by the <c>#STATUS_RES_PACKAGE</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#STATUS_ICON</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The resource ID of the icon for the source of the status update linked
+            to this data row. This resource is scoped by the <c>#STATUS_RES_PACKAGE</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;/table&gt;</para>
+      <para>Some columns from the associated raw contact are also available through an
+            implicit join.  The other columns are excluded as uninteresting in this
+            context.</para>
+      <para>&lt;table class="jd-sumtable"&gt;
+            &lt;tr&gt;
+            &lt;th colspan='4'&gt;Join with <c>ContactsContract.RawContacts</c>&lt;/th&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td style="width: 7em;"&gt;long&lt;/td&gt;
+            &lt;td style="width: 20em;"&gt;<c>#CONTACT_ID</c>&lt;/td&gt;
+            &lt;td style="width: 5em;"&gt;read-only&lt;/td&gt;
+            &lt;td&gt;The id of the row in the <c>Contacts</c> table that this data belongs
+            to.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#AGGREGATION_MODE</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>RawContacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#DELETED</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>RawContacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;/table&gt;</para>
+      <para>The ID column for the associated aggregated contact table
+            <c>ContactsContract.Contacts</c> is available
+            via the implicit join to the <c>RawContacts</c> table, see above.
+            The remaining columns from this table are also
+            available, through an implicit join.  This
+            facilitates lookup by
+            the value of a single data element, such as the email address.</para>
+      <para>&lt;table class="jd-sumtable"&gt;
+            &lt;tr&gt;
+            &lt;th colspan='4'&gt;Join with <c>ContactsContract.Contacts</c>&lt;/th&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td style="width: 7em;"&gt;String&lt;/td&gt;
+            &lt;td style="width: 20em;"&gt;<c>#LOOKUP_KEY</c>&lt;/td&gt;
+            &lt;td style="width: 5em;"&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#DISPLAY_NAME</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#PHOTO_ID</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#IN_VISIBLE_GROUP</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#HAS_PHONE_NUMBER</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#STARRED</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#CUSTOM_RINGTONE</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#SEND_TO_VOICEMAIL</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;int&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_PRESENCE</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_STATUS</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_STATUS_TIMESTAMP</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;String&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_STATUS_RES_PACKAGE</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_STATUS_LABEL</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+            &lt;td&gt;long&lt;/td&gt;
+            &lt;td&gt;<c>#CONTACT_STATUS_ICON</c>&lt;/td&gt;
+            &lt;td&gt;read-only&lt;/td&gt;
+            &lt;td&gt;See <c>ContactsContract.Contacts</c>.&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;/table&gt;</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/provider/ContactsContract.Data" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Data</code>.</a>
@@ -42,8 +486,8 @@
       <MemberSignature Language="F#" Value="val mutable ContentType : string" Usage="Android.Provider.ContactsContract.Data.ContentType" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -57,6 +501,7 @@
       <Docs>
         <summary>The MIME type of the results from <c>#CONTENT_URI</c>.</summary>
         <remarks>
+          <para>The MIME type of the results from <c>#CONTENT_URI</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Data#CONTENT_TYPE" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Data.CONTENT_TYPE</code>.</a>
@@ -75,11 +520,11 @@
       <MemberSignature Language="C#" Value="public static Android.Net.Uri? ContentUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.Net.Uri ContentUri" />
       <MemberSignature Language="DocId" Value="P:Android.Provider.ContactsContract.Data.ContentUri" />
-      <MemberSignature Language="F#" Value="member this.ContentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Data.ContentUri" />
+      <MemberSignature Language="F#" Value="static member ContentUri : Android.Net.Uri" Usage="Android.Provider.ContactsContract.Data.ContentUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -95,6 +540,8 @@
             of data rows matching the selection criteria.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The content:// style URI for this table, which requests a directory
+            of data rows matching the selection criteria.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Data#CONTENT_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Data.CONTENT_URI</code>.</a>
@@ -116,8 +563,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraAddressBookIndex : string" Usage="Android.Provider.ContactsContract.Data.ExtraAddressBookIndex" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -142,8 +589,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraAddressBookIndexCounts : string" Usage="Android.Provider.ContactsContract.Data.ExtraAddressBookIndexCounts" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -168,8 +615,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraAddressBookIndexTitles : string" Usage="Android.Provider.ContactsContract.Data.ExtraAddressBookIndexTitles" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -194,8 +641,8 @@
       <MemberSignature Language="F#" Value="static member GetContactLookupUri : Android.Content.ContentResolver * Android.Net.Uri -&gt; Android.Net.Uri" Usage="Android.Provider.ContactsContract.Data.GetContactLookupUri (resolver, dataUri)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -218,6 +665,13 @@
             entry of the given <c>ContactsContract.Data</c> entry.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Build a <c>android.provider.ContactsContract.Contacts#CONTENT_LOOKUP_URI</c>
+            style <c>Uri</c> for the parent <c>android.provider.ContactsContract.Contacts</c>
+            entry of the given <c>ContactsContract.Data</c> entry.</para>
+          <para>Returns the Uri for the contact in the first entry returned by
+            <c>ContentResolver#query(Uri, String[], String, String[], String)</c>
+            for the provided <c>dataUri</c>.  If the query returns null or empty
+            results, silently returns null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Data#getContactLookupUri(android.content.ContentResolver,%20android.net.Uri)" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Data.getContactLookupUri(android.content.ContentResolver, android.net.Uri)</code>.</a>
@@ -270,8 +724,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Provider.ContactsContract.Data.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -301,8 +755,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Provider.ContactsContract.Data.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -332,8 +786,8 @@
       <MemberSignature Language="F#" Value="val mutable VisibleContactsOnly : string" Usage="Android.Provider.ContactsContract.Data.VisibleContactsOnly" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -347,6 +801,9 @@
       <Docs>
         <summary>A boolean parameter for <c>Data#CONTENT_URI</c>.</summary>
         <remarks>
+          <para>A boolean parameter for <c>Data#CONTENT_URI</c>.
+            This specifies whether or not the returned data items should be filtered to show
+            data items belonging to visible contacts only.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Data#VISIBLE_CONTACTS_ONLY" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Data.VISIBLE_CONTACTS_ONLY</code>.</a>

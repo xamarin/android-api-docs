@@ -21,6 +21,8 @@
     <summary>Contains helper classes used to create or manage <c>android.content.Intent Intents</c>
             that involve contacts.</summary>
     <remarks>
+      <para>Contains helper classes used to create or manage <c>android.content.Intent Intents</c>
+            that involve contacts.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents</code>.</a>
@@ -41,8 +43,8 @@
       <MemberSignature Language="DocId" Value="M:Android.Provider.ContactsContract.Intents.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -75,6 +77,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -82,6 +88,70 @@
       <Docs>
         <summary>Activity Action: Initiate a message to someone by voice.</summary>
         <remarks>
+          <para>Activity Action: Initiate a message to someone by voice. The message could be text,
+            audio, video or image(photo). This action supports messaging with a specific contact
+            regardless of the underlying messaging protocol used.</para>
+          <para>The action could be originated from the Voice Assistant as a voice interaction. In such
+            case, a receiving activity that supports <c>android.content.Intent#CATEGORY_VOICE</c>
+            could check return value of <c>android.app.Activity#isVoiceInteractionRoot</c> before
+            proceeding. By doing this check the activity verifies that the action indeed was
+            initiated by Voice Assistant and could send a message right away, without any further
+            input from the user. This allows for a smooth user experience when sending a message by
+            voice. Note: this activity must also support the <c>android.content.Intent#CATEGORY_DEFAULT</c> so it can be found by <c>android.service.voice.VoiceInteractionSession#startVoiceActivity</c>.</para>
+          <para>When the action was not initiated by Voice Assistant or when the receiving activity does
+            not support <c>android.content.Intent#CATEGORY_VOICE</c>, the activity must confirm
+            with the user before sending the message (because in this case it is unknown which app
+            sent the intent, it could be malicious).</para>
+          <para>To allow the Voice Assistant to help users with contacts disambiguation, the messaging
+            app may choose to integrate with the Contacts Provider. You will need to specify a new
+            MIME type in order to store your app’s unique contact IDs and optional human readable
+            labels in the Data table. The Voice Assistant needs to know this MIME type and <c>RawContacts#ACCOUNT_TYPE</c> that you are using in order to provide the smooth contact
+            disambiguation user experience. The following convention should be met when performing
+            such integration:
+            &lt;ul&gt;
+            &lt;li&gt;This activity should have a string meta-data field associated with it, <c>#METADATA_ACCOUNT_TYPE</c>, which defines <c>RawContacts#ACCOUNT_TYPE</c> for your Contacts
+            Provider implementation. The account type should be globally unique, for example you can
+            use your app package name as the account type.&lt;/li&gt;
+            &lt;li&gt;This activity should have a string meta-data field associated with it, <c>#METADATA_MIMETYPE</c>, which defines <c>DataColumns#MIMETYPE</c> for your Contacts
+            Provider implementation. For example, you can use
+            "vnd.android.cursor.item/vnd.{$app_package_name}.profile" as MIME type.&lt;/li&gt;
+            &lt;li&gt;When filling Data table row for METADATA_MIMETYPE, column <c>DataColumns#DATA1</c>
+            should store the unique contact ID as understood by the app. This value will be used in
+            the <c>#EXTRA_RECIPIENT_CONTACT_CHAT_ID</c>.&lt;/li&gt;
+            &lt;li&gt;Optionally, when filling Data table row for METADATA_MIMETYPE, column <c>DataColumns#DATA3</c> could store a human readable label for the ID. For example it could be
+            phone number or human readable username/user_id like "a_super_cool_user_name". This label
+            may be shown below the Contact Name by the Voice Assistant as the user completes the
+            voice action. If DATA3 is empty, the ID in DATA1 may be shown instead.&lt;/li&gt;
+            &lt;li&gt;&lt;em&gt;Note: Do not use DATA3 to store the Contact Name. The Voice Assistant will
+            already get the Contact Name from the RawContact’s display_name.&lt;/em&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;em&gt;Note: Some apps may choose to use phone number as the unique contact ID in DATA1.
+            If this applies to you and you’d like phone number to be shown below the Contact Name by
+            the Voice Assistant, then you may choose to leave DATA3 empty.&lt;/em&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;em&gt;Note: If your app also uses DATA3 to display contact details in the Contacts App,
+            make sure it does not include prefix text such as "Message +&lt;phone&gt;" or "Free Message
+            +&lt;phone&gt;", etc. If you must show the prefix text in the Contacts App, please use a
+            different DATA# column, and update your contacts.xml to point to this new column. &lt;/em&gt;
+            &lt;/li&gt;
+            &lt;/ul&gt;
+            If the app chooses not to integrate with the Contacts Provider (in particular, when
+            either METADATA_ACCOUNT_TYPE or METADATA_MIMETYPE field is missing), Voice Assistant
+            will use existing phone number entries as contact ID's for such app.</para>
+          <para>Input: <c>android.content.Intent#getType</c> is the MIME type of the data being sent.
+            The intent sender will always put the concrete mime type in the intent type, like
+            "text/plain" or "audio/wav" for example. If the MIME type is "text/plain", message to
+            sent will be provided via <c>android.content.Intent#EXTRA_TEXT</c> as a styled
+            CharSequence. Otherwise, the message content will be supplied through <c>android.content.Intent#setClipData(ClipData)</c> as a content provider URI(s). In the latter
+            case, EXTRA_TEXT could still be supplied optionally; for example, for audio messages
+            ClipData will contain URI of a recording and EXTRA_TEXT could contain the text
+            transcription of this recording.</para>
+          <para>The message can have n recipients. The n-th recipient of the message will be provided as
+            n-th elements of <c>#EXTRA_RECIPIENT_CONTACT_URI</c>, <c>#EXTRA_RECIPIENT_CONTACT_CHAT_ID</c> and <c>#EXTRA_RECIPIENT_CONTACT_NAME</c> (as a
+            consequence, EXTRA_RECIPIENT_CONTACT_URI, EXTRA_RECIPIENT_CONTACT_CHAT_ID and
+            EXTRA_RECIPIENT_CONTACT_NAME should all be of length n). If neither of these 3 elements
+            is provided (e.g. all 3 are null) for the recipient or if the information provided is
+            ambiguous then the activity should prompt the user for the recipient to send the message
+            to.</para>
+          <para>Output: nothing</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS</code>.</a>
@@ -102,8 +172,8 @@
       <MemberSignature Language="F#" Value="val mutable AttachImage : string" Usage="Android.Provider.ContactsContract.Intents.AttachImage" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -117,6 +187,8 @@
       <Docs>
         <summary>Starts an Activity that lets the user pick a contact to attach an image to.</summary>
         <remarks>
+          <para>Starts an Activity that lets the user pick a contact to attach an image to.
+            After picking the contact it launches the image cropper in face detection mode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#ATTACH_IMAGE" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.ATTACH_IMAGE</code>.</a>
@@ -138,8 +210,8 @@
       <MemberSignature Language="F#" Value="val mutable ContactsDatabaseCreated : string" Usage="Android.Provider.ContactsContract.Intents.ContactsDatabaseCreated" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -153,6 +225,15 @@
       <Docs>
         <summary>This is the intent that is fired when the contacts database is created.</summary>
         <remarks>
+          <para>This is the intent that is fired when the contacts database is created.</para>
+          <para>The
+            READ_CONTACT permission is required to receive these broadcasts.</para>
+          <para>Because this is an implicit broadcast, apps targeting Android O will no longer
+            receive this broadcast via a manifest broadcast receiver.  (Broadcast receivers
+            registered at runtime with
+            <c>Context#registerReceiver(BroadcastReceiver, IntentFilter)</c> will still receive it.)
+            Instead, an app can use <c>ProviderStatus#DATABASE_CREATION_TIMESTAMP</c> to see if the
+            contacts database has been initialized when it starts.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#CONTACTS_DATABASE_CREATED" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.CONTACTS_DATABASE_CREATED</code>.</a>
@@ -174,8 +255,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraCreateDescription : string" Usage="Android.Provider.ContactsContract.Intents.ExtraCreateDescription" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -191,6 +272,10 @@
             description to be shown when prompting user about creating a new
             contact.</summary>
         <remarks>
+          <para>Used with <c>#SHOW_OR_CREATE_CONTACT</c> to specify an exact
+            description to be shown when prompting user about creating a new
+            contact.</para>
+          <para>Type: STRING</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#EXTRA_CREATE_DESCRIPTION" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.EXTRA_CREATE_DESCRIPTION</code>.</a>
@@ -212,8 +297,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraForceCreate : string" Usage="Android.Provider.ContactsContract.Intents.ExtraForceCreate" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -228,6 +313,10 @@
         <summary>Used with <c>#SHOW_OR_CREATE_CONTACT</c> to force creating a new
             contact if no matching contact found.</summary>
         <remarks>
+          <para>Used with <c>#SHOW_OR_CREATE_CONTACT</c> to force creating a new
+            contact if no matching contact found. Otherwise, default behavior is
+            to prompt user with dialog before creating.</para>
+          <para>Type: BOOLEAN</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#EXTRA_FORCE_CREATE" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.EXTRA_FORCE_CREATE</code>.</a>
@@ -257,6 +346,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("EXTRA_RECIPIENT_CONTACT_CHAT_ID", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EXTRA_RECIPIENT_CONTACT_CHAT_ID", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -264,6 +357,15 @@
       <Docs>
         <summary>This extra specifies a messaging app’s unique ID(s) for the contact(s), used with <c>#ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS</c> to supply the recipient(s).</summary>
         <remarks>
+          <para>This extra specifies a messaging app’s unique ID(s) for the contact(s), used with <c>#ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS</c> to supply the recipient(s). The value of this
+            extra is a <c>String[]</c>. The number of elements in the array should be equal to
+            number of recipients (and consistent with <c>#EXTRA_RECIPIENT_CONTACT_URI</c> and <c>#EXTRA_RECIPIENT_CONTACT_NAME</c>). When the value of the element for the particular
+            recipient is absent, it will be set to null.</para>
+          <para>The value of the elements comes from the <c>DataColumns#DATA1</c> column in Contacts
+            Provider with <c>DataColumns#MIMETYPE</c> from <c>#METADATA_MIMETYPE</c> (if both
+            <c>#METADATA_ACCOUNT_TYPE</c> and <c>#METADATA_MIMETYPE</c> are specified by the app;
+            otherwise, the value will be a phone number), and should be the unambiguous contact
+            endpoint. This value is app-specific, it could be some proprietary ID or a phone number.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#EXTRA_RECIPIENT_CONTACT_CHAT_ID" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.EXTRA_RECIPIENT_CONTACT_CHAT_ID</code>.</a>
@@ -292,6 +394,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("EXTRA_RECIPIENT_CONTACT_NAME", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EXTRA_RECIPIENT_CONTACT_NAME", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -300,6 +406,13 @@
         <summary>This extra specifies the contact name (full name from the Contacts Provider), used with
             <c>#ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS</c> to supply the recipient.</summary>
         <remarks>
+          <para>This extra specifies the contact name (full name from the Contacts Provider), used with
+            <c>#ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS</c> to supply the recipient. The value of this
+            extra is a <c>String[]</c>. The number of elements in the array should be equal to
+            number of recipients (and consistent with <c>#EXTRA_RECIPIENT_CONTACT_URI</c> and <c>#EXTRA_RECIPIENT_CONTACT_CHAT_ID</c>). When the value of the element for the particular
+            recipient is absent, it will be set to null.</para>
+          <para>The value of the elements comes from RawContact's display_name column.</para>
+          <para>&lt;em&gt;Example value: {"Jane Doe"}&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#EXTRA_RECIPIENT_CONTACT_NAME" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.EXTRA_RECIPIENT_CONTACT_NAME</code>.</a>
@@ -328,6 +441,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("EXTRA_RECIPIENT_CONTACT_URI", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EXTRA_RECIPIENT_CONTACT_URI", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -336,6 +453,16 @@
         <summary>This extra specifies a content provider uri(s) for the contact(s) (if the contacts were
             located in the Contacts Provider), used with <c>#ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS</c> to supply the recipient(s).</summary>
         <remarks>
+          <para>This extra specifies a content provider uri(s) for the contact(s) (if the contacts were
+            located in the Contacts Provider), used with <c>#ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS</c> to supply the recipient(s). The value of this
+            extra is a <c>String[]</c>. The number of elements in the array should be equal to
+            number of recipients (and consistent with <c>#EXTRA_RECIPIENT_CONTACT_CHAT_ID</c> and
+            <c>#EXTRA_RECIPIENT_CONTACT_NAME</c>). When the value of the element for the particular
+            recipient is absent, it will be set to null.</para>
+          <para>&lt;em&gt;Note: one contact may have multiple accounts (e.g. Chat IDs) on a specific messaging
+            platform, so this may be ambiguous. E.g., one contact “John Smith” could have two
+            accounts on the same messaging app.&lt;/em&gt;</para>
+          <para>&lt;em&gt;Example value: {"content://com.android.contacts/contacts/16"}&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#EXTRA_RECIPIENT_CONTACT_URI" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.EXTRA_RECIPIENT_CONTACT_URI</code>.</a>
@@ -356,8 +483,8 @@
       <MemberSignature Language="F#" Value="val mutable InviteContact : string" Usage="Android.Provider.ContactsContract.Intents.InviteContact" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -372,6 +499,11 @@
         <summary>This is the intent that is fired when the user clicks the "invite to the network" button
             on a contact.</summary>
         <remarks>
+          <para>This is the intent that is fired when the user clicks the "invite to the network" button
+            on a contact.  Only sent to an activity which is explicitly registered by a contact
+            provider which supports the "invite to the network" feature.</para>
+          <para>
+            <c>Intent#getData()</c> contains the lookup URI for the contact.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#INVITE_CONTACT" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.INVITE_CONTACT</code>.</a>
@@ -432,6 +564,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("METADATA_ACCOUNT_TYPE", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("METADATA_ACCOUNT_TYPE", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -441,6 +577,9 @@
             describing <c>RawContacts#ACCOUNT_TYPE</c> for the corresponding Contacts Provider
             implementation.</summary>
         <remarks>
+          <para>A string associated with an <c>#ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS</c> activity
+            describing <c>RawContacts#ACCOUNT_TYPE</c> for the corresponding Contacts Provider
+            implementation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#METADATA_ACCOUNT_TYPE" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.METADATA_ACCOUNT_TYPE</code>.</a>
@@ -469,6 +608,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("METADATA_MIMETYPE", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("METADATA_MIMETYPE", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -478,6 +621,9 @@
             describing <c>DataColumns#MIMETYPE</c> for the corresponding Contacts Provider
             implementation.</summary>
         <remarks>
+          <para>A string associated with an <c>#ACTION_VOICE_SEND_MESSAGE_TO_CONTACTS</c> activity
+            describing <c>DataColumns#MIMETYPE</c> for the corresponding Contacts Provider
+            implementation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#METADATA_MIMETYPE" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.METADATA_MIMETYPE</code>.</a>
@@ -498,8 +644,8 @@
       <MemberSignature Language="F#" Value="val mutable SearchSuggestionClicked : string" Usage="Android.Provider.ContactsContract.Intents.SearchSuggestionClicked" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -513,6 +659,7 @@
       <Docs>
         <summary>This is the intent that is fired when a search suggestion is clicked on.</summary>
         <remarks>
+          <para>This is the intent that is fired when a search suggestion is clicked on.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#SEARCH_SUGGESTION_CLICKED" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.SEARCH_SUGGESTION_CLICKED</code>.</a>
@@ -534,8 +681,8 @@
       <MemberSignature Language="F#" Value="val mutable SearchSuggestionCreateContactClicked : string" Usage="Android.Provider.ContactsContract.Intents.SearchSuggestionCreateContactClicked" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -550,6 +697,8 @@
         <summary>This is the intent that is fired when a search suggestion for creating a contact
             is clicked on.</summary>
         <remarks>
+          <para>This is the intent that is fired when a search suggestion for creating a contact
+            is clicked on.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#SEARCH_SUGGESTION_CREATE_CONTACT_CLICKED" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.SEARCH_SUGGESTION_CREATE_CONTACT_CLICKED</code>.</a>
@@ -571,8 +720,8 @@
       <MemberSignature Language="F#" Value="val mutable SearchSuggestionDialNumberClicked : string" Usage="Android.Provider.ContactsContract.Intents.SearchSuggestionDialNumberClicked" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -587,6 +736,8 @@
         <summary>This is the intent that is fired when a search suggestion for dialing a number
             is clicked on.</summary>
         <remarks>
+          <para>This is the intent that is fired when a search suggestion for dialing a number
+            is clicked on.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#SEARCH_SUGGESTION_DIAL_NUMBER_CLICKED" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.SEARCH_SUGGESTION_DIAL_NUMBER_CLICKED</code>.</a>
@@ -608,8 +759,8 @@
       <MemberSignature Language="F#" Value="val mutable ShowOrCreateContact : string" Usage="Android.Provider.ContactsContract.Intents.ShowOrCreateContact" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -623,6 +774,23 @@
       <Docs>
         <summary>Takes as input a data URI with a mailto: or tel: scheme.</summary>
         <remarks>
+          <para>Takes as input a data URI with a mailto: or tel: scheme. If a single
+            contact exists with the given data it will be shown. If no contact
+            exists, a dialog will ask the user if they want to create a new
+            contact with the provided details filled in. If multiple contacts
+            share the data the user will be prompted to pick which contact they
+            want to view.</para>
+          <para>For <c>mailto:</c> URIs, the scheme specific portion must be a
+            raw email address, such as one built using
+            <c>Uri#fromParts(String, String, String)</c>.</para>
+          <para>For <c>tel:</c> URIs, the scheme specific portion is compared
+            to existing numbers using the standard caller ID lookup algorithm.
+            The number must be properly encoded, for example using
+            <c>Uri#fromParts(String, String, String)</c>.</para>
+          <para>Any extras from the <c>Insert</c> class will be passed along to the
+            create activity if there are no contacts to show.</para>
+          <para>Passing true for the <c>#EXTRA_FORCE_CREATE</c> extra will skip
+            prompting the user when the contact doesn't exist.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/provider/ContactsContract.Intents#SHOW_OR_CREATE_CONTACT" title="Reference documentation">Java documentation for <code>android.provider.ContactsContract.Intents.SHOW_OR_CREATE_CONTACT</code>.</a>
@@ -644,8 +812,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Provider.ContactsContract.Intents.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -675,8 +843,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Provider.ContactsContract.Intents.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

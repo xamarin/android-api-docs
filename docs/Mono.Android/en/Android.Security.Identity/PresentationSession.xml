@@ -16,10 +16,19 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/security/identity/PresentationSession", ApiSince=33, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/security/identity/PresentationSession", ApiSince=33, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>Class for presenting multiple documents to a remote verifier.</summary>
     <remarks>
+      <para>Class for presenting multiple documents to a remote verifier.</para>
+      <para>This should be used for all interactions with a remote verifier instead of the now deprecated
+            <c>IdentityCredential#getEntries(byte[], Map, byte[], byte[])</c> method.
+            
+            Use <c>IdentityCredentialStore#createPresentationSession(int)</c> to create a <c>PresentationSession</c> instance.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/security/identity/PresentationSession" title="Reference documentation">Java documentation for <code>android.security.identity.PresentationSession</code>.</a>
@@ -69,6 +78,10 @@
           <AttributeName Language="C#">[get: Android.Runtime.Register("getEphemeralKeyPair", "()Ljava/security/KeyPair;", "GetGetEphemeralKeyPairHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getEphemeralKeyPair", "()Ljava/security/KeyPair;", "GetGetEphemeralKeyPairHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Security.KeyPair</ReturnType>
@@ -94,6 +107,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getCredentialData", "(Ljava/lang/String;Landroid/security/identity/CredentialDataRequest;)Landroid/security/identity/CredentialDataResult;", "GetGetCredentialData_Ljava_lang_String_Landroid_security_identity_CredentialDataRequest_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getCredentialData", "(Ljava/lang/String;Landroid/security/identity/CredentialDataRequest;)Landroid/security/identity/CredentialDataResult;", "GetGetCredentialData_Ljava_lang_String_Landroid_security_identity_CredentialDataRequest_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Security.Identity.CredentialDataResult</ReturnType>
@@ -111,6 +128,53 @@
                     a cryptographically authenticated representation of the same data, bound to the
                     current session.</returns>
         <remarks>
+          <para>Retrieves data from a named credential in the current presentation session.</para>
+          <para>If an access control check fails for one of the requested entries or if the entry
+            doesn't exist, the entry is simply not returned. The application can detect this
+            by using the <c>CredentialDataResult.Entries#getStatus(String, String)</c> method on
+            each of the requested entries.</para>
+          <para>The application should not make any assumptions on whether user authentication is needed.
+            Instead, the application should request the data elements values first and then examine
+            the returned <c>CredentialDataResult.Entries</c>. If
+            <c>CredentialDataResult.Entries#STATUS_USER_AUTHENTICATION_FAILED</c> is returned the
+            application should get a
+            <c>android.hardware.biometrics.BiometricPrompt.CryptoObject</c> which references this
+            object and use it with a <c>android.hardware.biometrics.BiometricPrompt</c>. Upon successful
+            authentication the application may call
+            <c>#getCredentialData(String, CredentialDataRequest)</c> again.</para>
+          <para>It is permissible to call this method multiple times using the same credential name.
+            If this is done the same auth-key will be used.</para>
+          <para>If the reader signature is set in the request parameter (via the
+            <c>CredentialDataRequest.Builder#setReaderSignature(byte[])</c> method) it must contain
+            the bytes of a <c>COSE_Sign1</c> structure as defined in RFC 8152. For the payload
+            <c>nil</c> shall be used and the detached payload is the <c>ReaderAuthenticationBytes</c>
+            CBOR described below.</para>
+          <code lang="text/java">ReaderAuthentication = [
+                  "ReaderAuthentication",
+                  SessionTranscript,
+                  ItemsRequestBytes
+                ]
+            
+                ItemsRequestBytes = #6.24(bstr .cbor ItemsRequest)
+            
+                ReaderAuthenticationBytes = #6.24(bstr .cbor ReaderAuthentication)
+            </code>
+          <para>where <c>ItemsRequestBytes</c> are the bytes of the request message set in
+            the request parameter (via the
+            <c>CredentialDataRequest.Builder#setRequestMessage(byte[])</c> method).</para>
+          <para>The public key corresponding to the key used to make the signature, can be found in the
+            <c>x5chain</c> unprotected header element of the <c>COSE_Sign1</c> structure (as as
+            described in
+            <see href="https://tools.ietf.org/html/draft-ietf-cose-x509-08">draft-ietf-cose-x509-08</see>).
+            There will be at least one certificate in said element and there may be more (and if so,
+            each certificate must be signed by its successor).</para>
+          <para>Data elements protected by reader authentication are returned if, and only if,
+            <c>requestMessage</c> is signed by the top-most certificate in the reader's certificate
+            chain, and the data element is configured with an <c>AccessControlProfile</c> configured
+            with an X.509 certificate for a key which appear in the certificate chain.</para>
+          <para>Note that the request message CBOR is used only for enforcing reader authentication, it's
+            not used for determining which entries this API will return. The application is expected to
+            have parsed the request message and filtered it according to user preference and/or consent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/identity/PresentationSession#getCredentialData(java.lang.String,%20android.security.identity.CredentialDataRequest)" title="Reference documentation">Java documentation for <code>android.security.identity.PresentationSession.getCredentialData(java.lang.String, android.security.identity.CredentialDataRequest)</code>.</a>
@@ -168,6 +232,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setReaderEphemeralPublicKey", "(Ljava/security/PublicKey;)V", "GetSetReaderEphemeralPublicKey_Ljava_security_PublicKey_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setReaderEphemeralPublicKey", "(Ljava/security/PublicKey;)V", "GetSetReaderEphemeralPublicKey_Ljava_security_PublicKey_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -180,6 +248,10 @@
                                             establish a secure session.</param>
         <summary>Set the ephemeral public key provided by the verifier.</summary>
         <remarks>
+          <para>Set the ephemeral public key provided by the verifier.</para>
+          <para>If called, this must be called before any calls to
+            <c>#getCredentialData(String, CredentialDataRequest)</c>.</para>
+          <para>This method can only be called once per <c>PresentationSession</c> instance.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/identity/PresentationSession#setReaderEphemeralPublicKey(java.security.PublicKey)" title="Reference documentation">Java documentation for <code>android.security.identity.PresentationSession.setReaderEphemeralPublicKey(java.security.PublicKey)</code>.</a>
@@ -208,6 +280,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setSessionTranscript", "([B)V", "GetSetSessionTranscript_arrayBHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setSessionTranscript", "([B)V", "GetSetSessionTranscript_arrayBHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -219,6 +295,17 @@
         <param name="sessionTranscript">the session transcript.</param>
         <summary>Set the session transcript.</summary>
         <remarks>
+          <para>Set the session transcript.</para>
+          <para>If called, this must be called before any calls to
+            <c>#getCredentialData(String, CredentialDataRequest)</c>.</para>
+          <para>If mdoc session encryption is used (e.g. if <c>#getEphemeralKeyPair()</c> has been
+            called) then the X and Y coordinates of the public part of the key-pair returned by <c>#getEphemeralKeyPair()</c> must appear somewhere in the bytes of the passed in CBOR.  Each of
+            these coordinates must appear encoded with the most significant bits first and use the exact
+            amount of bits indicated by the key size of the ephemeral keys. For example, if the
+            ephemeral key is using the P-256 curve then the 32 bytes for the X coordinate encoded with
+            the most significant bits first must appear somewhere and ditto for the 32 bytes for the Y
+            coordinate.</para>
+          <para>This method can only be called once per <c>PresentationSession</c> instance.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/security/identity/PresentationSession#setSessionTranscript(byte[])" title="Reference documentation">Java documentation for <code>android.security.identity.PresentationSession.setSessionTranscript(byte[])</code>.</a>

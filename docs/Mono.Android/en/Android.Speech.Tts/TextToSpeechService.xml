@@ -20,6 +20,57 @@
   <Docs since="14">
     <summary>Abstract base class for TTS engine implementations.</summary>
     <remarks>
+      <para>Abstract base class for TTS engine implementations. The following methods
+            need to be implemented:
+            &lt;ul&gt;
+            &lt;li&gt;<c>#onIsLanguageAvailable</c>&lt;/li&gt;
+            &lt;li&gt;<c>#onLoadLanguage</c>&lt;/li&gt;
+            &lt;li&gt;<c>#onGetLanguage</c>&lt;/li&gt;
+            &lt;li&gt;<c>#onSynthesizeText</c>&lt;/li&gt;
+            &lt;li&gt;<c>#onStop</c>&lt;/li&gt;
+            &lt;/ul&gt;
+            The first three deal primarily with language management, and are used to
+            query the engine for it's support for a given language and indicate to it
+            that requests in a given language are imminent.
+            
+            <c>#onSynthesizeText</c> is central to the engine implementation. The
+            implementation should synthesize text as per the request parameters and
+            return synthesized data via the supplied callback. This class and its helpers
+            will then consume that data, which might mean queuing it for playback or writing
+            it to a file or similar. All calls to this method will be on a single thread,
+            which will be different from the main thread of the service. Synthesis must be
+            synchronous which means the engine must NOT hold on to the callback or call any
+            methods on it after the method returns.
+            
+            <c>#onStop</c> tells the engine that it should stop
+            all ongoing synthesis, if any. Any pending data from the current synthesis
+            will be discarded.
+            
+            <c>#onGetLanguage</c> is not required as of JELLYBEAN_MR2 (API 18) and later, it is only
+            called on earlier versions of Android.
+            
+            API Level 20 adds support for Voice objects. Voices are an abstraction that allow the TTS
+            service to expose multiple backends for a single locale. Each one of them can have a different
+            features set. In order to fully take advantage of voices, an engine should implement
+            the following methods:
+            &lt;ul&gt;
+            &lt;li&gt;<c>#onGetVoices()</c>&lt;/li&gt;
+            &lt;li&gt;<c>#onIsValidVoiceName(String)</c>&lt;/li&gt;
+            &lt;li&gt;<c>#onLoadVoice(String)</c>&lt;/li&gt;
+            &lt;li&gt;<c>#onGetDefaultVoiceNameFor(String, String, String)</c>&lt;/li&gt;
+            &lt;/ul&gt;
+            The first three methods are siblings of the <c>#onGetLanguage</c>,
+            <c>#onIsLanguageAvailable</c> and <c>#onLoadLanguage</c> methods. The last one,
+            <c>#onGetDefaultVoiceNameFor(String, String, String)</c> is a link between locale and voice
+            based methods. Since API level 21 <c>TextToSpeech#setLanguage</c> is implemented by
+            calling <c>TextToSpeech#setVoice</c> with the voice returned by
+            <c>#onGetDefaultVoiceNameFor(String, String, String)</c>.
+            
+            If the client uses a voice instead of a locale, <c>SynthesisRequest</c> will contain the
+            requested voice name.
+            
+            The default implementations of Voice-related methods implement them using the
+            pre-existing locale-based implementation.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService</code>.</a>
@@ -40,8 +91,8 @@
       <MemberSignature Language="DocId" Value="M:Android.Speech.Tts.TextToSpeechService.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -66,8 +117,8 @@
       <MemberSignature Language="F#" Value="new Android.Speech.Tts.TextToSpeechService : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Speech.Tts.TextToSpeechService" Usage="new Android.Speech.Tts.TextToSpeechService (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -120,8 +171,8 @@
       <MemberSignature Language="F#" Value="override this.OnBind : Android.Content.Intent -&gt; Android.OS.IBinder" Usage="textToSpeechService.OnBind intent" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -154,8 +205,8 @@
       <MemberSignature Language="F#" Value="abstract member OnGetDefaultVoiceNameFor : string * string * string -&gt; string&#xA;override this.OnGetDefaultVoiceNameFor : string * string * string -&gt; string" Usage="textToSpeechService.OnGetDefaultVoiceNameFor (lang, country, variant)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -178,6 +229,14 @@
         <summary>Return a name of the default voice for a given locale.</summary>
         <returns>A name of the default voice for a given locale.</returns>
         <remarks>
+          <para>Return a name of the default voice for a given locale.
+            
+            This method provides a mapping between locales and available voices. This method is
+            used in <c>TextToSpeech#setLanguage</c>, which calls this method and then calls
+            <c>TextToSpeech#setVoice</c> with the voice returned by this method.
+            
+            Also, it's used by <c>TextToSpeech#getDefaultVoice()</c> to find a default voice for
+            the default locale.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService#onGetDefaultVoiceNameFor(java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService.onGetDefaultVoiceNameFor(java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -198,8 +257,8 @@
       <MemberSignature Language="F#" Value="abstract member OnGetFeaturesForLanguage : string * string * string -&gt; System.Collections.Generic.ICollection&lt;string&gt;&#xA;override this.OnGetFeaturesForLanguage : string * string * string -&gt; System.Collections.Generic.ICollection&lt;string&gt;" Usage="textToSpeechService.OnGetFeaturesForLanguage (lang, country, variant)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -222,6 +281,8 @@
         <summary>Queries the service for a set of features supported for a given language.</summary>
         <returns>A list of features supported for the given language.</returns>
         <remarks>
+          <para>Queries the service for a set of features supported for a given language.</para>
+          <para>Can be called on multiple threads.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService#onGetFeaturesForLanguage(java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService.onGetFeaturesForLanguage(java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -243,8 +304,8 @@
       <MemberSignature Language="F#" Value="abstract member OnGetLanguage : unit -&gt; string[]" Usage="textToSpeechService.OnGetLanguage " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -263,6 +324,12 @@
                     The country and variant may be <c>""</c>. If country is empty, then variant must
                     be empty too.</returns>
         <remarks>
+          <para>Returns the language, country and variant currently being used by the TTS engine.
+            
+            This method will be called only on Android 4.2 and before (API &lt;= 17). In later versions
+            this method is not called by the Android TTS framework.
+            
+            Can be called on multiple threads.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService#onGetLanguage()" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService.onGetLanguage()</code>.</a>
@@ -287,8 +354,8 @@
       <MemberSignature Language="F#" Value="abstract member OnGetVoices : unit -&gt; System.Collections.Generic.IList&lt;Android.Speech.Tts.Voice&gt;&#xA;override this.OnGetVoices : unit -&gt; System.Collections.Generic.IList&lt;Android.Speech.Tts.Voice&gt;" Usage="textToSpeechService.OnGetVoices " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -304,6 +371,16 @@
         <summary>Queries the service for a set of supported voices.</summary>
         <returns>A list of voices supported.</returns>
         <remarks>
+          <para>Queries the service for a set of supported voices.
+            
+            Can be called on multiple threads.
+            
+            The default implementation tries to enumerate all available locales, pass them to
+            <c>#onIsLanguageAvailable(String, String, String)</c> and create Voice instances (using
+            the locale's BCP-47 language tag as the voice name) for the ones that are supported.
+            Note, that this implementation is suitable only for engines that don't have multiple voices
+            for a single locale. Also, this implementation won't work with Locales not listed in the
+            set returned by the <c>Locale#getAvailableLocales()</c> method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService#onGetVoices()" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService.onGetVoices()</code>.</a>
@@ -324,8 +401,8 @@
       <MemberSignature Language="F#" Value="abstract member OnIsLanguageAvailable : string * string * string -&gt; int" Usage="textToSpeechService.OnIsLanguageAvailable (lang, country, variant)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -352,6 +429,9 @@
                     <c>TextToSpeech#LANG_COUNTRY_VAR_AVAILABLE</c>,
                     <c>TextToSpeech#LANG_MISSING_DATA</c><c>TextToSpeech#LANG_NOT_SUPPORTED</c>.</returns>
         <remarks>
+          <para>Checks whether the engine supports a given language.</para>
+          <para>Can be called on multiple threads.</para>
+          <para>Its return values HAVE to be consistent with onLoadLanguage.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService#onIsLanguageAvailable(java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService.onIsLanguageAvailable(java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -373,8 +453,8 @@
       <MemberSignature Language="F#" Value="abstract member OnIsValidVoiceName : string -&gt; Android.Speech.Tts.OperationResult&#xA;override this.OnIsValidVoiceName : string -&gt; Android.Speech.Tts.OperationResult" Usage="textToSpeechService.OnIsValidVoiceName voiceName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -400,6 +480,12 @@
         <returns>
           <c>TextToSpeech#ERROR</c> or <c>TextToSpeech#SUCCESS</c>.</returns>
         <remarks>
+          <para>Checks whether the engine supports a voice with a given name.
+            
+            Can be called on multiple threads.
+            
+            The default implementation treats the voice name as a language tag, creating a Locale from
+            the voice name, and passes it to <c>#onIsLanguageAvailable(String, String, String)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService#onIsValidVoiceName(java.lang.String)" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService.onIsValidVoiceName(java.lang.String)</code>.</a>
@@ -420,8 +506,8 @@
       <MemberSignature Language="F#" Value="abstract member OnLoadLanguage : string * string * string -&gt; int" Usage="textToSpeechService.OnLoadLanguage (lang, country, variant)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -448,6 +534,14 @@
                     <c>TextToSpeech#LANG_COUNTRY_VAR_AVAILABLE</c>,
                     <c>TextToSpeech#LANG_MISSING_DATA</c><c>TextToSpeech#LANG_NOT_SUPPORTED</c>.</returns>
         <remarks>
+          <para>Notifies the engine that it should load a speech synthesis language. There is no guarantee
+            that this method is always called before the language is used for synthesis. It is merely
+            a hint to the engine that it will probably get some synthesis requests for this language
+            at some point in the future.
+            
+            Can be called on multiple threads.
+            In &lt;= Android 4.2 (&lt;= API 17) can be called on main and service binder threads.
+            In &gt; Android 4.2 (&gt; API 17) can be called on main and synthesis threads.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService#onLoadLanguage(java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService.onLoadLanguage(java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -469,8 +563,8 @@
       <MemberSignature Language="F#" Value="abstract member OnLoadVoice : string -&gt; Android.Speech.Tts.OperationResult&#xA;override this.OnLoadVoice : string -&gt; Android.Speech.Tts.OperationResult" Usage="textToSpeechService.OnLoadVoice voiceName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -496,6 +590,16 @@
         <returns>
           <c>TextToSpeech#ERROR</c> or <c>TextToSpeech#SUCCESS</c>.</returns>
         <remarks>
+          <para>Notifies the engine that it should load a speech synthesis voice. There is no guarantee
+            that this method is always called before the voice is used for synthesis. It is merely
+            a hint to the engine that it will probably get some synthesis requests for this voice
+            at some point in the future.
+            
+            Will be called only on synthesis thread.
+            
+            The default implementation creates a Locale from the voice name (by interpreting the name as
+            a BCP-47 tag for the locale), and passes it to
+            <c>#onLoadLanguage(String, String, String)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService#onLoadVoice(java.lang.String)" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService.onLoadVoice(java.lang.String)</code>.</a>
@@ -516,8 +620,8 @@
       <MemberSignature Language="F#" Value="abstract member OnStop : unit -&gt; unit" Usage="textToSpeechService.OnStop " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -532,6 +636,9 @@
       <Docs>
         <summary>Notifies the service that it should stop any in-progress speech synthesis.</summary>
         <remarks>
+          <para>Notifies the service that it should stop any in-progress speech synthesis.
+            This method can be called even if no speech synthesis is currently in progress.</para>
+          <para>Can be called on multiple threads, but not on the synthesis thread.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService#onStop()" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService.onStop()</code>.</a>
@@ -553,8 +660,8 @@
       <MemberSignature Language="F#" Value="abstract member OnSynthesizeText : Android.Speech.Tts.SynthesisRequest * Android.Speech.Tts.ISynthesisCallback -&gt; unit" Usage="textToSpeechService.OnSynthesizeText (request, callback)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -575,6 +682,8 @@
                 for writing to a file.</param>
         <summary>Tells the service to synthesize speech from the given text.</summary>
         <remarks>
+          <para>Tells the service to synthesize speech from the given text. This method should block until
+            the synthesis is finished. Called on the synthesis thread.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/speech/tts/TextToSpeechService#onSynthesizeText(android.speech.tts.SynthesisRequest,%20android.speech.tts.SynthesisCallback)" title="Reference documentation">Java documentation for <code>android.speech.tts.TextToSpeechService.onSynthesizeText(android.speech.tts.SynthesisRequest, android.speech.tts.SynthesisCallback)</code>.</a>
@@ -596,8 +705,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Speech.Tts.TextToSpeechService.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -627,8 +736,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Speech.Tts.TextToSpeechService.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

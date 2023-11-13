@@ -20,6 +20,124 @@
   <Docs since="21">
     <summary>A recursive resultless <c>ForkJoinTask</c>.</summary>
     <remarks>
+      <para>A recursive resultless <c>ForkJoinTask</c>.  This class
+            establishes conventions to parameterize resultless actions as
+            <c>Void</c><c>ForkJoinTask</c>s. Because <c>null</c> is the
+            only valid value of type <c>Void</c>, methods such as <c>join</c>
+            always return <c>null</c> upon completion.</para>
+      <para>&lt;b&gt;Sample Usages.&lt;/b&gt; Here is a simple but complete ForkJoin
+            sort that sorts a given <c>long[]</c> array:</para>
+      <code lang="text/java">{@code
+            static class SortTask extends RecursiveAction {
+              final long[] array; final int lo, hi;
+              SortTask(long[] array, int lo, int hi) {
+                this.array = array; this.lo = lo; this.hi = hi;
+              }
+              SortTask(long[] array) { this(array, 0, array.length); }
+              protected void compute() {
+                if (hi - lo &lt; THRESHOLD)
+                  sortSequentially(lo, hi);
+                else {
+                  int mid = (lo + hi) &gt;&gt;&gt; 1;
+                  invokeAll(new SortTask(array, lo, mid),
+                            new SortTask(array, mid, hi));
+                  merge(lo, mid, hi);
+                }
+              }
+              // implementation details follow:
+              static final int THRESHOLD = 1000;
+              void sortSequentially(int lo, int hi) {
+                Arrays.sort(array, lo, hi);
+              }
+              void merge(int lo, int mid, int hi) {
+                long[] buf = Arrays.copyOfRange(array, lo, mid);
+                for (int i = 0, j = lo, k = mid; i &lt; buf.length; j++)
+                  array[j] = (k == hi || buf[i] &lt; array[k]) ?
+                    buf[i++] : array[k++];
+              }
+            }}</code>
+      <para>You could then sort <c>anArray</c> by creating <c>new
+            SortTask(anArray)</c> and invoking it in a ForkJoinPool.  As a more
+            concrete simple example, the following task increments each element
+            of an array:</para>
+      <code lang="text/java">{@code
+            class IncrementTask extends RecursiveAction {
+              final long[] array; final int lo, hi;
+              IncrementTask(long[] array, int lo, int hi) {
+                this.array = array; this.lo = lo; this.hi = hi;
+              }
+              protected void compute() {
+                if (hi - lo &lt; THRESHOLD) {
+                  for (int i = lo; i &lt; hi; ++i)
+                    array[i]++;
+                }
+                else {
+                  int mid = (lo + hi) &gt;&gt;&gt; 1;
+                  invokeAll(new IncrementTask(array, lo, mid),
+                            new IncrementTask(array, mid, hi));
+                }
+              }
+            }}</code>
+      <para>The following example illustrates some refinements and idioms
+            that may lead to better performance: RecursiveActions need not be
+            fully recursive, so long as they maintain the basic
+            divide-and-conquer approach. Here is a class that sums the squares
+            of each element of a double array, by subdividing out only the
+            right-hand-sides of repeated divisions by two, and keeping track of
+            them with a chain of <c>next</c> references. It uses a dynamic
+            threshold based on method <c>getSurplusQueuedTaskCount</c>, but
+            counterbalances potential excess partitioning by directly
+            performing leaf actions on unstolen tasks rather than further
+            subdividing.</para>
+      <code lang="text/java">{@code
+            double sumOfSquares(ForkJoinPool pool, double[] array) {
+              int n = array.length;
+              Applyer a = new Applyer(array, 0, n, null);
+              pool.invoke(a);
+              return a.result;
+            }
+            
+            class Applyer extends RecursiveAction {
+              final double[] array;
+              final int lo, hi;
+              double result;
+              Applyer next; // keeps track of right-hand-side tasks
+              Applyer(double[] array, int lo, int hi, Applyer next) {
+                this.array = array; this.lo = lo; this.hi = hi;
+                this.next = next;
+              }
+            
+              double atLeaf(int l, int h) {
+                double sum = 0;
+                for (int i = l; i &lt; h; ++i) // perform leftmost base step
+                  sum += array[i] * array[i];
+                return sum;
+              }
+            
+              protected void compute() {
+                int l = lo;
+                int h = hi;
+                Applyer right = null;
+                while (h - l &gt; 1 &amp;&amp; getSurplusQueuedTaskCount() &lt;= 3) {
+                  int mid = (l + h) &gt;&gt;&gt; 1;
+                  right = new Applyer(array, mid, h, right);
+                  right.fork();
+                  h = mid;
+                }
+                double sum = atLeaf(l, h);
+                while (right != null) {
+                  if (right.tryUnfork()) // directly calculate if not stolen
+                    sum += right.atLeaf(right.lo, right.hi);
+                  else {
+                    right.join();
+                    sum += right.result;
+                  }
+                  right = right.next;
+                }
+                result = sum;
+              }
+            }}</code>
+      <para>Added in 1.7.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/RecursiveAction" title="Reference documentation">Java documentation for <code>java.util.concurrent.RecursiveAction</code>.</a>
@@ -39,8 +157,8 @@
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.RecursiveAction.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -50,10 +168,19 @@
       </Attributes>
       <Parameters />
       <Docs>
-        <summary>
-        </summary>
+        <summary>Constructor for subclasses to call.</summary>
         <remarks>
-          <para>Portions of this page are modifications based on work created and shared by the <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format> and used according to terms described in the <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+          <para>Constructor for subclasses to call.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/java/util/concurrent/RecursiveAction#RecursiveAction()" title="Reference documentation">Java documentation for <code>java.util.concurrent.RecursiveAction.RecursiveAction()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
         </remarks>
       </Docs>
     </Member>
@@ -64,8 +191,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.RecursiveAction : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Concurrent.RecursiveAction" Usage="new Java.Util.Concurrent.RecursiveAction (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -87,8 +214,8 @@
       <MemberSignature Language="F#" Value="abstract member Compute : unit -&gt; unit" Usage="recursiveAction.Compute " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -103,6 +230,7 @@
       <Docs>
         <summary>The main computation performed by this task.</summary>
         <remarks>
+          <para>The main computation performed by this task.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/RecursiveAction#compute()" title="Reference documentation">Java documentation for <code>java.util.concurrent.RecursiveAction.compute()</code>.</a>
@@ -123,8 +251,8 @@
       <MemberSignature Language="F#" Value="override this.Exec : unit -&gt; bool" Usage="recursiveAction.Exec " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -140,6 +268,7 @@
         <summary>Implements execution conventions for RecursiveActions.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Implements execution conventions for RecursiveActions.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/RecursiveAction#exec()" title="Reference documentation">Java documentation for <code>java.util.concurrent.RecursiveAction.exec()</code>.</a>
@@ -191,8 +320,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.RecursiveAction.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -222,8 +351,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.RecursiveAction.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

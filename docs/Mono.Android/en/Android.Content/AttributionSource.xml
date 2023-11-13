@@ -29,11 +29,54 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/content/AttributionSource", ApiSince=31, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/content/AttributionSource", ApiSince=31, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>This class represents a source to which access to permission protected data should be
             attributed.</summary>
     <remarks>
+      <para>This class represents a source to which access to permission protected data should be
+            attributed. Attribution sources can be chained to represent cases where the protected
+            data would flow through several applications. For example, app A may ask app B for
+            contacts and in turn app B may ask app C for contacts. In this case, the attribution
+            chain would be A -&gt; B -&gt; C and the data flow would be C -&gt; B -&gt; A. There are two
+            main benefits of using the attribution source mechanism: avoid doing explicit permission
+            checks on behalf of the calling app if you are accessing private data on their behalf
+            to send back; avoid double data access blaming which happens as you check the calling
+            app's permissions and when you access the data behind these permissions (for runtime
+            permissions). Also if not explicitly blaming the caller the data access would be
+            counted towards your app vs to the previous app where yours was just a proxy.</para>
+      <para>Every <c>Context</c> has an attribution source and you can get it via <c>Context#getAttributionSource()</c> representing itself, which is a chain of one. You
+            can attribute work to another app, or more precisely to a chain of apps, through
+            which the data you would be accessing would flow, via <c>Context#createContext(
+            ContextParams)</c> plus specifying an attribution source for the next app to receive
+            the protected data you are accessing via <c>AttributionSource.Builder#setNext(
+            AttributionSource)</c>. Creating this attribution chain ensures that the datasource would
+            check whether every app in the attribution chain has permission to access the data
+            before releasing it. The datasource will also record appropriately that this data was
+            accessed by the apps in the sequence if the data is behind a sensitive permission
+            (e.g. dangerous). Again, this is useful if you are accessing the data on behalf of another
+            app, for example a speech recognizer using the mic so it can provide recognition to
+            a calling app.</para>
+      <para>You can create an attribution chain of you and any other app without any verification
+            as this is something already available via the <c>android.app.AppOpsManager</c> APIs.
+            This is supported to handle cases where you don't have access to the caller's attribution
+            source and you can directly use the <c>AttributionSource.Builder</c> APIs. However,
+            if the data flows through more than two apps (more than you access the data for the
+            caller) you need to have a handle to the <c>AttributionSource</c> for the calling app's
+            context in order to create an attribution context. This means you either need to have an
+            API for the other app to send you its attribution source or use a platform API that pipes
+            the callers attribution source.</para>
+      <para>You cannot forge an attribution chain without the participation of every app in the
+            attribution chain (aside of the special case mentioned above). To create an attribution
+            source that is trusted you need to create an attribution context that points to an
+            attribution source that was explicitly created by the app that it refers to, recursively.</para>
+      <para>Since creating an attribution context leads to all permissions for apps in the attribution
+            chain being checked, you need to expect getting a security exception when accessing
+            permission protected APIs since some app in the chain may not have the permission.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/content/AttributionSource" title="Reference documentation">Java documentation for <code>android.content.AttributionSource</code>.</a>
@@ -59,6 +102,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getAttributionTag", "()Ljava/lang/String;", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getAttributionTag", "()Ljava/lang/String;", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
@@ -70,6 +117,7 @@
         <summary>The attribution tag of the app accessing the permission protected data.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The attribution tag of the app accessing the permission protected data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AttributionSource#getAttributionTag()" title="Reference documentation">Java documentation for <code>android.content.AttributionSource.getAttributionTag()</code>.</a>
@@ -98,6 +146,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("checkCallingUid", "()Z", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("checkCallingUid", "()Z", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -110,6 +162,10 @@
             attribution chain.</summary>
         <returns>if the attribution source cannot be trusted to be from the caller.</returns>
         <remarks>
+          <para>If you are handling an IPC and you don't trust the caller you need to validate
+            whether the attribution source is one for the calling app to prevent the caller
+            to pass you a source from another app without including themselves in the
+            attribution chain.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AttributionSource#checkCallingUid()" title="Reference documentation">Java documentation for <code>android.content.AttributionSource.checkCallingUid()</code>.</a>
@@ -127,7 +183,7 @@
       <MemberSignature Language="C#" Value="public static Android.OS.IParcelableCreator Creator { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.OS.IParcelableCreator Creator" />
       <MemberSignature Language="DocId" Value="P:Android.Content.AttributionSource.Creator" />
-      <MemberSignature Language="F#" Value="member this.Creator : Android.OS.IParcelableCreator" Usage="Android.Content.AttributionSource.Creator" />
+      <MemberSignature Language="F#" Value="static member Creator : Android.OS.IParcelableCreator" Usage="Android.Content.AttributionSource.Creator" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -137,6 +193,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("CREATOR", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("CREATOR", ApiSince=31)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -166,6 +226,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("describeContents", "()I", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("describeContents", "()I", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -192,6 +256,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("enforceCallingUid", "()V", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("enforceCallingUid", "()V", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -203,6 +271,10 @@
             to pass you a source from another app without including themselves in the
             attribution chain.</summary>
         <remarks>
+          <para>If you are handling an IPC and you don't trust the caller you need to validate
+            whether the attribution source is one for the calling app to prevent the caller
+            to pass you a source from another app without including themselves in the
+            attribution chain.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AttributionSource#enforceCallingUid()" title="Reference documentation">Java documentation for <code>android.content.AttributionSource.enforceCallingUid()</code>.</a>
@@ -231,6 +303,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("isTrusted", "(Landroid/content/Context;)Z", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("isTrusted", "(Landroid/content/Context;)Z", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -243,6 +319,8 @@
         <summary>Checks whether this attribution source can be trusted.</summary>
         <returns>Whether this is a trusted source.</returns>
         <remarks>
+          <para>Checks whether this attribution source can be trusted. That is whether
+            the app it refers to created it and provided to the attribution chain.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AttributionSource#isTrusted(android.content.Context)" title="Reference documentation">Java documentation for <code>android.content.AttributionSource.isTrusted(android.content.Context)</code>.</a>
@@ -303,6 +381,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("myAttributionSource", "()Landroid/content/AttributionSource;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("myAttributionSource", "()Landroid/content/AttributionSource;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Content.AttributionSource</ReturnType>
@@ -314,6 +396,13 @@
         <returns>a generic <c>AttributionSource</c> representing the entire
                     calling process</returns>
         <remarks>
+          <para>Returns a generic <c>AttributionSource</c> that represents the entire
+            calling process.</para>
+          <para>Callers are &lt;em&gt;strongly&lt;/em&gt; encouraged to use a more specific
+            attribution source whenever possible, such as from
+            <c>Context#getAttributionSource()</c>, since that enables developers to
+            have more detailed and scoped control over attribution within
+            sub-components of their app.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AttributionSource#myAttributionSource()" title="Reference documentation">Java documentation for <code>android.content.AttributionSource.myAttributionSource()</code>.</a>
@@ -339,6 +428,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getNext", "()Landroid/content/AttributionSource;", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getNext", "()Landroid/content/AttributionSource;", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
@@ -350,6 +443,7 @@
         <summary>The next app to receive the permission protected data.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The next app to receive the permission protected data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AttributionSource#getNext()" title="Reference documentation">Java documentation for <code>android.content.AttributionSource.getNext()</code>.</a>
@@ -375,6 +469,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getPackageName", "()Ljava/lang/String;", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getPackageName", "()Ljava/lang/String;", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
@@ -386,9 +484,51 @@
         <summary>The package that is accessing the permission protected data.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The package that is accessing the permission protected data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AttributionSource#getPackageName()" title="Reference documentation">Java documentation for <code>android.content.AttributionSource.getPackageName()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="Pid">
+      <MemberSignature Language="C#" Value="public int Pid { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance int32 Pid" />
+      <MemberSignature Language="DocId" Value="P:Android.Content.AttributionSource.Pid" />
+      <MemberSignature Language="F#" Value="member this.Pid : int" Usage="Android.Content.AttributionSource.Pid" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: Android.Runtime.Register("getPid", "()I", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getPid", "()I", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Int32</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>The PID that is accessing the permission protected data.</summary>
+        <value>To be added.</value>
+        <remarks>
+          <para>The PID that is accessing the permission protected data.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/content/AttributionSource#getPid()" title="Reference documentation">Java documentation for <code>android.content.AttributionSource.getPid()</code>.</a>
             </format>
           </para>
           <para>
@@ -469,6 +609,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getUid", "()I", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getUid", "()I", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
@@ -480,6 +624,7 @@
         <summary>The UID that is accessing the permission protected data.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The UID that is accessing the permission protected data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AttributionSource#getUid()" title="Reference documentation">Java documentation for <code>android.content.AttributionSource.getUid()</code>.</a>
@@ -510,6 +655,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("writeToParcel", "(Landroid/os/Parcel;I)V", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("writeToParcel", "(Landroid/os/Parcel;I)V", "", ApiSince=31)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
