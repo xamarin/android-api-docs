@@ -16,6 +16,10 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/telecom/ConnectionService", ApiSince=23, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/telecom/ConnectionService", ApiSince=23, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>An abstract service that should be implemented by any apps which either:
@@ -23,6 +27,243 @@
                 &lt;li&gt;Can make phone calls (VoIP or otherwise) and want those calls to be integrated into the
                 built-in phone app.</summary>
     <remarks>
+      <para>An abstract service that should be implemented by any apps which either:
+            &lt;ol&gt;
+                &lt;li&gt;Can make phone calls (VoIP or otherwise) and want those calls to be integrated into the
+                built-in phone app.  Referred to as a &lt;b&gt;system managed&lt;/b&gt; <c>ConnectionService</c>.&lt;/li&gt;
+                &lt;li&gt;Are a standalone calling app and don't want their calls to be integrated into the
+                built-in phone app.  Referred to as a &lt;b&gt;self managed&lt;/b&gt; <c>ConnectionService</c>.&lt;/li&gt;
+            &lt;/ol&gt;
+            Once implemented, the <c>ConnectionService</c> needs to take the following steps so that Telecom
+            will bind to it:</para>
+      <para>1. <i>Registration in AndroidManifest.xml</i>&lt;br/&gt;</para>
+      <code lang="text/java">&amp;lt;service android:name="com.example.package.MyConnectionService"
+               android:label="@string/some_label_for_my_connection_service"
+               android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"&amp;gt;
+             &amp;lt;intent-filter&amp;gt;
+              &amp;lt;action android:name="android.telecom.ConnectionService" /&amp;gt;
+             &amp;lt;/intent-filter&amp;gt;
+            &amp;lt;/service&amp;gt;
+            </code>
+      <para>2. <i> Registration of <c>PhoneAccount</c> with <c>TelecomManager</c>.</i>&lt;br/&gt;
+            See <c>PhoneAccount</c> and <c>TelecomManager#registerPhoneAccount</c> for more information.</para>
+      <para>System managed <c>ConnectionService</c>s must be enabled by the user in the phone app settings
+            before Telecom will bind to them.  Self-managed <c>ConnectionService</c>s must declare the
+            <c>android.Manifest.permission#MANAGE_OWN_CALLS</c> permission in their manifest before Telecom
+            will bind to them.</para>
+      <para>Once registered and enabled by the user in the phone app settings or granted permission, telecom
+            will bind to a <c>ConnectionService</c> implementation when it wants that
+            <c>ConnectionService</c> to place a call or the service has indicated that is has an incoming
+            call through <c>TelecomManager#addNewIncomingCall(PhoneAccountHandle, Bundle)</c>. The
+            <c>ConnectionService</c> can then expect a call to
+            <c>#onCreateIncomingConnection(PhoneAccountHandle, ConnectionRequest)</c> or
+            <c>#onCreateOutgoingConnection(PhoneAccountHandle, ConnectionRequest)</c>
+            wherein it should provide a new instance of a <c>Connection</c> object.  It is through this
+            <c>Connection</c> object that telecom receives state updates and the <c>ConnectionService</c>
+            receives call-commands such as answer, reject, hold and disconnect.</para>
+      <para>When there are no more live calls, telecom will unbind from the <c>ConnectionService</c>.</para>
+      <para>&lt;h1&gt;Self-Managed Connection Services&lt;/h1&gt;
+            A VoIP app can implement a <c>ConnectionService</c> to ensure that its calls are integrated
+            into the Android platform.  There are numerous benefits to using the Telecom APIs for a VoIP app:
+            &lt;ul&gt;
+                &lt;li&gt;Call concurrency is handled - the user is able to swap between calls in different
+                apps and on the mobile network.&lt;/li&gt;
+                &lt;li&gt;Simplified audio routing - the platform provides your app with a unified list of the
+                audio routes which are available
+                (e.g. <c>android.telecom.Connection#onAvailableCallEndpointsChanged(List)</c>) and a
+                standardized way to switch audio routes
+                (e.g. <c>android.telecom.Connection#requestCallEndpointChange(CallEndpoint, Executor,
+                OutcomeReceiver)</c> ).&lt;/li&gt;
+                &lt;li&gt;Bluetooth integration - your calls will be visible on and controllable via
+                bluetooth devices (e.g. car head units and headsets).&lt;/li&gt;
+                &lt;li&gt;Companion device integration - wearable devices such as watches which implement an
+                <c>InCallService</c> can optionally subscribe to see self-managed calls.  Similar to a
+                bluetooth headunit, wearables will typically render your call using a generic call UX and
+                provide the user with basic call controls such as hangup, answer, reject.&lt;/li&gt;
+                &lt;li&gt;Automotive calling experiences - Android supports automotive optimized experiences which
+                provides a means for calls to be controlled and viewed in an automobile; these experiences
+                are capable of leveraging call metadata provided by your app.&lt;/li&gt;
+            &lt;/ul&gt;
+            &lt;h2&gt;Registering a Phone Account&lt;/h2&gt;
+            Before your app can handle incoming or outgoing calls through Telecom it needs to register a
+            <c>PhoneAccount</c> with Telecom indicating to the platform that your app is capable of calling.</para>
+      <para>Your app should create a new instance of <c>PhoneAccount</c> which meets the following
+            requirements:
+            &lt;ul&gt;
+                &lt;li&gt;Has <c>PhoneAccount#CAPABILITY_SELF_MANAGED</c> (set using
+                <c>PhoneAccount.Builder#setCapabilities(int)</c>).  This indicates to Telecom that your
+                app will report calls but that it provides a primary UI for the calls by itself.&lt;/li&gt;
+                &lt;li&gt;Provide a unique identifier for the <c>PhoneAccount</c> via the
+                <c>PhoneAccountHandle#getId()</c> attribute.  As per the <c>PhoneAccountHandle</c>
+                documentation, you should NOT use an identifier which contains PII or other sensitive
+                information.  A typical choice is a UUID.&lt;/li&gt;
+            &lt;/ul&gt;
+            Your app should register the new <c>PhoneAccount</c> with Telecom using
+            <c>TelecomManager#registerPhoneAccount(PhoneAccount)</c>.  <c>PhoneAccount</c>s persist across
+            reboot.  You can use <c>TelecomManager#getOwnSelfManagedPhoneAccounts()</c> to confirm the
+            <c>PhoneAccount</c> you registered.  Your app should generally only register a single
+            <c>PhoneAccount</c>.
+            
+            &lt;h2&gt;Implementing ConnectionService&lt;/h2&gt;
+            Your app uses <c>TelecomManager#placeCall(Uri, Bundle)</c> to start new outgoing calls and
+            <c>TelecomManager#addNewIncomingCall(PhoneAccountHandle, Bundle)</c> to report new incoming
+            calls.  Calling these APIs causes the Telecom stack to bind to your app's
+            <c>ConnectionService</c> implementation.  Telecom will either inform your app that it cannot
+            handle a call request at the current time (i.e. there could be an ongoing emergency call, which
+            means your app is not allowed to handle calls at the current time), or it will ask your app to
+            create a new instance of <c>Connection</c> to represent a call in your app.
+            
+            Your app should implement the following <c>ConnectionService</c> methods:
+            &lt;ul&gt;
+                &lt;li&gt;<c>ConnectionService#onCreateOutgoingConnection(PhoneAccountHandle,
+                ConnectionRequest)</c> - called by Telecom to ask your app to make a new <c>Connection</c>
+                to represent an outgoing call your app requested via
+                <c>TelecomManager#placeCall(Uri, Bundle)</c>.&lt;/li&gt;
+                &lt;li&gt;&lt;<c>ConnectionService#onCreateOutgoingConnectionFailed(PhoneAccountHandle,
+                ConnectionRequest)</c> - called by Telecom to inform your app that a call it reported via
+                <c>TelecomManager#placeCall(Uri, Bundle)</c> cannot be handled at this time.  Your app
+                should NOT place a call at the current time.&lt;/li&gt;
+                &lt;li&gt;<c>ConnectionService#onCreateIncomingConnection(PhoneAccountHandle,
+                ConnectionRequest)</c> - called by Telecom to ask your app to make a new <c>Connection</c>
+                to represent an incoming call your app reported via
+                <c>TelecomManager#addNewIncomingCall(PhoneAccountHandle, Bundle)</c>.&lt;/li&gt;
+                &lt;li&gt;<c>ConnectionService#onCreateIncomingConnectionFailed(PhoneAccountHandle,
+                ConnectionRequest)</c> - called by Telecom to inform your app that an incoming call it reported
+                via <c>TelecomManager#addNewIncomingCall(PhoneAccountHandle, Bundle)</c> cannot be handled
+                at this time.  Your app should NOT post a new incoming call notification and should silently
+                reject the call.&lt;/li&gt;
+            &lt;/ul&gt;
+            
+            &lt;h2&gt;Implementing a Connection&lt;/h2&gt;
+            Your app should extend the <c>Connection</c> class to represent calls in your app.  When you
+            create new instances of your <c>Connection</c>, you should ensure the following properties are
+            set on the new <c>Connection</c> instance returned by your <c>ConnectionService</c>:
+            &lt;ul&gt;
+                &lt;li&gt;<c>Connection#setAddress(Uri, int)</c> - the identifier for the other party.  For
+                apps that user phone numbers the <c>Uri</c> can be a <c>PhoneAccount#SCHEME_TEL</c> URI
+                representing the phone number.&lt;/li&gt;
+                &lt;li&gt;<c>Connection#setCallerDisplayName(String, int)</c> - the display name of the other
+                party.  This is what will be shown on Bluetooth devices and other calling surfaces such
+                as wearable devices.  This is particularly important for calls that do not use a phone
+                number to identify the caller or called party.&lt;/li&gt;
+                &lt;li&gt;<c>Connection#setConnectionProperties(int)</c> - ensure you set
+                <c>Connection#PROPERTY_SELF_MANAGED</c> to identify to the platform that the call is
+                handled by your app.&lt;/li&gt;
+                &lt;li&gt;<c>Connection#setConnectionCapabilities(int)</c> - if your app supports making calls
+                inactive (i.e. holding calls) you should get <c>Connection#CAPABILITY_SUPPORT_HOLD</c> and
+                <c>Connection#CAPABILITY_HOLD</c> to indicate to the platform that you calls can potentially
+                be held for concurrent calling scenarios.&lt;/li&gt;
+                &lt;li&gt;<c>Connection#setAudioModeIsVoip(boolean)</c> - set to <c>true</c> to ensure that the
+                platform knows your call is a VoIP call.&lt;/li&gt;
+                &lt;li&gt;For newly created <c>Connection</c> instances, do NOT change the state of your call
+                using <c>Connection#setActive()</c>, <c>Connection#setOnHold()</c> until the call is added
+                to Telecom (ie you have returned it via
+                <c>ConnectionService#onCreateOutgoingConnection(PhoneAccountHandle, ConnectionRequest)</c>
+                or
+                <c>ConnectionService#onCreateIncomingConnection(PhoneAccountHandle, ConnectionRequest)</c>).
+                &lt;/li&gt;
+            &lt;/ul&gt;
+            
+            &lt;h2&gt;How to Place Outgoing Calls&lt;/h2&gt;
+            When your app wants to place an outgoing call it calls
+            <c>TelecomManager#placeCall(Uri, Bundle)</c>.  You should specify a <c>Uri</c> to identify
+            who the call is being placed to, and specify the <c>PhoneAccountHandle</c> associated with the
+            <c>PhoneAccount</c> you registered for your app using
+            <c>TelecomManager#EXTRA_PHONE_ACCOUNT_HANDLE</c> in the <c>Bundle</c> parameter.</para>
+      <para>Telecom will bind to your app's <c>ConnectionService</c> implementation and call either:
+            &lt;ul&gt;
+                &lt;li&gt;<c>ConnectionService#onCreateOutgoingConnection(PhoneAccountHandle,
+                ConnectionRequest)</c> - the <c>ConnectionRequest#getAddress()</c> will match the address
+                you specified when placing the call.  You should return a new instance of your app's
+                <c>Connection</c> class to represent the outgoing call.&lt;/li&gt;
+                &lt;li&gt;<c>ConnectionService#onCreateOutgoingConnectionFailed(PhoneAccountHandle,
+                ConnectionRequest)</c> - your app should not place the call at this time; the call should be
+                cancelled and the user informed that the call cannot be placed.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>New outgoing calls will start in a <c>Connection#STATE_DIALING</c> state.  This state indicates
+            that your app is in the process of connecting the call to the other party.</para>
+      <para>Once the other party answers the call (or it is set up successfully), your app should call
+            <c>Connection#setActive()</c> to inform Telecom that the call is now active.
+            
+            &lt;h2&gt;How to Add Incoming Calls&lt;/h2&gt;
+            When your app receives an incoming call, it should call
+            <c>TelecomManager#addNewIncomingCall(PhoneAccountHandle, Bundle)</c>.  Set the
+            <c>PhoneAccountHandle</c> parameter to the <c>PhoneAccountHandle</c> associated with your
+            app's <c>PhoneAccount</c>.</para>
+      <para>Telecom will bind to your app's <c>ConnectionService</c> implementation and call either:
+            &lt;ul&gt;
+                &lt;li&gt;<c>ConnectionService#onCreateIncomingConnection(PhoneAccountHandle,
+                ConnectionRequest)</c> - You should return a new instance of your app's
+                <c>Connection</c> class to represent the incoming call.&lt;/li&gt;
+                &lt;li&gt;<c>ConnectionService#onCreateIncomingConnectionFailed(PhoneAccountHandle,
+                ConnectionRequest)</c> - your app should not receive the call at this time; the call should be
+                rejected silently; the user may be informed of a missed call.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>New incoming calls will start with a <c>Connection#STATE_RINGING</c> state.  This state
+            indicates that your app has a new incoming call pending.  Telecom will NOT play a ringtone or
+            post a notification for your app.  It is up to your app to post an incoming call notification
+            with an associated ringtone.  Telecom will call <c>Connection#onShowIncomingCallUi()</c> on the
+            <c>Connection</c> when your app can post its incoming call notification.  See
+            <c>Connection#onShowIncomingCallUi() the docs</c> for more information on how to post the
+            notification.</para>
+      <para>Your incoming call notification (or full screen UI) will typically have an "answer" and "decline"
+            action which the user chooses.  When your app receives the "answer" or "decline"
+            <c>android.app.PendingIntent</c>, you should must call either <c>Connection#setActive()</c> to
+            inform Telecom that the call was answered, or
+            <c>Connection#setDisconnected(DisconnectCause)</c> to inform Telecom that the call was rejected.
+            If the call was rejected, supply an instance of <c>DisconnectCause</c> with
+            <c>DisconnectCause#REJECTED</c>, and then call <c>Connection#destroy()</c>.</para>
+      <para>In addition to handling requests to answer or decline the call via notification actions, your
+            app should also be implement the <c>Connection#onAnswer(int)</c> and
+            <c>Connection#onAnswer()</c> methods on the <c>Connection</c>.  These will be raised if the
+            user answers your call via a Bluetooth device or another device like a wearable or automotive
+            calling UX.  In response, your app should call <c>Connection#setActive()</c> to inform Telecom
+            that the call was answered.</para>
+      <para>Additionally, your app should implement <c>Connection#onReject()</c> to handle requests to
+            reject the call which are raised via Bluetooth or other calling surfaces.  Your app should call
+            <c>Connection#setDisconnected(DisconnectCause)</c> and supply an instance of
+            <c>DisconnectCause</c> with <c>DisconnectCause#REJECTED</c> in this case.
+            
+            &lt;h2&gt;Ending Calls&lt;/h2&gt;
+            When an ongoing active call (incoming or outgoing) has ended, your app is responsible for
+            informing Telecom that the call ended.</para>
+      <para>Your app calls:
+            &lt;ul&gt;
+                &lt;li&gt;<c>Connection#setDisconnected(DisconnectCause)</c> - this informs Telecom that the
+                call has terminated.  You should provide a new instance of <c>DisconnectCause</c> with
+                either <c>DisconnectCause#LOCAL</c> or <c>DisconnectCause#REMOTE</c> to indicate where the
+                call disconnection took place.  <c>DisconnectCause#LOCAL</c> indicates that the call
+                terminated in your app on the current device (i.e. via user action), where
+                <c>DisconnectCause#REMOTE</c> indicates that the call terminates on the remote device.&lt;/li&gt;
+                &lt;li&gt;<c>Connection#destroy()</c> - this informs Telecom that your call instance can be
+                cleaned up.  You should always call this when you are finished with a call.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>Similar to answering incoming calls, requests to disconnect your call may originate from outside
+            your app.  You can handle these by implementing <c>Connection#onDisconnect()</c>.  Your app
+            should call <c>Connection#setDisconnected(DisconnectCause)</c> with an instance of
+            <c>DisconnectCause</c> and reason <c>DisconnectCause#LOCAL</c> to indicate to Telecom that your
+            app has disconnected the call as requested based on the user's request.
+            
+            &lt;h2&gt;Holding and Unholding Calls&lt;/h2&gt;
+            When your app specifies <c>Connection#CAPABILITY_SUPPORT_HOLD</c> and
+            <c>Connection#CAPABILITY_HOLD</c> on your <c>Connection</c> instance, it is telling Telecom
+            that your calls can be placed into a suspended, or "held" state if required.  If your app
+            supports holding its calls, it will be possible for the user to switch between calls in your app
+            and holdable calls in another app or on the mobile network.  If your app does not support
+            holding its calls, you may receive a request to disconnect the call from Telecom if the user
+            opts to answer an incoming call in another app or on the mobile network; this ensures that the
+            user can only be in one call at a time.</para>
+      <para>Your app is free to change a call between the held and active state using
+            <c>Connection#setOnHold()</c> and <c>Connection#setActive()</c>.</para>
+      <para>Your app may receive a request from Telecom to hold or unhold a call via
+            <c>Connection#onHold()</c> and <c>Connection#onUnhold()</c>.  Telecom can ask your app to
+            hold or unhold its <c>Connection</c> either if the user requests this action through another
+            calling surface such as Bluetooth, or if the user answers or switches to a call in a different
+            app or on the mobile network.</para>
+      <para>When your app receives an <c>Connection#onHold()</c> it must call <c>Connection#setOnHold()</c>
+            to inform Telecom that the call has been held successfully.</para>
+      <para>When your app receives an <c>Connection#onUnhold()</c> it must call
+            <c>Connection#setActive()</c> to inform Telecom that the call has been resumed successfully.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/telecom/ConnectionService" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService</code>.</a>
@@ -49,6 +290,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "()V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "()V", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <Parameters />
@@ -97,6 +342,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("addConference", "(Landroid/telecom/Conference;)V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("addConference", "(Landroid/telecom/Conference;)V", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -108,6 +357,10 @@
         <param name="conference">The new conference object.</param>
         <summary>Adds a new conference call.</summary>
         <remarks>
+          <para>Adds a new conference call. When a conference call is created either as a result of an
+            explicit request via <c>#onConference</c> or otherwise, the connection service should supply
+            an instance of <c>Conference</c> by invoking this method. A conference call provided by this
+            method will persist until <c>Conference#destroy</c> is invoked on the conference instance.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#addConference(android.telecom.Conference)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.addConference(android.telecom.Conference)</code>.</a>
@@ -136,6 +389,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("addExistingConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/Connection;)V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("addExistingConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/Connection;)V", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -150,6 +407,8 @@
         <summary>Adds a connection created by the <c>ConnectionService</c> and informs telecom of the new
             connection.</summary>
         <remarks>
+          <para>Adds a connection created by the <c>ConnectionService</c> and informs telecom of the new
+            connection.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#addExistingConnection(android.telecom.PhoneAccountHandle,%20android.telecom.Connection)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.addExistingConnection(android.telecom.PhoneAccountHandle, android.telecom.Connection)</code>.</a>
@@ -175,6 +434,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getAllConferences", "()Ljava/util/Collection;", "", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getAllConferences", "()Ljava/util/Collection;", "", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
@@ -187,6 +450,8 @@
             has taken responsibility.</summary>
         <value>A collection of <c>Conference</c>s created by this <c>ConnectionService</c>.</value>
         <remarks>
+          <para>Returns all the active <c>Conference</c>s for which this <c>ConnectionService</c>
+            has taken responsibility.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#getAllConferences()" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.getAllConferences()</code>.</a>
@@ -212,6 +477,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getAllConnections", "()Ljava/util/Collection;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getAllConnections", "()Ljava/util/Collection;", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
@@ -224,6 +493,8 @@
             has taken responsibility.</summary>
         <value>A collection of <c>Connection</c>s created by this <c>ConnectionService</c>.</value>
         <remarks>
+          <para>Returns all the active <c>Connection</c>s for which this <c>ConnectionService</c>
+            has taken responsibility.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#getAllConnections()" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.getAllConnections()</code>.</a>
@@ -252,6 +523,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("conferenceRemoteConnections", "(Landroid/telecom/RemoteConnection;Landroid/telecom/RemoteConnection;)V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("conferenceRemoteConnections", "(Landroid/telecom/RemoteConnection;Landroid/telecom/RemoteConnection;)V", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -266,6 +541,10 @@
         <summary>Indicates to the relevant <c>RemoteConnectionService</c> that the specified
             <c>RemoteConnection</c>s should be merged into a conference call.</summary>
         <remarks>
+          <para>Indicates to the relevant <c>RemoteConnectionService</c> that the specified
+            <c>RemoteConnection</c>s should be merged into a conference call.</para>
+          <para>If the conference request is successful, the method <c>#onRemoteConferenceAdded</c> will
+            be invoked.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#conferenceRemoteConnections(android.telecom.RemoteConnection,%20android.telecom.RemoteConnection)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.conferenceRemoteConnections(android.telecom.RemoteConnection, android.telecom.RemoteConnection)</code>.</a>
@@ -294,6 +573,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("connectionServiceFocusReleased", "()V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("connectionServiceFocusReleased", "()V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -302,6 +585,10 @@
       <Docs>
         <summary>Call to inform Telecom that your <c>ConnectionService</c> has released call resources (e.</summary>
         <remarks>
+          <para>Call to inform Telecom that your <c>ConnectionService</c> has released call resources (e.g
+            microphone, camera).</para>
+          <para>The <c>ConnectionService</c> will be disconnected when it failed to call this method within
+            5 seconds after <c>#onConnectionServiceFocusLost()</c> is called.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#connectionServiceFocusReleased()" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.connectionServiceFocusReleased()</code>.</a>
@@ -330,6 +617,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("createRemoteIncomingConference", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/RemoteConference;", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createRemoteIncomingConference", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/RemoteConference;", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Telecom.RemoteConference</ReturnType>
@@ -347,6 +638,9 @@
         <returns>The <c>RemoteConference</c> object to satisfy this call, or <c>null</c> to not
                     handle the call.</returns>
         <remarks>
+          <para>Ask some other <c>ConnectionService</c> to create a <c>RemoteConference</c> given an
+            incoming request. This is used by <c>ConnectionService</c>s that are registered with
+            <c>PhoneAccount#CAPABILITY_ADHOC_CONFERENCE_CALLING</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#createRemoteIncomingConference(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.createRemoteIncomingConference(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -375,6 +669,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("createRemoteIncomingConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/RemoteConnection;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createRemoteIncomingConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/RemoteConnection;", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Telecom.RemoteConnection</ReturnType>
@@ -392,6 +690,10 @@
         <returns>The <c>Connection</c> object to satisfy this call, or <c>null</c> to
                     not handle the call.</returns>
         <remarks>
+          <para>Ask some other <c>ConnectionService</c> to create a <c>RemoteConnection</c> given an
+            incoming request. This is used by <c>ConnectionService</c>s that are registered with
+            <c>PhoneAccount#CAPABILITY_CONNECTION_MANAGER</c> and want to be able to manage
+            SIM-based incoming calls.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#createRemoteIncomingConnection(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.createRemoteIncomingConnection(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -420,6 +722,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("createRemoteOutgoingConference", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/RemoteConference;", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createRemoteOutgoingConference", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/RemoteConference;", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Telecom.RemoteConference</ReturnType>
@@ -437,6 +743,9 @@
         <returns>The <c>RemoteConference</c> object to satisfy this call, or <c>null</c> to not
                     handle the call.</returns>
         <remarks>
+          <para>Ask some other <c>ConnectionService</c> to create a <c>RemoteConference</c> given an
+            outgoing request. This is used by <c>ConnectionService</c>s that are registered with
+            <c>PhoneAccount#CAPABILITY_ADHOC_CONFERENCE_CALLING</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#createRemoteOutgoingConference(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.createRemoteOutgoingConference(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -465,6 +774,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("createRemoteOutgoingConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/RemoteConnection;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createRemoteOutgoingConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/RemoteConnection;", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Telecom.RemoteConnection</ReturnType>
@@ -482,6 +795,10 @@
         <returns>The <c>Connection</c> object to satisfy this call, or <c>null</c> to
                     not handle the call.</returns>
         <remarks>
+          <para>Ask some other <c>ConnectionService</c> to create a <c>RemoteConnection</c> given an
+            outgoing request. This is used by <c>ConnectionService</c>s that are registered with
+            <c>PhoneAccount#CAPABILITY_CONNECTION_MANAGER</c> and want to be able to use the
+            SIM-based <c>ConnectionService</c> to place its outgoing calls.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#createRemoteOutgoingConnection(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.createRemoteOutgoingConnection(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -541,6 +858,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onBind", "(Landroid/content/Intent;)Landroid/os/IBinder;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onBind", "(Landroid/content/Intent;)Landroid/os/IBinder;", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.OS.IBinder</ReturnType>
@@ -553,6 +874,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onBind(android.content.Intent)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onBind(android.content.Intent)</code>.</a>
@@ -581,6 +903,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onConference", "(Landroid/telecom/Connection;Landroid/telecom/Connection;)V", "GetOnConference_Landroid_telecom_Connection_Landroid_telecom_Connection_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onConference", "(Landroid/telecom/Connection;Landroid/telecom/Connection;)V", "GetOnConference_Landroid_telecom_Connection_Landroid_telecom_Connection_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -594,6 +920,9 @@
         <param name="connection2">A connection to merge into a conference call.</param>
         <summary>Conference two specified connections.</summary>
         <remarks>
+          <para>Conference two specified connections. Invoked when the user has made a request to merge the
+            specified connections into a conference call. In response, the connection service should
+            create an instance of <c>Conference</c> and pass it into <c>#addConference</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onConference(android.telecom.Connection,%20android.telecom.Connection)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onConference(android.telecom.Connection, android.telecom.Connection)</code>.</a>
@@ -622,6 +951,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onConnectionServiceFocusGained", "()V", "GetOnConnectionServiceFocusGainedHandler", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onConnectionServiceFocusGained", "()V", "GetOnConnectionServiceFocusGainedHandler", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -630,6 +963,8 @@
       <Docs>
         <summary>Called when the <c>ConnectionService</c> has gained the call focus.</summary>
         <remarks>
+          <para>Called when the <c>ConnectionService</c> has gained the call focus. The
+            <c>ConnectionService</c> can acquire the call resources at this time.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onConnectionServiceFocusGained()" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onConnectionServiceFocusGained()</code>.</a>
@@ -658,6 +993,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onConnectionServiceFocusLost", "()V", "GetOnConnectionServiceFocusLostHandler", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onConnectionServiceFocusLost", "()V", "GetOnConnectionServiceFocusLostHandler", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -666,6 +1005,10 @@
       <Docs>
         <summary>Called when the <c>ConnectionService</c> has lost the call focus.</summary>
         <remarks>
+          <para>Called when the <c>ConnectionService</c> has lost the call focus.
+            The <c>ConnectionService</c> should release the call resources and invokes
+            <c>ConnectionService#connectionServiceFocusReleased()</c> to inform telecom that it has
+            released the call resources.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onConnectionServiceFocusLost()" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onConnectionServiceFocusLost()</code>.</a>
@@ -694,6 +1037,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateIncomingConference", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Conference;", "GetOnCreateIncomingConference_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateIncomingConference", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Conference;", "GetOnCreateIncomingConference_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Telecom.Conference</ReturnType>
@@ -712,6 +1059,9 @@
                     <c>Connection#createFailedConnection(DisconnectCause)</c>.
                     Return <c>null</c> if the <c>ConnectionService</c> cannot handle the call.</returns>
         <remarks>
+          <para>Create a <c>Conference</c> given an incoming request. This is used to attach to an incoming
+            conference call initiated via
+            <c>TelecomManager#addNewIncomingConference(PhoneAccountHandle, Bundle)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onCreateIncomingConference(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onCreateIncomingConference(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -740,6 +1090,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateIncomingConferenceFailed", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)V", "GetOnCreateIncomingConferenceFailed_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateIncomingConferenceFailed", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)V", "GetOnCreateIncomingConferenceFailed_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -755,6 +1109,13 @@
         <summary>Called by Telecom to inform the <c>ConnectionService</c> that its request to create a new
             incoming <c>Conference</c> was denied.</summary>
         <remarks>
+          <para>Called by Telecom to inform the <c>ConnectionService</c> that its request to create a new
+            incoming <c>Conference</c> was denied.</para>
+          <para>Used when a self-managed <c>ConnectionService</c> attempts to create a new incoming
+            <c>Conference</c>, but Telecom has determined that the call cannot be allowed at this time.
+            The <c>ConnectionService</c> is responsible for silently rejecting the new incoming
+            <c>Conference</c>.</para>
+          <para>See <c>TelecomManager#isIncomingCallPermitted(PhoneAccountHandle)</c> for more information.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onCreateIncomingConferenceFailed(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onCreateIncomingConferenceFailed(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -783,6 +1144,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateIncomingConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Connection;", "GetOnCreateIncomingConnection_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateIncomingConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Connection;", "GetOnCreateIncomingConnection_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Telecom.Connection</ReturnType>
@@ -799,6 +1164,8 @@
         <returns>The <c>Connection</c> object to satisfy this call, or <c>null</c> to
                     not handle the call.</returns>
         <remarks>
+          <para>Create a <c>Connection</c> given an incoming request. This is used to attach to existing
+            incoming calls.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onCreateIncomingConnection(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onCreateIncomingConnection(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -827,6 +1194,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateIncomingConnectionFailed", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)V", "GetOnCreateIncomingConnectionFailed_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateIncomingConnectionFailed", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)V", "GetOnCreateIncomingConnectionFailed_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -842,6 +1213,13 @@
         <summary>Called by Telecom to inform the <c>ConnectionService</c> that its request to create a new
             incoming <c>Connection</c> was denied.</summary>
         <remarks>
+          <para>Called by Telecom to inform the <c>ConnectionService</c> that its request to create a new
+            incoming <c>Connection</c> was denied.</para>
+          <para>Used when a self-managed <c>ConnectionService</c> attempts to create a new incoming
+            <c>Connection</c>, but Telecom has determined that the call cannot be allowed at this time.
+            The <c>ConnectionService</c> is responsible for silently rejecting the new incoming
+            <c>Connection</c>.</para>
+          <para>See <c>TelecomManager#isIncomingCallPermitted(PhoneAccountHandle)</c> for more information.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onCreateIncomingConnectionFailed(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onCreateIncomingConnectionFailed(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -870,6 +1248,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateIncomingHandoverConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Connection;", "GetOnCreateIncomingHandoverConnection_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateIncomingHandoverConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Connection;", "GetOnCreateIncomingHandoverConnection_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Telecom.Connection</ReturnType>
@@ -888,6 +1270,35 @@
         <returns>
           <c>Connection</c> instance corresponding to the handover call.</returns>
         <remarks>
+          <para>Called by Telecom to request that a <c>ConnectionService</c> creates an instance of an
+            incoming handover <c>Connection</c>.</para>
+          <para>A call handover is the process where an ongoing call is transferred from one app (i.e.
+            <c>ConnectionService</c> to another app.  The user could, for example, choose to continue a
+            mobile network call in a video calling app.  The mobile network call via the Telephony stack
+            is referred to as the source of the handover, and the video calling app is referred to as the
+            destination.</para>
+          <para>When considering a handover scenario the &lt;em&gt;initiating&lt;/em&gt; device is where a user initiated
+            the handover process (e.g. by calling <c>android.telecom.Call#handoverTo(
+            PhoneAccountHandle, int, Bundle)</c>, and the other device is considered the &lt;em&gt;receiving&lt;/em&gt;
+            device.</para>
+          <para>This method is called on the destination app on the &lt;em&gt;receiving&lt;/em&gt; device when the
+            destination app calls <c>TelecomManager#acceptHandover(Uri, int, PhoneAccountHandle)</c> to
+            accept an incoming handover from the &lt;em&gt;initiating&lt;/em&gt; device.</para>
+          <para>For a full discussion of the handover process and the APIs involved, see
+            <c>android.telecom.Call#handoverTo(PhoneAccountHandle, int, Bundle)</c>.</para>
+          <para>Implementations of this method should return an instance of <c>Connection</c> which
+            represents the handover.  The code below shows an example of how this is done.</para>
+          <code lang="text/java">{@code
+            public Connection onCreateIncomingHandoverConnection(PhoneAccountHandle
+                fromPhoneAccountHandle, ConnectionRequest request) {
+              // Given that your app requested to accept the handover, you should not return null here.
+              MyConnection connection = new MyConnection();
+              connection.setAddress(request.getAddress(), TelecomManager.PRESENTATION_ALLOWED);
+              connection.setVideoState(request.getVideoState());
+              return connection;
+            }
+            }
+            </code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onCreateIncomingHandoverConnection(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onCreateIncomingHandoverConnection(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -915,6 +1326,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateOutgoingConference", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Conference;", "GetOnCreateOutgoingConference_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateOutgoingConference", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Conference;", "GetOnCreateOutgoingConference_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=31)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -947,6 +1362,9 @@
                     <c>Connection#createFailedConnection(DisconnectCause)</c>.
                     Return <c>null</c> if the <c>ConnectionService</c> cannot handle the call.</returns>
         <remarks>
+          <para>Create a <c>Conference</c> given an outgoing request. This is used to initiate new
+            outgoing conference call requested via
+            <c>TelecomManager#startConference(List, Bundle)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onCreateOutgoingConference(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onCreateOutgoingConference(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -975,6 +1393,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateOutgoingConferenceFailed", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)V", "GetOnCreateOutgoingConferenceFailed_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateOutgoingConferenceFailed", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)V", "GetOnCreateOutgoingConferenceFailed_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -990,6 +1412,13 @@
         <summary>Called by Telecom to inform the <c>ConnectionService</c> that its request to create a new
             outgoing <c>Conference</c> was denied.</summary>
         <remarks>
+          <para>Called by Telecom to inform the <c>ConnectionService</c> that its request to create a new
+            outgoing <c>Conference</c> was denied.</para>
+          <para>Used when a self-managed <c>ConnectionService</c> attempts to create a new outgoing
+            <c>Conference</c>, but Telecom has determined that the call cannot be placed at this time.
+            The <c>ConnectionService</c> is responisible for informing the user that the
+            <c>Conference</c> cannot be made at this time.</para>
+          <para>See <c>TelecomManager#isOutgoingCallPermitted(PhoneAccountHandle)</c> for more information.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onCreateOutgoingConferenceFailed(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onCreateOutgoingConferenceFailed(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -1017,6 +1446,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateOutgoingConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Connection;", "GetOnCreateOutgoingConnection_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateOutgoingConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Connection;", "GetOnCreateOutgoingConnection_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1047,6 +1480,8 @@
         <returns>The <c>Connection</c> object to satisfy this call, or the result of an invocation
                     of <c>Connection#createFailedConnection(DisconnectCause)</c> to not handle the call.</returns>
         <remarks>
+          <para>Create a <c>Connection</c> given an outgoing request. This is used to initiate new
+            outgoing calls.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onCreateOutgoingConnection(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onCreateOutgoingConnection(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -1075,6 +1510,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateOutgoingConnectionFailed", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)V", "GetOnCreateOutgoingConnectionFailed_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateOutgoingConnectionFailed", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)V", "GetOnCreateOutgoingConnectionFailed_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1090,6 +1529,13 @@
         <summary>Called by Telecom to inform the <c>ConnectionService</c> that its request to create a new
             outgoing <c>Connection</c> was denied.</summary>
         <remarks>
+          <para>Called by Telecom to inform the <c>ConnectionService</c> that its request to create a new
+            outgoing <c>Connection</c> was denied.</para>
+          <para>Used when a self-managed <c>ConnectionService</c> attempts to create a new outgoing
+            <c>Connection</c>, but Telecom has determined that the call cannot be placed at this time.
+            The <c>ConnectionService</c> is responisible for informing the user that the
+            <c>Connection</c> cannot be made at this time.</para>
+          <para>See <c>TelecomManager#isOutgoingCallPermitted(PhoneAccountHandle)</c> for more information.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onCreateOutgoingConnectionFailed(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onCreateOutgoingConnectionFailed(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -1118,6 +1564,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onCreateOutgoingHandoverConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Connection;", "GetOnCreateOutgoingHandoverConnection_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCreateOutgoingHandoverConnection", "(Landroid/telecom/PhoneAccountHandle;Landroid/telecom/ConnectionRequest;)Landroid/telecom/Connection;", "GetOnCreateOutgoingHandoverConnection_Landroid_telecom_PhoneAccountHandle_Landroid_telecom_ConnectionRequest_Handler", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Telecom.Connection</ReturnType>
@@ -1136,6 +1586,39 @@
         <returns>
           <c>Connection</c> instance corresponding to the handover call.</returns>
         <remarks>
+          <para>Called by Telecom to request that a <c>ConnectionService</c> creates an instance of an
+            outgoing handover <c>Connection</c>.</para>
+          <para>A call handover is the process where an ongoing call is transferred from one app (i.e.
+            <c>ConnectionService</c> to another app.  The user could, for example, choose to continue a
+            mobile network call in a video calling app.  The mobile network call via the Telephony stack
+            is referred to as the source of the handover, and the video calling app is referred to as the
+            destination.</para>
+          <para>When considering a handover scenario the &lt;em&gt;initiating&lt;/em&gt; device is where a user initiated
+            the handover process (e.g. by calling <c>android.telecom.Call#handoverTo(
+            PhoneAccountHandle, int, Bundle)</c>, and the other device is considered the &lt;em&gt;receiving&lt;/em&gt;
+            device.</para>
+          <para>This method is called on the destination <c>ConnectionService</c> on &lt;em&gt;initiating&lt;/em&gt;
+            device when the user initiates a handover request from one app to another.  The user request
+            originates in the <c>InCallService</c> via
+            <c>android.telecom.Call#handoverTo(PhoneAccountHandle, int, Bundle)</c>.</para>
+          <para>For a full discussion of the handover process and the APIs involved, see
+            <c>android.telecom.Call#handoverTo(PhoneAccountHandle, int, Bundle)</c>.</para>
+          <para>Implementations of this method should return an instance of <c>Connection</c> which
+            represents the handover.  If your app does not wish to accept a handover to it at this time,
+            you can return <c>null</c>.  The code below shows an example of how this is done.</para>
+          <code lang="text/java">{@code
+            public Connection onCreateIncomingHandoverConnection(PhoneAccountHandle
+                fromPhoneAccountHandle, ConnectionRequest request) {
+              if (!isHandoverAvailable()) {
+                  return null;
+              }
+              MyConnection connection = new MyConnection();
+              connection.setAddress(request.getAddress(), TelecomManager.PRESENTATION_ALLOWED);
+              connection.setVideoState(request.getVideoState());
+              return connection;
+            }
+            }
+            </code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onCreateOutgoingHandoverConnection(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onCreateOutgoingHandoverConnection(android.telecom.PhoneAccountHandle, android.telecom.ConnectionRequest)</code>.</a>
@@ -1164,6 +1647,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onHandoverFailed", "(Landroid/telecom/ConnectionRequest;I)V", "GetOnHandoverFailed_Landroid_telecom_ConnectionRequest_IHandler", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onHandoverFailed", "(Landroid/telecom/ConnectionRequest;I)V", "GetOnHandoverFailed_Landroid_telecom_ConnectionRequest_IHandler", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1185,6 +1672,10 @@
         <summary>Called by Telecom in response to a <c>TelecomManager#acceptHandover()</c>
             invocation which failed.</summary>
         <remarks>
+          <para>Called by Telecom in response to a <c>TelecomManager#acceptHandover()</c>
+            invocation which failed.</para>
+          <para>For a full discussion of the handover process and the APIs involved, see
+            <c>android.telecom.Call#handoverTo(PhoneAccountHandle, int, Bundle)</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onHandoverFailed(android.telecom.ConnectionRequest,%20int)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onHandoverFailed(android.telecom.ConnectionRequest, int)</code>.</a>
@@ -1213,6 +1704,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onRemoteConferenceAdded", "(Landroid/telecom/RemoteConference;)V", "GetOnRemoteConferenceAdded_Landroid_telecom_RemoteConference_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onRemoteConferenceAdded", "(Landroid/telecom/RemoteConference;)V", "GetOnRemoteConferenceAdded_Landroid_telecom_RemoteConference_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1224,6 +1719,11 @@
         <param name="conference">The remote conference call.</param>
         <summary>Indicates that a remote conference has been created for existing <c>RemoteConnection</c>s.</summary>
         <remarks>
+          <para>Indicates that a remote conference has been created for existing <c>RemoteConnection</c>s.
+            When this method is invoked, this <c>ConnectionService</c> should create its own
+            representation of the conference call and send it to telecom using <c>#addConference</c>.</para>
+          <para>This is only relevant to <c>ConnectionService</c>s which are registered with
+            <c>PhoneAccount#CAPABILITY_CONNECTION_MANAGER</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onRemoteConferenceAdded(android.telecom.RemoteConference)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onRemoteConferenceAdded(android.telecom.RemoteConference)</code>.</a>
@@ -1252,6 +1752,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onRemoteExistingConnectionAdded", "(Landroid/telecom/RemoteConnection;)V", "GetOnRemoteExistingConnectionAdded_Landroid_telecom_RemoteConnection_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onRemoteExistingConnectionAdded", "(Landroid/telecom/RemoteConnection;)V", "GetOnRemoteExistingConnectionAdded_Landroid_telecom_RemoteConnection_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1263,6 +1767,7 @@
         <param name="connection">The existing connection which was added.</param>
         <summary>Called when an existing connection is added remotely.</summary>
         <remarks>
+          <para>Called when an existing connection is added remotely.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#onRemoteExistingConnectionAdded(android.telecom.RemoteConnection)" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.onRemoteExistingConnectionAdded(android.telecom.RemoteConnection)</code>.</a>
@@ -1291,6 +1796,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("SERVICE_INTERFACE", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("SERVICE_INTERFACE", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1298,6 +1807,7 @@
       <Docs>
         <summary>The <c>Intent</c> that must be declared as handled by the service.</summary>
         <remarks>
+          <para>The <c>Intent</c> that must be declared as handled by the service.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/telecom/ConnectionService#SERVICE_INTERFACE" title="Reference documentation">Java documentation for <code>android.telecom.ConnectionService.SERVICE_INTERFACE</code>.</a>

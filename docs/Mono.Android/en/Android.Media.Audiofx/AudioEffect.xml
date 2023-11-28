@@ -21,6 +21,33 @@
     <summary>AudioEffect is the base class for controlling audio effects provided by the android audio
             framework.</summary>
     <remarks>
+      <para>AudioEffect is the base class for controlling audio effects provided by the android audio
+            framework.</para>
+      <para>Applications should not use the AudioEffect class directly but one of its derived classes to
+            control specific effects:
+            &lt;ul&gt;
+              &lt;li&gt; <c>android.media.audiofx.Equalizer</c>&lt;/li&gt;
+              &lt;li&gt; <c>android.media.audiofx.Virtualizer</c>&lt;/li&gt;
+              &lt;li&gt; <c>android.media.audiofx.BassBoost</c>&lt;/li&gt;
+              &lt;li&gt; <c>android.media.audiofx.PresetReverb</c>&lt;/li&gt;
+              &lt;li&gt; <c>android.media.audiofx.EnvironmentalReverb</c>&lt;/li&gt;
+              &lt;li&gt; <c>android.media.audiofx.DynamicsProcessing</c>&lt;/li&gt;
+              &lt;li&gt; <c>android.media.audiofx.HapticGenerator</c>&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>To apply the audio effect to a specific AudioTrack or MediaPlayer instance,
+            the application must specify the audio session ID of that instance when creating the AudioEffect.
+            (see <c>android.media.MediaPlayer#getAudioSessionId()</c> for details on audio sessions).</para>
+      <para>NOTE: attaching insert effects (equalizer, bass boost, virtualizer) to the global audio output
+            mix by use of session 0 is deprecated.</para>
+      <para>Creating an AudioEffect object will create the corresponding effect engine in the audio
+            framework if no instance of the same effect type exists in the specified audio session.
+            If one exists, this instance will be used.</para>
+      <para>The application creating the AudioEffect object (or a derived class) will either receive
+            control of the effect engine or not depending on the priority parameter. If priority is higher
+            than the priority used by the current effect engine owner, the control will be transfered to the
+            new object. Otherwise control will remain with the previous object. In this case, the new
+            application will be notified of changes in effect engine state or control ownership by the
+            appropriate listener.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect</code>.</a>
@@ -42,8 +69,8 @@
       <MemberSignature Language="F#" Value="new Android.Media.Audiofx.AudioEffect : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Media.Audiofx.AudioEffect" Usage="new Android.Media.Audiofx.AudioEffect (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -65,8 +92,8 @@
       <MemberSignature Language="F#" Value="val mutable ActionCloseAudioEffectControlSession : string" Usage="Android.Media.Audiofx.AudioEffect.ActionCloseAudioEffectControlSession" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -81,6 +108,14 @@
         <summary>Intent to signal to the effect control application or service that an audio session
              is closed and that effects should not be applied anymore.</summary>
         <remarks>
+          <para>Intent to signal to the effect control application or service that an audio session
+             is closed and that effects should not be applied anymore.</para>
+          <para>The effect control application receiving this intent will delete all effects on
+             this session and store current settings in package specific storage.</para>
+          <para>The calling package name is indicated by the <c>#EXTRA_PACKAGE_NAME</c> extra and the
+             audio session ID by the <c>#EXTRA_AUDIO_SESSION</c> extra. Both extras are mandatory.</para>
+          <para>It is good practice for applications to broadcast this intent when music playback stops
+             and/or when exiting to free system resources consumed by audio effect engines.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION</code>.</a>
@@ -102,8 +137,8 @@
       <MemberSignature Language="F#" Value="val mutable ActionDisplayAudioEffectControlPanel : string" Usage="Android.Media.Audiofx.AudioEffect.ActionDisplayAudioEffectControlPanel" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -117,6 +152,28 @@
       <Docs>
         <summary>Intent to launch an audio effect control panel UI.</summary>
         <remarks>
+          <para>Intent to launch an audio effect control panel UI.</para>
+          <para>The goal of this intent is to enable separate implementations of music/media player
+             applications and audio effect control application or services.
+             This will allow platform vendors to offer more advanced control options for standard effects
+             or control for platform specific effects.</para>
+          <para>The intent carries a number of extras used by the player application to communicate
+             necessary pieces of information to the control panel application.</para>
+          <para>The calling application must use the
+             <c>android.app.Activity#startActivityForResult(Intent, int)</c> method to launch the
+             control panel so that its package name is indicated and used by the control panel
+             application to keep track of changes for this particular application.</para>
+          <para>The <c>#EXTRA_AUDIO_SESSION</c> extra will indicate an audio session to which the
+             audio effects should be applied. If no audio session is specified, either one of the
+             follownig will happen:</para>
+          <para>- If an audio session was previously opened by the calling application with
+             <c>#ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION</c> intent, the effect changes will
+             be applied to that session.</para>
+          <para>- If no audio session is opened, the changes will be stored in the package specific
+             storage area and applied whenever a new audio session is opened by this application.</para>
+          <para>The <c>#EXTRA_CONTENT_TYPE</c> extra will help the control panel application
+             customize both the UI layout and the default audio effect settings if none are already
+             stored for the calling application.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL</code>.</a>
@@ -138,8 +195,8 @@
       <MemberSignature Language="F#" Value="val mutable ActionOpenAudioEffectControlSession : string" Usage="Android.Media.Audiofx.AudioEffect.ActionOpenAudioEffectControlSession" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -154,6 +211,20 @@
         <summary>Intent to signal to the effect control application or service that a new audio session
              is opened and requires audio effects to be applied.</summary>
         <remarks>
+          <para>Intent to signal to the effect control application or service that a new audio session
+             is opened and requires audio effects to be applied.</para>
+          <para>This is different from <c>#ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL</c> in that no
+             UI should be displayed in this case. Music player applications can broadcast this intent
+             before starting playback to make sure that any audio effect settings previously selected
+             by the user are applied.</para>
+          <para>The effect control application receiving this intent will look for previously stored
+             settings for the calling application, create all required audio effects and apply the
+             effect settings to the specified audio session.</para>
+          <para>The calling package name is indicated by the <c>#EXTRA_PACKAGE_NAME</c> extra and the
+             audio session ID by the <c>#EXTRA_AUDIO_SESSION</c> extra. Both extras are mandatory.</para>
+          <para>If no stored settings are found for the calling application, default settings for the
+             content type indicated by <c>#EXTRA_CONTENT_TYPE</c> will be applied. The default settings
+             for a given content type are platform specific.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION</code>.</a>
@@ -175,8 +246,8 @@
       <MemberSignature Language="F#" Value="val mutable AlreadyExists : Android.Media.Audiofx.AudioEffectStatus" Usage="Android.Media.Audiofx.AudioEffect.AlreadyExists" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -195,6 +266,7 @@
       <Docs>
         <summary>Internal operation status.</summary>
         <remarks>
+          <para>Internal operation status. Not returned by any method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#ALREADY_EXISTS" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.ALREADY_EXISTS</code>.</a>
@@ -216,8 +288,8 @@
       <MemberSignature Language="F#" Value="val mutable ContentTypeGame : Android.Media.Audiofx.ContentType" Usage="Android.Media.Audiofx.AudioEffect.ContentTypeGame" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -236,6 +308,7 @@
       <Docs>
         <summary>Value for <c>#EXTRA_CONTENT_TYPE</c> when the type of content played is game audio</summary>
         <remarks>
+          <para>Value for <c>#EXTRA_CONTENT_TYPE</c> when the type of content played is game audio</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#CONTENT_TYPE_GAME" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.CONTENT_TYPE_GAME</code>.</a>
@@ -257,8 +330,8 @@
       <MemberSignature Language="F#" Value="val mutable ContentTypeMovie : Android.Media.Audiofx.ContentType" Usage="Android.Media.Audiofx.AudioEffect.ContentTypeMovie" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -277,6 +350,7 @@
       <Docs>
         <summary>Value for <c>#EXTRA_CONTENT_TYPE</c> when the type of content played is video or movie</summary>
         <remarks>
+          <para>Value for <c>#EXTRA_CONTENT_TYPE</c> when the type of content played is video or movie</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#CONTENT_TYPE_MOVIE" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.CONTENT_TYPE_MOVIE</code>.</a>
@@ -298,8 +372,8 @@
       <MemberSignature Language="F#" Value="val mutable ContentTypeMusic : Android.Media.Audiofx.ContentType" Usage="Android.Media.Audiofx.AudioEffect.ContentTypeMusic" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -318,6 +392,7 @@
       <Docs>
         <summary>Value for <c>#EXTRA_CONTENT_TYPE</c> when the type of content played is music</summary>
         <remarks>
+          <para>Value for <c>#EXTRA_CONTENT_TYPE</c> when the type of content played is music</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#CONTENT_TYPE_MUSIC" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC</code>.</a>
@@ -339,8 +414,8 @@
       <MemberSignature Language="F#" Value="val mutable ContentTypeVoice : Android.Media.Audiofx.ContentType" Usage="Android.Media.Audiofx.AudioEffect.ContentTypeVoice" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -359,6 +434,7 @@
       <Docs>
         <summary>Value for <c>#EXTRA_CONTENT_TYPE</c> when the type of content played is voice audio</summary>
         <remarks>
+          <para>Value for <c>#EXTRA_CONTENT_TYPE</c> when the type of content played is voice audio</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#CONTENT_TYPE_VOICE" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.CONTENT_TYPE_VOICE</code>.</a>
@@ -380,8 +456,8 @@
       <MemberSignature Language="F#" Value="member this.ControlStatus : EventHandler&lt;Android.Media.Audiofx.AudioEffect.ControlStatusChangeEventArgs&gt; " Usage="member this.ControlStatus : System.EventHandler&lt;Android.Media.Audiofx.AudioEffect.ControlStatusChangeEventArgs&gt; " />
       <MemberType>Event</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.EventHandler&lt;Android.Media.Audiofx.AudioEffect+ControlStatusChangeEventArgs&gt;</ReturnType>
@@ -400,8 +476,8 @@
       <MemberSignature Language="F#" Value="val mutable EffectAuxiliary : string" Usage="Android.Media.Audiofx.AudioEffect.EffectAuxiliary" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -415,6 +491,12 @@
       <Docs>
         <summary>Effect connection mode is auxiliary.</summary>
         <remarks>
+          <para>Effect connection mode is auxiliary.</para>
+          <para>Auxiliary effects must be created on session 0 (global output mix). In order for a
+            MediaPlayer or AudioTrack to be fed into this effect, they must be explicitely attached to
+            this effect and a send level must be specified.</para>
+          <para>Use the effect ID returned by <c>#getId()</c> to designate this particular effect when
+            attaching it to the MediaPlayer or AudioTrack.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_AUXILIARY" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_AUXILIARY</code>.</a>
@@ -436,8 +518,8 @@
       <MemberSignature Language="F#" Value="val mutable EffectInsert : string" Usage="Android.Media.Audiofx.AudioEffect.EffectInsert" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -451,6 +533,8 @@
       <Docs>
         <summary>Effect connection mode is insert.</summary>
         <remarks>
+          <para>Effect connection mode is insert. Specifying an audio session ID when creating the effect
+            will insert this effect after all players in the same audio session.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_INSERT" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_INSERT</code>.</a>
@@ -480,6 +564,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("EFFECT_POST_PROCESSING", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EFFECT_POST_PROCESSING", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -487,6 +575,8 @@
       <Docs>
         <summary>Effect connection mode is post processing.</summary>
         <remarks>
+          <para>Effect connection mode is post processing.
+            The audio post processing effects are attached to an audio output stream or device</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_POST_PROCESSING" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_POST_PROCESSING</code>.</a>
@@ -515,6 +605,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("EFFECT_PRE_PROCESSING", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EFFECT_PRE_PROCESSING", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -522,6 +616,8 @@
       <Docs>
         <summary>Effect connection mode is pre processing.</summary>
         <remarks>
+          <para>Effect connection mode is pre processing.
+            The audio pre processing effects are attached to an audio input stream or device</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_PRE_PROCESSING" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_PRE_PROCESSING</code>.</a>
@@ -539,11 +635,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID? EffectTypeAec { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypeAec" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypeAec" />
-      <MemberSignature Language="F#" Value="member this.EffectTypeAec : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeAec" />
+      <MemberSignature Language="F#" Value="static member EffectTypeAec : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeAec" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -558,6 +654,7 @@
         <summary>UUID for Acoustic Echo Canceler (AEC)</summary>
         <value>To be added.</value>
         <remarks>
+          <para>UUID for Acoustic Echo Canceler (AEC)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_AEC" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_AEC</code>.</a>
@@ -576,11 +673,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID? EffectTypeAgc { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypeAgc" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypeAgc" />
-      <MemberSignature Language="F#" Value="member this.EffectTypeAgc : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeAgc" />
+      <MemberSignature Language="F#" Value="static member EffectTypeAgc : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeAgc" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -595,6 +692,7 @@
         <summary>UUID for Automatic Gain Control (AGC)</summary>
         <value>To be added.</value>
         <remarks>
+          <para>UUID for Automatic Gain Control (AGC)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_AGC" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_AGC</code>.</a>
@@ -613,11 +711,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID? EffectTypeBassBoost { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypeBassBoost" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypeBassBoost" />
-      <MemberSignature Language="F#" Value="member this.EffectTypeBassBoost : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeBassBoost" />
+      <MemberSignature Language="F#" Value="static member EffectTypeBassBoost : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeBassBoost" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -632,6 +730,7 @@
         <summary>UUID for bass boost effect</summary>
         <value>To be added.</value>
         <remarks>
+          <para>UUID for bass boost effect</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_BASS_BOOST" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_BASS_BOOST</code>.</a>
@@ -650,7 +749,7 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID? EffectTypeDynamicsProcessing { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypeDynamicsProcessing" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypeDynamicsProcessing" />
-      <MemberSignature Language="F#" Value="member this.EffectTypeDynamicsProcessing : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeDynamicsProcessing" />
+      <MemberSignature Language="F#" Value="static member EffectTypeDynamicsProcessing : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeDynamicsProcessing" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -661,6 +760,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("EFFECT_TYPE_DYNAMICS_PROCESSING", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EFFECT_TYPE_DYNAMICS_PROCESSING", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Util.UUID</ReturnType>
@@ -669,6 +772,7 @@
         <summary>UUID for Dynamics Processing</summary>
         <value>To be added.</value>
         <remarks>
+          <para>UUID for Dynamics Processing</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_DYNAMICS_PROCESSING" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_DYNAMICS_PROCESSING</code>.</a>
@@ -686,11 +790,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID? EffectTypeEnvReverb { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypeEnvReverb" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypeEnvReverb" />
-      <MemberSignature Language="F#" Value="member this.EffectTypeEnvReverb : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeEnvReverb" />
+      <MemberSignature Language="F#" Value="static member EffectTypeEnvReverb : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeEnvReverb" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -705,6 +809,7 @@
         <summary>UUID for environmental reverberation effect</summary>
         <value>To be added.</value>
         <remarks>
+          <para>UUID for environmental reverberation effect</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_ENV_REVERB" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_ENV_REVERB</code>.</a>
@@ -723,11 +828,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID? EffectTypeEqualizer { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypeEqualizer" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypeEqualizer" />
-      <MemberSignature Language="F#" Value="member this.EffectTypeEqualizer : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeEqualizer" />
+      <MemberSignature Language="F#" Value="static member EffectTypeEqualizer : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeEqualizer" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -742,6 +847,7 @@
         <summary>UUID for equalizer effect</summary>
         <value>To be added.</value>
         <remarks>
+          <para>UUID for equalizer effect</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_EQUALIZER" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_EQUALIZER</code>.</a>
@@ -760,7 +866,7 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID EffectTypeHapticGenerator { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypeHapticGenerator" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypeHapticGenerator" />
-      <MemberSignature Language="F#" Value="member this.EffectTypeHapticGenerator : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeHapticGenerator" />
+      <MemberSignature Language="F#" Value="static member EffectTypeHapticGenerator : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeHapticGenerator" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -770,6 +876,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("EFFECT_TYPE_HAPTIC_GENERATOR", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EFFECT_TYPE_HAPTIC_GENERATOR", ApiSince=31)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -781,6 +891,10 @@
             specification.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The following UUIDs define effect types corresponding to standard audio
+            effects whose implementation and interface conform to the OpenSL ES
+            specification. The definitions match the corresponding interface IDs in
+            OpenSLES_IID.h</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_HAPTIC_GENERATOR" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_HAPTIC_GENERATOR</code>.</a>
@@ -798,11 +912,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID? EffectTypeLoudnessEnhancer { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypeLoudnessEnhancer" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypeLoudnessEnhancer" />
-      <MemberSignature Language="F#" Value="member this.EffectTypeLoudnessEnhancer : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeLoudnessEnhancer" />
+      <MemberSignature Language="F#" Value="static member EffectTypeLoudnessEnhancer : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeLoudnessEnhancer" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -817,6 +931,7 @@
         <summary>UUID for Loudness Enhancer</summary>
         <value>To be added.</value>
         <remarks>
+          <para>UUID for Loudness Enhancer</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_LOUDNESS_ENHANCER" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_LOUDNESS_ENHANCER</code>.</a>
@@ -834,11 +949,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID? EffectTypeNs { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypeNs" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypeNs" />
-      <MemberSignature Language="F#" Value="member this.EffectTypeNs : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeNs" />
+      <MemberSignature Language="F#" Value="static member EffectTypeNs : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeNs" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -853,6 +968,7 @@
         <summary>UUID for Noise Suppressor (NS)</summary>
         <value>To be added.</value>
         <remarks>
+          <para>UUID for Noise Suppressor (NS)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_NS" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_NS</code>.</a>
@@ -871,11 +987,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID? EffectTypePresetReverb { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypePresetReverb" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypePresetReverb" />
-      <MemberSignature Language="F#" Value="member this.EffectTypePresetReverb : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypePresetReverb" />
+      <MemberSignature Language="F#" Value="static member EffectTypePresetReverb : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypePresetReverb" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -890,6 +1006,7 @@
         <summary>UUID for preset reverberation effect</summary>
         <value>To be added.</value>
         <remarks>
+          <para>UUID for preset reverberation effect</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_PRESET_REVERB" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_PRESET_REVERB</code>.</a>
@@ -908,11 +1025,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.UUID? EffectTypeVirtualizer { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.UUID EffectTypeVirtualizer" />
       <MemberSignature Language="DocId" Value="P:Android.Media.Audiofx.AudioEffect.EffectTypeVirtualizer" />
-      <MemberSignature Language="F#" Value="member this.EffectTypeVirtualizer : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeVirtualizer" />
+      <MemberSignature Language="F#" Value="static member EffectTypeVirtualizer : Java.Util.UUID" Usage="Android.Media.Audiofx.AudioEffect.EffectTypeVirtualizer" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -927,6 +1044,7 @@
         <summary>UUID for virtualizer effect</summary>
         <value>To be added.</value>
         <remarks>
+          <para>UUID for virtualizer effect</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EFFECT_TYPE_VIRTUALIZER" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EFFECT_TYPE_VIRTUALIZER</code>.</a>
@@ -948,8 +1066,8 @@
       <MemberSignature Language="F#" Value="member this.Enabled : bool" Usage="Android.Media.Audiofx.AudioEffect.Enabled" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -964,6 +1082,7 @@
         <summary>Returns effect enabled state</summary>
         <value>true if the effect is enabled, false otherwise.</value>
         <remarks>
+          <para>Returns effect enabled state</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#getEnabled()" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.getEnabled()</code>.</a>
@@ -986,8 +1105,8 @@
       <MemberSignature Language="F#" Value="member this.EnableStatus : EventHandler&lt;Android.Media.Audiofx.AudioEffect.EnableStatusChangeEventArgs&gt; " Usage="member this.EnableStatus : System.EventHandler&lt;Android.Media.Audiofx.AudioEffect.EnableStatusChangeEventArgs&gt; " />
       <MemberType>Event</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.EventHandler&lt;Android.Media.Audiofx.AudioEffect+EnableStatusChangeEventArgs&gt;</ReturnType>
@@ -1006,8 +1125,8 @@
       <MemberSignature Language="F#" Value="val mutable Error : Android.Media.Audiofx.AudioEffectStatus" Usage="Android.Media.Audiofx.AudioEffect.Error" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1026,6 +1145,7 @@
       <Docs>
         <summary>Unspecified error.</summary>
         <remarks>
+          <para>Unspecified error.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#ERROR" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.ERROR</code>.</a>
@@ -1047,8 +1167,8 @@
       <MemberSignature Language="F#" Value="val mutable ErrorBadValue : Android.Media.Audiofx.AudioEffectStatus" Usage="Android.Media.Audiofx.AudioEffect.ErrorBadValue" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1067,6 +1187,7 @@
       <Docs>
         <summary>Operation failed due to bad parameter value.</summary>
         <remarks>
+          <para>Operation failed due to bad parameter value.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#ERROR_BAD_VALUE" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.ERROR_BAD_VALUE</code>.</a>
@@ -1088,8 +1209,8 @@
       <MemberSignature Language="F#" Value="val mutable ErrorDeadObject : Android.Media.Audiofx.AudioEffectStatus" Usage="Android.Media.Audiofx.AudioEffect.ErrorDeadObject" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1108,6 +1229,7 @@
       <Docs>
         <summary>Operation failed due to dead remote object.</summary>
         <remarks>
+          <para>Operation failed due to dead remote object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#ERROR_DEAD_OBJECT" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.ERROR_DEAD_OBJECT</code>.</a>
@@ -1129,8 +1251,8 @@
       <MemberSignature Language="F#" Value="val mutable ErrorInvalidOperation : Android.Media.Audiofx.AudioEffectStatus" Usage="Android.Media.Audiofx.AudioEffect.ErrorInvalidOperation" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1149,6 +1271,7 @@
       <Docs>
         <summary>Operation failed because it was requested in wrong state.</summary>
         <remarks>
+          <para>Operation failed because it was requested in wrong state.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#ERROR_INVALID_OPERATION" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.ERROR_INVALID_OPERATION</code>.</a>
@@ -1170,8 +1293,8 @@
       <MemberSignature Language="F#" Value="val mutable ErrorNoInit : Android.Media.Audiofx.AudioEffectStatus" Usage="Android.Media.Audiofx.AudioEffect.ErrorNoInit" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1190,6 +1313,7 @@
       <Docs>
         <summary>Operation failed due to bad object initialization.</summary>
         <remarks>
+          <para>Operation failed due to bad object initialization.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#ERROR_NO_INIT" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.ERROR_NO_INIT</code>.</a>
@@ -1211,8 +1335,8 @@
       <MemberSignature Language="F#" Value="val mutable ErrorNoMemory : Android.Media.Audiofx.AudioEffectStatus" Usage="Android.Media.Audiofx.AudioEffect.ErrorNoMemory" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1231,6 +1355,7 @@
       <Docs>
         <summary>Operation failed due to lack of memory.</summary>
         <remarks>
+          <para>Operation failed due to lack of memory.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#ERROR_NO_MEMORY" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.ERROR_NO_MEMORY</code>.</a>
@@ -1252,8 +1377,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraAudioSession : string" Usage="Android.Media.Audiofx.AudioEffect.ExtraAudioSession" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1267,6 +1392,11 @@
       <Docs>
         <summary>Contains the ID of the audio session the effects should be applied to.</summary>
         <remarks>
+          <para>Contains the ID of the audio session the effects should be applied to.</para>
+          <para>This extra is for use with <c>#ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL</c>,
+            <c>#ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION</c> and
+            <c>#ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION</c> intents.</para>
+          <para>The extra value is of type int and is the audio session ID.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EXTRA_AUDIO_SESSION" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION</code>.</a>
@@ -1289,8 +1419,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraContentType : string" Usage="Android.Media.Audiofx.AudioEffect.ExtraContentType" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1304,6 +1434,18 @@
       <Docs>
         <summary>Indicates which type of content is played by the application.</summary>
         <remarks>
+          <para>Indicates which type of content is played by the application.</para>
+          <para>This extra is for use with <c>#ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL</c> and
+            <c>#ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION</c> intents.</para>
+          <para>This information is used by the effect control application to customize UI and select
+            appropriate default effect settings. The content type is one of the following:
+            &lt;ul&gt;
+              &lt;li&gt;<c>#CONTENT_TYPE_MUSIC</c>&lt;/li&gt;
+              &lt;li&gt;<c>#CONTENT_TYPE_MOVIE</c>&lt;/li&gt;
+              &lt;li&gt;<c>#CONTENT_TYPE_GAME</c>&lt;/li&gt;
+              &lt;li&gt;<c>#CONTENT_TYPE_VOICE</c>&lt;/li&gt;
+            &lt;/ul&gt;
+            If omitted, the content type defaults to <c>#CONTENT_TYPE_MUSIC</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EXTRA_CONTENT_TYPE" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE</code>.</a>
@@ -1325,8 +1467,8 @@
       <MemberSignature Language="F#" Value="val mutable ExtraPackageName : string" Usage="Android.Media.Audiofx.AudioEffect.ExtraPackageName" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1340,6 +1482,10 @@
       <Docs>
         <summary>Contains the package name of the calling application.</summary>
         <remarks>
+          <para>Contains the package name of the calling application.</para>
+          <para>This extra is for use with <c>#ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION</c> and
+            <c>#ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION</c> intents.</para>
+          <para>The extra value is a string containing the full package name.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#EXTRA_PACKAGE_NAME" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME</code>.</a>
@@ -1361,8 +1507,8 @@
       <MemberSignature Language="F#" Value="abstract member GetDescriptor : unit -&gt; Android.Media.Audiofx.AudioEffect.Descriptor&#xA;override this.GetDescriptor : unit -&gt; Android.Media.Audiofx.AudioEffect.Descriptor" Usage="audioEffect.GetDescriptor " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1391,8 +1537,8 @@
       <MemberSignature Language="F#" Value="member this.HasControl : bool" Usage="Android.Media.Audiofx.AudioEffect.HasControl" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1408,6 +1554,7 @@
         <value>true if this instance has control of effect engine, false
                     otherwise.</value>
         <remarks>
+          <para>Checks if this AudioEffect object is controlling the effect engine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#hasControl()" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.hasControl()</code>.</a>
@@ -1430,8 +1577,8 @@
       <MemberSignature Language="F#" Value="member this.Id : int" Usage="Android.Media.Audiofx.AudioEffect.Id" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1446,6 +1593,9 @@
         <summary>Returns effect unique identifier.</summary>
         <value>the effect identifier.</value>
         <remarks>
+          <para>Returns effect unique identifier. This system wide unique identifier can
+            be used to attach this effect to a MediaPlayer or an AudioTrack when the
+            effect is an auxiliary effect (Reverb)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#getId()" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.getId()</code>.</a>
@@ -1499,8 +1649,8 @@
       <MemberSignature Language="F#" Value="static member QueryEffects : unit -&gt; Android.Media.Audiofx.AudioEffect.Descriptor[]" Usage="Android.Media.Audiofx.AudioEffect.QueryEffects " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1529,8 +1679,8 @@
       <MemberSignature Language="F#" Value="abstract member Release : unit -&gt; unit&#xA;override this.Release : unit -&gt; unit" Usage="audioEffect.Release " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1545,6 +1695,9 @@
       <Docs>
         <summary>Releases the native AudioEffect resources.</summary>
         <remarks>
+          <para>Releases the native AudioEffect resources. It is a good practice to
+            release the effect engine when not in use as control can be returned to
+            other applications or the native resources released.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#release()" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.release()</code>.</a>
@@ -1566,8 +1719,8 @@
       <MemberSignature Language="F#" Value="abstract member SetControlStatusListener : Android.Media.Audiofx.AudioEffect.IOnControlStatusChangeListener -&gt; unit&#xA;override this.SetControlStatusListener : Android.Media.Audiofx.AudioEffect.IOnControlStatusChangeListener -&gt; unit" Usage="audioEffect.SetControlStatusListener listener" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1598,8 +1751,8 @@
       <MemberSignature Language="F#" Value="abstract member SetEnabled : bool -&gt; Android.Media.Audiofx.AudioEffectStatus&#xA;override this.SetEnabled : bool -&gt; Android.Media.Audiofx.AudioEffectStatus" Usage="audioEffect.SetEnabled enabled" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1626,6 +1779,11 @@
           <c>#SUCCESS</c> in case of success, <c>#ERROR_INVALID_OPERATION</c>
                     or <c>#ERROR_DEAD_OBJECT</c> in case of failure.</returns>
         <remarks>
+          <para>Enable or disable the effect.
+            Creating an audio effect does not automatically apply this effect on the audio source. It
+            creates the resources necessary to process this effect but the audio signal is still bypassed
+            through the effect engine. Calling this method will make that the effect is actually applied
+            or not to the audio content being played in the corresponding audio session.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#setEnabled(boolean)" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.setEnabled(boolean)</code>.</a>
@@ -1648,8 +1806,8 @@
       <MemberSignature Language="F#" Value="abstract member SetEnableStatusListener : Android.Media.Audiofx.AudioEffect.IOnEnableStatusChangeListener -&gt; unit&#xA;override this.SetEnableStatusListener : Android.Media.Audiofx.AudioEffect.IOnEnableStatusChangeListener -&gt; unit" Usage="audioEffect.SetEnableStatusListener listener" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1680,8 +1838,8 @@
       <MemberSignature Language="F#" Value="val mutable Success : Android.Media.Audiofx.AudioEffectStatus" Usage="Android.Media.Audiofx.AudioEffect.Success" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1700,6 +1858,7 @@
       <Docs>
         <summary>Successful operation.</summary>
         <remarks>
+          <para>Successful operation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/audiofx/AudioEffect#SUCCESS" title="Reference documentation">Java documentation for <code>android.media.audiofx.AudioEffect.SUCCESS</code>.</a>
@@ -1721,8 +1880,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Media.Audiofx.AudioEffect.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1752,8 +1911,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Media.Audiofx.AudioEffect.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

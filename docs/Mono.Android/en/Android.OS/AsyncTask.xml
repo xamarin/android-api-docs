@@ -21,13 +21,157 @@
       <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "Params", "Progress", "Result" })&gt;]</AttributeName>
     </Attribute>
     <Attribute>
-      <AttributeName Language="C#">[System.Obsolete("This class is obsoleted in this android platform")]</AttributeName>
-      <AttributeName Language="F#">[&lt;System.Obsolete("This class is obsoleted in this android platform")&gt;]</AttributeName>
+      <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0", "This class is obsoleted in this android platform")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0", "This class is obsoleted in this android platform")&gt;]</AttributeName>
     </Attribute>
   </Attributes>
   <Docs since="3">
     <summary>AsyncTask was intended to enable proper and easy use of the UI thread.</summary>
     <remarks>
+      <para>AsyncTask was intended to enable proper and easy use of the UI thread. However, the most
+            common use case was for integrating into UI, and that would cause Context leaks, missed
+            callbacks, or crashes on configuration changes. It also has inconsistent behavior on different
+            versions of the platform, swallows exceptions from <c>doInBackground</c>, and does not provide
+            much utility over using <c>Executor</c>s directly.</para>
+      <para>AsyncTask is designed to be a helper class around <c>Thread</c> and <c>Handler</c>
+            and does not constitute a generic threading framework. AsyncTasks should ideally be
+            used for short operations (a few seconds at the most.) If you need to keep threads
+            running for long periods of time, it is highly recommended you use the various APIs
+            provided by the <c>java.util.concurrent</c> package such as <c>Executor</c>,
+            <c>ThreadPoolExecutor</c> and <c>FutureTask</c>.</para>
+      <para>An asynchronous task is defined by a computation that runs on a background thread and
+            whose result is published on the UI thread. An asynchronous task is defined by 3 generic
+            types, called <c>Params</c>, <c>Progress</c> and <c>Result</c>,
+            and 4 steps, called <c>onPreExecute</c>, <c>doInBackground</c>,
+            <c>onProgressUpdate</c> and <c>onPostExecute</c>.</para>
+      <para>&lt;div class="special reference"&gt;
+            &lt;h3&gt;Developer Guides&lt;/h3&gt;</para>
+      <para>For more information about using tasks and threads, read the
+            <see href="https://developer.android.com/guide/components/processes-and-threads.html">Processes and
+            Threads</see> developer guide.</para>
+      <para>&lt;/div&gt;
+            
+            &lt;h2&gt;Usage&lt;/h2&gt;</para>
+      <para>AsyncTask must be subclassed to be used. The subclass will override at least
+            one method (<c>#doInBackground</c>), and most often will override a
+            second one (<c>#onPostExecute</c>.)</para>
+      <para>Here is an example of subclassing:</para>
+      <code lang="text/java">private class DownloadFilesTask extends AsyncTask&amp;lt;URL, Integer, Long&amp;gt; {
+                protected Long doInBackground(URL... urls) {
+                    int count = urls.length;
+                    long totalSize = 0;
+                    for (int i = 0; i &amp;lt; count; i++) {
+                        totalSize += Downloader.downloadFile(urls[i]);
+                        publishProgress((int) ((i / (float) count) * 100));
+                        // Escape early if cancel() is called
+                        if (isCancelled()) break;
+                    }
+                    return totalSize;
+                }
+            
+                protected void onProgressUpdate(Integer... progress) {
+                    setProgressPercent(progress[0]);
+                }
+            
+                protected void onPostExecute(Long result) {
+                    showDialog("Downloaded " + result + " bytes");
+                }
+            }
+            </code>
+      <para>Once created, a task is executed very simply:</para>
+      <code lang="text/java">new DownloadFilesTask().execute(url1, url2, url3);
+            </code>
+      <para>&lt;h2&gt;AsyncTask's generic types&lt;/h2&gt;</para>
+      <para>The three types used by an asynchronous task are the following:</para>
+      <para>&lt;ol&gt;
+                &lt;li&gt;<c>Params</c>, the type of the parameters sent to the task upon
+                execution.&lt;/li&gt;
+                &lt;li&gt;<c>Progress</c>, the type of the progress units published during
+                the background computation.&lt;/li&gt;
+                &lt;li&gt;<c>Result</c>, the type of the result of the background
+                computation.&lt;/li&gt;
+            &lt;/ol&gt;</para>
+      <para>Not all types are always used by an asynchronous task. To mark a type as unused,
+            simply use the type <c>Void</c>:</para>
+      <code lang="text/java">private class MyTask extends AsyncTask&amp;lt;Void, Void, Void&amp;gt; { ... }
+            </code>
+      <para>&lt;h2&gt;The 4 steps&lt;/h2&gt;</para>
+      <para>When an asynchronous task is executed, the task goes through 4 steps:</para>
+      <para>&lt;ol&gt;
+                &lt;li&gt;<c>#onPreExecute()</c>, invoked on the UI thread before the task
+                is executed. This step is normally used to setup the task, for instance by
+                showing a progress bar in the user interface.&lt;/li&gt;
+                &lt;li&gt;<c>#doInBackground</c>, invoked on the background thread
+                immediately after <c>#onPreExecute()</c> finishes executing. This step is used
+                to perform background computation that can take a long time. The parameters
+                of the asynchronous task are passed to this step. The result of the computation must
+                be returned by this step and will be passed back to the last step. This step
+                can also use <c>#publishProgress</c> to publish one or more units
+                of progress. These values are published on the UI thread, in the
+                <c>#onProgressUpdate</c> step.&lt;/li&gt;
+                &lt;li&gt;<c>#onProgressUpdate</c>, invoked on the UI thread after a
+                call to <c>#publishProgress</c>. The timing of the execution is
+                undefined. This method is used to display any form of progress in the user
+                interface while the background computation is still executing. For instance,
+                it can be used to animate a progress bar or show logs in a text field.&lt;/li&gt;
+                &lt;li&gt;<c>#onPostExecute</c>, invoked on the UI thread after the background
+                computation finishes. The result of the background computation is passed to
+                this step as a parameter.&lt;/li&gt;
+            &lt;/ol&gt;
+            
+            &lt;h2&gt;Cancelling a task&lt;/h2&gt;</para>
+      <para>A task can be cancelled at any time by invoking <c>#cancel(boolean)</c>. Invoking
+            this method will cause subsequent calls to <c>#isCancelled()</c> to return true.
+            After invoking this method, <c>#onCancelled(Object)</c>, instead of
+            <c>#onPostExecute(Object)</c> will be invoked after <c>#doInBackground(Object[])</c>
+            returns. To ensure that a task is cancelled as quickly as possible, you should always
+            check the return value of <c>#isCancelled()</c> periodically from
+            <c>#doInBackground(Object[])</c>, if possible (inside a loop for instance.)</para>
+      <para>&lt;h2&gt;Threading rules&lt;/h2&gt;</para>
+      <para>There are a few threading rules that must be followed for this class to
+            work properly:</para>
+      <para>&lt;ul&gt;
+                &lt;li&gt;The AsyncTask class must be loaded on the UI thread. This is done
+                automatically as of <c>android.os.Build.VERSION_CODES#JELLY_BEAN</c>.&lt;/li&gt;
+                &lt;li&gt;The task instance must be created on the UI thread.&lt;/li&gt;
+                &lt;li&gt;<c>#execute</c> must be invoked on the UI thread.&lt;/li&gt;
+                &lt;li&gt;Do not call <c>#onPreExecute()</c>, <c>#onPostExecute</c>,
+                <c>#doInBackground</c>, <c>#onProgressUpdate</c> manually.&lt;/li&gt;
+                &lt;li&gt;The task can be executed only once (an exception will be thrown if
+                a second execution is attempted.)&lt;/li&gt;
+            &lt;/ul&gt;
+            
+            &lt;h2&gt;Memory observability&lt;/h2&gt;</para>
+      <para>AsyncTask guarantees that all callback calls are synchronized to ensure the following
+            without explicit synchronizations.</para>
+      <para>&lt;ul&gt;
+                &lt;li&gt;The memory effects of <c>#onPreExecute</c>, and anything else
+                executed before the call to <c>#execute</c>, including the construction
+                of the AsyncTask object, are visible to <c>#doInBackground</c>.
+                &lt;li&gt;The memory effects of <c>#doInBackground</c> are visible to
+                <c>#onPostExecute</c>.
+                &lt;li&gt;Any memory effects of <c>#doInBackground</c> preceding a call
+                to <c>#publishProgress</c> are visible to the corresponding
+                <c>#onProgressUpdate</c> call. (But <c>#doInBackground</c> continues to
+                run, and care needs to be taken that later updates in <c>#doInBackground</c>
+                do not interfere with an in-progress <c>#onProgressUpdate</c> call.)
+                &lt;li&gt;Any memory effects preceding a call to <c>#cancel</c> are visible
+                after a call to <c>#isCancelled</c> that returns true as a result, or
+                during and after a resulting call to <c>#onCancelled</c>.
+            &lt;/ul&gt;
+            
+            &lt;h2&gt;Order of execution&lt;/h2&gt;</para>
+      <para>When first introduced, AsyncTasks were executed serially on a single background
+            thread. Starting with <c>android.os.Build.VERSION_CODES#DONUT</c>, this was changed
+            to a pool of threads allowing multiple tasks to operate in parallel. Starting with
+            <c>android.os.Build.VERSION_CODES#HONEYCOMB</c>, tasks are executed on a single
+            thread to avoid common application errors caused by parallel execution.</para>
+      <para>If you truly want parallel execution, you can invoke
+            <c>#executeOnExecutor(java.util.concurrent.Executor, Object[])</c> with
+            <c>#THREAD_POOL_EXECUTOR</c>.</para>
+      <para>This member is deprecated. Use the standard <c>java.util.concurrent</c> or
+              <see href="https://developer.android.com/topic/libraries/architecture/coroutines">
+              Kotlin concurrency utilities</see> instead.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/os/AsyncTask" title="Reference documentation">Java documentation for <code>android.os.AsyncTask</code>.</a>
@@ -48,8 +192,8 @@
       <MemberSignature Language="DocId" Value="M:Android.OS.AsyncTask.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -57,14 +201,15 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "()V", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <Parameters />
       <Docs>
         <summary>Creates a new asynchronous task.</summary>
         <remarks>
+          <para>Creates a new asynchronous task. This constructor must be invoked on the UI thread.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#AsyncTask()" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.AsyncTask()</code>.</a>
@@ -86,8 +231,8 @@
       <MemberSignature Language="F#" Value="new Android.OS.AsyncTask : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.OS.AsyncTask" Usage="new Android.OS.AsyncTask (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -109,8 +254,8 @@
       <MemberSignature Language="F#" Value="member this.Cancel : bool -&gt; bool" Usage="asyncTask.Cancel mayInterruptIfRunning" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -118,8 +263,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("cancel", "(Z)Z", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -139,6 +284,24 @@
                     typically because it has already completed normally;
                     <c>true</c> otherwise</returns>
         <remarks>
+          <para>Attempts to cancel execution of this task.  This attempt will
+            fail if the task has already completed, already been cancelled,
+            or could not be cancelled for some other reason. If successful,
+            and this task has not started when <c>cancel</c> is called,
+            this task should never run. If the task has already started,
+            then the <c>mayInterruptIfRunning</c> parameter determines
+            whether the thread executing this task should be interrupted in
+            an attempt to stop the task.</para>
+          <para>Calling this method will result in <c>#onCancelled(Object)</c> being
+            invoked on the UI thread after <c>#doInBackground(Object[])</c> returns.
+            Calling this method guarantees that onPostExecute(Object) is never
+            subsequently invoked, even if <c>cancel</c> returns false, but
+            <c>#onPostExecute</c> has not yet run.  To finish the
+            task as early as possible, check <c>#isCancelled()</c> periodically from
+            <c>#doInBackground(Object[])</c>.</para>
+          <para>This only requests cancellation. It never waits for a running
+            background task to terminate, even if <c>mayInterruptIfRunning</c> is
+            true.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#cancel(boolean)" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.cancel(boolean)</code>.</a>
@@ -160,8 +323,8 @@
       <MemberSignature Language="F#" Value="abstract member DoInBackground : Java.Lang.Object[] -&gt; Java.Lang.Object" Usage="asyncTask.DoInBackground params" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -169,8 +332,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("doInBackground", "([Ljava/lang/Object;)Ljava/lang/Object;", "GetDoInBackground_arrayLjava_lang_Object_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -191,6 +354,16 @@
         <summary>Override this method to perform a computation on a background thread.</summary>
         <returns>A result, defined by the subclass of this task.</returns>
         <remarks>
+          <para>Override this method to perform a computation on a background thread. The
+            specified parameters are the parameters passed to <c>#execute</c>
+            by the caller of this task.
+            
+            This will normally run on a background thread. But to better
+            support testing frameworks, it is recommended that this also tolerates
+            direct execution on the foreground thread, as part of the <c>#execute</c> call.
+            
+            This method can call <c>#publishProgress</c> to publish updates
+            on the UI thread.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#doInBackground(Params...)" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.doInBackground(Params...)</code>.</a>
@@ -211,8 +384,8 @@
       <MemberSignature Language="F#" Value="static member Execute : Java.Lang.IRunnable -&gt; unit" Usage="Android.OS.AsyncTask.Execute runnable" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -220,8 +393,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("execute", "(Ljava/lang/Runnable;)V", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -236,6 +409,9 @@
             a simple Runnable object.</summary>
         <returns>This instance of AsyncTask.</returns>
         <remarks>
+          <para>Convenience version of <c>#execute(Object...)</c> for use with
+            a simple Runnable object. See <c>#execute(Object[])</c> for more
+            information on the order of execution.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#execute(java.lang.Runnable)" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.execute(java.lang.Runnable)</code>.</a>
@@ -257,8 +433,8 @@
       <MemberSignature Language="F#" Value="member this.Execute : Java.Lang.Object[] -&gt; Android.OS.AsyncTask" Usage="asyncTask.Execute params" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -266,8 +442,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("execute", "([Ljava/lang/Object;)Landroid/os/AsyncTask;", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -288,6 +464,20 @@
         <summary>Executes the task with the specified parameters.</summary>
         <returns>This instance of AsyncTask.</returns>
         <remarks>
+          <para>Executes the task with the specified parameters. The task returns
+            itself (this) so that the caller can keep a reference to it.</para>
+          <para>Note: this function schedules the task on a queue for a single background
+            thread or pool of threads depending on the platform version.  When first
+            introduced, AsyncTasks were executed serially on a single background thread.
+            Starting with <c>android.os.Build.VERSION_CODES#DONUT</c>, this was changed
+            to a pool of threads allowing multiple tasks to operate in parallel. Starting
+            <c>android.os.Build.VERSION_CODES#HONEYCOMB</c>, tasks are back to being
+            executed on a single thread to avoid common application errors caused
+            by parallel execution.  If you truly want parallel execution, you can use
+            the <c>#executeOnExecutor</c> version of this method
+            with <c>#THREAD_POOL_EXECUTOR</c>; however, see commentary there for warnings
+            on its use.</para>
+          <para>This method must be invoked on the UI thread.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#execute(Params...)" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.execute(Params...)</code>.</a>
@@ -308,8 +498,8 @@
       <MemberSignature Language="F#" Value="member this.ExecuteOnExecutor : Java.Util.Concurrent.IExecutor * Java.Lang.Object[] -&gt; Android.OS.AsyncTask" Usage="asyncTask.ExecuteOnExecutor (exec, params)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -317,8 +507,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("executeOnExecutor", "(Ljava/util/concurrent/Executor;[Ljava/lang/Object;)Landroid/os/AsyncTask;", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -342,6 +532,23 @@
         <summary>Executes the task with the specified parameters.</summary>
         <returns>This instance of AsyncTask.</returns>
         <remarks>
+          <para>Executes the task with the specified parameters. The task returns
+            itself (this) so that the caller can keep a reference to it.</para>
+          <para>This method is typically used with <c>#THREAD_POOL_EXECUTOR</c> to
+            allow multiple tasks to run in parallel on a pool of threads managed by
+            AsyncTask, however you can also use your own <c>Executor</c> for custom
+            behavior.</para>
+          <para>&lt;em&gt;Warning:&lt;/em&gt; Allowing multiple tasks to run in parallel from
+            a thread pool is generally &lt;em&gt;not&lt;/em&gt; what one wants, because the order
+            of their operation is not defined.  For example, if these tasks are used
+            to modify any state in common (such as writing a file due to a button click),
+            there are no guarantees on the order of the modifications.
+            Without careful work it is possible in rare cases for the newer version
+            of the data to be over-written by an older one, leading to obscure data
+            loss and stability issues.  Such changes are best
+            executed in serial; to guarantee such work is serialized regardless of
+            platform version you can use this function with <c>#SERIAL_EXECUTOR</c>.</para>
+          <para>This method must be invoked on the UI thread.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#executeOnExecutor(java.util.concurrent.Executor,%20Params...)" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.executeOnExecutor(java.util.concurrent.Executor, Params...)</code>.</a>
@@ -362,8 +569,8 @@
       <MemberSignature Language="F#" Value="member this.Get : unit -&gt; Java.Lang.Object" Usage="asyncTask.Get " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -371,8 +578,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("get", "()Ljava/lang/Object;", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -384,6 +591,8 @@
             retrieves its result.</summary>
         <returns>The computed result.</returns>
         <remarks>
+          <para>Waits if necessary for the computation to complete, and then
+            retrieves its result.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#get()" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.get()</code>.</a>
@@ -410,8 +619,8 @@
       <MemberSignature Language="F#" Value="member this.Get : int64 * Java.Util.Concurrent.TimeUnit -&gt; Java.Lang.Object" Usage="asyncTask.Get (timeout, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -419,8 +628,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("get", "(JLjava/util/concurrent/TimeUnit;)Ljava/lang/Object;", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -437,6 +646,8 @@
             to complete, and then retrieves its result.</summary>
         <returns>The computed result.</returns>
         <remarks>
+          <para>Waits if necessary for at most the given time for the computation
+            to complete, and then retrieves its result.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#get(long,%20java.util.concurrent.TimeUnit)" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.get(long, java.util.concurrent.TimeUnit)</code>.</a>
@@ -464,8 +675,8 @@
       <MemberSignature Language="F#" Value="member this.GetAsync : unit -&gt; System.Threading.Tasks.Task&lt;Java.Lang.Object&gt;" Usage="asyncTask.GetAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Java.Lang.Object&gt;</ReturnType>
@@ -486,8 +697,8 @@
       <MemberSignature Language="F#" Value="member this.GetAsync : int64 * Java.Util.Concurrent.TimeUnit -&gt; System.Threading.Tasks.Task&lt;Java.Lang.Object&gt;" Usage="asyncTask.GetAsync (timeout, unit)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;Java.Lang.Object&gt;</ReturnType>
@@ -513,8 +724,8 @@
       <MemberSignature Language="F#" Value="member this.GetStatus : unit -&gt; Android.OS.AsyncTask.Status" Usage="asyncTask.GetStatus " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -522,8 +733,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getStatus", "()Landroid/os/AsyncTask$Status;", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -555,13 +766,13 @@
       <MemberSignature Language="F#" Value="member this.IsCancelled : bool" Usage="Android.OS.AsyncTask.IsCancelled" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isCancelled", "()Z", "")]</AttributeName>
@@ -577,6 +788,10 @@
         <value>
           <c>true</c> if task was cancelled before it completed</value>
         <remarks>
+          <para>Returns <c>true</c> if this task was cancelled before it completed
+            normally. If you are calling <c>#cancel(boolean)</c> on the task,
+            the value returned by this method should be checked periodically from
+            <c>#doInBackground(Object[])</c> to end the task as soon as possible.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#isCancelled()" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.isCancelled()</code>.</a>
@@ -629,8 +844,8 @@
       <MemberSignature Language="F#" Value="abstract member OnCancelled : unit -&gt; unit&#xA;override this.OnCancelled : unit -&gt; unit" Usage="asyncTask.OnCancelled " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -638,8 +853,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCancelled", "()V", "GetOnCancelledHandler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -649,6 +864,12 @@
       <Docs>
         <summary>Applications should preferably override <c>#onCancelled(Object)</c>.</summary>
         <remarks>
+          <para>Applications should preferably override <c>#onCancelled(Object)</c>.
+            This method is invoked by the default implementation of
+            <c>#onCancelled(Object)</c>.
+            The default version does nothing.</para>
+          <para>Runs on the UI thread after <c>#cancel(boolean)</c> is invoked and
+            <c>#doInBackground(Object[])</c> has finished.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#onCancelled()" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.onCancelled()</code>.</a>
@@ -670,8 +891,8 @@
       <MemberSignature Language="F#" Value="abstract member OnCancelled : Java.Lang.Object -&gt; unit&#xA;override this.OnCancelled : Java.Lang.Object -&gt; unit" Usage="asyncTask.OnCancelled result" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -679,8 +900,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onCancelled", "(Ljava/lang/Object;)V", "GetOnCancelled_Ljava_lang_Object_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -695,6 +916,11 @@
         <summary>Runs on the UI thread after <c>#cancel(boolean)</c> is invoked and
             <c>#doInBackground(Object[])</c> has finished.</summary>
         <remarks>
+          <para>Runs on the UI thread after <c>#cancel(boolean)</c> is invoked and
+            <c>#doInBackground(Object[])</c> has finished.</para>
+          <para>The default implementation simply invokes <c>#onCancelled()</c> and
+            ignores the result. If you write your own implementation, do not call
+            <c>super.onCancelled(result)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#onCancelled(Result)" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.onCancelled(Result)</code>.</a>
@@ -715,8 +941,8 @@
       <MemberSignature Language="F#" Value="abstract member OnPostExecute : Java.Lang.Object -&gt; unit&#xA;override this.OnPostExecute : Java.Lang.Object -&gt; unit" Usage="asyncTask.OnPostExecute result" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -724,8 +950,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onPostExecute", "(Ljava/lang/Object;)V", "GetOnPostExecute_Ljava_lang_Object_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -738,6 +964,12 @@
         <param name="result">The result of the operation computed by <c>#doInBackground</c>.</param>
         <summary>Runs on the UI thread after <c>#doInBackground</c>.</summary>
         <remarks>
+          <para>Runs on the UI thread after <c>#doInBackground</c>. The
+            specified result is the value returned by <c>#doInBackground</c>.
+            To better support testing frameworks, it is recommended that this be
+            written to tolerate direct execution as part of the execute() call.
+            The default version does nothing.</para>
+          <para>This method won't be invoked if the task was cancelled.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#onPostExecute(Result)" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.onPostExecute(Result)</code>.</a>
@@ -758,8 +990,8 @@
       <MemberSignature Language="F#" Value="abstract member OnPreExecute : unit -&gt; unit&#xA;override this.OnPreExecute : unit -&gt; unit" Usage="asyncTask.OnPreExecute " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -767,8 +999,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onPreExecute", "()V", "GetOnPreExecuteHandler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -778,6 +1010,9 @@
       <Docs>
         <summary>Runs on the UI thread before <c>#doInBackground</c>.</summary>
         <remarks>
+          <para>Runs on the UI thread before <c>#doInBackground</c>.
+            Invoked directly by <c>#execute</c> or <c>#executeOnExecutor</c>.
+            The default version does nothing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#onPreExecute()" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.onPreExecute()</code>.</a>
@@ -799,8 +1034,8 @@
       <MemberSignature Language="F#" Value="abstract member OnProgressUpdate : Java.Lang.Object[] -&gt; unit&#xA;override this.OnProgressUpdate : Java.Lang.Object[] -&gt; unit" Usage="asyncTask.OnProgressUpdate values" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -808,8 +1043,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onProgressUpdate", "([Ljava/lang/Object;)V", "GetOnProgressUpdate_arrayLjava_lang_Object_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -829,6 +1064,9 @@
         <param name="values">The values indicating progress.</param>
         <summary>Runs on the UI thread after <c>#publishProgress</c> is invoked.</summary>
         <remarks>
+          <para>Runs on the UI thread after <c>#publishProgress</c> is invoked.
+            The specified values are the values passed to <c>#publishProgress</c>.
+            The default version does nothing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#onProgressUpdate(Progress...)" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.onProgressUpdate(Progress...)</code>.</a>
@@ -849,8 +1087,8 @@
       <MemberSignature Language="F#" Value="member this.PublishProgress : Java.Lang.Object[] -&gt; unit" Usage="asyncTask.PublishProgress values" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -858,8 +1096,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("publishProgress", "([Ljava/lang/Object;)V", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -881,6 +1119,13 @@
             publish updates on the UI thread while the background computation is
             still running.</summary>
         <remarks>
+          <para>This method can be invoked from <c>#doInBackground</c> to
+            publish updates on the UI thread while the background computation is
+            still running. Each call to this method will trigger the execution of
+            <c>#onProgressUpdate</c> on the UI thread.
+            
+            <c>#onProgressUpdate</c> will not be called if the task has been
+            canceled.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#publishProgress(Progress...)" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.publishProgress(Progress...)</code>.</a>
@@ -898,11 +1143,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.Concurrent.IExecutor? SerialExecutor { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.Concurrent.IExecutor SerialExecutor" />
       <MemberSignature Language="DocId" Value="P:Android.OS.AsyncTask.SerialExecutor" />
-      <MemberSignature Language="F#" Value="member this.SerialExecutor : Java.Util.Concurrent.IExecutor" Usage="Android.OS.AsyncTask.SerialExecutor" />
+      <MemberSignature Language="F#" Value="static member SerialExecutor : Java.Util.Concurrent.IExecutor" Usage="Android.OS.AsyncTask.SerialExecutor" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -910,8 +1155,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("SERIAL_EXECUTOR")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -922,6 +1167,9 @@
             order.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>An <c>Executor</c> that executes tasks one at a time in serial
+            order.  This serialization is global to a particular process.</para>
+          <para>This member is deprecated. Globally serializing tasks results in excessive queuing for unrelated operations.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#SERIAL_EXECUTOR" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.SERIAL_EXECUTOR</code>.</a>
@@ -940,11 +1188,11 @@
       <MemberSignature Language="C#" Value="public static Java.Util.Concurrent.IExecutor? ThreadPoolExecutor { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Java.Util.Concurrent.IExecutor ThreadPoolExecutor" />
       <MemberSignature Language="DocId" Value="P:Android.OS.AsyncTask.ThreadPoolExecutor" />
-      <MemberSignature Language="F#" Value="member this.ThreadPoolExecutor : Java.Util.Concurrent.IExecutor" Usage="Android.OS.AsyncTask.ThreadPoolExecutor" />
+      <MemberSignature Language="F#" Value="static member ThreadPoolExecutor : Java.Util.Concurrent.IExecutor" Usage="Android.OS.AsyncTask.ThreadPoolExecutor" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -952,8 +1200,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("THREAD_POOL_EXECUTOR")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -963,6 +1211,11 @@
         <summary>An <c>Executor</c> that can be used to execute tasks in parallel.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>An <c>Executor</c> that can be used to execute tasks in parallel.</para>
+          <para>This member is deprecated. Using a single thread pool for a general purpose results in suboptimal behavior
+              for different tasks. Small, CPU-bound tasks benefit from a bounded pool and queueing, and
+              long-running blocking tasks, such as network operations, benefit from many threads. Use or
+              create an <c>Executor</c> configured for your use case.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/os/AsyncTask#THREAD_POOL_EXECUTOR" title="Reference documentation">Java documentation for <code>android.os.AsyncTask.THREAD_POOL_EXECUTOR</code>.</a>
@@ -984,8 +1237,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.OS.AsyncTask.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1015,8 +1268,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.OS.AsyncTask.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

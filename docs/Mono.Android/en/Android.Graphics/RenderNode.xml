@@ -16,10 +16,142 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/graphics/RenderNode", ApiSince=29, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/graphics/RenderNode", ApiSince=29, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>RenderNode is used to build hardware accelerated rendering hierarchies.</summary>
     <remarks>
+      <para>RenderNode is used to build hardware accelerated rendering hierarchies. Each RenderNode
+            contains both a display list as well as a set of properties that affect the rendering of the
+            display list. RenderNodes are used internally for all Views by default and are not typically
+            used directly.</para>
+      <para>RenderNodes are used to divide up the rendering content of a complex scene into smaller
+            pieces that can then be updated individually more cheaply. Updating part of the scene only needs
+            to update the display list or properties of a small number of RenderNode instead of redrawing
+            everything from scratch. A RenderNode only needs its display list re-recorded when its content
+            alone should be changed. RenderNodes can also be transformed without re-recording the display
+            list through the transform properties.</para>
+      <para>A text editor might for instance store each paragraph into its own RenderNode.
+            Thus when the user inserts or removes characters, only the display list of the
+            affected paragraph needs to be recorded again.</para>
+      <para>&lt;h3&gt;Hardware acceleration&lt;/h3&gt;</para>
+      <para>RenderNodes can be drawn using a <c>RecordingCanvas</c>. They are not
+            supported in software. Always make sure that the <c>android.graphics.Canvas</c>
+            you are using to render a display list is hardware accelerated using
+            <c>android.graphics.Canvas#isHardwareAccelerated()</c>.</para>
+      <para>&lt;h3&gt;Creating a RenderNode&lt;/h3&gt;</para>
+      <code lang="text/java">RenderNode renderNode = new RenderNode("myRenderNode");
+                renderNode.setPosition(0, 0, 50, 50); // Set the size to 50x50
+                RecordingCanvas canvas = renderNode.beginRecording();
+                try {
+                    // Draw with the canvas
+                    canvas.drawRect(...);
+                } finally {
+                    renderNode.endRecording();
+                }</code>
+      <para>&lt;h3&gt;Drawing a RenderNode in a View&lt;/h3&gt;</para>
+      <code lang="text/java">protected void onDraw(Canvas canvas) {
+                    if (canvas.isHardwareAccelerated()) {
+                        // Check that the RenderNode has a display list, re-recording it if it does not.
+                        if (!myRenderNode.hasDisplayList()) {
+                            updateDisplayList(myRenderNode);
+                        }
+                        // Draw the RenderNode into this canvas.
+                        canvas.drawRenderNode(myRenderNode);
+                    }
+                }</code>
+      <para>&lt;h3&gt;Releasing resources&lt;/h3&gt;</para>
+      <para>This step is not mandatory but recommended if you want to release resources
+            held by a display list as soon as possible. Most significantly any bitmaps it may contain.</para>
+      <code lang="text/java">// Discards the display list content allowing for any held resources to be released.
+                // After calling this
+                renderNode.discardDisplayList();</code>
+      <para>&lt;h3&gt;Properties&lt;/h3&gt;</para>
+      <para>In addition, a RenderNode offers several properties, such as
+            <c>#setScaleX(float)</c> or <c>#setTranslationX(float)</c>, that can be used to affect all
+            the drawing commands recorded within. For instance, these properties can be used
+            to move around a large number of images without re-issuing all the individual
+            <c>canvas.drawBitmap()</c> calls.</para>
+      <code lang="text/java">private void createDisplayList() {
+                    mRenderNode = new RenderNode("MyRenderNode");
+                    mRenderNode.setPosition(0, 0, width, height);
+                    RecordingCanvas canvas = mRenderNode.beginRecording();
+                    try {
+                        for (Bitmap b : mBitmaps) {
+                            canvas.drawBitmap(b, 0.0f, 0.0f, null);
+                            canvas.translate(0.0f, b.getHeight());
+                        }
+                    } finally {
+                        mRenderNode.endRecording();
+                    }
+                }
+            
+                protected void onDraw(Canvas canvas) {
+                    if (canvas.isHardwareAccelerated())
+                        canvas.drawRenderNode(mRenderNode);
+                    }
+                }
+            
+                private void moveContentBy(int x) {
+                     // This will move all the bitmaps recorded inside the display list
+                     // by x pixels to the right and redraw this view. All the commands
+                     // recorded in createDisplayList() won't be re-issued, only onDraw()
+                     // will be invoked and will execute very quickly
+                     mRenderNode.offsetLeftAndRight(x);
+                     invalidate();
+                }</code>
+      <para>A few of the properties may at first appear redundant, such as <c>#setElevation(float)</c>
+            and <c>#setTranslationZ(float)</c>. The reason for these duplicates are to allow for a
+            separation between static &amp; transient usages. For example consider a button that raises from 2dp
+            to 8dp when pressed. To achieve that an application may decide to setElevation(2dip), and then
+            on press to animate setTranslationZ to 6dip. Combined this achieves the final desired 8dip
+            value, but the animation need only concern itself with animating the lift from press without
+            needing to know the initial starting value. <c>#setTranslationX(float)</c> and
+            <c>#setTranslationY(float)</c> are similarly provided for animation uses despite the functional
+            overlap with <c>#setPosition(Rect)</c>.</para>
+      <para>The RenderNode's transform matrix is computed at render time as follows:</para>
+      <code lang="text/java">Matrix transform = new Matrix();
+                transform.setTranslate(renderNode.getTranslationX(), renderNode.getTranslationY());
+                transform.preRotate(renderNode.getRotationZ(),
+                        renderNode.getPivotX(), renderNode.getPivotY());
+                transform.preScale(renderNode.getScaleX(), renderNode.getScaleY(),
+                        renderNode.getPivotX(), renderNode.getPivotY());</code>
+      <para>The current canvas transform matrix, which is translated to the RenderNode's position,
+            is then multiplied by the RenderNode's transform matrix. Therefore the ordering of calling
+            property setters does not affect the result. That is to say that:</para>
+      <code lang="text/java">renderNode.setTranslationX(100);
+                renderNode.setScaleX(100);</code>
+      <para>is equivalent to:</para>
+      <code lang="text/java">renderNode.setScaleX(100);
+                renderNode.setTranslationX(100);</code>
+      <para>&lt;h3&gt;Threading&lt;/h3&gt;</para>
+      <para>RenderNode may be created and used on any thread but they are not thread-safe. Only
+            a single thread may interact with a RenderNode at any given time. It is critical
+            that the RenderNode is only used on the same thread it is drawn with. For example when using
+            RenderNode with a custom View, then that RenderNode must only be used from the UI thread.</para>
+      <para>&lt;h3&gt;When to re-render&lt;/h3&gt;</para>
+      <para>Many of the RenderNode mutation methods, such as <c>#setTranslationX(float)</c>, return
+            a boolean indicating if the value actually changed or not. This is useful in detecting
+            if a new frame should be rendered or not. A typical usage would look like:</para>
+      <code lang="text/java">public void translateTo(int x, int y) {
+                    boolean needsUpdate = myRenderNode.setTranslationX(x);
+                    needsUpdate |= myRenderNode.setTranslationY(y);
+                    if (needsUpdate) {
+                        myOwningView.invalidate();
+                    }
+                }</code>
+      <para>This is marginally faster than doing a more explicit up-front check if the value changed by
+            comparing the desired value against <c>#getTranslationX()</c> as it minimizes JNI transitions.
+            The actual mechanism of requesting a new frame to be rendered will depend on how this
+            RenderNode is being drawn. If it's drawn to a containing View, as in the above snippet,
+            then simply invalidating that View works. If instead the RenderNode is being drawn to a Canvas
+            directly such as with <c>Surface#lockHardwareCanvas()</c> then a new frame needs to be drawn
+            by calling <c>Surface#lockHardwareCanvas()</c>, re-drawing the root RenderNode or whatever
+            top-level content is desired, and finally calling <c>Surface#unlockCanvasAndPost(Canvas)</c>.
+            &lt;/p&gt;</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/graphics/RenderNode" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode</code>.</a>
@@ -48,6 +180,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/lang/String;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/lang/String;)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters>
         <Parameter Name="name" Type="System.String" />
@@ -57,6 +193,8 @@
         <summary>Creates a new RenderNode that can be used to record batches of
             drawing operations, and store / apply render properties when drawn.</summary>
         <remarks>
+          <para>Creates a new RenderNode that can be used to record batches of
+            drawing operations, and store / apply render properties when drawn.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#RenderNode(java.lang.String)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.RenderNode(java.lang.String)</code>.</a>
@@ -82,6 +220,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getAlpha", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getAlpha", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -93,6 +235,7 @@
         <summary>Returns the translucency level of this display list.</summary>
         <value>A value between 0.0f and 1.0f</value>
         <remarks>
+          <para>Returns the translucency level of this display list.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getAlpha()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getAlpha()</code>.</a>
@@ -117,6 +260,10 @@
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getAmbientShadowColor", "()I", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getAmbientShadowColor", "()I", "", ApiSince=29)&gt;]</AttributeName>
@@ -158,6 +305,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("beginRecording", "()Landroid/graphics/RecordingCanvas;", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("beginRecording", "()Landroid/graphics/RecordingCanvas;", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.RecordingCanvas</ReturnType>
@@ -168,6 +319,9 @@
             to the RenderNode's own width &amp; height.</summary>
         <returns>A canvas to record drawing operations.</returns>
         <remarks>
+          <para>Same as <c>#beginRecording(int, int)</c> with the width &amp; height set
+            to the RenderNode's own width &amp; height. The RenderNode's width &amp; height may be set
+            with <c>#setPosition(int, int, int, int)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#beginRecording()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.beginRecording()</code>.</a>
@@ -196,6 +350,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("beginRecording", "(II)Landroid/graphics/RecordingCanvas;", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("beginRecording", "(II)Landroid/graphics/RecordingCanvas;", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.RecordingCanvas</ReturnType>
@@ -212,6 +370,13 @@
         <summary>Starts recording a display list for the render node.</summary>
         <returns>A canvas to record drawing operations.</returns>
         <remarks>
+          <para>Starts recording a display list for the render node. All
+            operations performed on the returned canvas are recorded and
+            stored in this display list.
+            
+            <c>#endRecording()</c> must be called when the recording is finished in order to apply
+            the updated display list. Failing to call <c>#endRecording()</c> will result in an
+            <c>IllegalStateException</c> if <c>#beginRecording(int, int)</c> is called again.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#beginRecording(int,%20int)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.beginRecording(int, int)</code>.</a>
@@ -237,6 +402,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getBottom", "()I", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getBottom", "()I", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -248,6 +417,7 @@
         <summary>Gets the bottom position for the RenderNode.</summary>
         <value>the bottom position in pixels</value>
         <remarks>
+          <para>Gets the bottom position for the RenderNode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getBottom()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getBottom()</code>.</a>
@@ -273,6 +443,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getCameraDistance", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getCameraDistance", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -284,6 +458,7 @@
         <summary>Returns the distance in Z of the camera for this RenderNode</summary>
         <value>the distance along the Z axis in pixels.</value>
         <remarks>
+          <para>Returns the distance in Z of the camera for this RenderNode</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getCameraDistance()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getCameraDistance()</code>.</a>
@@ -309,6 +484,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getClipToBounds", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getClipToBounds", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -320,6 +499,8 @@
         <summary>Returns whether or not the RenderNode is clipping to its bounds.</summary>
         <value>true if the render node clips to its bounds, false otherwise.</value>
         <remarks>
+          <para>Returns whether or not the RenderNode is clipping to its bounds. See
+            <c>#setClipToBounds(boolean)</c> and <c>#setPosition(int, int, int, int)</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getClipToBounds()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getClipToBounds()</code>.</a>
@@ -345,6 +526,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getClipToOutline", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getClipToOutline", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -356,6 +541,7 @@
         <summary>See <c>#setClipToOutline(boolean)</c></summary>
         <value>True if this RenderNode clips to its outline, false otherwise</value>
         <remarks>
+          <para>See <c>#setClipToOutline(boolean)</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getClipToOutline()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getClipToOutline()</code>.</a>
@@ -384,6 +570,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("computeApproximateMemoryUsage", "()J", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("computeApproximateMemoryUsage", "()J", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int64</ReturnType>
@@ -393,6 +583,9 @@
         <summary>Gets the approximate memory usage of the RenderNode for debug purposes.</summary>
         <returns>Approximate memory usage in bytes.</returns>
         <remarks>
+          <para>Gets the approximate memory usage of the RenderNode for debug purposes. Does not include
+            the memory usage of any child RenderNodes nor any bitmaps, only the memory usage of
+            this RenderNode and any data it owns.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#computeApproximateMemoryUsage()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.computeApproximateMemoryUsage()</code>.</a>
@@ -421,6 +614,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("discardDisplayList", "()V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("discardDisplayList", "()V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -429,6 +626,9 @@
       <Docs>
         <summary>Reset native resources.</summary>
         <remarks>
+          <para>Reset native resources. This is called when cleaning up the state of display lists
+            during destruction of hardware resources, to ensure that we do not hold onto
+            obsolete resources after related resources are gone.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#discardDisplayList()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.discardDisplayList()</code>.</a>
@@ -454,6 +654,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getElevation", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getElevation", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -465,6 +669,7 @@
         <summary>See <c>#setElevation(float)</c></summary>
         <value>The RenderNode's current elevation</value>
         <remarks>
+          <para>See <c>#setElevation(float)</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getElevation()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getElevation()</code>.</a>
@@ -493,6 +698,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("endRecording", "()V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("endRecording", "()V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -502,6 +711,9 @@
         <summary>`
             Ends the recording for this display list.</summary>
         <remarks>
+          <para>`
+            Ends the recording for this display list. Calling this method marks
+            the display list valid and <c>#hasDisplayList()</c> will return true.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#endRecording()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.endRecording()</code>.</a>
@@ -530,6 +742,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getInverseMatrix", "(Landroid/graphics/Matrix;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getInverseMatrix", "(Landroid/graphics/Matrix;)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -541,6 +757,8 @@
         <param name="outMatrix">The matrix to store the inverse transform of the RenderNode</param>
         <summary>Gets the current transform inverted.</summary>
         <remarks>
+          <para>Gets the current transform inverted. This is a faster way to do the otherwise
+            equivalent <c>#getMatrix(Matrix)</c> followed by <c>Matrix#invert(Matrix)</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getInverseMatrix(android.graphics.Matrix)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getInverseMatrix(android.graphics.Matrix)</code>.</a>
@@ -569,6 +787,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getMatrix", "(Landroid/graphics/Matrix;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getMatrix", "(Landroid/graphics/Matrix;)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -580,6 +802,7 @@
         <param name="outMatrix">The matrix to store the transform of the RenderNode</param>
         <summary>Gets the current transform matrix</summary>
         <remarks>
+          <para>Gets the current transform matrix</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getMatrix(android.graphics.Matrix)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getMatrix(android.graphics.Matrix)</code>.</a>
@@ -605,6 +828,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("hasDisplayList", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("hasDisplayList", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -616,6 +843,17 @@
         <summary>Returns whether the RenderNode has a display list.</summary>
         <value>boolean true if this RenderNode has a display list, false otherwise.</value>
         <remarks>
+          <para>Returns whether the RenderNode has a display list. If this returns false, the RenderNode
+            should be re-recorded with <c>#beginRecording()</c> and <c>#endRecording()</c>.
+            
+            A RenderNode without a display list may still be drawn, however it will have no impact
+            on the rendering content until its display list is updated.
+            
+            When a RenderNode is no longer drawn by anything the system may automatically
+            invoke <c>#discardDisplayList()</c>. It is therefore important to ensure that
+            <c>#hasDisplayList()</c> is true on a RenderNode prior to drawing it.
+            
+            See <c>#discardDisplayList()</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#hasDisplayList()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.hasDisplayList()</code>.</a>
@@ -641,6 +879,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("hasIdentityMatrix", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("hasIdentityMatrix", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -652,6 +894,9 @@
         <summary>Whether or not the RenderNode has an identity transform.</summary>
         <value>true if the RenderNode has an identity transform, false otherwise</value>
         <remarks>
+          <para>Whether or not the RenderNode has an identity transform. This is a faster
+            way to do the otherwise equivalent <c>#getMatrix(Matrix)</c><c>Matrix#isIdentity()</c>
+            as it doesn't require copying the Matrix first, thus minimizing overhead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#hasIdentityMatrix()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.hasIdentityMatrix()</code>.</a>
@@ -677,6 +922,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("hasOverlappingRendering", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("hasOverlappingRendering", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -688,6 +937,7 @@
         <summary>Indicates whether the content of this display list overlaps.</summary>
         <value>True if this display list renders content which overlaps, false otherwise.</value>
         <remarks>
+          <para>Indicates whether the content of this display list overlaps.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#hasOverlappingRendering()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.hasOverlappingRendering()</code>.</a>
@@ -713,6 +963,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("hasShadow", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("hasShadow", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -724,6 +978,10 @@
         <summary>Checks if the RenderNode has a shadow.</summary>
         <value>True if this RenderNode has a shadow, false otherwise</value>
         <remarks>
+          <para>Checks if the RenderNode has a shadow. That is, if the combination of <c>#getElevation()</c>
+            and <c>#getTranslationZ()</c> is greater than zero, there is an <c>Outline</c> set with
+            a valid shadow caster path, and the provided outline has a non-zero
+            <c>Outline#getAlpha()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#hasShadow()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.hasShadow()</code>.</a>
@@ -749,6 +1007,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getHeight", "()I", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getHeight", "()I", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -760,6 +1022,7 @@
         <summary>Gets the height of the RenderNode, which is the bottom - top.</summary>
         <value>the height of the RenderNode</value>
         <remarks>
+          <para>Gets the height of the RenderNode, which is the bottom - top.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getHeight()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getHeight()</code>.</a>
@@ -785,6 +1048,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isForceDarkAllowed", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isForceDarkAllowed", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -796,6 +1063,7 @@
         <summary>See <c>#setForceDarkAllowed(boolean)</c></summary>
         <value>true if force dark is allowed (default), false if it is disabled</value>
         <remarks>
+          <para>See <c>#setForceDarkAllowed(boolean)</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#isForceDarkAllowed()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.isForceDarkAllowed()</code>.</a>
@@ -820,6 +1088,10 @@
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isPivotExplicitlySet", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isPivotExplicitlySet", "()Z", "", ApiSince=29)&gt;]</AttributeName>
@@ -888,6 +1160,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getLeft", "()I", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getLeft", "()I", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -899,6 +1175,7 @@
         <summary>Gets the left position for the RenderNode.</summary>
         <value>the left position in pixels</value>
         <remarks>
+          <para>Gets the left position for the RenderNode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getLeft()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getLeft()</code>.</a>
@@ -927,6 +1204,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("offsetLeftAndRight", "(I)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("offsetLeftAndRight", "(I)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -939,6 +1220,7 @@
         <summary>Offsets the left and right positions for the RenderNode</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Offsets the left and right positions for the RenderNode</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#offsetLeftAndRight(int)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.offsetLeftAndRight(int)</code>.</a>
@@ -967,6 +1249,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("offsetTopAndBottom", "(I)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("offsetTopAndBottom", "(I)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -979,6 +1265,7 @@
         <summary>Offsets the top and bottom values for the RenderNode</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Offsets the top and bottom values for the RenderNode</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#offsetTopAndBottom(int)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.offsetTopAndBottom(int)</code>.</a>
@@ -1004,6 +1291,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getPivotX", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getPivotX", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1015,6 +1306,7 @@
         <summary>Returns the pivot value for this display list on the X axis, in pixels.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the pivot value for this display list on the X axis, in pixels.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getPivotX()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getPivotX()</code>.</a>
@@ -1040,6 +1332,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getPivotY", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getPivotY", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1051,6 +1347,7 @@
         <summary>Returns the pivot value for this display list on the Y axis, in pixels.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the pivot value for this display list on the Y axis, in pixels.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getPivotY()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getPivotY()</code>.</a>
@@ -1079,6 +1376,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("resetPivot", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("resetPivot", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1089,6 +1390,9 @@
             <c>#setPivotY(float)</c>.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Clears any pivot previously set by a call to  <c>#setPivotX(float)</c> or
+            <c>#setPivotY(float)</c>. After calling this <c>#isPivotExplicitlySet()</c> will be false
+            and the pivot used for rotation will return to default of being centered on the view.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#resetPivot()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.resetPivot()</code>.</a>
@@ -1114,6 +1418,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getRight", "()I", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getRight", "()I", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1125,6 +1433,7 @@
         <summary>Gets the right position for the RenderNode.</summary>
         <value>the right position in pixels</value>
         <remarks>
+          <para>Gets the right position for the RenderNode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getRight()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getRight()</code>.</a>
@@ -1150,6 +1459,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getRotationX", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getRotationX", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1161,6 +1474,7 @@
         <summary>Returns the rotation value for this display list around the X axis, in degrees.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the rotation value for this display list around the X axis, in degrees.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getRotationX()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getRotationX()</code>.</a>
@@ -1186,6 +1500,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getRotationY", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getRotationY", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1197,6 +1515,7 @@
         <summary>Returns the rotation value for this display list around the Y axis, in degrees.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the rotation value for this display list around the Y axis, in degrees.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getRotationY()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getRotationY()</code>.</a>
@@ -1222,6 +1541,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getRotationZ", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getRotationZ", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1233,6 +1556,7 @@
         <summary>Returns the rotation value for this display list around the Z axis, in degrees.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the rotation value for this display list around the Z axis, in degrees.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getRotationZ()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getRotationZ()</code>.</a>
@@ -1258,6 +1582,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getScaleX", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getScaleX", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1269,6 +1597,7 @@
         <summary>Returns the scale value for this display list on the X axis.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the scale value for this display list on the X axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getScaleX()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getScaleX()</code>.</a>
@@ -1294,6 +1623,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getScaleY", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getScaleY", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1305,6 +1638,7 @@
         <summary>Returns the scale value for this display list on the Y axis.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the scale value for this display list on the Y axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getScaleY()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getScaleY()</code>.</a>
@@ -1333,6 +1667,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setAlpha", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setAlpha", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1345,6 +1683,7 @@
         <summary>Sets the translucency level for the display list.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the translucency level for the display list.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setAlpha(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setAlpha(float)</code>.</a>
@@ -1373,6 +1712,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setAmbientShadowColor", "(I)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setAmbientShadowColor", "(I)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1386,6 +1729,13 @@
             elevation value and is drawn inside of a <c>Canvas#enableZ()</c> section.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the color of the ambient shadow that is drawn when the RenderNode has a positive Z or
+            elevation value and is drawn inside of a <c>Canvas#enableZ()</c> section.</para>
+          <para>By default the shadow color is black. Generally, this color will be opaque so the intensity
+            of the shadow is consistent between different RenderNodes with different colors.</para>
+          <para>The opacity of the final ambient shadow is a function of the shadow caster height, the
+            alpha channel of the outlineAmbientShadowColor (typically opaque), and the
+            <c>android.R.attr#ambientShadowAlpha</c> theme attribute.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setAmbientShadowColor(int)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setAmbientShadowColor(int)</code>.</a>
@@ -1414,6 +1764,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setCameraDistance", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setCameraDistance", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1427,6 +1781,22 @@
             RenderNodes are drawn) from the camera to this RenderNode.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the distance along the Z axis (orthogonal to the X/Y plane on which
+            RenderNodes are drawn) from the camera to this RenderNode. The camera's distance
+            affects 3D transformations, for instance rotations around the X and Y
+            axis. If the rotationX or rotationY properties are changed and this view is
+            large (more than half the size of the screen), it is recommended to always
+            use a camera distance that's greater than the height (X axis rotation) or
+            the width (Y axis rotation) of this view.</para>
+          <para>The distance of the camera from the drawing plane can have an affect on the
+            perspective distortion of the RenderNode when it is rotated around the x or y axis.
+            For example, a large distance will result in a large viewing angle, and there
+            will not be much perspective distortion of the view as it rotates. A short
+            distance may cause much more perspective distortion upon rotation, and can
+            also result in some drawing artifacts if the rotated view ends up partially
+            behind the camera (which is why the recommendation is to use a distance at
+            least as far as the size of the view, if the view is to be rotated.)</para>
+          <para>The distance is expressed in pixels and must always be positive</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setCameraDistance(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setCameraDistance(float)</code>.</a>
@@ -1455,6 +1825,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setClipRect", "(Landroid/graphics/Rect;)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setClipRect", "(Landroid/graphics/Rect;)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1467,6 +1841,16 @@
         <summary>Sets an additional clip on the RenderNode.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets an additional clip on the RenderNode. If null, the extra clip is removed from the
+            RenderNode. If non-null, the RenderNode will be clipped to this rect. In addition  if
+            <c>#setClipToBounds(boolean)</c> is true, then the RenderNode will be clipped to the
+            intersection of this rectangle and the bounds of the render node, which is set with
+            <c>#setPosition(Rect)</c>.</para>
+          <para>This is equivalent to do a <c>Canvas#clipRect(Rect)</c> at the start of this
+            RenderNode's display list. However, as this is a property of the RenderNode instead
+            of part of the display list it can be more easily animated for transient additional
+            clipping. An example usage of this would be the <c>android.transition.ChangeBounds</c>
+            transition animation with the resizeClip=true option.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setClipRect(android.graphics.Rect)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setClipRect(android.graphics.Rect)</code>.</a>
@@ -1495,6 +1879,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setClipToBounds", "(Z)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setClipToBounds", "(Z)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1507,6 +1895,12 @@
         <summary>Set whether the Render node should clip itself to its bounds.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Set whether the Render node should clip itself to its bounds. This defaults to true,
+            and is useful to the renderer in enable quick-rejection of chunks of the tree as well as
+            better partial invalidation support. Clipping can be further restricted or controlled
+            through the combination of this property as well as <c>#setClipRect(Rect)</c>, which
+            allows for a different clipping rectangle to be used in addition to or instead of the
+            <c>#setPosition(int, int, int, int)</c> or the RenderNode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setClipToBounds(boolean)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setClipToBounds(boolean)</code>.</a>
@@ -1535,6 +1929,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setClipToOutline", "(Z)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setClipToOutline", "(Z)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1548,6 +1946,7 @@
         <returns>True if the clipToOutline value changed, false if previous value matched the new
                     value.</returns>
         <remarks>
+          <para>Enables or disables clipping to the outline.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setClipToOutline(boolean)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setClipToOutline(boolean)</code>.</a>
@@ -1576,6 +1975,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setElevation", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setElevation", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1588,6 +1991,7 @@
         <summary>Sets the base elevation of this RenderNode in pixels</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the base elevation of this RenderNode in pixels</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setElevation(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setElevation(float)</code>.</a>
@@ -1616,6 +2020,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setForceDarkAllowed", "(Z)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setForceDarkAllowed", "(Z)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1628,6 +2036,12 @@
         <summary>Sets whether or not to allow force dark to apply to this RenderNode.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets whether or not to allow force dark to apply to this RenderNode.</para>
+          <para>Setting this to false will disable the auto-dark feature on everything this RenderNode
+            draws, including any descendants.</para>
+          <para>Setting this to true will allow this RenderNode to be automatically made dark, however
+            a value of 'true' will not override any 'false' value in its parent chain nor will
+            it prevent any 'false' in any of its children.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setForceDarkAllowed(boolean)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setForceDarkAllowed(boolean)</code>.</a>
@@ -1656,6 +2070,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setHasOverlappingRendering", "(Z)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setHasOverlappingRendering", "(Z)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1669,6 +2087,9 @@
         <summary>Sets whether the display list renders content which overlaps.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Sets whether the display list renders content which overlaps. Non-overlapping rendering
+            can use a fast path for alpha that avoids rendering to an offscreen buffer. By default
+            display lists consider they do not have overlapping content.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setHasOverlappingRendering(boolean)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setHasOverlappingRendering(boolean)</code>.</a>
@@ -1697,6 +2118,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setOutline", "(Landroid/graphics/Outline;)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOutline", "(Landroid/graphics/Outline;)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1710,6 +2135,12 @@
             be clipped if setClipToOutline is set.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the outline, defining the shape that casts a shadow, and the path to
+            be clipped if setClipToOutline is set.
+            
+            This will make a copy of the provided <c>Outline</c>, so any future modifications
+            to the outline will need to call <c>#setOutline(Outline)</c> with the modified
+            outline for those changes to be applied.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setOutline(android.graphics.Outline)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setOutline(android.graphics.Outline)</code>.</a>
@@ -1738,6 +2169,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setPivotX", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setPivotX", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1750,6 +2185,7 @@
         <summary>Sets the pivot value for the display list on the X axis</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the pivot value for the display list on the X axis</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setPivotX(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setPivotX(float)</code>.</a>
@@ -1778,6 +2214,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setPivotY", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setPivotY", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1790,6 +2230,7 @@
         <summary>Sets the pivot value for the display list on the Y axis</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the pivot value for the display list on the Y axis</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setPivotY(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setPivotY(float)</code>.</a>
@@ -1818,6 +2259,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setPosition", "(Landroid/graphics/Rect;)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setPosition", "(Landroid/graphics/Rect;)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1830,6 +2275,7 @@
         <summary>Sets the position of the RenderNode.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the position of the RenderNode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setPosition(android.graphics.Rect)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setPosition(android.graphics.Rect)</code>.</a>
@@ -1858,6 +2304,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setPosition", "(IIII)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setPosition", "(IIII)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1876,6 +2326,7 @@
         <summary>Sets the position of the RenderNode.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the position of the RenderNode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setPosition(int,%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setPosition(int, int, int, int)</code>.</a>
@@ -1904,6 +2355,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setProjectBackwards", "(Z)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setProjectBackwards", "(Z)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1918,6 +2373,34 @@
             closest ancestor RenderNode containing a projection receiver.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets whether the RenderNode should be drawn immediately after the
+            closest ancestor RenderNode containing a projection receiver.</para>
+          <para>The default is false, and the rendering of this node happens in the typical draw order.</para>
+          <para>If true, then at rendering time this rendernode will not be drawn in order with the
+            <c>Canvas#drawRenderNode(RenderNode)</c> command that drew this RenderNode, but instead
+            it will be re-positioned in the RenderNode tree to be drawn on the closet ancestor with a
+            child rendernode that has <c>#setProjectionReceiver(boolean)</c> as true.</para>
+          <para>The typical usage of this is to allow a child RenderNode to draw on a parent's background,
+            such as the platform's usage with <c>android.graphics.drawable.RippleDrawable</c>. Consider
+            the following structure, built out of which RenderNode called drawRenderNode on a different
+            RenderNode:</para>
+          <code lang="text/java">+-------------+
+                   |RenderNode: P|
+                   +-+----------++
+                     |          |
+                     v          v
+             +-------+-----+  +-+--------------+
+             |RenderNode: C|  |RenderNode: P'BG|
+             +-------+-----+  +----------------+
+                     |
+                     |
+            +--------+-------+
+            |RenderNode: C'BG|
+            +----------------+
+            </code>
+          <para>If P'BG is a projection receiver, and C'BG is set to project backwards then C'BG will
+            behave as if it was drawn directly by P'BG instead of by C. This includes inheriting P'BG's
+            clip instead of C's clip.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setProjectBackwards(boolean)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setProjectBackwards(boolean)</code>.</a>
@@ -1946,6 +2429,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setProjectionReceiver", "(Z)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setProjectionReceiver", "(Z)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1959,6 +2446,10 @@
         <summary>Sets whether the RenderNode is a projection receiver.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets whether the RenderNode is a projection receiver. If true then this RenderNode's parent
+            should draw any descendant RenderNodes with ProjectBackwards=true directly on top of it.
+            Default value is false. See
+            <c>#setProjectBackwards(boolean)</c> for a description of what this entails.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setProjectionReceiver(boolean)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setProjectionReceiver(boolean)</code>.</a>
@@ -1987,6 +2478,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setRenderEffect", "(Landroid/graphics/RenderEffect;)Z", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setRenderEffect", "(Landroid/graphics/RenderEffect;)Z", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2000,6 +2495,12 @@
         <summary>Configure the <c>android.graphics.RenderEffect</c> to apply to this RenderNode.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Configure the <c>android.graphics.RenderEffect</c> to apply to this RenderNode. This
+            will apply a visual effect to the end result of the contents of this RenderNode before
+            it is drawn into the destination. For example if
+            <c>RenderEffect#createBlurEffect(float, float, RenderEffect, Shader.TileMode)</c>
+            is provided, the contents will be drawn in a separate layer, then this layer will
+            be blurred when this RenderNode is drawn into the destination.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setRenderEffect(android.graphics.RenderEffect)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setRenderEffect(android.graphics.RenderEffect)</code>.</a>
@@ -2028,6 +2529,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setRotationX", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setRotationX", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2040,6 +2545,7 @@
         <summary>Sets the rotation value for the display list around the X axis.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the rotation value for the display list around the X axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setRotationX(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setRotationX(float)</code>.</a>
@@ -2068,6 +2574,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setRotationY", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setRotationY", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2080,6 +2590,7 @@
         <summary>Sets the rotation value for the display list around the Y axis.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the rotation value for the display list around the Y axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setRotationY(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setRotationY(float)</code>.</a>
@@ -2108,6 +2619,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setRotationZ", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setRotationZ", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2120,6 +2635,7 @@
         <summary>Sets the rotation value for the display list around the Z axis.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the rotation value for the display list around the Z axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setRotationZ(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setRotationZ(float)</code>.</a>
@@ -2148,6 +2664,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setScaleX", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setScaleX", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2160,6 +2680,7 @@
         <summary>Sets the scale value for the display list on the X axis.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the scale value for the display list on the X axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setScaleX(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setScaleX(float)</code>.</a>
@@ -2188,6 +2709,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setScaleY", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setScaleY", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2200,6 +2725,7 @@
         <summary>Sets the scale value for the display list on the Y axis.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the scale value for the display list on the Y axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setScaleY(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setScaleY(float)</code>.</a>
@@ -2228,6 +2754,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setSpotShadowColor", "(I)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setSpotShadowColor", "(I)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2241,6 +2771,13 @@
             elevation value and is drawn inside of a <c>Canvas#enableZ()</c> section.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the color of the spot shadow that is drawn when the RenderNode has a positive Z or
+            elevation value and is drawn inside of a <c>Canvas#enableZ()</c> section.</para>
+          <para>By default the shadow color is black. Generally, this color will be opaque so the intensity
+            of the shadow is consistent between different RenderNodes with different colors.</para>
+          <para>The opacity of the final spot shadow is a function of the shadow caster height, the
+            alpha channel of the outlineSpotShadowColor (typically opaque), and the
+            <c>android.R.attr#spotShadowAlpha</c> theme attribute</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setSpotShadowColor(int)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setSpotShadowColor(int)</code>.</a>
@@ -2269,6 +2806,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setTranslationX", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setTranslationX", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2281,6 +2822,7 @@
         <summary>Sets the translation value for the display list on the X axis.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the translation value for the display list on the X axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setTranslationX(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setTranslationX(float)</code>.</a>
@@ -2309,6 +2851,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setTranslationY", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setTranslationY", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2321,6 +2867,7 @@
         <summary>Sets the translation value for the display list on the Y axis.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the translation value for the display list on the Y axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setTranslationY(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setTranslationY(float)</code>.</a>
@@ -2349,6 +2896,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setTranslationZ", "(F)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setTranslationZ", "(F)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2361,6 +2912,7 @@
         <summary>Sets the translation value for the display list on the Z axis.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Sets the translation value for the display list on the Z axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setTranslationZ(float)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setTranslationZ(float)</code>.</a>
@@ -2389,6 +2941,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setUseCompositingLayer", "(ZLandroid/graphics/Paint;)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setUseCompositingLayer", "(ZLandroid/graphics/Paint;)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2408,6 +2964,15 @@
         <summary>Controls whether or not to force this RenderNode to render to an intermediate buffer.</summary>
         <returns>True if the value changed, false if the new value was the same as the previous value.</returns>
         <remarks>
+          <para>Controls whether or not to force this RenderNode to render to an intermediate buffer.
+            Internally RenderNode will already promote itself to a composition layer if it's useful
+            for performance or required for the current combination of <c>#setAlpha(float)</c> and
+            <c>#setHasOverlappingRendering(boolean)</c>.</para>
+          <para>The usage of this is instead to allow for either overriding of the internal behavior
+            if it's measured to be necessary for the particular rendering content in question or, more
+            usefully, to add a composition effect to the RenderNode via the optional paint parameter.</para>
+          <para>Note: When a RenderNode is using a compositing layer it will also result in
+            clipToBounds=true behavior.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#setUseCompositingLayer(boolean,%20android.graphics.Paint)" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.setUseCompositingLayer(boolean, android.graphics.Paint)</code>.</a>
@@ -2432,6 +2997,10 @@
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getSpotShadowColor", "()I", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getSpotShadowColor", "()I", "", ApiSince=29)&gt;]</AttributeName>
@@ -2528,6 +3097,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getTop", "()I", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getTop", "()I", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -2539,6 +3112,7 @@
         <summary>Gets the top position for the RenderNode.</summary>
         <value>the top position in pixels</value>
         <remarks>
+          <para>Gets the top position for the RenderNode.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getTop()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getTop()</code>.</a>
@@ -2564,6 +3138,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getTranslationX", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getTranslationX", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -2575,6 +3153,7 @@
         <summary>Returns the translation value for this display list on the X axis, in pixels.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the translation value for this display list on the X axis, in pixels.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getTranslationX()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getTranslationX()</code>.</a>
@@ -2600,6 +3179,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getTranslationY", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getTranslationY", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -2611,6 +3194,7 @@
         <summary>Returns the translation value for this display list on the Y axis, in pixels.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the translation value for this display list on the Y axis, in pixels.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getTranslationY()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getTranslationY()</code>.</a>
@@ -2636,6 +3220,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getTranslationZ", "()F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getTranslationZ", "()F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -2647,6 +3235,7 @@
         <summary>Returns the translation value for this display list on the Z axis.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the translation value for this display list on the Z axis.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getTranslationZ()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getTranslationZ()</code>.</a>
@@ -2672,6 +3261,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getUniqueId", "()J", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getUniqueId", "()J", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -2683,6 +3276,13 @@
         <summary>Returns the unique ID that identifies this RenderNode.</summary>
         <value>the unique ID for this RenderNode</value>
         <remarks>
+          <para>Returns the unique ID that identifies this RenderNode. This ID is unique for the
+            lifetime of the process. IDs are reset on process death, and are unique only within
+            the process.</para>
+          <para>This ID is intended to be used with debugging tools to associate a particular
+            RenderNode across different debug dumping &amp; inspection tools. For example
+            a View layout inspector should include the unique ID for any RenderNodes that it owns
+            to associate the drawing content with the layout content.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getUniqueId()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getUniqueId()</code>.</a>
@@ -2708,6 +3308,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getUseCompositingLayer", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getUseCompositingLayer", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -2719,6 +3323,9 @@
         <summary>Gets whether or not a compositing layer is forced to be used.</summary>
         <value>true if a compositing layer is forced, false otherwise</value>
         <remarks>
+          <para>Gets whether or not a compositing layer is forced to be used. The default &amp; recommended
+            is false, as it is typically faster to avoid using compositing layers.
+            See <c>#setUseCompositingLayer(boolean, Paint)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getUseCompositingLayer()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getUseCompositingLayer()</code>.</a>
@@ -2744,6 +3351,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getWidth", "()I", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getWidth", "()I", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -2755,6 +3366,7 @@
         <summary>Gets the width of the RenderNode, which is the right - left.</summary>
         <value>the width of the RenderNode</value>
         <remarks>
+          <para>Gets the width of the RenderNode, which is the right - left.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RenderNode#getWidth()" title="Reference documentation">Java documentation for <code>android.graphics.RenderNode.getWidth()</code>.</a>

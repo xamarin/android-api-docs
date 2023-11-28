@@ -36,12 +36,119 @@
       <AttributeName Language="C#">[Java.Interop.JavaTypeParameters(new System.String[] { "T" })]</AttributeName>
       <AttributeName Language="F#">[&lt;Java.Interop.JavaTypeParameters(new System.String[] { "T" })&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <param name="&lt;T&gt;&lt;T&gt;">the published item type</param>
     <summary>A <c>Flow.Publisher</c> that asynchronously issues submitted
             (non-null) items to current subscribers until it is closed.</summary>
     <remarks>
+      <para>A <c>Flow.Publisher</c> that asynchronously issues submitted
+            (non-null) items to current subscribers until it is closed.  Each
+            current subscriber receives newly submitted items in the same order
+            unless drops or exceptions are encountered.  Using a
+            SubmissionPublisher allows item generators to act as compliant <see href="http://www.reactive-streams.org/"> reactive-streams</see>
+            Publishers relying on drop handling and/or blocking for flow
+            control.</para>
+      <para>A SubmissionPublisher uses the <c>Executor</c> supplied in its
+            constructor for delivery to subscribers. The best choice of
+            Executor depends on expected usage. If the generator(s) of
+            submitted items run in separate threads, and the number of
+            subscribers can be estimated, consider using a <c>Executors#newFixedThreadPool</c>. Otherwise consider using the
+            default, normally the <c>ForkJoinPool#commonPool</c>.</para>
+      <para>Buffering allows producers and consumers to transiently operate
+            at different rates.  Each subscriber uses an independent buffer.
+            Buffers are created upon first use and expanded as needed up to the
+            given maximum. (The enforced capacity may be rounded up to the
+            nearest power of two and/or bounded by the largest value supported
+            by this implementation.)  Invocations of <c>Flow.Subscription#request(long) request</c> do not directly result in
+            buffer expansion, but risk saturation if unfilled requests exceed
+            the maximum capacity.  The default value of <c>Flow#defaultBufferSize()</c> may provide a useful starting point for
+            choosing a capacity based on expected rates, resources, and usages.</para>
+      <para>A single SubmissionPublisher may be shared among multiple
+            sources. Actions in a source thread prior to publishing an item or
+            issuing a signal 
+            &lt;i&gt;happen-before&lt;/i&gt; actions subsequent to the corresponding
+            access by each subscriber. But reported estimates of lag and demand
+            are designed for use in monitoring, not for synchronization
+            control, and may reflect stale or inaccurate views of progress.</para>
+      <para>Publication methods support different policies about what to do
+            when buffers are saturated. Method <c>#submit(Object) submit</c>
+            blocks until resources are available. This is simplest, but least
+            responsive.  The <c>offer</c> methods may drop items (either
+            immediately or with bounded timeout), but provide an opportunity to
+            interpose a handler and then retry.</para>
+      <para>If any Subscriber method throws an exception, its subscription
+            is cancelled.  If a handler is supplied as a constructor argument,
+            it is invoked before cancellation upon an exception in method
+            <c>Flow.Subscriber#onNext onNext</c>, but exceptions in methods
+            <c>Flow.Subscriber#onSubscribe onSubscribe</c>,
+            <c>Flow.Subscriber#onError(Throwable) onError</c> and
+            <c>Flow.Subscriber#onComplete() onComplete</c> are not recorded or
+            handled before cancellation.  If the supplied Executor throws
+            <c>RejectedExecutionException</c> (or any other RuntimeException
+            or Error) when attempting to execute a task, or a drop handler
+            throws an exception when processing a dropped item, then the
+            exception is rethrown. In these cases, not all subscribers will
+            have been issued the published item. It is usually good practice to
+            <c>#closeExceptionally closeExceptionally</c> in these cases.</para>
+      <para>Method <c>#consume(Consumer)</c> simplifies support for a
+            common case in which the only action of a subscriber is to request
+            and process all items using a supplied function.</para>
+      <para>This class may also serve as a convenient base for subclasses
+            that generate items, and use the methods in this class to publish
+            them.  For example here is a class that periodically publishes the
+            items generated from a supplier. (In practice you might add methods
+            to independently start and stop generation, to share Executors
+            among publishers, and so on, or use a SubmissionPublisher as a
+            component rather than a superclass.)</para>
+      <code lang="text/java">{@code
+            class PeriodicPublisher&lt;T&gt; extends SubmissionPublisher&lt;T&gt; {
+              final ScheduledFuture&lt;?&gt; periodicTask;
+              final ScheduledExecutorService scheduler;
+              PeriodicPublisher(Executor executor, int maxBufferCapacity,
+                                Supplier&lt;? extends T&gt; supplier,
+                                long period, TimeUnit unit) {
+                super(executor, maxBufferCapacity);
+                scheduler = new ScheduledThreadPoolExecutor(1);
+                periodicTask = scheduler.scheduleAtFixedRate(
+                  () -&gt; submit(supplier.get()), 0, period, unit);
+              }
+              public void close() {
+                periodicTask.cancel(false);
+                scheduler.shutdown();
+                super.close();
+              }
+            }}</code>
+      <para>Here is an example of a <c>Flow.Processor</c> implementation.
+            It uses single-step requests to its publisher for simplicity of
+            illustration. A more adaptive version could monitor flow using the
+            lag estimate returned from <c>submit</c>, along with other utility
+            methods.</para>
+      <code lang="text/java">{@code
+            class TransformProcessor&lt;S,T&gt; extends SubmissionPublisher&lt;T&gt;
+              implements Flow.Processor&lt;S,T&gt; {
+              final Function&lt;? super S, ? extends T&gt; function;
+              Flow.Subscription subscription;
+              TransformProcessor(Executor executor, int maxBufferCapacity,
+                                 Function&lt;? super S, ? extends T&gt; function) {
+                super(executor, maxBufferCapacity);
+                this.function = function;
+              }
+              public void onSubscribe(Flow.Subscription subscription) {
+                (this.subscription = subscription).request(1);
+              }
+              public void onNext(S item) {
+                subscription.request(1);
+                submit(function.apply(item));
+              }
+              public void onError(Throwable ex) { closeExceptionally(ex); }
+              public void onComplete() { close(); }
+            }}</code>
+      <para>Added in 9.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher</code>.</a>
@@ -69,6 +176,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "()V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "()V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters />
       <Docs>
@@ -78,6 +189,11 @@
             maximum buffer capacity of <c>Flow#defaultBufferSize</c>, and no
             handler for Subscriber exceptions in method <c>Flow.Subscriber#onNext(Object) onNext</c>.</summary>
         <remarks>
+          <para>Creates a new SubmissionPublisher using the <c>ForkJoinPool#commonPool()</c> for async delivery to subscribers
+            (unless it does not support a parallelism level of at least two,
+            in which case, a new Thread is created to run each task), with
+            maximum buffer capacity of <c>Flow#defaultBufferSize</c>, and no
+            handler for Subscriber exceptions in method <c>Flow.Subscriber#onNext(Object) onNext</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#SubmissionPublisher()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.SubmissionPublisher()</code>.</a>
@@ -106,6 +222,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/util/concurrent/Executor;I)V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/util/concurrent/Executor;I)V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters>
         <Parameter Name="executor" Type="Java.Util.Concurrent.IExecutor" />
@@ -124,6 +244,10 @@
             for each subscriber, and no handler for Subscriber exceptions in
             method <c>Flow.Subscriber#onNext(Object) onNext</c>.</summary>
         <remarks>
+          <para>Creates a new SubmissionPublisher using the given Executor for
+            async delivery to subscribers, with the given maximum buffer size
+            for each subscriber, and no handler for Subscriber exceptions in
+            method <c>Flow.Subscriber#onNext(Object) onNext</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#SubmissionPublisher(java.util.concurrent.Executor,%20int)" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.SubmissionPublisher(java.util.concurrent.Executor, int)</code>.</a>
@@ -173,6 +297,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/util/concurrent/Executor;ILjava/util/function/BiConsumer;)V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/util/concurrent/Executor;ILjava/util/function/BiConsumer;)V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters>
         <Parameter Name="executor" Type="Java.Util.Concurrent.IExecutor" />
@@ -194,6 +322,10 @@
             for each subscriber, and, if non-null, the given handler invoked
             when any Subscriber throws an exception in method <c>Flow.Subscriber#onNext(Object) onNext</c>.</summary>
         <remarks>
+          <para>Creates a new SubmissionPublisher using the given Executor for
+            async delivery to subscribers, with the given maximum buffer size
+            for each subscriber, and, if non-null, the given handler invoked
+            when any Subscriber throws an exception in method <c>Flow.Subscriber#onNext(Object) onNext</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#SubmissionPublisher(java.util.concurrent.Executor,%20int,%20java.util.function.BiConsumer%3C?%20super%20java.util.concurrent.Flow.Subscriber%3C?%20super%20T%3E,%20?%20super%20java.lang.Throwable%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.SubmissionPublisher(java.util.concurrent.Executor, int, java.util.function.BiConsumer&lt;? super java.util.concurrent.Flow.Subscriber&lt;? super T&gt;, ? super java.lang.Throwable&gt;)</code>.</a>
@@ -225,6 +357,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("close", "()V", "GetCloseHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("close", "()V", "GetCloseHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -234,6 +370,10 @@
         <summary>Unless already closed, issues <c>Flow.Subscriber#onComplete() onComplete</c> signals to current
             subscribers, and disallows subsequent attempts to publish.</summary>
         <remarks>
+          <para>Unless already closed, issues <c>Flow.Subscriber#onComplete() onComplete</c> signals to current
+            subscribers, and disallows subsequent attempts to publish.
+            Upon return, this method does &lt;em&gt;NOT&lt;/em&gt; guarantee that all
+            subscribers have yet completed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#close()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.close()</code>.</a>
@@ -259,6 +399,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getClosedException", "()Ljava/lang/Throwable;", "GetGetClosedExceptionHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getClosedException", "()Ljava/lang/Throwable;", "GetGetClosedExceptionHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -271,6 +415,8 @@
             not closed or if closed normally.</summary>
         <value>the exception, or null if none</value>
         <remarks>
+          <para>Returns the exception associated with <c>#closeExceptionally(Throwable) closeExceptionally</c>, or null if
+            not closed or if closed normally.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#getClosedException()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.getClosedException()</code>.</a>
@@ -299,6 +445,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("closeExceptionally", "(Ljava/lang/Throwable;)V", "GetCloseExceptionally_Ljava_lang_Throwable_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("closeExceptionally", "(Ljava/lang/Throwable;)V", "GetCloseExceptionally_Ljava_lang_Throwable_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -312,6 +462,11 @@
             subscribers with the given error, and disallows subsequent
             attempts to publish.</summary>
         <remarks>
+          <para>Unless already closed, issues <c>Flow.Subscriber#onError(Throwable) onError</c> signals to current
+            subscribers with the given error, and disallows subsequent
+            attempts to publish.  Future subscribers also receive the given
+            error. Upon return, this method does &lt;em&gt;NOT&lt;/em&gt; guarantee
+            that all subscribers have yet completed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#closeExceptionally(java.lang.Throwable)" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.closeExceptionally(java.lang.Throwable)</code>.</a>
@@ -340,6 +495,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("consume", "(Ljava/util/function/Consumer;)Ljava/util/concurrent/CompletableFuture;", "GetConsume_Ljava_util_function_Consumer_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("consume", "(Ljava/util/function/Consumer;)Ljava/util/concurrent/CompletableFuture;", "GetConsume_Ljava_util_function_Consumer_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Util.Concurrent.CompletableFuture</ReturnType>
@@ -354,6 +513,13 @@
             when the publisher signals onComplete, and exceptionally
             upon any error or cancellation</returns>
         <remarks>
+          <para>Processes all published items using the given Consumer function.
+            Returns a CompletableFuture that is completed normally when this
+            publisher signals <c>Flow.Subscriber#onComplete()
+            onComplete</c>, or completed exceptionally upon any error, or an
+            exception is thrown by the Consumer, or the returned
+            CompletableFuture is cancelled, in which case no further items
+            are processed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#consume(java.util.function.Consumer%3C?%20super%20T%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.consume(java.util.function.Consumer&lt;? super T&gt;)</code>.</a>
@@ -382,6 +548,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("estimateMaximumLag", "()I", "GetEstimateMaximumLagHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("estimateMaximumLag", "()I", "GetEstimateMaximumLagHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -392,6 +562,8 @@
             not yet consumed among all current subscribers.</summary>
         <returns>the estimate</returns>
         <remarks>
+          <para>Returns an estimate of the maximum number of items produced but
+            not yet consumed among all current subscribers.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#estimateMaximumLag()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.estimateMaximumLag()</code>.</a>
@@ -420,6 +592,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("estimateMinimumDemand", "()J", "GetEstimateMinimumDemandHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("estimateMinimumDemand", "()J", "GetEstimateMinimumDemandHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int64</ReturnType>
@@ -431,6 +607,9 @@
             yet produced, among all current subscribers.</summary>
         <returns>the estimate, or zero if no subscribers</returns>
         <remarks>
+          <para>Returns an estimate of the minimum number of items requested
+            (via <c>Flow.Subscription#request(long) request</c>) but not
+            yet produced, among all current subscribers.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#estimateMinimumDemand()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.estimateMinimumDemand()</code>.</a>
@@ -456,6 +635,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getExecutor", "()Ljava/util/concurrent/Executor;", "GetGetExecutorHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getExecutor", "()Ljava/util/concurrent/Executor;", "GetGetExecutorHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -467,6 +650,7 @@
         <summary>Returns the Executor used for asynchronous delivery.</summary>
         <value>the Executor used for asynchronous delivery</value>
         <remarks>
+          <para>Returns the Executor used for asynchronous delivery.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#getExecutor()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.getExecutor()</code>.</a>
@@ -492,6 +676,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("hasSubscribers", "()Z", "GetHasSubscribersHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("hasSubscribers", "()Z", "GetHasSubscribersHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -503,6 +691,7 @@
         <summary>Returns true if this publisher has any subscribers.</summary>
         <value>true if this publisher has any subscribers</value>
         <remarks>
+          <para>Returns true if this publisher has any subscribers.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#hasSubscribers()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.hasSubscribers()</code>.</a>
@@ -528,6 +717,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isClosed", "()Z", "GetIsClosedHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isClosed", "()Z", "GetIsClosedHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -539,6 +732,7 @@
         <summary>Returns true if this publisher is not accepting submissions.</summary>
         <value>true if closed</value>
         <remarks>
+          <para>Returns true if this publisher is not accepting submissions.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#isClosed()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.isClosed()</code>.</a>
@@ -566,6 +760,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("isSubscribed", "(Ljava/util/concurrent/Flow$Subscriber;)Z", "GetIsSubscribed_Ljava_util_concurrent_Flow_Subscriber_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("isSubscribed", "(Ljava/util/concurrent/Flow$Subscriber;)Z", "GetIsSubscribed_Ljava_util_concurrent_Flow_Subscriber_Handler", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -625,6 +823,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getMaxBufferCapacity", "()I", "GetGetMaxBufferCapacityHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getMaxBufferCapacity", "()I", "GetGetMaxBufferCapacityHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -636,6 +838,7 @@
         <summary>Returns the maximum per-subscriber buffer capacity.</summary>
         <value>the maximum per-subscriber buffer capacity</value>
         <remarks>
+          <para>Returns the maximum per-subscriber buffer capacity.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#getMaxBufferCapacity()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.getMaxBufferCapacity()</code>.</a>
@@ -661,6 +864,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getNumberOfSubscribers", "()I", "GetGetNumberOfSubscribersHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getNumberOfSubscribers", "()I", "GetGetNumberOfSubscribersHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -672,6 +879,7 @@
         <summary>Returns the number of current subscribers.</summary>
         <value>the number of current subscribers</value>
         <remarks>
+          <para>Returns the number of current subscribers.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#getNumberOfSubscribers()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.getNumberOfSubscribers()</code>.</a>
@@ -700,6 +908,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("offer", "(Ljava/lang/Object;Ljava/util/function/BiPredicate;)I", "GetOffer_Ljava_lang_Object_Ljava_util_function_BiPredicate_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("offer", "(Ljava/lang/Object;Ljava/util/function/BiPredicate;)I", "GetOffer_Ljava_lang_Object_Ljava_util_function_BiPredicate_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -718,6 +930,27 @@
         <returns>if negative, the (negative) number of drops; otherwise
             an estimate of maximum lag</returns>
         <remarks>
+          <para>Publishes the given item, if possible, to each current subscriber
+            by asynchronously invoking its <c>Flow.Subscriber#onNext(Object) onNext</c> method. The item may be
+            dropped by one or more subscribers if resource limits are
+            exceeded, in which case the given handler (if non-null) is
+            invoked, and if it returns true, retried once.  Other calls to
+            methods in this class by other threads are blocked while the
+            handler is invoked.  Unless recovery is assured, options are
+            usually limited to logging the error and/or issuing an <c>Flow.Subscriber#onError(Throwable) onError</c> signal to the
+            subscriber.</para>
+          <para>This method returns a status indicator: If negative, it
+            represents the (negative) number of drops (failed attempts to
+            issue the item to a subscriber). Otherwise it is an estimate of
+            the maximum lag (number of items submitted but not yet
+            consumed) among all current subscribers. This value is at least
+            one (accounting for this submitted item) if there are any
+            subscribers, else zero.</para>
+          <para>If the Executor for this publisher throws a
+            RejectedExecutionException (or any other RuntimeException or
+            Error) when attempting to asynchronously notify subscribers, or
+            the drop handler throws an exception when processing a dropped
+            item, then this exception is rethrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#offer(T,%20java.util.function.BiPredicate%3Cjava.util.concurrent.Flow.Subscriber%3C?%20super%20T%3E,%20?%20super%20T%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.offer(T, java.util.function.BiPredicate&lt;java.util.concurrent.Flow.Subscriber&lt;? super T&gt;, ? super T&gt;)</code>.</a>
@@ -745,6 +978,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("offer", "(Ljava/lang/Object;JLjava/util/concurrent/TimeUnit;Ljava/util/function/BiPredicate;)I", "GetOffer_Ljava_lang_Object_JLjava_util_concurrent_TimeUnit_Ljava_util_function_BiPredicate_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("offer", "(Ljava/lang/Object;JLjava/util/concurrent/TimeUnit;Ljava/util/function/BiPredicate;)I", "GetOffer_Ljava_lang_Object_JLjava_util_concurrent_TimeUnit_Ljava_util_function_BiPredicate_Handler", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -774,6 +1011,30 @@
         <returns>if negative, the (negative) number of drops; otherwise
             an estimate of maximum lag</returns>
         <remarks>
+          <para>Publishes the given item, if possible, to each current subscriber
+            by asynchronously invoking its <c>Flow.Subscriber#onNext(Object) onNext</c> method, blocking while
+            resources for any subscription are unavailable, up to the
+            specified timeout or until the caller thread is interrupted, at
+            which point the given handler (if non-null) is invoked, and if it
+            returns true, retried once. (The drop handler may distinguish
+            timeouts from interrupts by checking whether the current thread
+            is interrupted.)  Other calls to methods in this class by other
+            threads are blocked while the handler is invoked.  Unless
+            recovery is assured, options are usually limited to logging the
+            error and/or issuing an <c>Flow.Subscriber#onError(Throwable)
+            onError</c> signal to the subscriber.</para>
+          <para>This method returns a status indicator: If negative, it
+            represents the (negative) number of drops (failed attempts to
+            issue the item to a subscriber). Otherwise it is an estimate of
+            the maximum lag (number of items submitted but not yet
+            consumed) among all current subscribers. This value is at least
+            one (accounting for this submitted item) if there are any
+            subscribers, else zero.</para>
+          <para>If the Executor for this publisher throws a
+            RejectedExecutionException (or any other RuntimeException or
+            Error) when attempting to asynchronously notify subscribers, or
+            the drop handler throws an exception when processing a dropped
+            item, then this exception is rethrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#offer(T,%20long,%20java.util.concurrent.TimeUnit,%20java.util.function.BiPredicate%3Cjava.util.concurrent.Flow.Subscriber%3C?%20super%20T%3E,%20?%20super%20T%3E)" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.offer(T, long, java.util.concurrent.TimeUnit, java.util.function.BiPredicate&lt;java.util.concurrent.Flow.Subscriber&lt;? super T&gt;, ? super T&gt;)</code>.</a>
@@ -802,6 +1063,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("submit", "(Ljava/lang/Object;)I", "GetSubmit_Ljava_lang_Object_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("submit", "(Ljava/lang/Object;)I", "GetSubmit_Ljava_lang_Object_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -817,6 +1082,19 @@
             subscriber are unavailable.</summary>
         <returns>the estimated maximum lag among subscribers</returns>
         <remarks>
+          <para>Publishes the given item to each current subscriber by
+            asynchronously invoking its <c>Flow.Subscriber#onNext(Object)
+            onNext</c> method, blocking uninterruptibly while resources for any
+            subscriber are unavailable. This method returns an estimate of
+            the maximum lag (number of items submitted but not yet consumed)
+            among all current subscribers. This value is at least one
+            (accounting for this submitted item) if there are any
+            subscribers, else zero.</para>
+          <para>If the Executor for this publisher throws a
+            RejectedExecutionException (or any other RuntimeException or
+            Error) when attempting to asynchronously notify subscribers,
+            then this exception is rethrown, in which case not all
+            subscribers will have been issued this item.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#submit(T)" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.submit(T)</code>.</a>
@@ -848,6 +1126,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("subscribe", "(Ljava/util/concurrent/Flow$Subscriber;)V", "GetSubscribe_Ljava_util_concurrent_Flow_Subscriber_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("subscribe", "(Ljava/util/concurrent/Flow$Subscriber;)V", "GetSubscribe_Ljava_util_concurrent_Flow_Subscriber_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -873,6 +1155,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getSubscribers", "()Ljava/util/List;", "GetGetSubscribersHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getSubscribers", "()Ljava/util/List;", "GetGetSubscribersHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -886,6 +1172,9 @@
             methods on the subscribers.</summary>
         <value>list of current subscribers</value>
         <remarks>
+          <para>Returns a list of current subscribers for monitoring and
+            tracking purposes, not for invoking <c>Flow.Subscriber</c>
+            methods on the subscribers.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/SubmissionPublisher#getSubscribers()" title="Reference documentation">Java documentation for <code>java.util.concurrent.SubmissionPublisher.getSubscribers()</code>.</a>

@@ -33,6 +33,126 @@
   <Docs since="1">
     <summary>Object used to report movement (mouse, pen, finger, trackball) events.</summary>
     <remarks>
+      <para>Object used to report movement (mouse, pen, finger, trackball) events.
+            Motion events may hold either absolute or relative movements and other data,
+            depending on the type of device.
+            
+            &lt;h3&gt;Overview&lt;/h3&gt;</para>
+      <para>Motion events describe movements in terms of an action code and a set of axis values.
+            The action code specifies the state change that occurred such as a pointer going
+            down or up.  The axis values describe the position and other movement properties.</para>
+      <para>For example, when the user first touches the screen, the system delivers a touch
+            event to the appropriate <c>View</c> with the action code <c>#ACTION_DOWN</c>
+            and a set of axis values that include the X and Y coordinates of the touch and
+            information about the pressure, size and orientation of the contact area.</para>
+      <para>Some devices can report multiple movement traces at the same time.  Multi-touch
+            screens emit one movement trace for each finger.  The individual fingers or
+            other objects that generate movement traces are referred to as &lt;em&gt;pointers&lt;/em&gt;.
+            Motion events contain information about all of the pointers that are currently active
+            even if some of them have not moved since the last event was delivered.</para>
+      <para>The number of pointers only ever changes by one as individual pointers go up and down,
+            except when the gesture is canceled.</para>
+      <para>Each pointer has a unique id that is assigned when it first goes down
+            (indicated by <c>#ACTION_DOWN</c> or <c>#ACTION_POINTER_DOWN</c>).  A pointer id
+            remains valid until the pointer eventually goes up (indicated by <c>#ACTION_UP</c>
+            or <c>#ACTION_POINTER_UP</c>) or when the gesture is canceled (indicated by
+            <c>#ACTION_CANCEL</c>).</para>
+      <para>The MotionEvent class provides many methods to query the position and other properties of
+            pointers, such as <c>#getX(int)</c>, <c>#getY(int)</c>, <c>#getAxisValue</c>,
+            <c>#getPointerId(int)</c>, <c>#getToolType(int)</c>, and many others.  Most of these
+            methods accept the pointer index as a parameter rather than the pointer id.
+            The pointer index of each pointer in the event ranges from 0 to one less than the value
+            returned by <c>#getPointerCount()</c>.</para>
+      <para>The order in which individual pointers appear within a motion event is undefined.
+            Thus the pointer index of a pointer can change from one event to the next but
+            the pointer id of a pointer is guaranteed to remain constant as long as the pointer
+            remains active.  Use the <c>#getPointerId(int)</c> method to obtain the
+            pointer id of a pointer to track it across all subsequent motion events in a gesture.
+            Then for successive motion events, use the <c>#findPointerIndex(int)</c> method
+            to obtain the pointer index for a given pointer id in that motion event.</para>
+      <para>Mouse and stylus buttons can be retrieved using <c>#getButtonState()</c>.  It is a
+            good idea to check the button state while handling <c>#ACTION_DOWN</c> as part
+            of a touch event.  The application may choose to perform some different action
+            if the touch event starts due to a secondary button click, such as presenting a
+            context menu.</para>
+      <para>&lt;h3&gt;Batching&lt;/h3&gt;</para>
+      <para>For efficiency, motion events with <c>#ACTION_MOVE</c> may batch together
+            multiple movement samples within a single object.  The most current
+            pointer coordinates are available using <c>#getX(int)</c> and <c>#getY(int)</c>.
+            Earlier coordinates within the batch are accessed using <c>#getHistoricalX(int, int)</c>
+            and <c>#getHistoricalY(int, int)</c>.  The coordinates are "historical" only
+            insofar as they are older than the current coordinates in the batch; however,
+            they are still distinct from any other coordinates reported in prior motion events.
+            To process all coordinates in the batch in time order, first consume the historical
+            coordinates then consume the current coordinates.</para>
+      <para>Example: Consuming all samples for all pointers in a motion event in time order.</para>
+      <para />
+      <code lang="text/java">&lt;code&gt;
+            void printSamples(MotionEvent ev) {
+                final int historySize = ev.getHistorySize();
+                final int pointerCount = ev.getPointerCount();
+                for (int h = 0; h &amp;lt; historySize; h++) {
+                    System.out.printf("At time %d:", ev.getHistoricalEventTime(h));
+                    for (int p = 0; p &amp;lt; pointerCount; p++) {
+                        System.out.printf("  pointer %d: (%f,%f)",
+                            ev.getPointerId(p), ev.getHistoricalX(p, h), ev.getHistoricalY(p, h));
+                    }
+                }
+                System.out.printf("At time %d:", ev.getEventTime());
+                for (int p = 0; p &amp;lt; pointerCount; p++) {
+                    System.out.printf("  pointer %d: (%f,%f)",
+                        ev.getPointerId(p), ev.getX(p), ev.getY(p));
+                }
+            }
+            &lt;/code&gt;</code>
+      <para>&lt;/p&gt;
+            
+            &lt;h3&gt;Device Types&lt;/h3&gt;</para>
+      <para>The interpretation of the contents of a MotionEvent varies significantly depending
+            on the source class of the device.</para>
+      <para>On pointing devices with source class <c>InputDevice#SOURCE_CLASS_POINTER</c>
+            such as touch screens, the pointer coordinates specify absolute
+            positions such as view X/Y coordinates.  Each complete gesture is represented
+            by a sequence of motion events with actions that describe pointer state transitions
+            and movements.  A gesture starts with a motion event with <c>#ACTION_DOWN</c>
+            that provides the location of the first pointer down.  As each additional
+            pointer that goes down or up, the framework will generate a motion event with
+            <c>#ACTION_POINTER_DOWN</c> or <c>#ACTION_POINTER_UP</c> accordingly.
+            Pointer movements are described by motion events with <c>#ACTION_MOVE</c>.
+            Finally, a gesture end either when the final pointer goes up as represented
+            by a motion event with <c>#ACTION_UP</c> or when gesture is canceled
+            with <c>#ACTION_CANCEL</c>.</para>
+      <para>Some pointing devices such as mice may support vertical and/or horizontal scrolling.
+            A scroll event is reported as a generic motion event with <c>#ACTION_SCROLL</c> that
+            includes the relative scroll offset in the <c>#AXIS_VSCROLL</c> and
+            <c>#AXIS_HSCROLL</c> axes.  See <c>#getAxisValue(int)</c> for information
+            about retrieving these additional axes.</para>
+      <para>On trackball devices with source class <c>InputDevice#SOURCE_CLASS_TRACKBALL</c>,
+            the pointer coordinates specify relative movements as X/Y deltas.
+            A trackball gesture consists of a sequence of movements described by motion
+            events with <c>#ACTION_MOVE</c> interspersed with occasional <c>#ACTION_DOWN</c>
+            or <c>#ACTION_UP</c> motion events when the trackball button is pressed or released.</para>
+      <para>On joystick devices with source class <c>InputDevice#SOURCE_CLASS_JOYSTICK</c>,
+            the pointer coordinates specify the absolute position of the joystick axes.
+            The joystick axis values are normalized to a range of -1.0 to 1.0 where 0.0 corresponds
+            to the center position.  More information about the set of available axes and the
+            range of motion can be obtained using <c>InputDevice#getMotionRange</c>.
+            Some common joystick axes are <c>#AXIS_X</c>, <c>#AXIS_Y</c>,
+            <c>#AXIS_HAT_X</c>, <c>#AXIS_HAT_Y</c>, <c>#AXIS_Z</c> and <c>#AXIS_RZ</c>.</para>
+      <para>Refer to <c>InputDevice</c> for more information about how different kinds of
+            input devices and sources represent pointer coordinates.</para>
+      <para>&lt;h3&gt;Consistency Guarantees&lt;/h3&gt;</para>
+      <para>Motion events are always delivered to views as a consistent stream of events.
+            What constitutes a consistent stream varies depending on the type of device.
+            For touch events, consistency implies that pointers go down one at a time,
+            move around as a group and then go up one at a time or are canceled.</para>
+      <para>While the framework tries to deliver consistent streams of motion events to
+            views, it cannot guarantee it.  Some events may be dropped or modified by
+            containing views in the application before they are delivered thereby making
+            the stream of events inconsistent.  Views should always be prepared to
+            handle <c>#ACTION_CANCEL</c> and should tolerate anomalous
+            situations such as receiving a new <c>#ACTION_DOWN</c> without first having
+            received an <c>#ACTION_UP</c> for the prior gesture.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/view/MotionEvent" title="Reference documentation">Java documentation for <code>android.view.MotionEvent</code>.</a>
@@ -54,8 +174,8 @@
       <MemberSignature Language="F#" Value="member this.Action : Android.Views.MotionEventActions with get, set" Usage="Android.Views.MotionEvent.Action" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -76,12 +196,16 @@
             the combination of <c>#ACTION_POINTER_DOWN</c> with a shifted pointer index.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Return the kind of action being performed.
+            Consider using <c>#getActionMasked</c> and <c>#getActionIndex</c> to retrieve
+            the separate masked action and pointer index.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getAction()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getAction()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets this event's action.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#setAction(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.setAction(int)</code>.</a>
@@ -108,6 +232,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getActionButton", "()I", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getActionButton", "()I", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
@@ -119,6 +247,10 @@
         <summary>Gets which button has been modified during a press or release action.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Gets which button has been modified during a press or release action.
+            
+            For actions other than <c>#ACTION_BUTTON_PRESS</c> and <c>#ACTION_BUTTON_RELEASE</c>
+            the returned value is undefined.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getActionButton()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getActionButton()</code>.</a>
@@ -139,8 +271,8 @@
       <MemberSignature Language="F#" Value="member this.ActionIndex : int" Usage="Android.Views.MotionEvent.ActionIndex" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -157,6 +289,13 @@
             pointer index.</summary>
         <value>The index associated with the action.</value>
         <remarks>
+          <para>For <c>#ACTION_POINTER_DOWN</c> or <c>#ACTION_POINTER_UP</c>
+            as returned by <c>#getActionMasked</c>, this returns the associated
+            pointer index.
+            The index may be used with <c>#getPointerId(int)</c>,
+            <c>#getX(int)</c>, <c>#getY(int)</c>, <c>#getPressure(int)</c>,
+            and <c>#getSize(int)</c> to get information about the pointer that has
+            gone down or up.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getActionIndex()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getActionIndex()</code>.</a>
@@ -178,8 +317,8 @@
       <MemberSignature Language="F#" Value="member this.ActionMasked : Android.Views.MotionEventActions" Usage="Android.Views.MotionEvent.ActionMasked" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -194,6 +333,8 @@
         <summary>Return the masked action being performed, without pointer index information.</summary>
         <value>The action, such as <c>#ACTION_DOWN</c> or <c>#ACTION_POINTER_DOWN</c>.</value>
         <remarks>
+          <para>Return the masked action being performed, without pointer index information.
+            Use <c>#getActionIndex</c> to return the index associated with pointer actions.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getActionMasked()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getActionMasked()</code>.</a>
@@ -215,8 +356,8 @@
       <MemberSignature Language="F#" Value="static member ActionToString : Android.Views.MotionEventActions -&gt; string" Usage="Android.Views.MotionEvent.ActionToString action" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -244,6 +385,9 @@
             such as "35" if unknown.</summary>
         <returns>The symbolic name of the specified action.</returns>
         <remarks>
+          <para>Returns a string that represents the symbolic name of the specified unmasked action
+            such as "ACTION_DOWN", "ACTION_POINTER_DOWN(3)" or an equivalent numeric constant
+            such as "35" if unknown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#actionToString(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.actionToString(int)</code>.</a>
@@ -266,8 +410,8 @@
       <MemberSignature Language="F#" Value="member this.AddBatch : int64 * Android.Views.MotionEvent.PointerCoords[] * Android.Views.MetaKeyStates -&gt; unit" Usage="motionEvent.AddBatch (eventTime, pointerCoords, metaState)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -317,8 +461,8 @@
       <MemberSignature Language="F#" Value="member this.AddBatch : int64 * single * single * single * single * Android.Views.MetaKeyStates -&gt; unit" Usage="motionEvent.AddBatch (eventTime, x, y, pressure, size, metaState)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -353,6 +497,11 @@
         <param name="metaState">Meta key state.</param>
         <summary>Add a new movement to the batch of movements in this event.</summary>
         <remarks>
+          <para>Add a new movement to the batch of movements in this event.  The event's
+            current location, position and size is updated to the new values.
+            The current values in the event are added to a list of historical values.
+            
+            Only applies to <c>#ACTION_MOVE</c> or <c>#ACTION_HOVER_MOVE</c> events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#addBatch(long,%20float,%20float,%20float,%20float,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.addBatch(long, float, float, float, float, int)</code>.</a>
@@ -374,8 +523,8 @@
       <MemberSignature Language="F#" Value="static member AxisFromString : string -&gt; Android.Views.Axis" Usage="Android.Views.MotionEvent.AxisFromString symbolicName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -401,6 +550,8 @@
             equivalent numeric constant such as "42".</summary>
         <returns>The axis or -1 if not found.</returns>
         <remarks>
+          <para>Gets an axis by its symbolic name such as "AXIS_X" or an
+            equivalent numeric constant such as "42".</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#axisFromString(java.lang.String)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.axisFromString(java.lang.String)</code>.</a>
@@ -416,6 +567,271 @@
         <altmember cref="M:Android.Views.KeyEvent.KeyCodeToString(Android.Views.Keycode)" />
       </Docs>
     </Member>
+    <Member MemberName="AxisGesturePinchScaleFactor">
+      <MemberSignature Language="C#" Value="public const Android.Views.Axis AxisGesturePinchScaleFactor = 52;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Views.Axis AxisGesturePinchScaleFactor = (52)" />
+      <MemberSignature Language="DocId" Value="F:Android.Views.MotionEvent.AxisGesturePinchScaleFactor" />
+      <MemberSignature Language="F#" Value="val mutable AxisGesturePinchScaleFactor : Android.Views.Axis" Usage="Android.Views.MotionEvent.AxisGesturePinchScaleFactor" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("AXIS_GESTURE_PINCH_SCALE_FACTOR", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("AXIS_GESTURE_PINCH_SCALE_FACTOR", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.Axis enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.Axis enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.Axis</ReturnType>
+      </ReturnValue>
+      <MemberValue>52</MemberValue>
+      <Docs>
+        <summary>Axis constant: pinch scale factor of a motion event.</summary>
+        <remarks>
+          <para>Axis constant: pinch scale factor of a motion event.</para>
+          <para>&lt;ul&gt;
+            &lt;li&gt;For a touch pad, reports the change in distance between the fingers when the user is
+            making a pinch gesture, as a proportion of the previous distance. For example, if the fingers
+            were 50 units apart and are now 52 units apart, the scale factor would be 1.04.
+            &lt;/ul&gt;
+            These values are relative to the state from the last event, not accumulated, so developers
+            should make sure to process this axis value for all batched historical events.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/view/MotionEvent#AXIS_GESTURE_PINCH_SCALE_FACTOR" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.AXIS_GESTURE_PINCH_SCALE_FACTOR</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="AxisGestureScrollXDistance">
+      <MemberSignature Language="C#" Value="public const Android.Views.Axis AxisGestureScrollXDistance = 50;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Views.Axis AxisGestureScrollXDistance = (50)" />
+      <MemberSignature Language="DocId" Value="F:Android.Views.MotionEvent.AxisGestureScrollXDistance" />
+      <MemberSignature Language="F#" Value="val mutable AxisGestureScrollXDistance : Android.Views.Axis" Usage="Android.Views.MotionEvent.AxisGestureScrollXDistance" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("AXIS_GESTURE_SCROLL_X_DISTANCE", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("AXIS_GESTURE_SCROLL_X_DISTANCE", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.Axis enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.Axis enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.Axis</ReturnType>
+      </ReturnValue>
+      <MemberValue>50</MemberValue>
+      <Docs>
+        <summary>Axis constant: X scroll distance axis of a motion event.</summary>
+        <remarks>
+          <para>Axis constant: X scroll distance axis of a motion event.</para>
+          <para>&lt;ul&gt;
+            &lt;li&gt;For a touch pad, reports the distance that should be scrolled in the X axis as a result
+            of the user's two-finger scroll gesture, in display pixels.
+            &lt;/ul&gt;
+            These values are relative to the state from the last event, not accumulated, so developers
+            should make sure to process this axis value for all batched historical events.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/view/MotionEvent#AXIS_GESTURE_SCROLL_X_DISTANCE" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.AXIS_GESTURE_SCROLL_X_DISTANCE</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="AxisGestureScrollYDistance">
+      <MemberSignature Language="C#" Value="public const Android.Views.Axis AxisGestureScrollYDistance = 51;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Views.Axis AxisGestureScrollYDistance = (51)" />
+      <MemberSignature Language="DocId" Value="F:Android.Views.MotionEvent.AxisGestureScrollYDistance" />
+      <MemberSignature Language="F#" Value="val mutable AxisGestureScrollYDistance : Android.Views.Axis" Usage="Android.Views.MotionEvent.AxisGestureScrollYDistance" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("AXIS_GESTURE_SCROLL_Y_DISTANCE", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("AXIS_GESTURE_SCROLL_Y_DISTANCE", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.Axis enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.Axis enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.Axis</ReturnType>
+      </ReturnValue>
+      <MemberValue>51</MemberValue>
+      <Docs>
+        <summary>Axis constant: Y scroll distance axis of a motion event.</summary>
+        <remarks>
+          <para>Axis constant: Y scroll distance axis of a motion event.
+            
+            The same as <c>#AXIS_GESTURE_SCROLL_X_DISTANCE</c>, but for the Y axis.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/view/MotionEvent#AXIS_GESTURE_SCROLL_Y_DISTANCE" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.AXIS_GESTURE_SCROLL_Y_DISTANCE</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="AxisGestureXOffset">
+      <MemberSignature Language="C#" Value="public const Android.Views.Axis AxisGestureXOffset = 48;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Views.Axis AxisGestureXOffset = (48)" />
+      <MemberSignature Language="DocId" Value="F:Android.Views.MotionEvent.AxisGestureXOffset" />
+      <MemberSignature Language="F#" Value="val mutable AxisGestureXOffset : Android.Views.Axis" Usage="Android.Views.MotionEvent.AxisGestureXOffset" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("AXIS_GESTURE_X_OFFSET", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("AXIS_GESTURE_X_OFFSET", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.Axis enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.Axis enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.Axis</ReturnType>
+      </ReturnValue>
+      <MemberValue>48</MemberValue>
+      <Docs>
+        <summary>Axis constant: X gesture offset axis of a motion event.</summary>
+        <remarks>
+          <para>Axis constant: X gesture offset axis of a motion event.</para>
+          <para>&lt;ul&gt;
+            &lt;li&gt;For a touch pad, reports the distance that a swipe gesture has moved in the X axis, as a
+            proportion of the touch pad's size. For example, if a touch pad is 1000 units wide, and a
+            swipe gesture starts at X = 500 then moves to X = 400, this axis would have a value of
+            -0.1.
+            &lt;/ul&gt;
+            These values are relative to the state from the last event, not accumulated, so developers
+            should make sure to process this axis value for all batched historical events.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/view/MotionEvent#AXIS_GESTURE_X_OFFSET" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.AXIS_GESTURE_X_OFFSET</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="AxisGestureYOffset">
+      <MemberSignature Language="C#" Value="public const Android.Views.Axis AxisGestureYOffset = 49;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Views.Axis AxisGestureYOffset = (49)" />
+      <MemberSignature Language="DocId" Value="F:Android.Views.MotionEvent.AxisGestureYOffset" />
+      <MemberSignature Language="F#" Value="val mutable AxisGestureYOffset : Android.Views.Axis" Usage="Android.Views.MotionEvent.AxisGestureYOffset" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("AXIS_GESTURE_Y_OFFSET", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("AXIS_GESTURE_Y_OFFSET", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.Axis enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.Axis enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.Axis</ReturnType>
+      </ReturnValue>
+      <MemberValue>49</MemberValue>
+      <Docs>
+        <summary>Axis constant: Y gesture offset axis of a motion event.</summary>
+        <remarks>
+          <para>Axis constant: Y gesture offset axis of a motion event.
+            
+            The same as <c>#AXIS_GESTURE_X_OFFSET</c>, but for the Y axis.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/view/MotionEvent#AXIS_GESTURE_Y_OFFSET" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.AXIS_GESTURE_Y_OFFSET</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
     <Member MemberName="AxisToString">
       <MemberSignature Language="C#" Value="public static string? AxisToString (Android.Views.Axis axis);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig string AxisToString(valuetype Android.Views.Axis axis) cil managed" />
@@ -423,8 +839,8 @@
       <MemberSignature Language="F#" Value="static member AxisToString : Android.Views.Axis -&gt; string" Usage="Android.Views.MotionEvent.AxisToString axis" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -451,6 +867,8 @@
             such as "AXIS_X" or an equivalent numeric constant such as "42" if unknown.</summary>
         <returns>The symbolic name of the specified axis.</returns>
         <remarks>
+          <para>Returns a string that represents the symbolic name of the specified axis
+            such as "AXIS_X" or an equivalent numeric constant such as "42" if unknown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#axisToString(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.axisToString(int)</code>.</a>
@@ -475,8 +893,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -495,6 +913,9 @@
       <Docs>
         <summary>Button constant: Back button pressed (mouse back button).</summary>
         <remarks>
+          <para>Button constant: Back button pressed (mouse back button).</para>
+          <para>The system may send a <c>KeyEvent#KEYCODE_BACK</c> key press to the application
+            when this button is pressed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#BUTTON_BACK" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.BUTTON_BACK</code>.</a>
@@ -520,8 +941,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -540,6 +961,9 @@
       <Docs>
         <summary>Button constant: Forward button pressed (mouse forward button).</summary>
         <remarks>
+          <para>Button constant: Forward button pressed (mouse forward button).</para>
+          <para>The system may send a <c>KeyEvent#KEYCODE_FORWARD</c> key press to the application
+            when this button is pressed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#BUTTON_FORWARD" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.BUTTON_FORWARD</code>.</a>
@@ -565,8 +989,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -585,6 +1009,9 @@
       <Docs>
         <summary>Button constant: Primary button (left mouse button).</summary>
         <remarks>
+          <para>Button constant: Primary button (left mouse button).</para>
+          <para>This button constant is not set in response to simple touches with a finger
+            or stylus tip.  The user must actually push a button.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#BUTTON_PRIMARY" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.BUTTON_PRIMARY</code>.</a>
@@ -610,8 +1037,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -630,6 +1057,7 @@
       <Docs>
         <summary>Button constant: Secondary button (right mouse button).</summary>
         <remarks>
+          <para>Button constant: Secondary button (right mouse button).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#BUTTON_SECONDARY" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.BUTTON_SECONDARY</code>.</a>
@@ -652,8 +1080,8 @@
       <MemberSignature Language="F#" Value="member this.ButtonState : Android.Views.MotionEventButtonState" Usage="Android.Views.MotionEvent.ButtonState" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -668,6 +1096,7 @@
         <summary>Gets the state of all buttons that are pressed such as a mouse or stylus button.</summary>
         <value>The button state.</value>
         <remarks>
+          <para>Gets the state of all buttons that are pressed such as a mouse or stylus button.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getButtonState()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getButtonState()</code>.</a>
@@ -711,6 +1140,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.MotionEventButtonState enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.MotionEventButtonState enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.MotionEventButtonState</ReturnType>
@@ -719,6 +1152,7 @@
       <Docs>
         <summary>Button constant: Primary stylus button pressed.</summary>
         <remarks>
+          <para>Button constant: Primary stylus button pressed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#BUTTON_STYLUS_PRIMARY" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.BUTTON_STYLUS_PRIMARY</code>.</a>
@@ -754,6 +1188,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.MotionEventButtonState enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.MotionEventButtonState enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.MotionEventButtonState</ReturnType>
@@ -762,6 +1200,7 @@
       <Docs>
         <summary>Button constant: Secondary stylus button pressed.</summary>
         <remarks>
+          <para>Button constant: Secondary stylus button pressed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#BUTTON_STYLUS_SECONDARY" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.BUTTON_STYLUS_SECONDARY</code>.</a>
@@ -785,8 +1224,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -805,6 +1244,7 @@
       <Docs>
         <summary>Button constant: Tertiary button (middle mouse button).</summary>
         <remarks>
+          <para>Button constant: Tertiary button (middle mouse button).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#BUTTON_TERTIARY" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.BUTTON_TERTIARY</code>.</a>
@@ -832,6 +1272,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getClassification", "()I", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getClassification", "()I", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -843,6 +1287,8 @@
         <summary>Returns the classification for the current gesture.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the classification for the current gesture.
+            The classification may change as more events become available for the same gesture.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getClassification()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getClassification()</code>.</a>
@@ -878,6 +1324,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.ClassificationMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.ClassificationMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.ClassificationMode</ReturnType>
@@ -886,6 +1336,10 @@
       <Docs>
         <summary>Classification constant: Ambiguous gesture.</summary>
         <remarks>
+          <para>Classification constant: Ambiguous gesture.</para>
+          <para>The user's intent with respect to the current event stream is not yet determined.
+            Gestural actions, such as scrolling, should be inhibited until the classification resolves
+            to another value or the event stream ends.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#CLASSIFICATION_AMBIGUOUS_GESTURE" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.CLASSIFICATION_AMBIGUOUS_GESTURE</code>.</a>
@@ -921,6 +1375,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.ClassificationMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.ClassificationMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.ClassificationMode</ReturnType>
@@ -929,6 +1387,9 @@
       <Docs>
         <summary>Classification constant: Deep press.</summary>
         <remarks>
+          <para>Classification constant: Deep press.</para>
+          <para>The current event stream represents the user intentionally pressing harder on the screen.
+            This classification type should be used to accelerate the long press behaviour.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#CLASSIFICATION_DEEP_PRESS" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.CLASSIFICATION_DEEP_PRESS</code>.</a>
@@ -964,6 +1425,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.ClassificationMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.ClassificationMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.ClassificationMode</ReturnType>
@@ -972,9 +1437,110 @@
       <Docs>
         <summary>Classification constant: None.</summary>
         <remarks>
+          <para>Classification constant: None.</para>
+          <para>No additional information is available about the current motion event stream.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#CLASSIFICATION_NONE" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.CLASSIFICATION_NONE</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="ClassificationPinch">
+      <MemberSignature Language="C#" Value="public const Android.Views.ClassificationMode ClassificationPinch = 5;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Views.ClassificationMode ClassificationPinch = (5)" />
+      <MemberSignature Language="DocId" Value="F:Android.Views.MotionEvent.ClassificationPinch" />
+      <MemberSignature Language="F#" Value="val mutable ClassificationPinch : Android.Views.ClassificationMode" Usage="Android.Views.MotionEvent.ClassificationPinch" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("CLASSIFICATION_PINCH", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("CLASSIFICATION_PINCH", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.ClassificationMode enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.ClassificationMode enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.ClassificationMode</ReturnType>
+      </ReturnValue>
+      <MemberValue>5</MemberValue>
+      <Docs>
+        <summary>Classification constant: touchpad pinch.</summary>
+        <remarks>
+          <para>Classification constant: touchpad pinch.</para>
+          <para>The current event stream represents the user pinching with two fingers on a touchpad. The
+            gesture is centered around the current cursor position.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/view/MotionEvent#CLASSIFICATION_PINCH" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.CLASSIFICATION_PINCH</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
+    <Member MemberName="ClassificationTwoFingerSwipe">
+      <MemberSignature Language="C#" Value="public const Android.Views.ClassificationMode ClassificationTwoFingerSwipe = 3;" />
+      <MemberSignature Language="ILAsm" Value=".field public static literal valuetype Android.Views.ClassificationMode ClassificationTwoFingerSwipe = (3)" />
+      <MemberSignature Language="DocId" Value="F:Android.Views.MotionEvent.ClassificationTwoFingerSwipe" />
+      <MemberSignature Language="F#" Value="val mutable ClassificationTwoFingerSwipe : Android.Views.ClassificationMode" Usage="Android.Views.MotionEvent.ClassificationTwoFingerSwipe" />
+      <MemberType>Field</MemberType>
+      <Implements>
+        <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
+      </Implements>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("CLASSIFICATION_TWO_FINGER_SWIPE", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("CLASSIFICATION_TWO_FINGER_SWIPE", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.ClassificationMode enum directly instead of this field.", true)]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.ClassificationMode enum directly instead of this field.", true)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.ClassificationMode</ReturnType>
+      </ReturnValue>
+      <MemberValue>3</MemberValue>
+      <Docs>
+        <summary>Classification constant: touchpad scroll.</summary>
+        <remarks>
+          <para>Classification constant: touchpad scroll.</para>
+          <para>The current event stream represents the user scrolling with two fingers on a touchpad.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/view/MotionEvent#CLASSIFICATION_TWO_FINGER_SWIPE" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.CLASSIFICATION_TWO_FINGER_SWIPE</code>.</a>
             </format>
           </para>
           <para>
@@ -989,11 +1555,11 @@
       <MemberSignature Language="C#" Value="public static Android.OS.IParcelableCreator? Creator { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.OS.IParcelableCreator Creator" />
       <MemberSignature Language="DocId" Value="P:Android.Views.MotionEvent.Creator" />
-      <MemberSignature Language="F#" Value="member this.Creator : Android.OS.IParcelableCreator" Usage="Android.Views.MotionEvent.Creator" />
+      <MemberSignature Language="F#" Value="static member Creator : Android.OS.IParcelableCreator" Usage="Android.Views.MotionEvent.Creator" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1021,8 +1587,8 @@
       <MemberSignature Language="F#" Value="member this.DeviceId : int" Usage="Android.Views.MotionEvent.DeviceId" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1037,6 +1603,7 @@
         <summary>To be added</summary>
         <value>To be added.</value>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getDeviceId()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getDeviceId()</code>.</a>
@@ -1058,8 +1625,8 @@
       <MemberSignature Language="F#" Value="member this.DownTime : int64" Usage="Android.Views.MotionEvent.DownTime" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1075,6 +1642,8 @@
             a stream of position events.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the time (in ms) when the user originally pressed down to start
+            a stream of position events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getDownTime()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getDownTime()</code>.</a>
@@ -1096,8 +1665,8 @@
       <MemberSignature Language="F#" Value="member this.EdgeFlags : Android.Views.Edge with get, set" Usage="Android.Views.MotionEvent.EdgeFlags" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1119,12 +1688,19 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns a bitfield indicating which edges, if any, were touched by this
+            MotionEvent. For touch events, clients can use this to determine if the
+            user's finger was touching the edge of the display.
+            
+            This property is only set for <c>#ACTION_DOWN</c> events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getEdgeFlags()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getEdgeFlags()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Sets the bitfield indicating which edges, if any, were touched by this
+            MotionEvent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#setEdgeFlags(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.setEdgeFlags(int)</code>.</a>
@@ -1147,8 +1723,8 @@
       <MemberSignature Language="F#" Value="member this.EventTime : int64" Usage="Android.Views.MotionEvent.EventTime" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1165,6 +1741,8 @@
         <value>Returns the time this event occurred,
             in the <c>android.os.SystemClock#uptimeMillis</c> time base.</value>
         <remarks>
+          <para>Retrieve the time this event occurred,
+            in the <c>android.os.SystemClock#uptimeMillis</c> time base.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getEventTime()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getEventTime()</code>.</a>
@@ -1179,6 +1757,54 @@
         <since version="Added in API level 1" />
       </Docs>
     </Member>
+    <Member MemberName="EventTimeNanos">
+      <MemberSignature Language="C#" Value="public long EventTimeNanos { get; }" />
+      <MemberSignature Language="ILAsm" Value=".property instance int64 EventTimeNanos" />
+      <MemberSignature Language="DocId" Value="P:Android.Views.MotionEvent.EventTimeNanos" />
+      <MemberSignature Language="F#" Value="member this.EventTimeNanos : int64" Usage="Android.Views.MotionEvent.EventTimeNanos" />
+      <MemberType>Property</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: Android.Runtime.Register("getEventTimeNanos", "()J", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getEventTimeNanos", "()J", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Int64</ReturnType>
+      </ReturnValue>
+      <Docs>
+        <summary>Retrieve the time this event occurred,
+            in the <c>android.os.SystemClock#uptimeMillis</c> time base but with
+            nanosecond precision.</summary>
+        <value>Returns the time this event occurred,
+            in the <c>android.os.SystemClock#uptimeMillis</c> time base but with
+            nanosecond precision.</value>
+        <remarks>
+          <para>Retrieve the time this event occurred,
+            in the <c>android.os.SystemClock#uptimeMillis</c> time base but with
+            nanosecond precision.</para>
+          <para>The value is in nanosecond precision but it may not have nanosecond accuracy.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/view/MotionEvent#getEventTimeNanos()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getEventTimeNanos()</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
     <Member MemberName="FindPointerIndex">
       <MemberSignature Language="C#" Value="public int FindPointerIndex (int pointerId);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance int32 FindPointerIndex(int32 pointerId) cil managed" />
@@ -1186,8 +1812,8 @@
       <MemberSignature Language="F#" Value="member this.FindPointerIndex : int -&gt; int" Usage="motionEvent.FindPointerIndex pointerId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1208,6 +1834,7 @@
             <c>#getX(int)</c> et al.), or -1 if there is no data available for
             that pointer identifier.</returns>
         <remarks>
+          <para>Given a pointer identifier, find the index of its data in the event.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#findPointerIndex(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.findPointerIndex(int)</code>.</a>
@@ -1240,6 +1867,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("FLAG_CANCELED", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("FLAG_CANCELED", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -1248,6 +1879,12 @@
       <Docs>
         <summary>This flag is only set for events with <c>#ACTION_POINTER_UP</c> and <c>#ACTION_CANCEL</c>.</summary>
         <remarks>
+          <para>This flag is only set for events with <c>#ACTION_POINTER_UP</c> and <c>#ACTION_CANCEL</c>.
+            It indicates that the pointer going up was an unintentional user touch. When FLAG_CANCELED
+            is set, the typical actions that occur in response for a pointer going up (such as click
+            handlers, end of drawing) should be aborted. This flag is typically set when the user was
+            accidentally touching the screen, such as by gripping the device, or placing the palm on the
+            screen.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#FLAG_CANCELED" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.FLAG_CANCELED</code>.</a>
@@ -1268,8 +1905,8 @@
       <MemberSignature Language="F#" Value="member this.Flags : Android.Views.MotionEventFlags" Usage="Android.Views.MotionEvent.Flags" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1284,6 +1921,7 @@
         <summary>Gets the motion event flags.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Gets the motion event flags.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getFlags()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getFlags()</code>.</a>
@@ -1309,8 +1947,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1331,6 +1969,14 @@
             or wholly obscured by another visible window above it and the event directly passed through
             the obscured area.</summary>
         <remarks>
+          <para>This flag indicates that the window that received this motion event is partly
+            or wholly obscured by another visible window above it and the event directly passed through
+            the obscured area.</para>
+          <para>A security sensitive application can check this flag to identify situations in which
+            a malicious application may have covered up part of its content for the purpose
+            of misleading the user or hijacking touches.  An appropriate response might be
+            to drop the suspect touches or to take additional precautions to confirm the user's
+            actual intent.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#FLAG_WINDOW_IS_OBSCURED" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.FLAG_WINDOW_IS_OBSCURED</code>.</a>
@@ -1367,6 +2013,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.MotionEventFlags enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.MotionEventFlags enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.MotionEventFlags</ReturnType>
@@ -1377,6 +2027,16 @@
             or wholly obscured by another visible window above it and the event did not directly pass
             through the obscured area.</summary>
         <remarks>
+          <para>This flag indicates that the window that received this motion event is partly
+            or wholly obscured by another visible window above it and the event did not directly pass
+            through the obscured area.</para>
+          <para>A security sensitive application can check this flag to identify situations in which
+            a malicious application may have covered up part of its content for the purpose
+            of misleading the user or hijacking touches.  An appropriate response might be
+            to drop the suspect touches or to take additional precautions to confirm the user's
+            actual intent.</para>
+          <para>Unlike FLAG_WINDOW_IS_OBSCURED, this is only true if the window that received this event is
+            obstructed in areas other than the touched location.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#FLAG_WINDOW_IS_PARTIALLY_OBSCURED" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED</code>.</a>
@@ -1397,8 +2057,8 @@
       <MemberSignature Language="F#" Value="member this.GetAxisValue : Android.Views.Axis -&gt; single" Usage="motionEvent.GetAxisValue axis" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1427,6 +2087,9 @@
         <returns>To be added.</returns>
         <remarks>
           <para>
+            <c>#getAxisValue(int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
+          <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getAxisValue(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getAxisValue(int)</code>.</a>
             </format>
@@ -1447,8 +2110,8 @@
       <MemberSignature Language="F#" Value="member this.GetAxisValue : Android.Views.Axis * int -&gt; single" Usage="motionEvent.GetAxisValue (axis, pointerIndex)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1478,6 +2141,8 @@
             (use <c>#getPointerId(int)</c> to find the pointer identifier for this index).</summary>
         <returns>The value of the axis, or 0 if the axis is not available.</returns>
         <remarks>
+          <para>Returns the value of the requested axis for the given pointer &lt;em&gt;index&lt;/em&gt;
+            (use <c>#getPointerId(int)</c> to find the pointer identifier for this index).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getAxisValue(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getAxisValue(int, int)</code>.</a>
@@ -1499,8 +2164,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalAxisValue : Android.Views.Axis * int -&gt; single" Usage="motionEvent.GetHistoricalAxisValue (axis, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1532,6 +2197,9 @@
         <returns>To be added.</returns>
         <remarks>
           <para>
+            <c>#getHistoricalAxisValue(int, int, int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
+          <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalAxisValue(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalAxisValue(int, int)</code>.</a>
             </format>
@@ -1554,8 +2222,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalAxisValue : Android.Views.Axis * int * int -&gt; single" Usage="motionEvent.GetHistoricalAxisValue (axis, pointerIndex, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1588,6 +2256,9 @@
             occurred between this event and the previous event for the given pointer.</summary>
         <returns>The value of the axis, or 0 if the axis is not available.</returns>
         <remarks>
+          <para>Returns the historical value of the requested axis, as per <c>#getAxisValue(int, int)</c>,
+            occurred between this event and the previous event for the given pointer.
+            Only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalAxisValue(int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalAxisValue(int, int, int)</code>.</a>
@@ -1609,8 +2280,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalEventTime : int -&gt; int64" Usage="motionEvent.GetHistoricalEventTime pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1633,6 +2304,9 @@
             event and the previous event,
             in the <c>android.os.SystemClock#uptimeMillis</c> time base.</returns>
         <remarks>
+          <para>Returns the time that a historical movement occurred between this event
+            and the previous event, in the <c>android.os.SystemClock#uptimeMillis</c> time base.</para>
+          <para>This only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalEventTime(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalEventTime(int)</code>.</a>
@@ -1649,6 +2323,61 @@
         <altmember cref="P:Android.Views.MotionEvent.EventTime" />
       </Docs>
     </Member>
+    <Member MemberName="GetHistoricalEventTimeNanos">
+      <MemberSignature Language="C#" Value="public long GetHistoricalEventTimeNanos (int pos);" />
+      <MemberSignature Language="ILAsm" Value=".method public hidebysig instance int64 GetHistoricalEventTimeNanos(int32 pos) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Views.MotionEvent.GetHistoricalEventTimeNanos(System.Int32)" />
+      <MemberSignature Language="F#" Value="member this.GetHistoricalEventTimeNanos : int -&gt; int64" Usage="motionEvent.GetHistoricalEventTimeNanos pos" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("getHistoricalEventTimeNanos", "(I)J", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("getHistoricalEventTimeNanos", "(I)J", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>System.Int64</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="pos" Type="System.Int32" />
+      </Parameters>
+      <Docs>
+        <param name="pos">Which historical value to return; must be less than
+            <c>#getHistorySize</c></param>
+        <summary>Returns the time that a historical movement occurred between this event
+            and the previous event, in the <c>android.os.SystemClock#uptimeMillis</c> time base
+            but with nanosecond (instead of millisecond) precision.</summary>
+        <returns>Returns the time that a historical movement occurred between this
+            event and the previous event,
+            in the <c>android.os.SystemClock#uptimeMillis</c> time base but with
+            nanosecond (instead of millisecond) precision.</returns>
+        <remarks>
+          <para>Returns the time that a historical movement occurred between this event
+            and the previous event, in the <c>android.os.SystemClock#uptimeMillis</c> time base
+            but with nanosecond (instead of millisecond) precision.</para>
+          <para>This only applies to ACTION_MOVE events.</para>
+          <para>The value is in nanosecond precision but it may not have nanosecond accuracy.</para>
+          <para>
+            <format type="text/html">
+              <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalEventTimeNanos(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalEventTimeNanos(int)</code>.</a>
+            </format>
+          </para>
+          <para>
+                    Portions of this page are modifications based on work created and shared by the 
+                    <format type="text/html"><a href="https://developers.google.com/terms/site-policies" title="Android Open Source Project">Android Open Source Project</a></format>
+                     and used according to terms described in the 
+                    <format type="text/html"><a href="https://creativecommons.org/licenses/by/2.5/" title="Creative Commons 2.5 Attribution License">Creative Commons 2.5 Attribution License.</a></format></para>
+        </remarks>
+      </Docs>
+    </Member>
     <Member MemberName="GetHistoricalOrientation">
       <MemberSignature Language="C#" Value="public float GetHistoricalOrientation (int pos);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig instance float32 GetHistoricalOrientation(int32 pos) cil managed" />
@@ -1656,8 +2385,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalOrientation : int -&gt; single" Usage="motionEvent.GetHistoricalOrientation pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1679,6 +2408,9 @@
             arbitrary pointer identifier).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>
+            <c>#getHistoricalOrientation(int, int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalOrientation(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalOrientation(int)</code>.</a>
@@ -1702,8 +2434,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalOrientation : int * int -&gt; single" Usage="motionEvent.GetHistoricalOrientation (pointerIndex, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1727,6 +2459,9 @@
             occurred between this event and the previous event for the given pointer.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a historical orientation coordinate, as per <c>#getOrientation(int)</c>, that
+            occurred between this event and the previous event for the given pointer.
+            Only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalOrientation(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalOrientation(int, int)</code>.</a>
@@ -1750,8 +2485,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalPointerCoords : int * int * Android.Views.MotionEvent.PointerCoords -&gt; unit" Usage="motionEvent.GetHistoricalPointerCoords (pointerIndex, pos, outPointerCoords)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1800,8 +2535,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalPressure : int -&gt; single" Usage="motionEvent.GetHistoricalPressure pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1823,6 +2558,9 @@
             arbitrary pointer identifier).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>
+            <c>#getHistoricalPressure(int, int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalPressure(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalPressure(int)</code>.</a>
@@ -1846,8 +2584,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalPressure : int * int -&gt; single" Usage="motionEvent.GetHistoricalPressure (pointerIndex, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1872,6 +2610,9 @@
             pointer.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a historical pressure coordinate, as per <c>#getPressure(int)</c>,
+            that occurred between this event and the previous event for the given
+            pointer.  Only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalPressure(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalPressure(int, int)</code>.</a>
@@ -1895,8 +2636,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalSize : int -&gt; single" Usage="motionEvent.GetHistoricalSize pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1918,6 +2659,9 @@
             arbitrary pointer identifier).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>
+            <c>#getHistoricalSize(int, int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalSize(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalSize(int)</code>.</a>
@@ -1941,8 +2685,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalSize : int * int -&gt; single" Usage="motionEvent.GetHistoricalSize (pointerIndex, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1966,6 +2710,9 @@
             occurred between this event and the previous event for the given pointer.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a historical size coordinate, as per <c>#getSize(int)</c>, that
+            occurred between this event and the previous event for the given pointer.
+            Only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalSize(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalSize(int, int)</code>.</a>
@@ -1989,8 +2736,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalToolMajor : int -&gt; single" Usage="motionEvent.GetHistoricalToolMajor pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2012,6 +2759,9 @@
             arbitrary pointer identifier).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>
+            <c>#getHistoricalToolMajor(int, int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalToolMajor(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalToolMajor(int)</code>.</a>
@@ -2035,8 +2785,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalToolMajor : int * int -&gt; single" Usage="motionEvent.GetHistoricalToolMajor (pointerIndex, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2060,6 +2810,9 @@
             occurred between this event and the previous event for the given pointer.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a historical tool major axis coordinate, as per <c>#getToolMajor(int)</c>, that
+            occurred between this event and the previous event for the given pointer.
+            Only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalToolMajor(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalToolMajor(int, int)</code>.</a>
@@ -2083,8 +2836,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalToolMinor : int -&gt; single" Usage="motionEvent.GetHistoricalToolMinor pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2106,6 +2859,9 @@
             arbitrary pointer identifier).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>
+            <c>#getHistoricalToolMinor(int, int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalToolMinor(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalToolMinor(int)</code>.</a>
@@ -2129,8 +2885,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalToolMinor : int * int -&gt; single" Usage="motionEvent.GetHistoricalToolMinor (pointerIndex, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2154,6 +2910,9 @@
             occurred between this event and the previous event for the given pointer.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a historical tool minor axis coordinate, as per <c>#getToolMinor(int)</c>, that
+            occurred between this event and the previous event for the given pointer.
+            Only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalToolMinor(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalToolMinor(int, int)</code>.</a>
@@ -2177,8 +2936,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalTouchMajor : int -&gt; single" Usage="motionEvent.GetHistoricalTouchMajor pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2200,6 +2959,9 @@
             arbitrary pointer identifier).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>
+            <c>#getHistoricalTouchMajor(int, int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalTouchMajor(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalTouchMajor(int)</code>.</a>
@@ -2223,8 +2985,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalTouchMajor : int * int -&gt; single" Usage="motionEvent.GetHistoricalTouchMajor (pointerIndex, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2248,6 +3010,9 @@
             occurred between this event and the previous event for the given pointer.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a historical touch major axis coordinate, as per <c>#getTouchMajor(int)</c>, that
+            occurred between this event and the previous event for the given pointer.
+            Only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalTouchMajor(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalTouchMajor(int, int)</code>.</a>
@@ -2271,8 +3036,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalTouchMinor : int -&gt; single" Usage="motionEvent.GetHistoricalTouchMinor pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2294,6 +3059,9 @@
             arbitrary pointer identifier).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>
+            <c>#getHistoricalTouchMinor(int, int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalTouchMinor(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalTouchMinor(int)</code>.</a>
@@ -2317,8 +3085,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalTouchMinor : int * int -&gt; single" Usage="motionEvent.GetHistoricalTouchMinor (pointerIndex, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2342,6 +3110,9 @@
             occurred between this event and the previous event for the given pointer.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a historical touch minor axis coordinate, as per <c>#getTouchMinor(int)</c>, that
+            occurred between this event and the previous event for the given pointer.
+            Only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalTouchMinor(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalTouchMinor(int, int)</code>.</a>
@@ -2365,8 +3136,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalX : int -&gt; single" Usage="motionEvent.GetHistoricalX pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2388,6 +3159,9 @@
             arbitrary pointer identifier).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>
+            <c>#getHistoricalX(int, int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalX(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalX(int)</code>.</a>
@@ -2411,8 +3185,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalX : int * int -&gt; single" Usage="motionEvent.GetHistoricalX (pointerIndex, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2436,6 +3210,9 @@
             occurred between this event and the previous event for the given pointer.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a historical X coordinate, as per <c>#getX(int)</c>, that
+            occurred between this event and the previous event for the given pointer.
+            Only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalX(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalX(int, int)</code>.</a>
@@ -2459,8 +3236,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalY : int -&gt; single" Usage="motionEvent.GetHistoricalY pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2482,6 +3259,9 @@
             arbitrary pointer identifier).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>
+            <c>#getHistoricalY(int, int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalY(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalY(int)</code>.</a>
@@ -2505,8 +3285,8 @@
       <MemberSignature Language="F#" Value="member this.GetHistoricalY : int * int -&gt; single" Usage="motionEvent.GetHistoricalY (pointerIndex, pos)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2530,6 +3310,9 @@
             occurred between this event and the previous event for the given pointer.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a historical Y coordinate, as per <c>#getY(int)</c>, that
+            occurred between this event and the previous event for the given pointer.
+            Only applies to ACTION_MOVE events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistoricalY(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistoricalY(int, int)</code>.</a>
@@ -2553,8 +3336,8 @@
       <MemberSignature Language="F#" Value="member this.GetOrientation : int -&gt; single" Usage="motionEvent.GetOrientation pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2576,6 +3359,15 @@
             identifier for this index).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the orientation of the touch area and tool area in radians clockwise from vertical
+            for the given pointer &lt;em&gt;index&lt;/em&gt; (use <c>#getPointerId(int)</c> to find the pointer
+            identifier for this index).
+            An angle of 0 radians indicates that the major axis of contact is oriented
+            upwards, is perfectly circular or is of unknown orientation.  A positive angle
+            indicates that the major axis of contact is oriented to the right.  A negative angle
+            indicates that the major axis of contact is oriented to the left.
+            The full range is from -PI/2 radians (finger pointing fully left) to PI/2 radians
+            (finger pointing fully right).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getOrientation(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getOrientation(int)</code>.</a>
@@ -2597,8 +3389,8 @@
       <MemberSignature Language="F#" Value="member this.GetPointerCoords : int * Android.Views.MotionEvent.PointerCoords -&gt; unit" Usage="motionEvent.GetPointerCoords (pointerIndex, outPointerCoords)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2641,8 +3433,8 @@
       <MemberSignature Language="F#" Value="member this.GetPointerId : int -&gt; int" Usage="motionEvent.GetPointerId pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2663,6 +3455,10 @@
             data index in this event.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return the pointer identifier associated with a particular pointer
+            data index in this event.  The identifier tells you the actual pointer
+            number associated with the data, accounting for individual pointers
+            going up and down since the start of the current gesture.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getPointerId(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getPointerId(int)</code>.</a>
@@ -2684,8 +3480,8 @@
       <MemberSignature Language="F#" Value="member this.GetPointerProperties : int * Android.Views.MotionEvent.PointerProperties -&gt; unit" Usage="motionEvent.GetPointerProperties (pointerIndex, outPointerProperties)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2728,8 +3524,8 @@
       <MemberSignature Language="F#" Value="member this.GetPressure : int -&gt; single" Usage="motionEvent.GetPressure pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2751,6 +3547,13 @@
             identifier for this index).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the current pressure of this event for the given pointer
+            &lt;em&gt;index&lt;/em&gt; (use <c>#getPointerId(int)</c> to find the pointer
+            identifier for this index).
+            The pressure generally
+            ranges from 0 (no pressure at all) to 1 (normal pressure), however
+            values higher than 1 may be generated depending on the calibration of
+            the input device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getPressure(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getPressure(int)</code>.</a>
@@ -2780,6 +3583,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getRawX", "(I)F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getRawX", "(I)F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Single</ReturnType>
@@ -2798,6 +3605,27 @@
                  value may contain a fractional portion for devices that are subpixel
                  precise.</returns>
         <remarks>
+          <para>Returns the X coordinate of the pointer referenced by
+            <c>pointerIndex</c> for this motion event. The coordinate is in the
+            coordinate space of the device display, irrespective of system
+            decorations and whether or not the system is in multi-window mode. If the
+            app spans multiple screens in a multiple-screen environment, the
+            coordinate space includes all of the spanned screens.</para>
+          <para>In multi-window mode, the coordinate space extends beyond the bounds
+            of the app window to encompass the entire display area. For example, if
+            the motion event occurs in the right-hand window of split-screen mode in
+            landscape orientation, the left edge of the screen&amp;mdash;not the left
+            edge of the window&amp;mdash;is the origin from which the X coordinate is
+            calculated.</para>
+          <para>In multiple-screen scenarios, the coordinate space can span screens.
+            For example, if the app is spanning both screens of a dual-screen device,
+            and the motion event occurs on the right-hand screen, the X coordinate is
+            calculated from the left edge of the left-hand screen to the point of the
+            motion event on the right-hand screen. When the app is restricted to a
+            single screen in a multiple-screen environment, the coordinate space
+            includes only the screen on which the app is running.</para>
+          <para>Use <c>#getPointerId(int)</c> to get the pointer identifier for the
+            pointer referenced by <c>pointerIndex</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getRawX(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getRawX(int)</code>.</a>
@@ -2826,6 +3654,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getRawY", "(I)F", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getRawY", "(I)F", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Single</ReturnType>
@@ -2844,6 +3676,27 @@
                  value may contain a fractional portion for devices that are subpixel
                  precise.</returns>
         <remarks>
+          <para>Returns the Y coordinate of the pointer referenced by
+            <c>pointerIndex</c> for this motion event. The coordinate is in the
+            coordinate space of the device display, irrespective of system
+            decorations and whether or not the system is in multi-window mode. If the
+            app spans multiple screens in a multiple-screen environment, the
+            coordinate space includes all of the spanned screens.</para>
+          <para>In multi-window mode, the coordinate space extends beyond the bounds
+            of the app window to encompass the entire device screen. For example, if
+            the motion event occurs in the lower window of split-screen mode in
+            portrait orientation, the top edge of the screen&amp;mdash;not the top edge
+            of the window&amp;mdash;is the origin from which the Y coordinate is
+            determined.</para>
+          <para>In multiple-screen scenarios, the coordinate space can span screens.
+            For example, if the app is spanning both screens of a dual-screen device
+            that's rotated 90 degrees, and the motion event occurs on the lower
+            screen, the Y coordinate is calculated from the top edge of the upper
+            screen to the point of the motion event on the lower screen. When the app
+            is restricted to a single screen in a multiple-screen environment, the
+            coordinate space includes only the screen on which the app is running.</para>
+          <para>Use <c>#getPointerId(int)</c> to get the pointer identifier for the
+            pointer referenced by <c>pointerIndex</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getRawY(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getRawY(int)</code>.</a>
@@ -2864,8 +3717,8 @@
       <MemberSignature Language="F#" Value="member this.GetSize : int -&gt; single" Usage="motionEvent.GetSize pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2887,6 +3740,14 @@
             identifier for this index).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns a scaled value of the approximate size for the given pointer
+            &lt;em&gt;index&lt;/em&gt; (use <c>#getPointerId(int)</c> to find the pointer
+            identifier for this index).
+            This represents some approximation of the area of the screen being
+            pressed; the actual value in pixels corresponding to the
+            touch is normalized with the device specific range of values
+            and scaled to a value between 0 and 1. The value of size can be used to
+            determine fat touch events.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getSize(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getSize(int)</code>.</a>
@@ -2908,8 +3769,8 @@
       <MemberSignature Language="F#" Value="member this.GetToolMajor : int -&gt; single" Usage="motionEvent.GetToolMajor pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2932,6 +3793,12 @@
             identifier for this index).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the length of the major axis of an ellipse that describes the size of
+            the approaching tool for the given pointer
+            &lt;em&gt;index&lt;/em&gt; (use <c>#getPointerId(int)</c> to find the pointer
+            identifier for this index).
+            The tool area represents the estimated size of the finger or pen that is
+            touching the device independent of its actual touch area at the point of contact.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getToolMajor(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getToolMajor(int)</code>.</a>
@@ -2953,8 +3820,8 @@
       <MemberSignature Language="F#" Value="member this.GetToolMinor : int -&gt; single" Usage="motionEvent.GetToolMinor pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2977,6 +3844,12 @@
             identifier for this index).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the length of the minor axis of an ellipse that describes the size of
+            the approaching tool for the given pointer
+            &lt;em&gt;index&lt;/em&gt; (use <c>#getPointerId(int)</c> to find the pointer
+            identifier for this index).
+            The tool area represents the estimated size of the finger or pen that is
+            touching the device independent of its actual touch area at the point of contact.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getToolMinor(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getToolMinor(int)</code>.</a>
@@ -2998,8 +3871,8 @@
       <MemberSignature Language="F#" Value="member this.GetToolType : int -&gt; Android.Views.MotionEventToolType" Usage="motionEvent.GetToolType pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3025,6 +3898,9 @@
         <summary>Gets the tool type of a pointer for the given pointer index.</summary>
         <returns>The tool type of the pointer.</returns>
         <remarks>
+          <para>Gets the tool type of a pointer for the given pointer index.
+            The tool type indicates the type of tool used to make contact such
+            as a finger or stylus, if known.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getToolType(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getToolType(int)</code>.</a>
@@ -3050,8 +3926,8 @@
       <MemberSignature Language="F#" Value="member this.GetTouchMajor : int -&gt; single" Usage="motionEvent.GetTouchMajor pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3074,6 +3950,10 @@
             identifier for this index).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the length of the major axis of an ellipse that describes the touch
+            area at the point of contact for the given pointer
+            &lt;em&gt;index&lt;/em&gt; (use <c>#getPointerId(int)</c> to find the pointer
+            identifier for this index).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getTouchMajor(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getTouchMajor(int)</code>.</a>
@@ -3095,8 +3975,8 @@
       <MemberSignature Language="F#" Value="member this.GetTouchMinor : int -&gt; single" Usage="motionEvent.GetTouchMinor pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3119,6 +3999,10 @@
             identifier for this index).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the length of the minor axis of an ellipse that describes the touch
+            area at the point of contact for the given pointer
+            &lt;em&gt;index&lt;/em&gt; (use <c>#getPointerId(int)</c> to find the pointer
+            identifier for this index).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getTouchMinor(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getTouchMinor(int)</code>.</a>
@@ -3140,8 +4024,8 @@
       <MemberSignature Language="F#" Value="member this.GetX : unit -&gt; single" Usage="motionEvent.GetX " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3159,6 +4043,8 @@
         <returns>The X coordinate of the first pointer index in the coordinate
                  space of the view that received this motion event.</returns>
         <remarks>
+          <para>Equivalent to <c>#getX(int)</c> for pointer index 0 (regardless of the
+            pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getX()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getX()</code>.</a>
@@ -3180,8 +4066,8 @@
       <MemberSignature Language="F#" Value="member this.GetX : int -&gt; single" Usage="motionEvent.GetX pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3206,6 +4092,11 @@
                  value may contain a fractional portion for devices that are subpixel
                  precise.</returns>
         <remarks>
+          <para>Returns the X coordinate of the pointer referenced by
+            <c>pointerIndex</c> for this motion event. The coordinate is in the
+            coordinate space of the view that received this motion event.</para>
+          <para>Use <c>#getPointerId(int)</c> to get the pointer identifier for the
+            pointer referenced by <c>pointerIndex</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getX(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getX(int)</code>.</a>
@@ -3227,8 +4118,8 @@
       <MemberSignature Language="F#" Value="member this.GetY : unit -&gt; single" Usage="motionEvent.GetY " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3246,6 +4137,8 @@
         <returns>The Y coordinate of the first pointer index in the coordinate
                  space of the view that received this motion event.</returns>
         <remarks>
+          <para>Equivalent to <c>#getY(int)</c> for pointer index 0 (regardless of the
+            pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getY()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getY()</code>.</a>
@@ -3267,8 +4160,8 @@
       <MemberSignature Language="F#" Value="member this.GetY : int -&gt; single" Usage="motionEvent.GetY pointerIndex" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3293,6 +4186,11 @@
                  value may contain a fractional portion for devices that are subpixel
                  precise.</returns>
         <remarks>
+          <para>Returns the Y coordinate of the pointer referenced by
+            <c>pointerIndex</c> for this motion event. The coordinate is in the
+            coordinate space of the view that received this motion event.</para>
+          <para>Use <c>#getPointerId(int)</c> to get the pointer identifier for the
+            pointer referenced by <c>pointerIndex</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getY(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getY(int)</code>.</a>
@@ -3314,8 +4212,8 @@
       <MemberSignature Language="F#" Value="member this.HistorySize : int" Usage="Android.Views.MotionEvent.HistorySize" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3330,6 +4228,10 @@
         <summary>Returns the number of historical points in this event.</summary>
         <value>Returns the number of historical points in the event.</value>
         <remarks>
+          <para>Returns the number of historical points in this event.  These are
+            movements that have occurred between this event and the previous event.
+            This only applies to ACTION_MOVE events -- all other actions will have
+            a size of 0.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getHistorySize()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getHistorySize()</code>.</a>
@@ -3354,8 +4256,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3370,6 +4272,11 @@
       <Docs>
         <summary>An invalid pointer id.</summary>
         <remarks>
+          <para>An invalid pointer id.
+            
+            This value (-1) can be used as a placeholder to indicate that a pointer id
+            has not been assigned or is not available.  It cannot appear as
+            a pointer id inside a <c>MotionEvent</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#INVALID_POINTER_ID" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.INVALID_POINTER_ID</code>.</a>
@@ -3391,8 +4298,8 @@
       <MemberSignature Language="F#" Value="member this.IsButtonPressed : Android.Views.MotionEventButtonState -&gt; bool" Usage="motionEvent.IsButtonPressed button" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3418,6 +4325,7 @@
         <summary>Checks if a mouse or stylus button (or combination of buttons) is pressed.</summary>
         <returns>True if specified buttons are pressed.</returns>
         <remarks>
+          <para>Checks if a mouse or stylus button (or combination of buttons) is pressed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#isButtonPressed(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.isButtonPressed(int)</code>.</a>
@@ -3479,8 +4387,8 @@
       <MemberSignature Language="F#" Value="member this.MetaState : Android.Views.MetaKeyStates" Usage="Android.Views.MotionEvent.MetaState" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3497,6 +4405,9 @@
         <value>an integer in which each bit set to 1 represents a pressed
                     meta key</value>
         <remarks>
+          <para>Returns the state of any meta / modifier keys that were in effect when
+            the event was generated.  This is the same values as those
+            returned by <c>KeyEvent#getMetaState() KeyEvent.getMetaState</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getMetaState()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getMetaState()</code>.</a>
@@ -3519,8 +4430,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : Android.Views.MotionEvent -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain other" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3539,6 +4450,7 @@
         <summary>Create a new MotionEvent, copying from an existing one.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create a new MotionEvent, copying from an existing one.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#obtain(android.view.MotionEvent)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.obtain(android.view.MotionEvent)</code>.</a>
@@ -3560,8 +4472,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : int64 * int64 * Android.Views.MotionEventActions * single * single * Android.Views.MetaKeyStates -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain (downTime, eventTime, action, x, y, metaState)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3597,7 +4509,7 @@
       <Docs>
         <param name="downTime">The time (in ms) when the user originally pressed down to start
             a stream of position events.  This must be obtained from <c>SystemClock#uptimeMillis()</c>.</param>
-        <param name="eventTime">The the time (in ms) when this specific event was generated.  This
+        <param name="eventTime">The time (in ms) when this specific event was generated.  This
             must be obtained from <c>SystemClock#uptimeMillis()</c>.</param>
         <param name="action">The kind of action being performed, such as <c>#ACTION_DOWN</c>.</param>
         <param name="x">The X coordinate of this event.</param>
@@ -3608,6 +4520,9 @@
             values.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create a new MotionEvent, filling in a subset of the basic motion
+            values.  Those not specified here are: device id (always 0), pressure
+            and size (always 1), x and y precision (always 1), and edgeFlags (always 0).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#obtain(long,%20long,%20int,%20float,%20float,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.obtain(long, long, int, float, float, int)</code>.</a>
@@ -3629,8 +4544,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : int64 * int64 * int * single * single * Android.Views.MetaKeyStates -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain (downTime, eventTime, action, x, y, metaState)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>Android.Views.MotionEvent</ReturnType>
@@ -3664,8 +4579,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : int64 * int64 * Android.Views.MotionEventActions * single * single * single * single * Android.Views.MetaKeyStates * single * single * int * Android.Views.Edge -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain (downTime, eventTime, action, x, y, pressure, size, metaState, xPrecision, yPrecision, deviceId, edgeFlags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3714,7 +4629,7 @@
       <Docs>
         <param name="downTime">The time (in ms) when the user originally pressed down to start
             a stream of position events.  This must be obtained from <c>SystemClock#uptimeMillis()</c>.</param>
-        <param name="eventTime">The the time (in ms) when this specific event was generated.  This
+        <param name="eventTime">The time (in ms) when this specific event was generated.  This
             must be obtained from <c>SystemClock#uptimeMillis()</c>.</param>
         <param name="action">The kind of action being performed, such as <c>#ACTION_DOWN</c>.</param>
         <param name="x">The X coordinate of this event.</param>
@@ -3731,7 +4646,7 @@
             the event was generated.</param>
         <param name="xPrecision">The precision of the X coordinate being reported.</param>
         <param name="yPrecision">The precision of the Y coordinate being reported.</param>
-        <param name="deviceId">The id for the device that this event came from.  An id of
+        <param name="deviceId">The ID for the device that this event came from.  An ID of
             zero indicates that the event didn't come from a physical device; other
             numbers are arbitrary and you shouldn't depend on the values.</param>
         <param name="edgeFlags">A bitfield indicating which edges, if any, were touched by this
@@ -3740,6 +4655,8 @@
             define the motion.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create a new MotionEvent, filling in all of the basic values that
+            define the motion.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#obtain(long,%20long,%20int,%20float,%20float,%20float,%20float,%20int,%20float,%20float,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.obtain(long, long, int, float, float, float, float, int, float, float, int, int)</code>.</a>
@@ -3761,8 +4678,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : int64 * int64 * int * single * single * single * single * Android.Views.MetaKeyStates * single * single * int * Android.Views.Edge -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain (downTime, eventTime, action, x, y, pressure, size, metaState, xPrecision, yPrecision, deviceId, edgeFlags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>Android.Views.MotionEvent</ReturnType>
@@ -3808,8 +4725,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : int64 * int64 * Android.Views.MotionEventActions * int * int[] * Android.Views.MotionEvent.PointerCoords[] * Android.Views.MetaKeyStates * single * single * int * Android.Views.Edge * Android.Views.InputSourceType * Android.Views.MotionEventFlags -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain (downTime, eventTime, action, pointerCount, pointerIds, pointerCoords, metaState, xPrecision, yPrecision, deviceId, edgeFlags, source, flags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3921,8 +4838,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : int64 * int64 * Android.Views.MotionEventActions * int * single * single * single * single * Android.Views.MetaKeyStates * single * single * int * Android.Views.Edge -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain (downTime, eventTime, action, pointerCount, x, y, pressure, size, metaState, xPrecision, yPrecision, deviceId, edgeFlags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3976,7 +4893,7 @@
       <Docs>
         <param name="downTime">The time (in ms) when the user originally pressed down to start
             a stream of position events.  This must be obtained from <c>SystemClock#uptimeMillis()</c>.</param>
-        <param name="eventTime">The the time (in ms) when this specific event was generated.  This
+        <param name="eventTime">The time (in ms) when this specific event was generated.  This
             must be obtained from <c>SystemClock#uptimeMillis()</c>.</param>
         <param name="action">The kind of action being performed, such as <c>#ACTION_DOWN</c>.</param>
         <param name="pointerCount">The number of pointers that are active in this event.</param>
@@ -3994,7 +4911,7 @@
             the event was generated.</param>
         <param name="xPrecision">The precision of the X coordinate being reported.</param>
         <param name="yPrecision">The precision of the Y coordinate being reported.</param>
-        <param name="deviceId">The id for the device that this event came from.  An id of
+        <param name="deviceId">The ID for the device that this event came from.  An ID of
             zero indicates that the event didn't come from a physical device; other
             numbers are arbitrary and you shouldn't depend on the values.</param>
         <param name="edgeFlags">A bitfield indicating which edges, if any, were touched by this
@@ -4003,6 +4920,10 @@
             define the motion.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create a new MotionEvent, filling in all of the basic values that
+            define the motion.</para>
+          <para>This member is deprecated. Use <c>#obtain(long, long, int, float, float, float, float, int, float, float, int, int)</c>
+            instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#obtain(long,%20long,%20int,%20int,%20float,%20float,%20float,%20float,%20int,%20float,%20float,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.obtain(long, long, int, int, float, float, float, float, int, float, float, int, int)</code>.</a>
@@ -4024,8 +4945,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : int64 * int64 * int * int * int[] * Android.Views.MotionEvent.PointerCoords[] * Android.Views.MetaKeyStates * single * single * int * Android.Views.Edge * int * int -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain (downTime, eventTime, action, pointers, pointerIds, pointerCoords, metaState, xPrecision, yPrecision, deviceId, edgeFlags, source, flags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>Android.Views.MotionEvent</ReturnType>
@@ -4073,8 +4994,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : int64 * int64 * int * int * single * single * single * single * Android.Views.MetaKeyStates * single * single * int * Android.Views.Edge -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain (downTime, eventTime, action, pointers, x, y, pressure, size, metaState, xPrecision, yPrecision, deviceId, edgeFlags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>Android.Views.MotionEvent</ReturnType>
@@ -4122,8 +5043,8 @@
       <MemberSignature Language="F#" Value="static member Obtain : int64 * int64 * Android.Views.MotionEventActions * int * Android.Views.MotionEvent.PointerProperties[] * Android.Views.MotionEvent.PointerCoords[] * Android.Views.MetaKeyStates * Android.Views.MotionEventButtonState * single * single * int * Android.Views.Edge * Android.Views.InputSourceType * Android.Views.MotionEventFlags -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain (downTime, eventTime, action, pointerCount, pointerProperties, pointerCoords, metaState, buttonState, xPrecision, yPrecision, deviceId, edgeFlags, source, flags)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4235,6 +5156,118 @@
         <since version="Added in API level 14" />
       </Docs>
     </Member>
+    <Member MemberName="Obtain">
+      <MemberSignature Language="C#" Value="public static Android.Views.MotionEvent? Obtain (long downTime, long eventTime, Android.Views.MotionEventActions action, int pointerCount, Android.Views.MotionEvent.PointerProperties[] pointerProperties, Android.Views.MotionEvent.PointerCoords[] pointerCoords, Android.Views.MetaKeyStates metaState, Android.Views.MotionEventButtonState buttonState, float xPrecision, float yPrecision, int deviceId, Android.Views.Edge edgeFlags, Android.Views.InputSourceType source, int displayId, Android.Views.MotionEventFlags flags, Android.Views.ClassificationMode classification);" />
+      <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Android.Views.MotionEvent Obtain(int64 downTime, int64 eventTime, valuetype Android.Views.MotionEventActions action, int32 pointerCount, class Android.Views.MotionEvent/PointerProperties[] pointerProperties, class Android.Views.MotionEvent/PointerCoords[] pointerCoords, valuetype Android.Views.MetaKeyStates metaState, valuetype Android.Views.MotionEventButtonState buttonState, float32 xPrecision, float32 yPrecision, int32 deviceId, valuetype Android.Views.Edge edgeFlags, valuetype Android.Views.InputSourceType source, int32 displayId, valuetype Android.Views.MotionEventFlags flags, valuetype Android.Views.ClassificationMode classification) cil managed" />
+      <MemberSignature Language="DocId" Value="M:Android.Views.MotionEvent.Obtain(System.Int64,System.Int64,Android.Views.MotionEventActions,System.Int32,Android.Views.MotionEvent.PointerProperties[],Android.Views.MotionEvent.PointerCoords[],Android.Views.MetaKeyStates,Android.Views.MotionEventButtonState,System.Single,System.Single,System.Int32,Android.Views.Edge,Android.Views.InputSourceType,System.Int32,Android.Views.MotionEventFlags,Android.Views.ClassificationMode)" />
+      <MemberSignature Language="F#" Value="static member Obtain : int64 * int64 * Android.Views.MotionEventActions * int * Android.Views.MotionEvent.PointerProperties[] * Android.Views.MotionEvent.PointerCoords[] * Android.Views.MetaKeyStates * Android.Views.MotionEventButtonState * single * single * int * Android.Views.Edge * Android.Views.InputSourceType * int * Android.Views.MotionEventFlags * Android.Views.ClassificationMode -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.Obtain (downTime, eventTime, action, pointerCount, pointerProperties, pointerCoords, metaState, buttonState, xPrecision, yPrecision, deviceId, edgeFlags, source, displayId, flags, classification)" />
+      <MemberType>Method</MemberType>
+      <AssemblyInfo>
+        <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
+      </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[Android.Runtime.Register("obtain", "(JJII[Landroid/view/MotionEvent$PointerProperties;[Landroid/view/MotionEvent$PointerCoords;IIFFIIIIII)Landroid/view/MotionEvent;", "", ApiSince=34)]</AttributeName>
+          <AttributeName Language="F#">[&lt;Android.Runtime.Register("obtain", "(JJII[Landroid/view/MotionEvent$PointerProperties;[Landroid/view/MotionEvent$PointerCoords;IIFFIIIIII)Landroid/view/MotionEvent;", "", ApiSince=34)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android34.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android34.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
+      <ReturnValue>
+        <ReturnType>Android.Views.MotionEvent</ReturnType>
+      </ReturnValue>
+      <Parameters>
+        <Parameter Name="downTime" Type="System.Int64" />
+        <Parameter Name="eventTime" Type="System.Int64" />
+        <Parameter Name="action" Type="Android.Views.MotionEventActions">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[Android.Runtime.GeneratedEnum]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.GeneratedEnum&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="pointerCount" Type="System.Int32" />
+        <Parameter Name="pointerProperties" Type="Android.Views.MotionEvent+PointerProperties[]" />
+        <Parameter Name="pointerCoords" Type="Android.Views.MotionEvent+PointerCoords[]" />
+        <Parameter Name="metaState" Type="Android.Views.MetaKeyStates">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[Android.Runtime.GeneratedEnum]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.GeneratedEnum&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="buttonState" Type="Android.Views.MotionEventButtonState">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[Android.Runtime.GeneratedEnum]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.GeneratedEnum&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="xPrecision" Type="System.Single" />
+        <Parameter Name="yPrecision" Type="System.Single" />
+        <Parameter Name="deviceId" Type="System.Int32" />
+        <Parameter Name="edgeFlags" Type="Android.Views.Edge">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[Android.Runtime.GeneratedEnum]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.GeneratedEnum&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="source" Type="Android.Views.InputSourceType">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[Android.Runtime.GeneratedEnum]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.GeneratedEnum&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="displayId" Type="System.Int32" />
+        <Parameter Name="flags" Type="Android.Views.MotionEventFlags">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[Android.Runtime.GeneratedEnum]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.GeneratedEnum&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+        <Parameter Name="classification" Type="Android.Views.ClassificationMode">
+          <Attributes>
+            <Attribute>
+              <AttributeName Language="C#">[Android.Runtime.GeneratedEnum]</AttributeName>
+              <AttributeName Language="F#">[&lt;Android.Runtime.GeneratedEnum&gt;]</AttributeName>
+            </Attribute>
+          </Attributes>
+        </Parameter>
+      </Parameters>
+      <Docs>
+        <param name="downTime">To be added.</param>
+        <param name="eventTime">To be added.</param>
+        <param name="action">To be added.</param>
+        <param name="pointerCount">To be added.</param>
+        <param name="pointerProperties">To be added.</param>
+        <param name="pointerCoords">To be added.</param>
+        <param name="metaState">To be added.</param>
+        <param name="buttonState">To be added.</param>
+        <param name="xPrecision">To be added.</param>
+        <param name="yPrecision">To be added.</param>
+        <param name="deviceId">To be added.</param>
+        <param name="edgeFlags">To be added.</param>
+        <param name="source">To be added.</param>
+        <param name="displayId">To be added.</param>
+        <param name="flags">To be added.</param>
+        <param name="classification">To be added.</param>
+        <summary>To be added.</summary>
+        <returns>To be added.</returns>
+        <remarks>To be added.</remarks>
+      </Docs>
+    </Member>
     <Member MemberName="ObtainNoHistory">
       <MemberSignature Language="C#" Value="public static Android.Views.MotionEvent? ObtainNoHistory (Android.Views.MotionEvent? other);" />
       <MemberSignature Language="ILAsm" Value=".method public static hidebysig class Android.Views.MotionEvent ObtainNoHistory(class Android.Views.MotionEvent other) cil managed" />
@@ -4242,8 +5275,8 @@
       <MemberSignature Language="F#" Value="static member ObtainNoHistory : Android.Views.MotionEvent -&gt; Android.Views.MotionEvent" Usage="Android.Views.MotionEvent.ObtainNoHistory other" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4263,6 +5296,8 @@
             any historical point information.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create a new MotionEvent, copying from an existing one, but not including
+            any historical point information.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#obtainNoHistory(android.view.MotionEvent)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.obtainNoHistory(android.view.MotionEvent)</code>.</a>
@@ -4284,8 +5319,8 @@
       <MemberSignature Language="F#" Value="member this.OffsetLocation : single * single -&gt; unit" Usage="motionEvent.OffsetLocation (deltaX, deltaY)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4305,6 +5340,7 @@
         <param name="deltaY">Amount to add to the current Y coordinate of the event.</param>
         <summary>Adjust this event's location.</summary>
         <remarks>
+          <para>Adjust this event's location.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#offsetLocation(float,%20float)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.offsetLocation(float, float)</code>.</a>
@@ -4326,8 +5362,8 @@
       <MemberSignature Language="F#" Value="member this.Orientation : single" Usage="Android.Views.MotionEvent.Orientation" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4344,6 +5380,9 @@
             arbitrary pointer identifier).</summary>
         <value>To be added.</value>
         <remarks>
+          <para>
+            <c>#getOrientation(int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getOrientation()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getOrientation()</code>.</a>
@@ -4365,8 +5404,8 @@
       <MemberSignature Language="F#" Value="member this.PointerCount : int" Usage="Android.Views.MotionEvent.PointerCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4381,6 +5420,8 @@
         <summary>The number of pointers of data contained in this event.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The number of pointers of data contained in this event.  Always
+            &gt;= 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getPointerCount()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getPointerCount()</code>.</a>
@@ -4402,8 +5443,8 @@
       <MemberSignature Language="F#" Value="member this.Pressure : single" Usage="Android.Views.MotionEvent.Pressure" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4420,6 +5461,9 @@
             arbitrary pointer identifier).</summary>
         <value>To be added.</value>
         <remarks>
+          <para>
+            <c>#getPressure(int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getPressure()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getPressure()</code>.</a>
@@ -4441,8 +5485,8 @@
       <MemberSignature Language="F#" Value="member this.RawX : single" Usage="Android.Views.MotionEvent.RawX" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4459,6 +5503,8 @@
         <value>The X coordinate of the first pointer index in the coordinate
                  space of the device display.</value>
         <remarks>
+          <para>Equivalent to <c>#getRawX(int)</c> for pointer index 0 (regardless of
+            the pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getRawX()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getRawX()</code>.</a>
@@ -4481,8 +5527,8 @@
       <MemberSignature Language="F#" Value="member this.RawY : single" Usage="Android.Views.MotionEvent.RawY" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4499,6 +5545,8 @@
         <value>The Y coordinate of the first pointer index in the coordinate
                  space of the device display.</value>
         <remarks>
+          <para>Equivalent to <c>#getRawY(int)</c> for pointer index 0 (regardless of
+            the pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getRawY()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getRawY()</code>.</a>
@@ -4521,8 +5569,8 @@
       <MemberSignature Language="F#" Value="member this.Recycle : unit -&gt; unit" Usage="motionEvent.Recycle " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4537,6 +5585,8 @@
       <Docs>
         <summary>Recycle the MotionEvent, to be re-used by a later caller.</summary>
         <remarks>
+          <para>Recycle the MotionEvent, to be re-used by a later caller.  After calling
+            this function you must not ever touch the event again.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#recycle()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.recycle()</code>.</a>
@@ -4558,8 +5608,8 @@
       <MemberSignature Language="F#" Value="member this.SetLocation : single * single -&gt; unit" Usage="motionEvent.SetLocation (x, y)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4579,6 +5629,8 @@
         <param name="y">New absolute Y location.</param>
         <summary>Set this event's location.</summary>
         <remarks>
+          <para>Set this event's location.  Applies <c>#offsetLocation</c> with a
+            delta from the current location to the given new location.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#setLocation(float,%20float)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.setLocation(float, float)</code>.</a>
@@ -4600,8 +5652,8 @@
       <MemberSignature Language="F#" Value="member this.SetSource : Android.Views.InputSourceType -&gt; unit" Usage="motionEvent.SetSource source" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4626,6 +5678,7 @@
         <param name="source">The new source.</param>
         <summary>To be added</summary>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#setSource(int)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.setSource(int)</code>.</a>
@@ -4647,8 +5700,8 @@
       <MemberSignature Language="F#" Value="member this.Size : single" Usage="Android.Views.MotionEvent.Size" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4665,6 +5718,9 @@
             arbitrary pointer identifier).</summary>
         <value>To be added.</value>
         <remarks>
+          <para>
+            <c>#getSize(int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getSize()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getSize()</code>.</a>
@@ -4686,8 +5742,8 @@
       <MemberSignature Language="F#" Value="member this.Source : Android.Views.InputSourceType" Usage="Android.Views.MotionEvent.Source" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4702,6 +5758,7 @@
         <summary>To be added</summary>
         <value>To be added.</value>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getSource()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getSource()</code>.</a>
@@ -4723,8 +5780,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Views.MotionEvent.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4754,8 +5811,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Views.MotionEvent.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4785,8 +5842,8 @@
       <MemberSignature Language="F#" Value="member this.ToolMajor : single" Usage="Android.Views.MotionEvent.ToolMajor" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4803,6 +5860,9 @@
             arbitrary pointer identifier).</summary>
         <value>To be added.</value>
         <remarks>
+          <para>
+            <c>#getToolMajor(int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getToolMajor()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getToolMajor()</code>.</a>
@@ -4824,8 +5884,8 @@
       <MemberSignature Language="F#" Value="member this.ToolMinor : single" Usage="Android.Views.MotionEvent.ToolMinor" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4842,6 +5902,9 @@
             arbitrary pointer identifier).</summary>
         <value>To be added.</value>
         <remarks>
+          <para>
+            <c>#getToolMinor(int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getToolMinor()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getToolMinor()</code>.</a>
@@ -4866,8 +5929,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4886,6 +5949,7 @@
       <Docs>
         <summary>Tool type constant: The tool is an eraser or a stylus being used in an inverted posture.</summary>
         <remarks>
+          <para>Tool type constant: The tool is an eraser or a stylus being used in an inverted posture.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#TOOL_TYPE_ERASER" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.TOOL_TYPE_ERASER</code>.</a>
@@ -4911,8 +5975,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4931,6 +5995,7 @@
       <Docs>
         <summary>Tool type constant: The tool is a finger.</summary>
         <remarks>
+          <para>Tool type constant: The tool is a finger.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#TOOL_TYPE_FINGER" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.TOOL_TYPE_FINGER</code>.</a>
@@ -4956,8 +6021,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -4976,6 +6041,7 @@
       <Docs>
         <summary>Tool type constant: The tool is a mouse.</summary>
         <remarks>
+          <para>Tool type constant: The tool is a mouse.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#TOOL_TYPE_MOUSE" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.TOOL_TYPE_MOUSE</code>.</a>
@@ -5001,8 +6067,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5021,6 +6087,7 @@
       <Docs>
         <summary>Tool type constant: The tool is a stylus.</summary>
         <remarks>
+          <para>Tool type constant: The tool is a stylus.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#TOOL_TYPE_STYLUS" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.TOOL_TYPE_STYLUS</code>.</a>
@@ -5046,8 +6113,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5066,6 +6133,9 @@
       <Docs>
         <summary>Tool type constant: Unknown tool type.</summary>
         <remarks>
+          <para>Tool type constant: Unknown tool type.
+            This constant is used when the tool type is not known or is not relevant,
+            such as for a trackball or other non-pointing device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#TOOL_TYPE_UNKNOWN" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.TOOL_TYPE_UNKNOWN</code>.</a>
@@ -5088,8 +6158,8 @@
       <MemberSignature Language="F#" Value="member this.TouchMajor : single" Usage="Android.Views.MotionEvent.TouchMajor" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5106,6 +6176,9 @@
             arbitrary pointer identifier).</summary>
         <value>To be added.</value>
         <remarks>
+          <para>
+            <c>#getTouchMajor(int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getTouchMajor()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getTouchMajor()</code>.</a>
@@ -5127,8 +6200,8 @@
       <MemberSignature Language="F#" Value="member this.TouchMinor : single" Usage="Android.Views.MotionEvent.TouchMinor" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5145,6 +6218,9 @@
             arbitrary pointer identifier).</summary>
         <value>To be added.</value>
         <remarks>
+          <para>
+            <c>#getTouchMinor(int)</c> for the first pointer index (may be an
+            arbitrary pointer identifier).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getTouchMinor()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getTouchMinor()</code>.</a>
@@ -5166,8 +6242,8 @@
       <MemberSignature Language="F#" Value="member this.Transform : Android.Graphics.Matrix -&gt; unit" Usage="motionEvent.Transform matrix" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5185,6 +6261,7 @@
         <param name="matrix">The transformation matrix to apply.</param>
         <summary>Applies a transformation matrix to all of the points in the event.</summary>
         <remarks>
+          <para>Applies a transformation matrix to all of the points in the event.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#transform(android.graphics.Matrix)" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.transform(android.graphics.Matrix)</code>.</a>
@@ -5209,8 +6286,8 @@
         <InterfaceMember>M:Android.OS.IParcelable.WriteToParcel(Android.OS.Parcel,Android.OS.ParcelableWriteFlags)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5251,8 +6328,8 @@
       <MemberSignature Language="F#" Value="member this.XPrecision : single" Usage="Android.Views.MotionEvent.XPrecision" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5267,6 +6344,9 @@
         <summary>Return the precision of the X coordinates being reported.</summary>
         <value>Returns the precision of X coordinates being reported.</value>
         <remarks>
+          <para>Return the precision of the X coordinates being reported.  You can
+            multiply this number with <c>#getX</c> to find the actual hardware
+            value of the X coordinate.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getXPrecision()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getXPrecision()</code>.</a>
@@ -5288,8 +6368,8 @@
       <MemberSignature Language="F#" Value="member this.YPrecision : single" Usage="Android.Views.MotionEvent.YPrecision" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -5304,6 +6384,9 @@
         <summary>Return the precision of the Y coordinates being reported.</summary>
         <value>Returns the precision of Y coordinates being reported.</value>
         <remarks>
+          <para>Return the precision of the Y coordinates being reported.  You can
+            multiply this number with <c>#getY</c> to find the actual hardware
+            value of the Y coordinate.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/MotionEvent#getYPrecision()" title="Reference documentation">Java documentation for <code>android.view.MotionEvent.getYPrecision()</code>.</a>

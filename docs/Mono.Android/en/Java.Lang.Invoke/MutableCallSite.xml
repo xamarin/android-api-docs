@@ -16,11 +16,63 @@
       <AttributeName Language="C#">[Android.Runtime.Register("java/lang/invoke/MutableCallSite", ApiSince=26, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/lang/invoke/MutableCallSite", ApiSince=26, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>A <c>MutableCallSite</c> is a <c>CallSite</c> whose target variable
             behaves like an ordinary field.</summary>
     <remarks>
+      <para>A <c>MutableCallSite</c> is a <c>CallSite</c> whose target variable
+            behaves like an ordinary field.
+            An <c>invokedynamic</c> instruction linked to a <c>MutableCallSite</c> delegates
+            all calls to the site's current target.
+            The CallSite#dynamicInvoker dynamic invoker of a mutable call site
+            also delegates each call to the site's current target.</para>
+      <para>Here is an example of a mutable call site which introduces a
+            state variable into a method handle chain.
+            &lt;!-- JavaDocExamplesTest.testMutableCallSite --&gt;
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">{@code
+            MutableCallSite name = new MutableCallSite(MethodType.methodType(String.class));
+            MethodHandle MH_name = name.dynamicInvoker();
+            MethodType MT_str1 = MethodType.methodType(String.class);
+            MethodHandle MH_upcase = MethodHandles.lookup()
+                .findVirtual(String.class, "toUpperCase", MT_str1);
+            MethodHandle worker1 = MethodHandles.filterReturnValue(MH_name, MH_upcase);
+            name.setTarget(MethodHandles.constant(String.class, "Rocky"));
+            assertEquals("ROCKY", (String) worker1.invokeExact());
+            name.setTarget(MethodHandles.constant(String.class, "Fred"));
+            assertEquals("FRED", (String) worker1.invokeExact());
+            // (mutation can be continued indefinitely)
+            }</code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>The same call site may be used in several places at once.
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">{@code
+            MethodType MT_str2 = MethodType.methodType(String.class, String.class);
+            MethodHandle MH_cat = lookup().findVirtual(String.class,
+              "concat", methodType(String.class, String.class));
+            MethodHandle MH_dear = MethodHandles.insertArguments(MH_cat, 1, ", dear?");
+            MethodHandle worker2 = MethodHandles.filterReturnValue(MH_name, MH_dear);
+            assertEquals("Fred, dear?", (String) worker2.invokeExact());
+            name.setTarget(MethodHandles.constant(String.class, "Wilma"));
+            assertEquals("WILMA", (String) worker1.invokeExact());
+            assertEquals("Wilma, dear?", (String) worker2.invokeExact());
+            }</code>
+      <para>&lt;/blockquote&gt;</para>
+      <para>&lt;em&gt;Non-synchronization of target values:&lt;/em&gt;
+            A write to a mutable call site's target does not force other threads
+            to become aware of the updated value.  Threads which do not perform
+            suitable synchronization actions relative to the updated call site
+            may cache the old target value and delay their use of the new target
+            value indefinitely.
+            (This is a normal consequence of the Java Memory Model as applied
+            to object fields.)</para>
+      <para>For target values which will be frequently updated, consider using
+            a VolatileCallSite volatile call site instead.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/lang/invoke/MutableCallSite" title="Reference documentation">Java documentation for <code>java.lang.invoke.MutableCallSite</code>.</a>
@@ -49,6 +101,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/lang/invoke/MethodHandle;)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/lang/invoke/MethodHandle;)V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters>
         <Parameter Name="target" Type="Java.Lang.Invoke.MethodHandle" />
@@ -57,6 +113,8 @@
         <param name="target">the method handle that will be the initial target of the call site</param>
         <summary>Creates a call site object with an initial target method handle.</summary>
         <remarks>
+          <para>Creates a call site object with an initial target method handle.
+            The type of the call site is permanently set to the initial target's type.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MutableCallSite#MutableCallSite(java.lang.invoke.MethodHandle)" title="Reference documentation">Java documentation for <code>java.lang.invoke.MutableCallSite.MutableCallSite(java.lang.invoke.MethodHandle)</code>.</a>
@@ -85,6 +143,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/lang/invoke/MethodType;)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/lang/invoke/MethodType;)V", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters>
         <Parameter Name="type" Type="Java.Lang.Invoke.MethodType" />
@@ -93,6 +155,14 @@
         <param name="type">the method type that this call site will have</param>
         <summary>Creates a blank call site object with the given method type.</summary>
         <remarks>
+          <para>Creates a blank call site object with the given method type.
+            The initial target is set to a method handle of the given type
+            which will throw an <c>IllegalStateException</c> if called.</para>
+          <para>The type of the call site is permanently set to the given type.</para>
+          <para>Before this <c>CallSite</c> object is returned from a bootstrap method,
+            or invoked in some other manner,
+            it is usually provided with a more useful target method,
+            via a call to <c>CallSite#setTarget(MethodHandle) setTarget</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MutableCallSite#MutableCallSite(java.lang.invoke.MethodType)" title="Reference documentation">Java documentation for <code>java.lang.invoke.MutableCallSite.MutableCallSite(java.lang.invoke.MethodType)</code>.</a>
@@ -144,6 +214,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("dynamicInvoker", "()Ljava/lang/invoke/MethodHandle;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("dynamicInvoker", "()Ljava/lang/invoke/MethodHandle;", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Invoke.MethodHandle</ReturnType>
@@ -153,6 +227,7 @@
         <summary>To be added</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>To be added</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MutableCallSite#dynamicInvoker()" title="Reference documentation">Java documentation for <code>java.lang.invoke.MutableCallSite.dynamicInvoker()</code>.</a>
@@ -209,12 +284,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getTarget", "()Ljava/lang/invoke/MethodHandle;", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getTarget", "()Ljava/lang/invoke/MethodHandle;", "", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setTarget", "(Ljava/lang/invoke/MethodHandle;)V", "GetSetTarget_Ljava_lang_invoke_MethodHandle_Handler", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setTarget", "(Ljava/lang/invoke/MethodHandle;)V", "GetSetTarget_Ljava_lang_invoke_MethodHandle_Handler", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -227,12 +310,30 @@
         <value>the linkage state of this call site, a method handle which can change over time</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns the target method of the call site, which behaves
+            like a normal field of the <c>MutableCallSite</c>.</para>
+          <para>The interactions of <c>getTarget</c> with memory are the same
+            as of a read from an ordinary variable, such as an array element or a
+            non-volatile, non-final field.</para>
+          <para>In particular, the current thread may choose to reuse the result
+            of a previous read of the target from memory, and may fail to see
+            a recent update to the target by another thread.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MutableCallSite#getTarget()" title="Reference documentation">Java documentation for <code>java.lang.invoke.MutableCallSite.getTarget()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Updates the target method of this call site, as a normal variable.
+            The type of the new target must agree with the type of the old target.</para>
+          <para>The interactions with memory are the same
+            as of a write to an ordinary variable, such as an array element or a
+            non-volatile, non-final field.</para>
+          <para>In particular, unrelated threads may fail to see the updated target
+            until they perform a read from memory.
+            Stronger guarantees can be created by putting appropriate operations
+            into the bootstrap method and/or the target methods used
+            at any given call site.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/lang/invoke/MutableCallSite#setTarget(java.lang.invoke.MethodHandle)" title="Reference documentation">Java documentation for <code>java.lang.invoke.MutableCallSite.setTarget(java.lang.invoke.MethodHandle)</code>.</a>

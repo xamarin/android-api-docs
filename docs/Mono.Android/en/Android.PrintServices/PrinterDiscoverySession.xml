@@ -21,6 +21,42 @@
     <summary>This class encapsulates the interaction between a print service and the
             system during printer discovery.</summary>
     <remarks>
+      <para>This class encapsulates the interaction between a print service and the
+            system during printer discovery. During printer discovery you are responsible
+            for adding discovered printers, removing previously added printers that
+            disappeared, and updating already added printers.</para>
+      <para>During the lifetime of this session you may be asked to start and stop
+            performing printer discovery multiple times. You will receive a call to <c>PrinterDiscoverySession#onStartPrinterDiscovery(List)</c> to start printer
+            discovery and a call to <c>PrinterDiscoverySession#onStopPrinterDiscovery()</c>
+            to stop printer discovery. When the system is no longer interested in printers
+            discovered by this session you will receive a call to <c>#onDestroy()</c> at
+            which point the system will no longer call into the session and all the session
+            methods will do nothing.</para>
+      <para>Discovered printers are added by invoking <c>PrinterDiscoverySession#addPrinters(List)</c>. Added printers that disappeared are
+            removed by invoking <c>PrinterDiscoverySession#removePrinters(List)</c>. Added
+            printers whose properties or capabilities changed are updated through a call to
+            <c>PrinterDiscoverySession#addPrinters(List)</c>. The printers added in this
+            session can be acquired via <c>#getPrinters()</c> where the returned printers
+            will be an up-to-date snapshot of the printers that you reported during the
+            session. Printers are &lt;strong&gt;not&lt;/strong&gt; persisted across sessions.</para>
+      <para>The system will make a call to <c>#onValidatePrinters(List)</c> if you
+            need to update some printers. It is possible that you add a printer without
+            specifying its capabilities. This enables you to avoid querying all discovered
+            printers for their capabilities, rather querying the capabilities of a printer
+            only if necessary. For example, the system will request that you update a printer
+            if it gets selected by the user. When validating printers you do not need to
+            provide the printers' capabilities but may do so.</para>
+      <para>If the system is interested in being constantly updated for the state of a
+            printer you will receive a call to <c>#onStartPrinterStateTracking(PrinterId)</c>
+            after which you will have to do a best effort to keep the system updated for
+            changes in the printer state and capabilities. You also &lt;strong&gt;must&lt;/strong&gt;
+            update the printer capabilities if you did not provide them when adding it, or
+            the printer will be ignored. When the system is no longer interested in getting
+            updates for a printer you will receive a call to <c>#onStopPrinterStateTracking(
+            PrinterId)</c>.</para>
+      <para>&lt;strong&gt;Note: &lt;/strong&gt; All callbacks in this class are executed on the main
+            application thread. You also have to invoke any method of this class on the main
+            application thread.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession</code>.</a>
@@ -40,8 +76,8 @@
       <MemberSignature Language="DocId" Value="M:Android.PrintServices.PrinterDiscoverySession.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -53,6 +89,7 @@
       <Docs>
         <summary>Constructor.</summary>
         <remarks>
+          <para>Constructor.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#PrinterDiscoverySession()" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.PrinterDiscoverySession()</code>.</a>
@@ -73,8 +110,8 @@
       <MemberSignature Language="F#" Value="new Android.PrintServices.PrinterDiscoverySession : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.PrintServices.PrinterDiscoverySession" Usage="new Android.PrintServices.PrinterDiscoverySession (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -96,8 +133,8 @@
       <MemberSignature Language="F#" Value="member this.AddPrinters : System.Collections.Generic.IList&lt;Android.Print.PrinterInfo&gt; -&gt; unit" Usage="printerDiscoverySession.AddPrinters printers" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -115,6 +152,11 @@
         <param name="printers">The printers to add.</param>
         <summary>Adds discovered printers.</summary>
         <remarks>
+          <para>Adds discovered printers. Adding an already added printer updates it.
+            Removed printers can be added again. You can call this method multiple
+            times during the life of this session. Duplicates will be ignored.</para>
+          <para>&lt;strong&gt;Note: &lt;/strong&gt; Calls to this method after the session is
+            destroyed, that is after the <c>#onDestroy()</c> callback, will be ignored.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#addPrinters(java.util.List%3Candroid.print.PrinterInfo%3E)" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.addPrinters(java.util.List&lt;android.print.PrinterInfo&gt;)</code>.</a>
@@ -135,8 +177,8 @@
       <MemberSignature Language="F#" Value="member this.IsDestroyed : bool" Usage="Android.PrintServices.PrinterDiscoverySession.IsDestroyed" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -151,6 +193,7 @@
         <summary>Gets whether the session is destroyed.</summary>
         <value>Whether the session is destroyed.</value>
         <remarks>
+          <para>Gets whether the session is destroyed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#isDestroyed()" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.isDestroyed()</code>.</a>
@@ -173,8 +216,8 @@
       <MemberSignature Language="F#" Value="member this.IsPrinterDiscoveryStarted : bool" Usage="Android.PrintServices.PrinterDiscoverySession.IsPrinterDiscoveryStarted" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -189,6 +232,7 @@
         <summary>Gets whether printer discovery is started.</summary>
         <value>Whether printer discovery is destroyed.</value>
         <remarks>
+          <para>Gets whether printer discovery is started.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#isPrinterDiscoveryStarted()" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.isPrinterDiscoveryStarted()</code>.</a>
@@ -241,8 +285,8 @@
       <MemberSignature Language="F#" Value="abstract member OnDestroy : unit -&gt; unit" Usage="printerDiscoverySession.OnDestroy " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -257,6 +301,9 @@
       <Docs>
         <summary>Notifies you that the session is destroyed.</summary>
         <remarks>
+          <para>Notifies you that the session is destroyed. After this callback is invoked
+            any calls to the methods of this class will be ignored, <c>#isDestroyed()</c>
+            will return true and you will also no longer receive callbacks.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#onDestroy()" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.onDestroy()</code>.</a>
@@ -286,6 +333,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onRequestCustomPrinterIcon", "(Landroid/print/PrinterId;Landroid/os/CancellationSignal;Landroid/printservice/CustomPrinterIconCallback;)V", "GetOnRequestCustomPrinterIcon_Landroid_print_PrinterId_Landroid_os_CancellationSignal_Landroid_printservice_CustomPrinterIconCallback_Handler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onRequestCustomPrinterIcon", "(Landroid/print/PrinterId;Landroid/os/CancellationSignal;Landroid/printservice/CustomPrinterIconCallback;)V", "GetOnRequestCustomPrinterIcon_Landroid_print_PrinterId_Landroid_os_CancellationSignal_Landroid_printservice_CustomPrinterIconCallback_Handler", ApiSince=24)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -301,6 +352,9 @@
         <param name="callback">Callback for returning the icon to the system.</param>
         <summary>Called by the system to request the custom icon for a printer.</summary>
         <remarks>
+          <para>Called by the system to request the custom icon for a printer. Once the icon is available the
+            print services uses <c>CustomPrinterIconCallback#onCustomPrinterIconLoaded</c> to send the
+            icon to the system.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#onRequestCustomPrinterIcon(android.print.PrinterId,%20android.os.CancellationSignal,%20android.printservice.CustomPrinterIconCallback)" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.onRequestCustomPrinterIcon(android.print.PrinterId, android.os.CancellationSignal, android.printservice.CustomPrinterIconCallback)</code>.</a>
@@ -321,8 +375,8 @@
       <MemberSignature Language="F#" Value="abstract member OnStartPrinterDiscovery : System.Collections.Generic.IList&lt;Android.Print.PrinterId&gt; -&gt; unit" Usage="printerDiscoverySession.OnStartPrinterDiscovery priorityList" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -340,6 +394,22 @@
         <param name="priorityList">The list of printers to validate first. Never null.</param>
         <summary>Callback asking you to start printer discovery.</summary>
         <remarks>
+          <para>Callback asking you to start printer discovery. Discovered printers should be
+            added via calling <c>#addPrinters(List)</c>. Added printers that disappeared
+            should be removed via calling <c>#removePrinters(List)</c>. Added printers
+            whose properties or capabilities changed should be updated via calling <c>#addPrinters(List)</c>. You will receive a call to <c>#onStopPrinterDiscovery()</c>
+            when you should stop printer discovery.</para>
+          <para>During the lifetime of this session all printers that are known to your print
+            service have to be added. The system does not retain any printers across sessions.
+            However, if you were asked to start and then stop performing printer discovery
+            in this session, then a subsequent discovering should not re-discover already
+            discovered printers. You can get the printers reported during this session by
+            calling <c>#getPrinters()</c>.</para>
+          <para>&lt;strong&gt;Note: &lt;/strong&gt;You are also given a list of printers whose availability
+            has to be checked first. For example, these printers could be the user's favorite
+            ones, therefore they have to be verified first. You do &lt;strong&gt;not need&lt;/strong&gt;
+            to provide the capabilities of the printers, rather verify whether they exist
+            similarly to <c>#onValidatePrinters(List)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#onStartPrinterDiscovery(java.util.List%3Candroid.print.PrinterId%3E)" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.onStartPrinterDiscovery(java.util.List&lt;android.print.PrinterId&gt;)</code>.</a>
@@ -360,8 +430,8 @@
       <MemberSignature Language="F#" Value="abstract member OnStartPrinterStateTracking : Android.Print.PrinterId -&gt; unit" Usage="printerDiscoverySession.OnStartPrinterStateTracking printerId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -379,6 +449,21 @@
         <param name="printerId">The printer to start tracking.</param>
         <summary>Callback asking you to start tracking the state of a printer.</summary>
         <remarks>
+          <para>Callback asking you to start tracking the state of a printer. Tracking
+            the state means that you should do a best effort to observe the state
+            of this printer and notify the system if that state changes via calling
+            <c>#addPrinters(List)</c>.</para>
+          <para>&lt;strong&gt;Note: &lt;/strong&gt; A printer can be initially added without its
+            capabilities to avoid polling printers that the user will not select.
+            However, after this method is called you are expected to update the
+            printer &lt;strong&gt;including&lt;/strong&gt; its capabilities. Otherwise, the
+            printer will be ignored.</para>
+          <para />
+          <para>A scenario when you may be requested to track a printer's state is if
+            the user selects that printer and the system has to present print
+            options UI based on the printer's capabilities. In this case the user
+            should be promptly informed if, for example, the printer becomes
+            unavailable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#onStartPrinterStateTracking(android.print.PrinterId)" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.onStartPrinterStateTracking(android.print.PrinterId)</code>.</a>
@@ -400,8 +485,8 @@
       <MemberSignature Language="F#" Value="abstract member OnStopPrinterDiscovery : unit -&gt; unit" Usage="printerDiscoverySession.OnStopPrinterDiscovery " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -416,6 +501,7 @@
       <Docs>
         <summary>Callback notifying you that you should stop printer discovery.</summary>
         <remarks>
+          <para>Callback notifying you that you should stop printer discovery.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#onStopPrinterDiscovery()" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.onStopPrinterDiscovery()</code>.</a>
@@ -437,8 +523,8 @@
       <MemberSignature Language="F#" Value="abstract member OnStopPrinterStateTracking : Android.Print.PrinterId -&gt; unit" Usage="printerDiscoverySession.OnStopPrinterStateTracking printerId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -456,6 +542,8 @@
         <param name="printerId">The printer to stop tracking.</param>
         <summary>Callback asking you to stop tracking the state of a printer.</summary>
         <remarks>
+          <para>Callback asking you to stop tracking the state of a printer. The passed
+            in printer id is the one for which you received a call to <c>#onStartPrinterStateTracking(PrinterId)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#onStopPrinterStateTracking(android.print.PrinterId)" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.onStopPrinterStateTracking(android.print.PrinterId)</code>.</a>
@@ -477,8 +565,8 @@
       <MemberSignature Language="F#" Value="abstract member OnValidatePrinters : System.Collections.Generic.IList&lt;Android.Print.PrinterId&gt; -&gt; unit" Usage="printerDiscoverySession.OnValidatePrinters printerIds" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -497,6 +585,13 @@
         <summary>Callback asking you to validate that the given printers are valid, that
             is they exist.</summary>
         <remarks>
+          <para>Callback asking you to validate that the given printers are valid, that
+            is they exist. You are responsible for checking whether these printers
+            exist and for the ones that do exist notify the system via calling
+            <c>#addPrinters(List)</c>.</para>
+          <para>&lt;strong&gt;Note: &lt;/strong&gt; You are &lt;strong&gt;not required&lt;/strong&gt; to provide
+            the printer capabilities when updating the printers that do exist.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#onValidatePrinters(java.util.List%3Candroid.print.PrinterId%3E)" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.onValidatePrinters(java.util.List&lt;android.print.PrinterId&gt;)</code>.</a>
@@ -517,8 +612,8 @@
       <MemberSignature Language="F#" Value="member this.Printers : System.Collections.Generic.IList&lt;Android.Print.PrinterInfo&gt;" Usage="Android.PrintServices.PrinterDiscoverySession.Printers" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -533,6 +628,11 @@
         <summary>Gets the printers reported in this session.</summary>
         <value>The printers.</value>
         <remarks>
+          <para>Gets the printers reported in this session. For example, if you add two
+            printers and remove one of them, the returned list will contain only
+            the printer that was added but not removed.</para>
+          <para>&lt;strong&gt;Note: &lt;/strong&gt; Calls to this method after the session is
+            destroyed, that is after the <c>#onDestroy()</c> callback, will be ignored.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#getPrinters()" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.getPrinters()</code>.</a>
@@ -554,8 +654,8 @@
       <MemberSignature Language="F#" Value="member this.RemovePrinters : System.Collections.Generic.IList&lt;Android.Print.PrinterId&gt; -&gt; unit" Usage="printerDiscoverySession.RemovePrinters printerIds" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -573,6 +673,11 @@
         <param name="printerIds">The ids of the removed printers.</param>
         <summary>Removes added printers.</summary>
         <remarks>
+          <para>Removes added printers. Removing an already removed or never added
+            printer has no effect. Removed printers can be added again. You can
+            call this method multiple times during the lifetime of this session.</para>
+          <para>&lt;strong&gt;Note: &lt;/strong&gt; Calls to this method after the session is
+            destroyed, that is after the <c>#onDestroy()</c> callback, will be ignored.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#removePrinters(java.util.List%3Candroid.print.PrinterId%3E)" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.removePrinters(java.util.List&lt;android.print.PrinterId&gt;)</code>.</a>
@@ -593,8 +698,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.PrintServices.PrinterDiscoverySession.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -624,8 +729,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.PrintServices.PrinterDiscoverySession.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -655,8 +760,8 @@
       <MemberSignature Language="F#" Value="member this.TrackedPrinters : System.Collections.Generic.IList&lt;Android.Print.PrinterId&gt;" Usage="Android.PrintServices.PrinterDiscoverySession.TrackedPrinters" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -671,6 +776,13 @@
         <summary>Gets the printers that should be tracked.</summary>
         <value>The printers.</value>
         <remarks>
+          <para>Gets the printers that should be tracked. These are printers that are
+            important to the user and for which you received a call to <c>#onStartPrinterStateTracking(PrinterId)</c> asking you to observer their
+            state and reporting it to the system via <c>#addPrinters(List)</c>.
+            You will receive a call to <c>#onStopPrinterStateTracking(PrinterId)</c>
+            if you should stop tracking a printer.</para>
+          <para>&lt;strong&gt;Note: &lt;/strong&gt; Calls to this method after the session is
+            destroyed, that is after the <c>#onDestroy()</c> callback, will be ignored.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/printservice/PrinterDiscoverySession#getTrackedPrinters()" title="Reference documentation">Java documentation for <code>android.printservice.PrinterDiscoverySession.getTrackedPrinters()</code>.</a>

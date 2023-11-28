@@ -20,6 +20,61 @@
   <Docs since="19">
     <summary>App-ops are used for two purposes: Access control and tracking.</summary>
     <remarks>
+      <para>App-ops are used for two purposes: Access control and tracking.</para>
+      <para>App-ops cover a wide variety of functionality from helping with runtime permissions access
+            control and tracking to battery consumption tracking.
+            
+            &lt;h2&gt;Access control&lt;/h2&gt;</para>
+      <para>App-ops can either be controlled for each uid or for each package. Which one is used depends
+            on the API provider maintaining this app-op. For any security or privacy related app-op the
+            provider needs to control the app-op for per uid as all security and privacy is based on uid in
+            Android.</para>
+      <para>To control access the app-op can be set to a mode to:
+            &lt;dl&gt;
+                &lt;dt&gt;<c>#MODE_DEFAULT</c>&lt;dd&gt;Default behavior, might differ from app-op or app-op
+                &lt;dt&gt;<c>#MODE_ALLOWED</c>&lt;dd&gt;Allow the access
+                &lt;dt&gt;<c>#MODE_IGNORED</c>&lt;dd&gt;Don't allow the access, i.e. don't perform the requested action or return no or
+                placeholder data
+                &lt;dt&gt;<c>#MODE_ERRORED</c>&lt;dd&gt;Throw a <c>SecurityException</c> on access. This can be suppressed by using a
+                <c>...noThrow</c> method to check the mode
+            &lt;/dl&gt;</para>
+      <para>API providers need to check the mode returned by <c>#noteOp</c> if they are are allowing
+            access to operations gated by the app-op. <c>#unsafeCheckOp</c> should be used to check the
+            mode if no access is granted. E.g. this can be used for displaying app-op state in the UI or
+            when checking the state before later calling <c>#noteOp</c> anyway.</para>
+      <para>If an operation refers to a time span (e.g. a audio-recording session) the API provider
+            should use <c>#startOp</c> and <c>#finishOp</c> instead of <c>#noteOp</c>.
+            
+            &lt;h3&gt;Runtime permissions and app-ops&lt;/h3&gt;</para>
+      <para>Each platform defined runtime permission (beside background modifiers) has an associated app
+            op which is used for tracking but also to allow for silent failures. I.e. if the runtime
+            permission is denied the caller gets a <c>SecurityException</c>, but if the permission is
+            granted and the app-op is <c>#MODE_IGNORED</c> then the callers gets placeholder behavior, e.g.
+            location callbacks would not happen.
+            
+            &lt;h3&gt;App-op permissions&lt;/h3&gt;</para>
+      <para>App-ops permissions are platform defined permissions that can be overridden. The security
+            check for app-op permissions should by <c>#MODE_DEFAULT default</c> check the permission grant
+            state. If the app-op state is set to <c>#MODE_ALLOWED</c> or <c>#MODE_IGNORED</c> the app-op
+            state should be checked instead of the permission grant state.</para>
+      <para>This functionality allows to grant access by default to apps fulfilling the requirements for
+            a certain permission level. Still the behavior can be overridden when needed.
+            
+            &lt;h2&gt;Tracking&lt;/h2&gt;</para>
+      <para>App-ops track many important events, including all accesses to runtime permission protected
+            APIs. This is done by tracking when an app-op was <c>#noteOp noted</c> or
+            <c>#startOp started</c>. The tracked data can only be read by system components.</para>
+      <para>&lt;b&gt;Only <c>#noteOp</c>/<c>#startOp</c> are tracked; <c>#unsafeCheckOp</c> is not tracked.
+            Hence it is important to eventually call <c>#noteOp</c> or <c>#startOp</c> when providing
+            access to protected operations or data.&lt;/b&gt;</para>
+      <para>Some apps are forwarding access to other apps. E.g. an app might get the location from the
+            system's location provider and then send the location further to a 3rd app. In this case the
+            app passing on the data needs to call <c>#noteProxyOp</c> to signal the access proxying. This
+            might also make sense inside of a single app if the access is forwarded between two parts of
+            the tagged with different attribution tags.</para>
+      <para>An app can register an <c>OnOpNotedCallback</c> to get informed about what accesses the
+            system is tracking for it. As each runtime permission has an associated app-op this API is
+            particularly useful for an app that want to find unexpected private data accesses.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/app/AppOpsManager" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager</code>.</a>
@@ -40,8 +95,8 @@
       <MemberSignature Language="F#" Value="new Android.App.AppOpsManager : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.App.AppOpsManager" Usage="new Android.App.AppOpsManager (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -63,8 +118,8 @@
       <MemberSignature Language="F#" Value="abstract member CheckOp : string * int * string -&gt; Android.App.AppOpsManagerMode&#xA;override this.CheckOp : string * int * string -&gt; Android.App.AppOpsManagerMode" Usage="appOpsManager.CheckOp (op, uid, packageName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -72,8 +127,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("checkOp", "(Ljava/lang/String;ILjava/lang/String;)I", "GetCheckOp_Ljava_lang_String_ILjava_lang_String_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -94,9 +149,10 @@
         <param name="op">The operation to check.  One of the OPSTR_* constants.</param>
         <param name="uid">The user id of the application attempting to perform the operation.</param>
         <param name="packageName">The name of the application attempting to perform the operation.</param>
-        <summary>Do a quick check for whether an application might be able to perform an operation.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. Renamed to <c>#unsafeCheckOp(String, int, String)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#checkOp(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.checkOp(java.lang.String, int, java.lang.String)</code>.</a>
@@ -120,8 +176,8 @@
       <MemberSignature Language="F#" Value="abstract member CheckOpNoThrow : string * int * string -&gt; Android.App.AppOpsManagerMode&#xA;override this.CheckOpNoThrow : string * int * string -&gt; Android.App.AppOpsManagerMode" Usage="appOpsManager.CheckOpNoThrow (op, uid, packageName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -129,8 +185,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("checkOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;)I", "GetCheckOpNoThrow_Ljava_lang_String_ILjava_lang_String_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -151,10 +207,10 @@
         <param name="op">To be added.</param>
         <param name="uid">To be added.</param>
         <param name="packageName">To be added.</param>
-        <summary>Like <format type="text/html"><a href="https://docs.microsoft.com/en-us/search/index?search='M:Android App AppOpsManager CheckOp(System String,System Int32,System Int32)';scope=Xamarin" title="M:Android.App.AppOpsManager.CheckOp(System.String,System.Int32,System.Int32)">M:Android.App.AppOpsManager.CheckOp(System.String,System.Int32,System.Int32)</a></format> but instead of throwing a <see cref="T:Java.Lang.SecurityException" /> it
- returns <see cref="F:Android.App.AppOpsManager.ModeErrored" />.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. Renamed to <c>#unsafeCheckOpNoThrow(String, int, String)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#checkOpNoThrow(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.checkOpNoThrow(java.lang.String, int, java.lang.String)</code>.</a>
@@ -175,8 +231,8 @@
       <MemberSignature Language="F#" Value="abstract member CheckPackage : int * string -&gt; unit&#xA;override this.CheckPackage : int * string -&gt; unit" Usage="appOpsManager.CheckPackage (uid, packageName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -184,8 +240,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("checkPackage", "(ILjava/lang/String;)V", "GetCheckPackage_ILjava_lang_String_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -198,8 +254,9 @@
       <Docs>
         <param name="uid">To be added.</param>
         <param name="packageName">To be added.</param>
-        <summary>Do a quick check to validate if a package name belongs to a UID.</summary>
+        <summary>This member is deprecated.</summary>
         <remarks>
+          <para>This member is deprecated. Use <c>PackageManager#getPackageUid</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#checkPackage(int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.checkPackage(int, java.lang.String)</code>.</a>
@@ -223,8 +280,8 @@
       <MemberSignature Language="F#" Value="abstract member FinishOp : string * int * string -&gt; unit&#xA;override this.FinishOp : string * int * string -&gt; unit" Usage="appOpsManager.FinishOp (op, uid, packageName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -232,8 +289,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("finishOp", "(Ljava/lang/String;ILjava/lang/String;)V", "GetFinishOp_Ljava_lang_String_ILjava_lang_String_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -248,9 +305,9 @@
         <param name="op">To be added.</param>
         <param name="uid">To be added.</param>
         <param name="packageName">To be added.</param>
-        <summary>Report that an application is no longer performing an operation that had previously
- been started with <format type="text/html"><a href="https://docs.microsoft.com/en-us/search/index?search='M:Android App AppOpsManager StartOp(System String,System Int32,System Int32)';scope=Xamarin" title="M:Android.App.AppOpsManager.StartOp(System.String,System.Int32,System.Int32)">M:Android.App.AppOpsManager.StartOp(System.String,System.Int32,System.Int32)</a></format>.</summary>
+        <summary>This member is deprecated.</summary>
         <remarks>
+          <para>This member is deprecated. Use <c>#finishOp(String, int, String, String)</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#finishOp(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.finishOp(java.lang.String, int, java.lang.String)</code>.</a>
@@ -279,6 +336,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("finishOp", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)V", "GetFinishOp_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("finishOp", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)V", "GetFinishOp_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -297,6 +358,10 @@
         <summary>Report that an application is no longer performing an operation that had previously
             been started with <c>#startOp(String, int, String, String, String)</c>.</summary>
         <remarks>
+          <para>Report that an application is no longer performing an operation that had previously
+            been started with <c>#startOp(String, int, String, String, String)</c>.  There is no
+            validation of input or result; the parameters supplied here must be the exact same ones
+            previously passed in when starting the operation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#finishOp(java.lang.String,%20int,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.finishOp(java.lang.String, int, java.lang.String, java.lang.String)</code>.</a>
@@ -325,6 +390,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("finishProxyOp", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)V", "GetFinishProxyOp_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Handler", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("finishProxyOp", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)V", "GetFinishProxyOp_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Handler", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -344,6 +413,10 @@
         <summary>Report that an application is no longer performing an operation that had previously
             been started with <c>#startProxyOp(String, int, String, String, String)</c>.</summary>
         <remarks>
+          <para>Report that an application is no longer performing an operation that had previously
+            been started with <c>#startProxyOp(String, int, String, String, String)</c>. There is no
+            validation of input or result; the parameters supplied here must be the exact same ones
+            previously passed in when starting the operation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#finishProxyOp(java.lang.String,%20int,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.finishProxyOp(java.lang.String, int, java.lang.String, java.lang.String)</code>.</a>
@@ -372,6 +445,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("isOpActive", "(Ljava/lang/String;ILjava/lang/String;)Z", "GetIsOpActive_Ljava_lang_String_ILjava_lang_String_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("isOpActive", "(Ljava/lang/String;ILjava/lang/String;)Z", "GetIsOpActive_Ljava_lang_String_ILjava_lang_String_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -388,6 +465,10 @@
         <summary>Checks whether the given op for a package is active, i.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Checks whether the given op for a package is active, i.e. did someone call <c>#startOp</c>
+            without <c>#finishOp</c> yet.</para>
+          <para>If you don't hold the <c>android.Manifest.permission#WATCH_APPOPS</c>
+            permission you can query only for your UID.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#isOpActive(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.isOpActive(java.lang.String, int, java.lang.String)</code>.</a>
@@ -439,8 +520,8 @@
       <MemberSignature Language="F#" Value="val mutable ModeAllowed : Android.App.AppOpsManagerMode" Usage="Android.App.AppOpsManager.ModeAllowed" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -460,6 +541,8 @@
         <summary>Result from <c>#checkOp</c>, <c>#noteOp</c>, <c>#startOp</c>: the given caller is
             allowed to perform the given operation.</summary>
         <remarks>
+          <para>Result from <c>#checkOp</c>, <c>#noteOp</c>, <c>#startOp</c>: the given caller is
+            allowed to perform the given operation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#MODE_ALLOWED" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.MODE_ALLOWED</code>.</a>
@@ -480,8 +563,8 @@
       <MemberSignature Language="F#" Value="val mutable ModeDefault : Android.App.AppOpsManagerMode" Usage="Android.App.AppOpsManager.ModeDefault" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -501,6 +584,9 @@
         <summary>Result from <c>#checkOp</c>, <c>#noteOp</c>, <c>#startOp</c>: the given caller should
             use its default security check.</summary>
         <remarks>
+          <para>Result from <c>#checkOp</c>, <c>#noteOp</c>, <c>#startOp</c>: the given caller should
+            use its default security check.  This mode is not normally used; it should only be used
+            with appop permissions, and callers must explicitly check for it and deal with it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#MODE_DEFAULT" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.MODE_DEFAULT</code>.</a>
@@ -521,8 +607,8 @@
       <MemberSignature Language="F#" Value="val mutable ModeErrored : Android.App.AppOpsManagerMode" Usage="Android.App.AppOpsManager.ModeErrored" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -543,6 +629,9 @@
             given caller is not allowed to perform the given operation, and this attempt should
             cause it to have a fatal error, typically a <c>SecurityException</c>.</summary>
         <remarks>
+          <para>Result from <c>#checkOpNoThrow</c>, <c>#noteOpNoThrow</c>, <c>#startOpNoThrow</c>: the
+            given caller is not allowed to perform the given operation, and this attempt should
+            cause it to have a fatal error, typically a <c>SecurityException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#MODE_ERRORED" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.MODE_ERRORED</code>.</a>
@@ -575,6 +664,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.App.AppOpsManagerMode enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.App.AppOpsManagerMode enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.AppOpsManagerMode</ReturnType>
@@ -583,6 +676,19 @@
       <Docs>
         <summary>Special mode that means "allow only when app is in foreground.</summary>
         <remarks>
+          <para>Special mode that means "allow only when app is in foreground."  This is &lt;b&gt;not&lt;/b&gt;
+            returned from <c>#unsafeCheckOp</c>, <c>#noteOp</c>, <c>#startOp</c>.  Rather,
+            <c>#unsafeCheckOp</c> will always return <c>#MODE_ALLOWED</c> (because it is always
+            possible for it to be ultimately allowed, depending on the app's background state),
+            and <c>#noteOp</c> and <c>#startOp</c> will return <c>#MODE_ALLOWED</c> when the app
+            being checked is currently in the foreground, otherwise <c>#MODE_IGNORED</c>.</para>
+          <para>The only place you will this normally see this value is through
+            <c>#unsafeCheckOpRaw</c>, which returns the actual raw mode of the op.  Note that because
+            you can't know the current state of the app being checked (and it can change at any
+            point), you can only treat the result here as an indication that it will vary between
+            <c>#MODE_ALLOWED</c> and <c>#MODE_IGNORED</c> depending on changes in the background
+            state of the app.  You thus must always use <c>#noteOp</c> or <c>#startOp</c> to do
+            the actual check for access to the op.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#MODE_FOREGROUND" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.MODE_FOREGROUND</code>.</a>
@@ -603,8 +709,8 @@
       <MemberSignature Language="F#" Value="val mutable ModeIgnored : Android.App.AppOpsManagerMode" Usage="Android.App.AppOpsManager.ModeIgnored" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -625,6 +731,9 @@
             not allowed to perform the given operation, and this attempt should
             &lt;em&gt;silently fail&lt;/em&gt; (it should not cause the app to crash).</summary>
         <remarks>
+          <para>Result from <c>#checkOp</c>, <c>#noteOp</c>, <c>#startOp</c>: the given caller is
+            not allowed to perform the given operation, and this attempt should
+            &lt;em&gt;silently fail&lt;/em&gt; (it should not cause the app to crash).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#MODE_IGNORED" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.MODE_IGNORED</code>.</a>
@@ -645,8 +754,8 @@
       <MemberSignature Language="F#" Value="abstract member NoteOp : string * int * string -&gt; Android.App.AppOpsManagerMode&#xA;override this.NoteOp : string * int * string -&gt; Android.App.AppOpsManagerMode" Usage="appOpsManager.NoteOp (op, uid, packageName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -654,8 +763,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("noteOp", "(Ljava/lang/String;ILjava/lang/String;)I", "GetNoteOp_Ljava_lang_String_ILjava_lang_String_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -676,9 +785,10 @@
         <param name="op">The operation to note.  One of the OPSTR_* constants.</param>
         <param name="uid">The user id of the application attempting to perform the operation.</param>
         <param name="packageName">The name of the application attempting to perform the operation.</param>
-        <summary>Make note of an application performing an operation.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. Use <c>#noteOp(String, int, String, String, String)</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#noteOp(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.noteOp(java.lang.String, int, java.lang.String)</code>.</a>
@@ -708,6 +818,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("noteOp", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetNoteOp_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("noteOp", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetNoteOp_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=30)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -739,6 +853,36 @@
             <c>#MODE_IGNORED</c> if it is not allowed and should be silently ignored (without
             causing the app to crash).</returns>
         <remarks>
+          <para>Make note of an application performing an operation and check if the application is allowed
+            to perform it.</para>
+          <para>If this is a check that is not preceding the protected operation, use
+            <c>#unsafeCheckOp</c> instead.</para>
+          <para>The identity of the package the app-op is noted for is specified by the
+            <c>uid</c> and <c>packageName</c> parameters. If this is noted for a regular app both
+            should be set and the package needs to be part of the uid. In the very rare case that an
+            app-op is noted for an entity that does not have a package name, the package can be
+            <c>null</c>. As it is possible that a single process contains more than one package the
+            <c>packageName</c> should be <c>Context#getPackageName() read</c> from the context of the
+            caller of the API (in the app process) that eventually triggers this check. If this op is
+            not noted for a running process the <c>packageName</c> cannot be read from the context, but
+            it should be clear which package the note is for.</para>
+          <para>If the  <c>uid</c> and <c>packageName</c> do not match this return
+            <c>#MODE_IGNORED</c>.</para>
+          <para>Beside the access check this method also records the access. While the access check is
+            based on <c>uid</c> and/or <c>packageName</c> the access recording is done based on the
+            <c>packageName</c> and <c>attributionTag</c>. The <c>attributionTag</c> should be
+            <c>Context#getAttributionTag() read</c> from the same context the package name is read from.
+            In the case the check is not related to an API call, the  <c>attributionTag</c> should be
+            <c>null</c>. Please note that e.g. registering a callback for later is still an API call and
+            the code should store the attribution tag along the package name for being used in this
+            method later.</para>
+          <para>The <c>message</c> parameter only needs to be set when this method is &lt;ul&gt;not&lt;/ul&gt;
+            called in a two-way binder call from the client. In this case the message is a free form text
+            that is meant help the app developer determine what part of the app's code triggered the
+            note. This message is passed back to the app in the
+            <c>OnOpNotedCallback#onAsyncNoted(AsyncNotedAppOp)</c> callback. A good example of a useful
+            message is including the <c>System#identityHashCode(Object)</c> of the listener that will
+            receive data or the name of the manifest-receiver.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#noteOp(java.lang.String,%20int,%20java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.noteOp(java.lang.String, int, java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -759,8 +903,8 @@
       <MemberSignature Language="F#" Value="abstract member NoteOpNoThrow : string * int * string -&gt; Android.App.AppOpsManagerMode&#xA;override this.NoteOpNoThrow : string * int * string -&gt; Android.App.AppOpsManagerMode" Usage="appOpsManager.NoteOpNoThrow (op, uid, packageName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -768,8 +912,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("noteOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;)I", "GetNoteOpNoThrow_Ljava_lang_String_ILjava_lang_String_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -790,10 +934,10 @@
         <param name="op">To be added.</param>
         <param name="uid">To be added.</param>
         <param name="packageName">To be added.</param>
-        <summary>Like <format type="text/html"><a href="https://docs.microsoft.com/en-us/search/index?search='M:Android App AppOpsManager NoteOp(System String,System Int32,System Int32)';scope=Xamarin" title="M:Android.App.AppOpsManager.NoteOp(System.String,System.Int32,System.Int32)">M:Android.App.AppOpsManager.NoteOp(System.String,System.Int32,System.Int32)</a></format> but instead of throwing a <see cref="T:Java.Lang.SecurityException" /> it
- returns <see cref="F:Android.App.AppOpsManager.ModeErrored" />.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. Use <c>#noteOpNoThrow(String, int, String, String, String)</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#noteOpNoThrow(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.noteOpNoThrow(java.lang.String, int, java.lang.String)</code>.</a>
@@ -822,6 +966,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("noteOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetNoteOpNoThrow_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("noteOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetNoteOpNoThrow_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.AppOpsManagerMode</ReturnType>
@@ -849,6 +997,8 @@
             <c>SecurityException</c> it returns <c>#MODE_ERRORED</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Like <c>#noteOp(String, int, String, String, String)</c> but instead of throwing a
+            <c>SecurityException</c> it returns <c>#MODE_ERRORED</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#noteOpNoThrow(java.lang.String,%20int,%20java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.noteOpNoThrow(java.lang.String, int, java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -878,8 +1028,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("noteProxyOp", "(Ljava/lang/String;Ljava/lang/String;)I", "GetNoteProxyOp_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -898,9 +1052,10 @@
       <Docs>
         <param name="op">To be added.</param>
         <param name="proxiedPackageName">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. Use <c>#noteProxyOp(String, String, int, String, String)</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#noteProxyOp(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.noteProxyOp(java.lang.String, java.lang.String)</code>.</a>
@@ -928,6 +1083,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("noteProxyOp", "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)I", "GetNoteProxyOp_Ljava_lang_String_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("noteProxyOp", "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)I", "GetNoteProxyOp_Ljava_lang_String_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Handler", ApiSince=30)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -958,6 +1117,10 @@
         <returns>Returns <c>#MODE_ALLOWED</c> if the operation is allowed, or <c>#MODE_IGNORED</c>
             if it is not allowed and should be silently ignored (without causing the app to crash).</returns>
         <remarks>
+          <para>Make note of an application performing an operation on behalf of another application when
+            handling an IPC. This function will verify that the calling uid and proxied package name
+            match, and if not, return <c>#MODE_IGNORED</c>. If this call succeeds, the last execution
+            time of the operation for the proxied app and your app will be updated to the current time.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#noteProxyOp(java.lang.String,%20java.lang.String,%20int,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.noteProxyOp(java.lang.String, java.lang.String, int, java.lang.String, java.lang.String)</code>.</a>
@@ -987,8 +1150,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("noteProxyOpNoThrow", "(Ljava/lang/String;Ljava/lang/String;)I", "GetNoteProxyOpNoThrow_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1007,9 +1174,10 @@
       <Docs>
         <param name="op">To be added.</param>
         <param name="proxiedPackageName">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. Use <c>#noteProxyOpNoThrow(String, String, int, String, String)</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#noteProxyOpNoThrow(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.noteProxyOpNoThrow(java.lang.String, java.lang.String)</code>.</a>
@@ -1039,8 +1207,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("noteProxyOpNoThrow", "(Ljava/lang/String;Ljava/lang/String;I)I", "GetNoteProxyOpNoThrow_Ljava_lang_String_Ljava_lang_String_IHandler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1061,9 +1233,10 @@
         <param name="op">To be added.</param>
         <param name="proxiedPackageName">To be added.</param>
         <param name="proxiedUid">To be added.</param>
-        <summary>To be added.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. Use <c>#noteProxyOpNoThrow(String, String, int, String, String)</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#noteProxyOpNoThrow(java.lang.String,%20java.lang.String,%20int)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.noteProxyOpNoThrow(java.lang.String, java.lang.String, int)</code>.</a>
@@ -1092,6 +1265,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("noteProxyOpNoThrow", "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)I", "GetNoteProxyOpNoThrow_Ljava_lang_String_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("noteProxyOpNoThrow", "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;)I", "GetNoteProxyOpNoThrow_Ljava_lang_String_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.AppOpsManagerMode</ReturnType>
@@ -1119,6 +1296,8 @@
             of throwing a <c>SecurityException</c> it returns <c>#MODE_ERRORED</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Like <c>#noteProxyOp(String, String, int, String, String)</c> but instead
+            of throwing a <c>SecurityException</c> it returns <c>#MODE_ERRORED</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#noteProxyOpNoThrow(java.lang.String,%20java.lang.String,%20int,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.noteProxyOpNoThrow(java.lang.String, java.lang.String, int, java.lang.String, java.lang.String)</code>.</a>
@@ -1147,6 +1326,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_ADD_VOICEMAIL", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_ADD_VOICEMAIL", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1154,6 +1337,7 @@
       <Docs>
         <summary>Required to access phone state related information.</summary>
         <remarks>
+          <para>Required to access phone state related information.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_ADD_VOICEMAIL" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_ADD_VOICEMAIL</code>.</a>
@@ -1182,6 +1366,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_ANSWER_PHONE_CALLS", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_ANSWER_PHONE_CALLS", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1189,6 +1377,7 @@
       <Docs>
         <summary>Answer incoming phone calls</summary>
         <remarks>
+          <para>Answer incoming phone calls</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_ANSWER_PHONE_CALLS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_ANSWER_PHONE_CALLS</code>.</a>
@@ -1217,6 +1406,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_BODY_SENSORS", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_BODY_SENSORS", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1224,6 +1417,7 @@
       <Docs>
         <summary>Access to body sensors such as heart rate, etc.</summary>
         <remarks>
+          <para>Access to body sensors such as heart rate, etc.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_BODY_SENSORS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_BODY_SENSORS</code>.</a>
@@ -1252,6 +1446,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_CALL_PHONE", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_CALL_PHONE", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1259,6 +1457,7 @@
       <Docs>
         <summary>Allows an application to initiate a phone call.</summary>
         <remarks>
+          <para>Allows an application to initiate a phone call.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_CALL_PHONE" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_CALL_PHONE</code>.</a>
@@ -1287,6 +1486,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_CAMERA", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_CAMERA", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1294,6 +1497,7 @@
       <Docs>
         <summary>Required to be able to access the camera device.</summary>
         <remarks>
+          <para>Required to be able to access the camera device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_CAMERA" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_CAMERA</code>.</a>
@@ -1314,8 +1518,8 @@
       <MemberSignature Language="F#" Value="val mutable OpstrCoarseLocation : string" Usage="Android.App.AppOpsManager.OpstrCoarseLocation" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1329,6 +1533,7 @@
       <Docs>
         <summary>Access to coarse location information.</summary>
         <remarks>
+          <para>Access to coarse location information.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_COARSE_LOCATION" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_COARSE_LOCATION</code>.</a>
@@ -1349,8 +1554,8 @@
       <MemberSignature Language="F#" Value="val mutable OpstrFineLocation : string" Usage="Android.App.AppOpsManager.OpstrFineLocation" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1364,6 +1569,7 @@
       <Docs>
         <summary>Access to fine location information.</summary>
         <remarks>
+          <para>Access to fine location information.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_FINE_LOCATION" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_FINE_LOCATION</code>.</a>
@@ -1384,8 +1590,8 @@
       <MemberSignature Language="F#" Value="val mutable OpstrGetUsageStats : string" Usage="Android.App.AppOpsManager.OpstrGetUsageStats" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1399,6 +1605,7 @@
       <Docs>
         <summary>Access to <c>android.app.usage.UsageStatsManager</c>.</summary>
         <remarks>
+          <para>Access to <c>android.app.usage.UsageStatsManager</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_GET_USAGE_STATS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_GET_USAGE_STATS</code>.</a>
@@ -1427,6 +1634,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_MOCK_LOCATION", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_MOCK_LOCATION", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1434,6 +1645,7 @@
       <Docs>
         <summary>Inject mock location into the system.</summary>
         <remarks>
+          <para>Inject mock location into the system.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_MOCK_LOCATION" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_MOCK_LOCATION</code>.</a>
@@ -1454,8 +1666,8 @@
       <MemberSignature Language="F#" Value="val mutable OpstrMonitorHighPowerLocation : string" Usage="Android.App.AppOpsManager.OpstrMonitorHighPowerLocation" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1469,6 +1681,7 @@
       <Docs>
         <summary>Continually monitoring location data with a relatively high power request.</summary>
         <remarks>
+          <para>Continually monitoring location data with a relatively high power request.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_MONITOR_HIGH_POWER_LOCATION" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_MONITOR_HIGH_POWER_LOCATION</code>.</a>
@@ -1489,8 +1702,8 @@
       <MemberSignature Language="F#" Value="val mutable OpstrMonitorLocation : string" Usage="Android.App.AppOpsManager.OpstrMonitorLocation" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1504,6 +1717,7 @@
       <Docs>
         <summary>Continually monitoring location data.</summary>
         <remarks>
+          <para>Continually monitoring location data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_MONITOR_LOCATION" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_MONITOR_LOCATION</code>.</a>
@@ -1532,6 +1746,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_PICTURE_IN_PICTURE", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_PICTURE_IN_PICTURE", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1539,6 +1757,7 @@
       <Docs>
         <summary>Access to picture-in-picture.</summary>
         <remarks>
+          <para>Access to picture-in-picture.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_PICTURE_IN_PICTURE" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_PICTURE_IN_PICTURE</code>.</a>
@@ -1567,6 +1786,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_PROCESS_OUTGOING_CALLS", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_PROCESS_OUTGOING_CALLS", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1574,6 +1797,7 @@
       <Docs>
         <summary>Access APIs for diverting outgoing calls</summary>
         <remarks>
+          <para>Access APIs for diverting outgoing calls</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_PROCESS_OUTGOING_CALLS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_PROCESS_OUTGOING_CALLS</code>.</a>
@@ -1602,6 +1826,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_READ_CALENDAR", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_READ_CALENDAR", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1609,6 +1837,7 @@
       <Docs>
         <summary>Allows an application to read the user's calendar data.</summary>
         <remarks>
+          <para>Allows an application to read the user's calendar data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_READ_CALENDAR" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_READ_CALENDAR</code>.</a>
@@ -1637,6 +1866,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_READ_CALL_LOG", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_READ_CALL_LOG", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1644,6 +1877,7 @@
       <Docs>
         <summary>Allows an application to read the user's call log.</summary>
         <remarks>
+          <para>Allows an application to read the user's call log.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_READ_CALL_LOG" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_READ_CALL_LOG</code>.</a>
@@ -1672,6 +1906,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_READ_CELL_BROADCASTS", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_READ_CELL_BROADCASTS", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1679,6 +1917,7 @@
       <Docs>
         <summary>Read previously received cell broadcast messages.</summary>
         <remarks>
+          <para>Read previously received cell broadcast messages.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_READ_CELL_BROADCASTS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_READ_CELL_BROADCASTS</code>.</a>
@@ -1707,6 +1946,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_READ_CONTACTS", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_READ_CONTACTS", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1714,6 +1957,7 @@
       <Docs>
         <summary>Allows an application to read the user's contacts data.</summary>
         <remarks>
+          <para>Allows an application to read the user's contacts data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_READ_CONTACTS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_READ_CONTACTS</code>.</a>
@@ -1742,6 +1986,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_READ_EXTERNAL_STORAGE", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_READ_EXTERNAL_STORAGE", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1749,6 +1997,7 @@
       <Docs>
         <summary>Read external storage.</summary>
         <remarks>
+          <para>Read external storage.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_READ_EXTERNAL_STORAGE" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_READ_EXTERNAL_STORAGE</code>.</a>
@@ -1777,6 +2026,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_READ_PHONE_NUMBERS", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_READ_PHONE_NUMBERS", ApiSince=26)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1803,6 +2056,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_READ_PHONE_STATE", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_READ_PHONE_STATE", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1810,6 +2067,7 @@
       <Docs>
         <summary>Required to access phone state related information.</summary>
         <remarks>
+          <para>Required to access phone state related information.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_READ_PHONE_STATE" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_READ_PHONE_STATE</code>.</a>
@@ -1838,6 +2096,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_READ_SMS", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_READ_SMS", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1845,6 +2107,7 @@
       <Docs>
         <summary>Allows an application to read SMS messages.</summary>
         <remarks>
+          <para>Allows an application to read SMS messages.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_READ_SMS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_READ_SMS</code>.</a>
@@ -1873,6 +2136,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_RECEIVE_MMS", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_RECEIVE_MMS", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1880,6 +2147,7 @@
       <Docs>
         <summary>Allows an application to receive MMS messages.</summary>
         <remarks>
+          <para>Allows an application to receive MMS messages.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_RECEIVE_MMS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_RECEIVE_MMS</code>.</a>
@@ -1908,6 +2176,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_RECEIVE_SMS", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_RECEIVE_SMS", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1915,6 +2187,7 @@
       <Docs>
         <summary>Allows an application to receive SMS messages.</summary>
         <remarks>
+          <para>Allows an application to receive SMS messages.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_RECEIVE_SMS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_RECEIVE_SMS</code>.</a>
@@ -1943,6 +2216,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_RECEIVE_WAP_PUSH", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_RECEIVE_WAP_PUSH", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1950,6 +2227,7 @@
       <Docs>
         <summary>Allows an application to receive WAP push messages.</summary>
         <remarks>
+          <para>Allows an application to receive WAP push messages.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_RECEIVE_WAP_PUSH" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_RECEIVE_WAP_PUSH</code>.</a>
@@ -1978,6 +2256,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_RECORD_AUDIO", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_RECORD_AUDIO", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -1985,6 +2267,7 @@
       <Docs>
         <summary>Required to be able to access the microphone device.</summary>
         <remarks>
+          <para>Required to be able to access the microphone device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_RECORD_AUDIO" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_RECORD_AUDIO</code>.</a>
@@ -2013,6 +2296,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_SEND_SMS", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_SEND_SMS", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -2020,6 +2307,7 @@
       <Docs>
         <summary>Allows an application to send SMS messages.</summary>
         <remarks>
+          <para>Allows an application to send SMS messages.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_SEND_SMS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_SEND_SMS</code>.</a>
@@ -2048,6 +2336,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_SYSTEM_ALERT_WINDOW", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_SYSTEM_ALERT_WINDOW", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -2055,6 +2347,7 @@
       <Docs>
         <summary>Required to draw on top of other apps.</summary>
         <remarks>
+          <para>Required to draw on top of other apps.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_SYSTEM_ALERT_WINDOW" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW</code>.</a>
@@ -2083,6 +2376,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_USE_FINGERPRINT", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_USE_FINGERPRINT", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -2090,6 +2387,7 @@
       <Docs>
         <summary>Use the fingerprint API.</summary>
         <remarks>
+          <para>Use the fingerprint API.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_USE_FINGERPRINT" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_USE_FINGERPRINT</code>.</a>
@@ -2118,6 +2416,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_USE_SIP", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_USE_SIP", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -2125,6 +2427,7 @@
       <Docs>
         <summary>Access APIs for SIP calling over VOIP or WiFi</summary>
         <remarks>
+          <para>Access APIs for SIP calling over VOIP or WiFi</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_USE_SIP" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_USE_SIP</code>.</a>
@@ -2153,6 +2456,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_WRITE_CALENDAR", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_WRITE_CALENDAR", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -2160,6 +2467,7 @@
       <Docs>
         <summary>Allows an application to write to the user's calendar data.</summary>
         <remarks>
+          <para>Allows an application to write to the user's calendar data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_WRITE_CALENDAR" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_WRITE_CALENDAR</code>.</a>
@@ -2188,6 +2496,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_WRITE_CALL_LOG", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_WRITE_CALL_LOG", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -2195,6 +2507,7 @@
       <Docs>
         <summary>Allows an application to write to the user's call log.</summary>
         <remarks>
+          <para>Allows an application to write to the user's call log.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_WRITE_CALL_LOG" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_WRITE_CALL_LOG</code>.</a>
@@ -2223,6 +2536,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_WRITE_CONTACTS", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_WRITE_CONTACTS", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -2230,6 +2547,7 @@
       <Docs>
         <summary>Allows an application to write to the user's contacts data.</summary>
         <remarks>
+          <para>Allows an application to write to the user's contacts data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_WRITE_CONTACTS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_WRITE_CONTACTS</code>.</a>
@@ -2258,6 +2576,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_WRITE_EXTERNAL_STORAGE", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_WRITE_EXTERNAL_STORAGE", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -2265,6 +2587,7 @@
       <Docs>
         <summary>Write external storage.</summary>
         <remarks>
+          <para>Write external storage.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_WRITE_EXTERNAL_STORAGE" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_WRITE_EXTERNAL_STORAGE</code>.</a>
@@ -2293,6 +2616,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("OPSTR_WRITE_SETTINGS", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("OPSTR_WRITE_SETTINGS", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -2300,6 +2627,7 @@
       <Docs>
         <summary>Required to write/modify/update system settings.</summary>
         <remarks>
+          <para>Required to write/modify/update system settings.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#OPSTR_WRITE_SETTINGS" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.OPSTR_WRITE_SETTINGS</code>.</a>
@@ -2328,6 +2656,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("permissionToOp", "(Ljava/lang/String;)Ljava/lang/String;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("permissionToOp", "(Ljava/lang/String;)Ljava/lang/String;", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.String</ReturnType>
@@ -2340,6 +2672,11 @@
         <summary>Gets the app-op name associated with a given permission.</summary>
         <returns>The app-op associated with the permission or <c>null</c>.</returns>
         <remarks>
+          <para>Gets the app-op name associated with a given permission.</para>
+          <para>The app-op name is one of the public constants defined
+            in this class such as <c>#OPSTR_COARSE_LOCATION</c>.
+            This API is intended to be used for mapping runtime
+            permissions to the corresponding app-op.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#permissionToOp(java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.permissionToOp(java.lang.String)</code>.</a>
@@ -2367,6 +2704,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOnOpNotedCallback", "(Ljava/util/concurrent/Executor;Landroid/app/AppOpsManager$OnOpNotedCallback;)V", "GetSetOnOpNotedCallback_Ljava_util_concurrent_Executor_Landroid_app_AppOpsManager_OnOpNotedCallback_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnOpNotedCallback", "(Ljava/util/concurrent/Executor;Landroid/app/AppOpsManager$OnOpNotedCallback;)V", "GetSetOnOpNotedCallback_Ljava_util_concurrent_Executor_Landroid_app_AppOpsManager_OnOpNotedCallback_Handler", ApiSince=30)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2401,8 +2742,8 @@
       <MemberSignature Language="F#" Value="abstract member StartOp : string * int * string -&gt; Android.App.AppOpsManagerMode&#xA;override this.StartOp : string * int * string -&gt; Android.App.AppOpsManagerMode" Usage="appOpsManager.StartOp (op, uid, packageName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2410,8 +2751,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("startOp", "(Ljava/lang/String;ILjava/lang/String;)I", "GetStartOp_Ljava_lang_String_ILjava_lang_String_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2432,9 +2773,10 @@
         <param name="op">The operation to start.  One of the OPSTR_* constants.</param>
         <param name="uid">The user id of the application attempting to perform the operation.</param>
         <param name="packageName">The name of the application attempting to perform the operation.</param>
-        <summary>Report that an application has started executing a long-running operation.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. use <c>#startOp(String, int, String, String, String)</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#startOp(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.startOp(java.lang.String, int, java.lang.String)</code>.</a>
@@ -2465,6 +2807,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("startOp", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetStartOp_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("startOp", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetStartOp_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.AppOpsManagerMode</ReturnType>
@@ -2494,6 +2840,10 @@
             <c>#MODE_IGNORED</c> if it is not allowed and should be silently ignored (without
             causing the app to crash).</returns>
         <remarks>
+          <para>Report that an application has started executing a long-running operation.</para>
+          <para>For more details how to determine the <c>callingPackageName</c>,
+            <c>callingAttributionTag</c>, and <c>message</c>, please check the description in
+            <c>#noteOp(String, int, String, String, String)</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#startOp(java.lang.String,%20int,%20java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.startOp(java.lang.String, int, java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -2514,8 +2864,8 @@
       <MemberSignature Language="F#" Value="abstract member StartOpNoThrow : string * int * string -&gt; Android.App.AppOpsManagerMode&#xA;override this.StartOpNoThrow : string * int * string -&gt; Android.App.AppOpsManagerMode" Usage="appOpsManager.StartOpNoThrow (op, uid, packageName)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2523,8 +2873,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("startOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;)I", "GetStartOpNoThrow_Ljava_lang_String_ILjava_lang_String_Handler")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2545,10 +2895,10 @@
         <param name="op">To be added.</param>
         <param name="uid">To be added.</param>
         <param name="packageName">To be added.</param>
-        <summary>Like <format type="text/html"><a href="https://docs.microsoft.com/en-us/search/index?search='M:Android App AppOpsManager StartOp(System String,System Int32,System Int32)';scope=Xamarin" title="M:Android.App.AppOpsManager.StartOp(System.String,System.Int32,System.Int32)">M:Android.App.AppOpsManager.StartOp(System.String,System.Int32,System.Int32)</a></format> but instead of throwing a <see cref="T:Java.Lang.SecurityException" /> it
- returns <see cref="F:Android.App.AppOpsManager.ModeErrored" />.</summary>
+        <summary>This member is deprecated.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This member is deprecated. use <c>#startOpNoThrow(String, int, String, String, String)</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#startOpNoThrow(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.startOpNoThrow(java.lang.String, int, java.lang.String)</code>.</a>
@@ -2563,7 +2913,7 @@
       </Docs>
     </Member>
     <Member MemberName="StartOpNoThrow">
-      <MemberSignature Language="C#" Value="public virtual Android.App.AppOpsManagerMode StartOpNoThrow (string op, int uid, string packageName, string attributionTag, string? message);" />
+      <MemberSignature Language="C#" Value="public virtual Android.App.AppOpsManagerMode StartOpNoThrow (string op, int uid, string packageName, string? attributionTag, string? message);" />
       <MemberSignature Language="ILAsm" Value=".method public hidebysig newslot virtual instance valuetype Android.App.AppOpsManagerMode StartOpNoThrow(string op, int32 uid, string packageName, string attributionTag, string message) cil managed" />
       <MemberSignature Language="DocId" Value="M:Android.App.AppOpsManager.StartOpNoThrow(System.String,System.Int32,System.String,System.String,System.String)" />
       <MemberSignature Language="F#" Value="abstract member StartOpNoThrow : string * int * string * string * string -&gt; Android.App.AppOpsManagerMode&#xA;override this.StartOpNoThrow : string * int * string * string * string -&gt; Android.App.AppOpsManagerMode" Usage="appOpsManager.StartOpNoThrow (op, uid, packageName, attributionTag, message)" />
@@ -2576,6 +2926,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("startOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetStartOpNoThrow_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("startOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetStartOpNoThrow_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=30)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2604,6 +2958,8 @@
             <c>SecurityException</c> it returns <c>#MODE_ERRORED</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Like <c>#startOp(String, int, String, String, String)</c> but instead of throwing a
+            <c>SecurityException</c> it returns <c>#MODE_ERRORED</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#startOpNoThrow(java.lang.String,%20int,%20java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.startOpNoThrow(java.lang.String, int, java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -2632,6 +2988,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("startProxyOp", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetStartProxyOp_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("startProxyOp", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetStartProxyOp_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -2655,6 +3015,9 @@
         <returns>Returns <c>#MODE_ALLOWED</c> if the operation is allowed, or <c>#MODE_IGNORED</c>
             if it is not allowed and should be silently ignored (without causing the app to crash).</returns>
         <remarks>
+          <para>Report that an application has started executing a long-running operation on behalf of
+            another application when handling an IPC. This function will verify that the calling uid and
+            proxied package name match, and if not, return <c>#MODE_IGNORED</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#startProxyOp(java.lang.String,%20int,%20java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.startProxyOp(java.lang.String, int, java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -2683,6 +3046,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("startProxyOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetStartProxyOpNoThrow_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("startProxyOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", "GetStartProxyOpNoThrow_Ljava_lang_String_ILjava_lang_String_Ljava_lang_String_Ljava_lang_String_Handler", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Int32</ReturnType>
@@ -2704,6 +3071,8 @@
             of throwing a <c>SecurityException</c> it returns <c>#MODE_ERRORED</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Like <c>#startProxyOp(String, int, String, String, String)</c> but instead
+            of throwing a <c>SecurityException</c> it returns <c>#MODE_ERRORED</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#startProxyOpNoThrow(java.lang.String,%20int,%20java.lang.String,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.startProxyOpNoThrow(java.lang.String, int, java.lang.String, java.lang.String, java.lang.String)</code>.</a>
@@ -2732,6 +3101,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("startWatchingActive", "([Ljava/lang/String;Ljava/util/concurrent/Executor;Landroid/app/AppOpsManager$OnOpActiveChangedListener;)V", "GetStartWatchingActive_arrayLjava_lang_String_Ljava_util_concurrent_Executor_Landroid_app_AppOpsManager_OnOpActiveChangedListener_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("startWatchingActive", "([Ljava/lang/String;Ljava/util/concurrent/Executor;Landroid/app/AppOpsManager$OnOpActiveChangedListener;)V", "GetStartWatchingActive_arrayLjava_lang_String_Ljava_util_concurrent_Executor_Landroid_app_AppOpsManager_OnOpActiveChangedListener_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2756,8 +3129,8 @@
       <MemberSignature Language="F#" Value="abstract member StartWatchingMode : string * string * Android.App.AppOpsManager.IOnOpChangedListener -&gt; unit&#xA;override this.StartWatchingMode : string * string * Android.App.AppOpsManager.IOnOpChangedListener -&gt; unit" Usage="appOpsManager.StartWatchingMode (op, packageName, callback)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2798,6 +3171,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("startWatchingMode", "(Ljava/lang/String;Ljava/lang/String;ILandroid/app/AppOpsManager$OnOpChangedListener;)V", "GetStartWatchingMode_Ljava_lang_String_Ljava_lang_String_ILandroid_app_AppOpsManager_OnOpChangedListener_Handler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("startWatchingMode", "(Ljava/lang/String;Ljava/lang/String;ILandroid/app/AppOpsManager$OnOpChangedListener;)V", "GetStartWatchingMode_Ljava_lang_String_Ljava_lang_String_ILandroid_app_AppOpsManager_OnOpChangedListener_Handler", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2840,6 +3217,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("stopWatchingActive", "(Landroid/app/AppOpsManager$OnOpActiveChangedListener;)V", "GetStopWatchingActive_Landroid_app_AppOpsManager_OnOpActiveChangedListener_Handler", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("stopWatchingActive", "(Landroid/app/AppOpsManager$OnOpActiveChangedListener;)V", "GetStopWatchingActive_Landroid_app_AppOpsManager_OnOpActiveChangedListener_Handler", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2871,8 +3252,8 @@
       <MemberSignature Language="F#" Value="abstract member StopWatchingMode : Android.App.AppOpsManager.IOnOpChangedListener -&gt; unit&#xA;override this.StopWatchingMode : Android.App.AppOpsManager.IOnOpChangedListener -&gt; unit" Usage="appOpsManager.StopWatchingMode callback" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2910,8 +3291,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.App.AppOpsManager.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2941,8 +3322,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.App.AppOpsManager.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2980,6 +3361,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("unsafeCheckOp", "(Ljava/lang/String;ILjava/lang/String;)I", "GetUnsafeCheckOp_Ljava_lang_String_ILjava_lang_String_Handler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("unsafeCheckOp", "(Ljava/lang/String;ILjava/lang/String;)I", "GetUnsafeCheckOp_Ljava_lang_String_ILjava_lang_String_Handler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.AppOpsManagerMode</ReturnType>
@@ -3004,6 +3389,23 @@
             <c>#MODE_IGNORED</c> if it is not allowed and should be silently ignored (without
             causing the app to crash).</returns>
         <remarks>
+          <para>Do a quick check for whether an application might be able to perform an operation.
+            This is &lt;em&gt;not&lt;/em&gt; a security check; you must use <c>#noteOp(String, int, String,
+            String, String)</c> or <c>#startOp(String, int, String, String, String)</c> for your actual
+            security checks, which also ensure that the given uid and package name are consistent. This
+            function can just be used for a quick check to see if an operation has been disabled for the
+            application, as an early reject of some work.  This does not modify the time stamp or other
+            data about the operation.</para>
+          <para>Important things this will not do (which you need to ultimate use
+            <c>#noteOp(String, int, String, String, String)</c> or
+            <c>#startOp(String, int, String, String, String)</c> to cover):</para>
+          <para>&lt;ul&gt;
+                &lt;li&gt;Verifying the uid and package are consistent, so callers can't spoof
+                their identity.&lt;/li&gt;
+                &lt;li&gt;Taking into account the current foreground/background state of the
+                app; apps whose mode varies by this state will always be reported
+                as <c>#MODE_ALLOWED</c>.&lt;/li&gt;
+            &lt;/ul&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#unsafeCheckOp(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.unsafeCheckOp(java.lang.String, int, java.lang.String)</code>.</a>
@@ -3032,6 +3434,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("unsafeCheckOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;)I", "GetUnsafeCheckOpNoThrow_Ljava_lang_String_ILjava_lang_String_Handler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("unsafeCheckOpNoThrow", "(Ljava/lang/String;ILjava/lang/String;)I", "GetUnsafeCheckOpNoThrow_Ljava_lang_String_ILjava_lang_String_Handler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.AppOpsManagerMode</ReturnType>
@@ -3055,6 +3461,8 @@
             returns <c>#MODE_ERRORED</c>.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Like <c>#checkOp</c> but instead of throwing a <c>SecurityException</c> it
+            returns <c>#MODE_ERRORED</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#unsafeCheckOpNoThrow(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.unsafeCheckOpNoThrow(java.lang.String, int, java.lang.String)</code>.</a>
@@ -3083,6 +3491,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("unsafeCheckOpRaw", "(Ljava/lang/String;ILjava/lang/String;)I", "GetUnsafeCheckOpRaw_Ljava_lang_String_ILjava_lang_String_Handler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("unsafeCheckOpRaw", "(Ljava/lang/String;ILjava/lang/String;)I", "GetUnsafeCheckOpRaw_Ljava_lang_String_ILjava_lang_String_Handler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.AppOpsManagerMode</ReturnType>
@@ -3105,6 +3517,8 @@
         <summary>Like <c>#checkOp</c> but returns the &lt;em&gt;raw&lt;/em&gt; mode associated with the op.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Like <c>#checkOp</c> but returns the &lt;em&gt;raw&lt;/em&gt; mode associated with the op.
+            Does not throw a security exception, does not translate <c>#MODE_FOREGROUND</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#unsafeCheckOpRaw(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.unsafeCheckOpRaw(java.lang.String, int, java.lang.String)</code>.</a>
@@ -3133,6 +3547,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("unsafeCheckOpRawNoThrow", "(Ljava/lang/String;ILjava/lang/String;)I", "GetUnsafeCheckOpRawNoThrow_Ljava_lang_String_ILjava_lang_String_Handler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("unsafeCheckOpRawNoThrow", "(Ljava/lang/String;ILjava/lang/String;)I", "GetUnsafeCheckOpRawNoThrow_Ljava_lang_String_ILjava_lang_String_Handler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.AppOpsManagerMode</ReturnType>
@@ -3156,6 +3574,9 @@
             mode associated with the op.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Like <c>#unsafeCheckOpNoThrow(String, int, String)</c> but returns the &lt;em&gt;raw&lt;/em&gt;
+            mode associated with the op. Does not throw a security exception, does not translate
+            <c>#MODE_FOREGROUND</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#unsafeCheckOpRawNoThrow(java.lang.String,%20int,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.unsafeCheckOpRawNoThrow(java.lang.String, int, java.lang.String)</code>.</a>
@@ -3188,6 +3609,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.App.WatchForeground enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.App.WatchForeground enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.WatchForeground</ReturnType>
@@ -3197,6 +3622,9 @@
         <summary>Flag for <c>#startWatchingMode(String, String, int, OnOpChangedListener)</c>:
             Also get reports if the foreground state of an op's uid changes.</summary>
         <remarks>
+          <para>Flag for <c>#startWatchingMode(String, String, int, OnOpChangedListener)</c>:
+            Also get reports if the foreground state of an op's uid changes.  This only works
+            when watching a particular op, not when watching a package.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/AppOpsManager#WATCH_FOREGROUND_CHANGES" title="Reference documentation">Java documentation for <code>android.app.AppOpsManager.WATCH_FOREGROUND_CHANGES</code>.</a>

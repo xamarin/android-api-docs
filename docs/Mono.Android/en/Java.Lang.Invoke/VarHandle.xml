@@ -16,6 +16,10 @@
       <AttributeName Language="C#">[Android.Runtime.Register("java/lang/invoke/VarHandle", ApiSince=33, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("java/lang/invoke/VarHandle", ApiSince=33, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>A VarHandle is a dynamically strongly typed reference to a variable, or to a
@@ -23,6 +27,372 @@
             non-static fields, array elements, or components of an off-heap data
             structure.</summary>
     <remarks>
+      <para>A VarHandle is a dynamically strongly typed reference to a variable, or to a
+            parametrically-defined family of variables, including static fields,
+            non-static fields, array elements, or components of an off-heap data
+            structure.  Access to such variables is supported under various
+            &lt;em&gt;access modes&lt;/em&gt;, including plain read/write access, volatile
+            read/write access, and compare-and-set.</para>
+      <para>VarHandles are immutable and have no visible state.  VarHandles cannot be
+            subclassed by the user.</para>
+      <para>A VarHandle has:
+            &lt;ul&gt;
+            &lt;li&gt;a <c>#varType variable type</c> T, the type of every variable referenced
+            by this VarHandle; and
+            &lt;li&gt;a list of <c>#coordinateTypes coordinate types</c><c>CT1, CT2, ..., CTn</c>, the types of &lt;em&gt;coordinate expressions&lt;/em&gt; that
+            jointly locate a variable referenced by this VarHandle.
+            &lt;/ul&gt;
+            Variable and coordinate types may be primitive or reference, and are
+            represented by <c>Class</c> objects.  The list of coordinate types may be
+            empty.</para>
+      <para>Factory methods that produce or <c>java.lang.invoke.MethodHandles.Lookup
+            lookup</c> VarHandle instances document the supported variable type and the list
+            of coordinate types.</para>
+      <para>Each access mode is associated with one &lt;em&gt;access mode method&lt;/em&gt;, a
+            signature polymorphic method named
+            for the access mode.  When an access mode method is invoked on a VarHandle
+            instance, the initial arguments to the invocation are coordinate expressions
+            that indicate in precisely which object the variable is to be accessed.
+            Trailing arguments to the invocation represent values of importance to the
+            access mode.  For example, the various compare-and-set or compare-and-exchange
+            access modes require two trailing arguments for the variable's expected value
+            and new value.</para>
+      <para>The arity and types of arguments to the invocation of an access mode
+            method are not checked statically.  Instead, each access mode method
+            specifies an <c>#accessModeType(AccessMode) access mode type</c>,
+            represented as an instance of <c>MethodType</c>, that serves as a kind of
+            method signature against which the arguments are checked dynamically.  An
+            access mode type gives formal parameter types in terms of the coordinate
+            types of a VarHandle instance and the types for values of importance to the
+            access mode.  An access mode type also gives a return type, often in terms of
+            the variable type of a VarHandle instance.  When an access mode method is
+            invoked on a VarHandle instance, the symbolic type descriptor at the
+            call site, the run time types of arguments to the invocation, and the run
+            time type of the return value, must match the types
+            given in the access mode type.  A runtime exception will be thrown if the
+            match fails.
+            
+            For example, the access mode method <c>#compareAndSet</c> specifies that if
+            its receiver is a VarHandle instance with coordinate types
+            <c>CT1, ..., CTn</c> and variable type <c>T</c>, then its access mode type
+            is <c>(CT1 c1, ..., CTn cn, T expectedValue, T newValue)boolean</c>.
+            Suppose that a VarHandle instance can access array elements, and that its
+            coordinate types are <c>String[]</c> and <c>int</c> while its variable type
+            is <c>String</c>.  The access mode type for <c>compareAndSet</c> on this
+            VarHandle instance would be
+            <c>(String[] c1, int c2, String expectedValue, String newValue)boolean</c>.
+            Such a VarHandle instance may be produced by the
+            <c>MethodHandles#arrayElementVarHandle(Class) array factory method</c> and
+            access array elements as follows:</para>
+      <code lang="text/java">{@code
+            String[] sa = ...
+            VarHandle avh = MethodHandles.arrayElementVarHandle(String[].class);
+            boolean r = avh.compareAndSet(sa, 10, "expected", "new");
+            }</code>
+      <para>Access modes control atomicity and consistency properties.
+            &lt;em&gt;Plain&lt;/em&gt; read (<c>get</c>) and write (<c>set</c>)
+            accesses are guaranteed to be bitwise atomic only for references
+            and for primitive values of at most 32 bits, and impose no observable
+            ordering constraints with respect to threads other than the
+            executing thread. &lt;em&gt;Opaque&lt;/em&gt; operations are bitwise atomic and
+            coherently ordered with respect to accesses to the same variable.
+            In addition to obeying Opaque properties, &lt;em&gt;Acquire&lt;/em&gt; mode
+            reads and their subsequent accesses are ordered after matching
+            &lt;em&gt;Release&lt;/em&gt; mode writes and their previous accesses.  In
+            addition to obeying Acquire and Release properties, all
+            &lt;em&gt;Volatile&lt;/em&gt; operations are totally ordered with respect to
+            each other.</para>
+      <para>Access modes are grouped into the following categories:
+            &lt;ul&gt;
+            &lt;li&gt;read access modes that get the value of a variable under specified
+            memory ordering effects.
+            The set of corresponding access mode methods belonging to this group
+            consists of the methods
+            <c>#get get</c>,
+            <c>#getVolatile getVolatile</c>,
+            <c>#getAcquire getAcquire</c>,
+            <c>#getOpaque getOpaque</c>.
+            &lt;li&gt;write access modes that set the value of a variable under specified
+            memory ordering effects.
+            The set of corresponding access mode methods belonging to this group
+            consists of the methods
+            <c>#set set</c>,
+            <c>#setVolatile setVolatile</c>,
+            <c>#setRelease setRelease</c>,
+            <c>#setOpaque setOpaque</c>.
+            &lt;li&gt;atomic update access modes that, for example, atomically compare and set
+            the value of a variable under specified memory ordering effects.
+            The set of corresponding access mode methods belonging to this group
+            consists of the methods
+            <c>#compareAndSet compareAndSet</c>,
+            <c>#weakCompareAndSetPlain weakCompareAndSetPlain</c>,
+            <c>#weakCompareAndSet weakCompareAndSet</c>,
+            <c>#weakCompareAndSetAcquire weakCompareAndSetAcquire</c>,
+            <c>#weakCompareAndSetRelease weakCompareAndSetRelease</c>,
+            <c>#compareAndExchangeAcquire compareAndExchangeAcquire</c>,
+            <c>#compareAndExchange compareAndExchange</c>,
+            <c>#compareAndExchangeRelease compareAndExchangeRelease</c>,
+            <c>#getAndSet getAndSet</c>,
+            <c>#getAndSetAcquire getAndSetAcquire</c>,
+            <c>#getAndSetRelease getAndSetRelease</c>.
+            &lt;li&gt;numeric atomic update access modes that, for example, atomically get and
+            set with addition the value of a variable under specified memory ordering
+            effects.
+            The set of corresponding access mode methods belonging to this group
+            consists of the methods
+            <c>#getAndAdd getAndAdd</c>,
+            <c>#getAndAddAcquire getAndAddAcquire</c>,
+            <c>#getAndAddRelease getAndAddRelease</c>,
+            &lt;li&gt;bitwise atomic update access modes that, for example, atomically get and
+            bitwise OR the value of a variable under specified memory ordering
+            effects.
+            The set of corresponding access mode methods belonging to this group
+            consists of the methods
+            <c>#getAndBitwiseOr getAndBitwiseOr</c>,
+            <c>#getAndBitwiseOrAcquire getAndBitwiseOrAcquire</c>,
+            <c>#getAndBitwiseOrRelease getAndBitwiseOrRelease</c>,
+            <c>#getAndBitwiseAnd getAndBitwiseAnd</c>,
+            <c>#getAndBitwiseAndAcquire getAndBitwiseAndAcquire</c>,
+            <c>#getAndBitwiseAndRelease getAndBitwiseAndRelease</c>,
+            <c>#getAndBitwiseXor getAndBitwiseXor</c>,
+            <c>#getAndBitwiseXorAcquire getAndBitwiseXorAcquire</c>,
+            <c>#getAndBitwiseXorRelease getAndBitwiseXorRelease</c>.
+            &lt;/ul&gt;</para>
+      <para>Factory methods that produce or <c>java.lang.invoke.MethodHandles.Lookup
+            lookup</c> VarHandle instances document the set of access modes that are
+            supported, which may also include documenting restrictions based on the
+            variable type and whether a variable is read-only.  If an access mode is not
+            supported then the corresponding access mode method will on invocation throw
+            an <c>UnsupportedOperationException</c>.  Factory methods should document
+            any additional undeclared exceptions that may be thrown by access mode
+            methods.
+            The <c>#get get</c> access mode is supported for all
+            VarHandle instances and the corresponding method never throws
+            <c>UnsupportedOperationException</c>.
+            If a VarHandle references a read-only variable (for example a <c>final</c>
+            field) then write, atomic update, numeric atomic update, and bitwise atomic
+            update access modes are not supported and corresponding methods throw
+            <c>UnsupportedOperationException</c>.
+            Read/write access modes (if supported), with the exception of
+            <c>get</c> and <c>set</c>, provide atomic access for
+            reference types and all primitive types.
+            Unless stated otherwise in the documentation of a factory method, the access
+            modes <c>get</c> and <c>set</c> (if supported) provide atomic access for
+            reference types and all primitives types, with the exception of <c>long</c>
+            and <c>double</c> on 32-bit platforms.</para>
+      <para>Access modes will override any memory ordering effects specified at
+            the declaration site of a variable.  For example, a VarHandle accessing
+            a field using the <c>get</c> access mode will access the field as
+            specified &lt;em&gt;by its access mode&lt;/em&gt; even if that field is declared
+            <c>volatile</c>.  When mixed access is performed extreme care should be
+            taken since the Java Memory Model may permit surprising results.</para>
+      <para>In addition to supporting access to variables under various access modes,
+            a set of static methods, referred to as memory fence methods, is also
+            provided for fine-grained control of memory ordering.
+            
+            The Java Language Specification permits other threads to observe operations
+            as if they were executed in orders different than are apparent in program
+            source code, subject to constraints arising, for example, from the use of
+            locks, <c>volatile</c> fields or VarHandles.  The static methods,
+            <c>#fullFence fullFence</c>, <c>#acquireFence acquireFence</c>,
+            <c>#releaseFence releaseFence</c>, <c>#loadLoadFence loadLoadFence</c> and
+            <c>#storeStoreFence storeStoreFence</c>, can also be used to impose
+            constraints.  Their specifications, as is the case for certain access modes,
+            are phrased in terms of the lack of "reorderings" -- observable ordering
+            effects that might otherwise occur if the fence was not present.  More
+            precise phrasing of the specification of access mode methods and memory fence
+            methods may accompany future updates of the Java Language Specification.
+            
+            &lt;h1&gt;Compiling invocation of access mode methods&lt;/h1&gt;
+            A Java method call expression naming an access mode method can invoke a
+            VarHandle from Java source code.  From the viewpoint of source code, these
+            methods can take any arguments and their polymorphic result (if expressed)
+            can be cast to any return type.  Formally this is accomplished by giving the
+            access mode methods variable arity <c>Object</c> arguments and
+            <c>Object</c> return types (if the return type is polymorphic), but they
+            have an additional quality called &lt;em&gt;signature polymorphism&lt;/em&gt; which
+            connects this freedom of invocation directly to the JVM execution stack.</para>
+      <para>As is usual with virtual methods, source-level calls to access mode methods
+            compile to an <c>invokevirtual</c> instruction.  More unusually, the
+            compiler must record the actual argument types, and may not perform method
+            invocation conversions on the arguments.  Instead, it must generate
+            instructions to push them on the stack according to their own unconverted
+            types.  The VarHandle object itself will be pushed on the stack before the
+            arguments.  The compiler then generates an <c>invokevirtual</c> instruction
+            that invokes the access mode method with a symbolic type descriptor which
+            describes the argument and return types.</para>
+      <para>To issue a complete symbolic type descriptor, the compiler must also
+            determine the return type (if polymorphic).  This is based on a cast on the
+            method invocation expression, if there is one, or else <c>Object</c> if the
+            invocation is an expression, or else <c>void</c> if the invocation is a
+            statement.  The cast may be to a primitive type (but not <c>void</c>).</para>
+      <para>As a corner case, an uncasted <c>null</c> argument is given a symbolic type
+            descriptor of <c>java.lang.Void</c>.  The ambiguity with the type
+            <c>Void</c> is harmless, since there are no references of type <c>Void</c>
+            except the null reference.
+            
+            
+            &lt;h1&gt;"invoke"&gt;Performing invocation of access mode methods&lt;/h1&gt;
+            The first time an <c>invokevirtual</c> instruction is executed it is linked
+            by symbolically resolving the names in the instruction and verifying that
+            the method call is statically legal.  This also holds for calls to access mode
+            methods.  In this case, the symbolic type descriptor emitted by the compiler
+            is checked for correct syntax, and names it contains are resolved.  Thus, an
+            <c>invokevirtual</c> instruction which invokes an access mode method will
+            always link, as long as the symbolic type descriptor is syntactically
+            well-formed and the types exist.</para>
+      <para>When the <c>invokevirtual</c> is executed after linking, the receiving
+            VarHandle's access mode type is first checked by the JVM to ensure that it
+            matches the symbolic type descriptor.  If the type
+            match fails, it means that the access mode method which the caller is
+            invoking is not present on the individual VarHandle being invoked.</para>
+      <para>Invocation of an access mode method behaves as if an invocation of
+            <c>MethodHandle#invoke</c>, where the receiving method handle accepts the
+            VarHandle instance as the leading argument.  More specifically, the
+            following, where <c>{access-mode</c>} corresponds to the access mode method
+            name:</para>
+      <code lang="text/java">{@code
+            VarHandle vh = ..
+            R r = (R) vh.{access-mode}(p1, p2, ..., pN);
+            }</code>
+      <para>behaves as if:</para>
+      <code lang="text/java">{@code
+            VarHandle vh = ..
+            VarHandle.AccessMode am = VarHandle.AccessMode.valueFromMethodName("{access-mode}");
+            MethodHandle mh = MethodHandles.varHandleExactInvoker(
+                                  am,
+                                  vh.accessModeType(am));
+            
+            R r = (R) mh.invoke(vh, p1, p2, ..., pN)
+            }</code>
+      <para>(modulo access mode methods do not declare throwing of <c>Throwable</c>).
+            This is equivalent to:</para>
+      <code lang="text/java">{@code
+            MethodHandle mh = MethodHandles.lookup().findVirtual(
+                                  VarHandle.class,
+                                  "{access-mode}",
+                                  MethodType.methodType(R, p1, p2, ..., pN));
+            
+            R r = (R) mh.invokeExact(vh, p1, p2, ..., pN)
+            }</code>
+      <para>where the desired method type is the symbolic type descriptor and a
+            <c>MethodHandle#invokeExact</c> is performed, since before invocation of the
+            target, the handle will apply reference casts as necessary and box, unbox, or
+            widen primitive values, as if by <c>MethodHandle#asType asType</c> (see also
+            <c>MethodHandles#varHandleInvoker</c>).
+            
+            More concisely, such behaviour is equivalent to:</para>
+      <code lang="text/java">{@code
+            VarHandle vh = ..
+            VarHandle.AccessMode am = VarHandle.AccessMode.valueFromMethodName("{access-mode}");
+            MethodHandle mh = vh.toMethodHandle(am);
+            
+            R r = (R) mh.invoke(p1, p2, ..., pN)
+            }</code>
+      <para>Where, in this case, the method handle is bound to the VarHandle instance.
+            
+            
+            &lt;h1&gt;Invocation checking&lt;/h1&gt;
+            In typical programs, VarHandle access mode type matching will usually
+            succeed.  But if a match fails, the JVM will throw a
+            <c>WrongMethodTypeException</c>.</para>
+      <para>Thus, an access mode type mismatch which might show up as a linkage error
+            in a statically typed program can show up as a dynamic
+            <c>WrongMethodTypeException</c> in a program which uses VarHandles.</para>
+      <para>Because access mode types contain "live" <c>Class</c> objects, method type
+            matching takes into account both type names and class loaders.
+            Thus, even if a VarHandle <c>VH</c> is created in one class loader
+            <c>L1</c> and used in another <c>L2</c>, VarHandle access mode method
+            calls are type-safe, because the caller's symbolic type descriptor, as
+            resolved in <c>L2</c>, is matched against the original callee method's
+            symbolic type descriptor, as resolved in <c>L1</c>.  The resolution in
+            <c>L1</c> happens when <c>VH</c> is created and its access mode types are
+            assigned, while the resolution in <c>L2</c> happens when the
+            <c>invokevirtual</c> instruction is linked.</para>
+      <para>Apart from type descriptor checks, a VarHandles's capability to
+            access it's variables is unrestricted.
+            If a VarHandle is formed on a non-public variable by a class that has access
+            to that variable, the resulting VarHandle can be used in any place by any
+            caller who receives a reference to it.</para>
+      <para>Unlike with the Core Reflection API, where access is checked every time a
+            reflective method is invoked, VarHandle access checking is performed
+            when the VarHandle is
+            created.
+            Thus, VarHandles to non-public variables, or to variables in non-public
+            classes, should generally be kept secret.  They should not be passed to
+            untrusted code unless their use from the untrusted code would be harmless.
+            
+            
+            &lt;h1&gt;VarHandle creation&lt;/h1&gt;
+            Java code can create a VarHandle that directly accesses any field that is
+            accessible to that code.  This is done via a reflective, capability-based
+            API called <c>java.lang.invoke.MethodHandles.Lookup
+            MethodHandles.Lookup</c>.
+            For example, a VarHandle for a non-static field can be obtained
+            from <c>java.lang.invoke.MethodHandles.Lookup#findVarHandle
+            Lookup.findVarHandle</c>.
+            There is also a conversion method from Core Reflection API objects,
+            <c>java.lang.invoke.MethodHandles.Lookup#unreflectVarHandle
+            Lookup.unreflectVarHandle</c>.</para>
+      <para>Access to protected field members is restricted to receivers only of the
+            accessing class, or one of its subclasses, and the accessing class must in
+            turn be a subclass (or package sibling) of the protected member's defining
+            class.  If a VarHandle refers to a protected non-static field of a declaring
+            class outside the current package, the receiver argument will be narrowed to
+            the type of the accessing class.
+            
+            &lt;h1&gt;Interoperation between VarHandles and the Core Reflection API&lt;/h1&gt;
+            Using factory methods in the <c>java.lang.invoke.MethodHandles.Lookup
+            Lookup</c> API, any field represented by a Core Reflection API object
+            can be converted to a behaviorally equivalent VarHandle.
+            For example, a reflective <c>java.lang.reflect.Field Field</c> can
+            be converted to a VarHandle using
+            <c>java.lang.invoke.MethodHandles.Lookup#unreflectVarHandle
+            Lookup.unreflectVarHandle</c>.
+            The resulting VarHandles generally provide more direct and efficient
+            access to the underlying fields.</para>
+      <para>As a special case, when the Core Reflection API is used to view the
+            signature polymorphic access mode methods in this class, they appear as
+            ordinary non-polymorphic methods.  Their reflective appearance, as viewed by
+            <c>java.lang.Class#getDeclaredMethod Class.getDeclaredMethod</c>,
+            is unaffected by their special status in this API.
+            For example, <c>java.lang.reflect.Method#getModifiers
+            Method.getModifiers</c>
+            will report exactly those modifier bits required for any similarly
+            declared method, including in this case <c>native</c> and <c>varargs</c>
+            bits.</para>
+      <para>As with any reflected method, these methods (when reflected) may be invoked
+            directly via <c>java.lang.reflect.Method#invoke java.lang.reflect.Method.invoke</c>,
+            via JNI, or indirectly via
+            <c>java.lang.invoke.MethodHandles.Lookup#unreflect Lookup.unreflect</c>.
+            However, such reflective calls do not result in access mode method
+            invocations.  Such a call, if passed the required argument (a single one, of
+            type <c>Object[]</c>), will ignore the argument and will throw an
+            <c>UnsupportedOperationException</c>.</para>
+      <para>Since <c>invokevirtual</c> instructions can natively invoke VarHandle
+            access mode methods under any symbolic type descriptor, this reflective view
+            conflicts with the normal presentation of these methods via bytecodes.
+            Thus, these native methods, when reflectively viewed by
+            <c>Class.getDeclaredMethod</c>, may be regarded as placeholders only.</para>
+      <para>In order to obtain an invoker method for a particular access mode type,
+            use <c>java.lang.invoke.MethodHandles#varHandleExactInvoker</c> or
+            <c>java.lang.invoke.MethodHandles#varHandleInvoker</c>.  The
+            <c>java.lang.invoke.MethodHandles.Lookup#findVirtual Lookup.findVirtual</c>
+            API is also able to return a method handle to call an access mode method for
+            any specified access mode type and is equivalent in behaviour to
+            <c>java.lang.invoke.MethodHandles#varHandleInvoker</c>.
+            
+            &lt;h1&gt;Interoperation between VarHandles and Java generics&lt;/h1&gt;
+            A VarHandle can be obtained for a variable, such as a field, which is
+            declared with Java generic types.  As with the Core Reflection API, the
+            VarHandle's variable type will be constructed from the erasure of the
+            source-level type.  When a VarHandle access mode method is invoked, the
+            types
+            of its arguments or the return value cast type may be generic types or type
+            instances.  If this occurs, the compiler will replace those types by their
+            erasures when it constructs the symbolic type descriptor for the
+            <c>invokevirtual</c> instruction.</para>
+      <para>Added in 9.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/lang/invoke/VarHandle" title="Reference documentation">Java documentation for <code>java.lang.invoke.VarHandle</code>.</a>
@@ -72,6 +442,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("accessModeType", "(Ljava/lang/invoke/VarHandle$AccessMode;)Ljava/lang/invoke/MethodType;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("accessModeType", "(Ljava/lang/invoke/VarHandle$AccessMode;)Ljava/lang/invoke/MethodType;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Invoke.MethodType</ReturnType>
@@ -100,6 +474,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("acquireFence", "()V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("acquireFence", "()V", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -138,6 +516,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("compareAndExchange", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("compareAndExchange", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -173,6 +555,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("compareAndExchangeAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("compareAndExchangeAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -210,6 +596,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("compareAndExchangeRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("compareAndExchangeRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -246,6 +636,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("compareAndSet", "([Ljava/lang/Object;)Z", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("compareAndSet", "([Ljava/lang/Object;)Z", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -281,6 +675,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("coordinateTypes", "()Ljava/util/List;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("coordinateTypes", "()Ljava/util/List;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -320,6 +718,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("fullFence", "()V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("fullFence", "()V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -358,6 +760,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("get", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("get", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -393,6 +799,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -430,6 +840,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getAndAdd", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndAdd", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -465,6 +879,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getAndAddAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndAddAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -502,6 +920,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getAndAddRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndAddRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -537,6 +959,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getAndBitwiseAnd", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndBitwiseAnd", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -574,6 +1000,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getAndBitwiseAndAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndBitwiseAndAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -609,6 +1039,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getAndBitwiseAndRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndBitwiseAndRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -646,6 +1080,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getAndBitwiseOr", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndBitwiseOr", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -681,6 +1119,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getAndBitwiseOrAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndBitwiseOrAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -718,6 +1160,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getAndBitwiseOrRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndBitwiseOrRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -753,6 +1199,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getAndBitwiseXor", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndBitwiseXor", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -790,6 +1240,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getAndBitwiseXorAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndBitwiseXorAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -825,6 +1279,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getAndBitwiseXorRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndBitwiseXorRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -862,6 +1320,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getAndSet", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndSet", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -897,6 +1359,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getAndSetAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndSetAcquire", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -934,6 +1400,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getAndSetRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getAndSetRelease", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -969,6 +1439,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getOpaque", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getOpaque", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1006,6 +1480,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getVolatile", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getVolatile", "([Ljava/lang/Object;)Ljava/lang/Object;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Object</ReturnType>
@@ -1041,6 +1519,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("isAccessModeSupported", "(Ljava/lang/invoke/VarHandle$AccessMode;)Z", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("isAccessModeSupported", "(Ljava/lang/invoke/VarHandle$AccessMode;)Z", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1100,6 +1582,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("loadLoadFence", "()V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("loadLoadFence", "()V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1136,6 +1622,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("releaseFence", "()V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("releaseFence", "()V", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1174,6 +1664,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("set", "([Ljava/lang/Object;)V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("set", "([Ljava/lang/Object;)V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1208,6 +1702,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOpaque", "([Ljava/lang/Object;)V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOpaque", "([Ljava/lang/Object;)V", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1244,6 +1742,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setRelease", "([Ljava/lang/Object;)V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setRelease", "([Ljava/lang/Object;)V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1279,6 +1781,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setVolatile", "([Ljava/lang/Object;)V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setVolatile", "([Ljava/lang/Object;)V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1313,6 +1819,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("storeStoreFence", "()V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("storeStoreFence", "()V", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1409,6 +1919,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("toMethodHandle", "(Ljava/lang/invoke/VarHandle$AccessMode;)Ljava/lang/invoke/MethodHandle;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("toMethodHandle", "(Ljava/lang/invoke/VarHandle$AccessMode;)Ljava/lang/invoke/MethodHandle;", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Java.Lang.Invoke.MethodHandle</ReturnType>
@@ -1437,6 +1951,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("varType", "()Ljava/lang/Class;", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("varType", "()Ljava/lang/Class;", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1475,6 +1993,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("weakCompareAndSet", "([Ljava/lang/Object;)Z", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("weakCompareAndSet", "([Ljava/lang/Object;)Z", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1510,6 +2032,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("weakCompareAndSetAcquire", "([Ljava/lang/Object;)Z", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("weakCompareAndSetAcquire", "([Ljava/lang/Object;)Z", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1547,6 +2073,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("weakCompareAndSetPlain", "([Ljava/lang/Object;)Z", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("weakCompareAndSetPlain", "([Ljava/lang/Object;)Z", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1582,6 +2112,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("weakCompareAndSetRelease", "([Ljava/lang/Object;)Z", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("weakCompareAndSetRelease", "([Ljava/lang/Object;)Z", "", ApiSince=33)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>

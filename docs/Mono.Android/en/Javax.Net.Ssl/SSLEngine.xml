@@ -23,6 +23,963 @@
             <see href="http://www.ietf.org/rfc/rfc2246.txt"> IETF RFC 2246 "Transport
             Layer Security" (TLS) </see> protocols, but is transport independent.</summary>
     <remarks>
+      <para>A class which enables secure communications using protocols such as
+            the Secure Sockets Layer (SSL) or
+            <see href="http://www.ietf.org/rfc/rfc2246.txt"> IETF RFC 2246 "Transport
+            Layer Security" (TLS) </see> protocols, but is transport independent.</para>
+      <para>The secure communications modes include: &lt;UL&gt;
+            
+                 &lt;LI&gt; &lt;em&gt;Integrity Protection&lt;/em&gt;.  SSL/TLS protects against
+                 modification of messages by an active wiretapper.
+            
+                 &lt;LI&gt; &lt;em&gt;Authentication&lt;/em&gt;.  In most modes, SSL/TLS provides
+                 peer authentication.  Servers are usually authenticated, and
+                 clients may be authenticated as requested by servers.
+            
+                 &lt;LI&gt; &lt;em&gt;Confidentiality (Privacy Protection)&lt;/em&gt;.  In most
+                 modes, SSL/TLS encrypts data being sent between client and
+                 server.  This protects the confidentiality of data, so that
+                 passive wiretappers won't see sensitive data such as financial
+                 information or personal information of many kinds.
+            
+                 &lt;/UL&gt;
+            
+            These kinds of protection are specified by a "cipher suite", which
+            is a combination of cryptographic algorithms used by a given SSL
+            connection.  During the negotiation process, the two endpoints must
+            agree on a cipher suite that is available in both environments.  If
+            there is no such suite in common, no SSL connection can be
+            established, and no data can be exchanged.</para>
+      <para>The cipher suite used is established by a negotiation process called
+            "handshaking".  The goal of this process is to create or rejoin a
+            "session", which may protect many connections over time.  After
+            handshaking has completed, you can access session attributes by
+            using the <c>#getSession()</c> method.</para>
+      <para>The <c>SSLSocket</c> class provides much of the same security
+            functionality, but all of the inbound and outbound data is
+            automatically transported using the underlying <c>java.net.Socket Socket</c>, which by design uses a blocking model.
+            While this is appropriate for many applications, this model does not
+            provide the scalability required by large servers.</para>
+      <para>The primary distinction of an <c>SSLEngine</c> is that it
+            operates on inbound and outbound byte streams, independent of the
+            transport mechanism.  It is the responsibility of the
+            <c>SSLEngine</c> user to arrange for reliable I/O transport to
+            the peer.  By separating the SSL/TLS abstraction from the I/O
+            transport mechanism, the <c>SSLEngine</c> can be used for a
+            wide variety of I/O types, such as <c>java.nio.channels.spi.AbstractSelectableChannel#configureBlocking(boolean)
+            non-blocking I/O (polling)</c>, <c>java.nio.channels.Selector
+            selectable non-blocking I/O</c>, <c>java.net.Socket Socket</c> and the
+            traditional Input/OutputStreams, local <c>java.nio.ByteBuffer
+            ByteBuffers</c> or byte arrays,  future asynchronous
+            I/O models , and so on.</para>
+      <para>At a high level, the <c>SSLEngine</c> appears thus:</para>
+      <code lang="text/java">app data
+            
+                           |           ^
+                           |     |     |
+                           v     |     |
+                      +----+-----|-----+----+
+                      |          |          |
+                      |       SSL|Engine    |
+              wrap()  |          |          |  unwrap()
+                      | OUTBOUND | INBOUND  |
+                      |          |          |
+                      +----+-----|-----+----+
+                           |     |     ^
+                           |     |     |
+                           v           |
+            
+                              net data
+            </code>
+      <para>Application data (also known as plaintext or cleartext) is data which
+            is produced or consumed by an application.  Its counterpart is
+            network data, which consists of either handshaking and/or ciphertext
+            (encrypted) data, and destined to be transported via an I/O
+            mechanism.  Inbound data is data which has been received from the
+            peer, and outbound data is destined for the peer.</para>
+      <para>(In the context of an <c>SSLEngine</c>, the term "handshake
+            data" is taken to mean any data exchanged to establish and control a
+            secure connection.  Handshake data includes the SSL/TLS messages
+            "alert", "change_cipher_spec," and "handshake.")</para>
+      <para>There are five distinct phases to an <c>SSLEngine</c>.
+            
+            &lt;OL&gt;
+                &lt;li&gt; Creation - The <c>SSLEngine</c> has been created and
+                initialized, but has not yet been used.  During this phase, an
+                application may set any <c>SSLEngine</c>-specific settings
+                (enabled cipher suites, whether the <c>SSLEngine</c> should
+                handshake in client or server mode, and so on).  Once
+                handshaking has begun, though, any new settings (except
+                client/server mode, see below) will be used for
+                the next handshake.
+            
+                &lt;li&gt; Initial Handshake - The initial handshake is a procedure by
+                which the two peers exchange communication parameters until an
+                SSLSession is established.  Application data can not be sent during
+                this phase.
+            
+                &lt;li&gt; Application Data - Once the communication parameters have
+                been established and the handshake is complete, application data
+                may flow through the <c>SSLEngine</c>.  Outbound
+                application messages are encrypted and integrity protected,
+                and inbound messages reverse the process.
+            
+                &lt;li&gt;  Rehandshaking - Either side may request a renegotiation of
+                the session at any time during the Application Data phase.  New
+                handshaking data can be intermixed among the application data.
+                Before starting the rehandshake phase, the application may
+                reset the SSL/TLS communication parameters such as the list of
+                enabled ciphersuites and whether to use client authentication,
+                but can not change between client/server modes.  As before, once
+                handshaking has begun, any new <c>SSLEngine</c>
+                configuration settings will not be used until the next
+                handshake.
+            
+                &lt;li&gt;  Closure - When the connection is no longer needed, the
+                application should close the <c>SSLEngine</c> and should
+                send/receive any remaining messages to the peer before
+                closing the underlying transport mechanism.  Once an engine is
+                closed, it is not reusable:  a new <c>SSLEngine</c> must
+                be created.
+            &lt;/OL&gt;
+            An <c>SSLEngine</c> is created by calling <c>SSLContext#createSSLEngine()</c> from an initialized
+            <c>SSLContext</c>.  Any configuration
+            parameters should be set before making the first call to
+            <c>wrap()</c>, <c>unwrap()</c>, or
+            <c>beginHandshake()</c>.  These methods all trigger the
+            initial handshake.</para>
+      <para>Data moves through the engine by calling <c>#wrap(ByteBuffer,
+            ByteBuffer) wrap()</c> or <c>#unwrap(ByteBuffer, ByteBuffer)
+            unwrap()</c> on outbound or inbound data, respectively.  Depending on
+            the state of the <c>SSLEngine</c>, a <c>wrap()</c> call
+            may consume application data from the source buffer and may produce
+            network data in the destination buffer.  The outbound data
+            may contain application and/or handshake data.  A call to
+            <c>unwrap()</c> will examine the source buffer and may
+            advance the handshake if the data is handshaking information, or
+            may place application data in the destination buffer if the data
+            is application.  The state of the underlying SSL/TLS algorithm
+            will determine when data is consumed and produced.</para>
+      <para>Calls to <c>wrap()</c> and <c>unwrap()</c> return an
+            <c>SSLEngineResult</c> which indicates the status of the
+            operation, and (optionally) how to interact with the engine to make
+            progress.</para>
+      <para>The <c>SSLEngine</c> produces/consumes complete SSL/TLS
+            packets only, and does not store application data internally between
+            calls to <c>wrap()/unwrap()</c>.  Thus input and output
+            <c>ByteBuffer</c>s must be sized appropriately to hold the
+            maximum record that can be produced.  Calls to <c>SSLSession#getPacketBufferSize()</c> and <c>SSLSession#getApplicationBufferSize()</c> should be used to determine
+            the appropriate buffer sizes.  The size of the outbound application
+            data buffer generally does not matter.  If buffer conditions do not
+            allow for the proper consumption/production of data, the application
+            must determine (via <c>SSLEngineResult</c>) and correct the
+            problem, and then try the call again.</para>
+      <para>For example, <c>unwrap()</c> will return a <c>SSLEngineResult.Status#BUFFER_OVERFLOW</c> result if the engine
+            determines that there is not enough destination buffer space available.
+            Applications should call <c>SSLSession#getApplicationBufferSize()</c>
+            and compare that value with the space available in the destination buffer,
+            enlarging the buffer if necessary.  Similarly, if <c>unwrap()</c>
+            were to return a <c>SSLEngineResult.Status#BUFFER_UNDERFLOW</c>, the
+            application should call <c>SSLSession#getPacketBufferSize()</c> to ensure
+            that the source buffer has enough room to hold a record (enlarging if
+            necessary), and then obtain more inbound data.</para>
+      <code lang="text/java">{@code
+              SSLEngineResult r = engine.unwrap(src, dst);
+              switch (r.getStatus()) {
+              BUFFER_OVERFLOW:
+                  // Could attempt to drain the dst buffer of any already obtained
+                  // data, but we'll just increase it to the size needed.
+                  int appSize = engine.getSession().getApplicationBufferSize();
+                  ByteBuffer b = ByteBuffer.allocate(appSize + dst.position());
+                  dst.flip();
+                  b.put(dst);
+                  dst = b;
+                  // retry the operation.
+                  break;
+              BUFFER_UNDERFLOW:
+                  int netSize = engine.getSession().getPacketBufferSize();
+                  // Resize buffer if needed.
+                  if (netSize &gt; dst.capacity()) {
+                      ByteBuffer b = ByteBuffer.allocate(netSize);
+                      src.flip();
+                      b.put(src);
+                      src = b;
+                  }
+                  // Obtain more inbound network data for src,
+                  // then retry the operation.
+                  break;
+              // other cases: CLOSED, OK.
+              }
+            }</code>
+      <para>Unlike <c>SSLSocket</c>, all methods of SSLEngine are
+            non-blocking.  <c>SSLEngine</c> implementations may
+            require the results of tasks that may take an extended period of
+            time to complete, or may even block.  For example, a TrustManager
+            may need to connect to a remote certificate validation service,
+            or a KeyManager might need to prompt a user to determine which
+            certificate to use as part of client authentication.  Additionally,
+            creating cryptographic signatures and verifying them can be slow,
+            seemingly blocking.</para>
+      <para>For any operation which may potentially block, the
+            <c>SSLEngine</c> will create a <c>java.lang.Runnable</c>
+            delegated task.  When <c>SSLEngineResult</c> indicates that a
+            delegated task result is needed, the application must call <c>#getDelegatedTask()</c> to obtain an outstanding delegated task and
+            call its <c>java.lang.Runnable#run() run()</c> method (possibly using
+            a different thread depending on the compute strategy).  The
+            application should continue obtaining delegated tasks until no more
+            exist, and try the original operation again.</para>
+      <para>At the end of a communication session, applications should properly
+            close the SSL/TLS link.  The SSL/TLS protocols have closure handshake
+            messages, and these messages should be communicated to the peer
+            before releasing the <c>SSLEngine</c> and closing the
+            underlying transport mechanism.  A close can be initiated by one of:
+            an SSLException, an inbound closure handshake message, or one of the
+            close methods.  In all cases, closure handshake messages are
+            generated by the engine, and <c>wrap()</c> should be repeatedly
+            called until the resulting <c>SSLEngineResult</c>'s status
+            returns "CLOSED", or <c>#isOutboundDone()</c> returns true.  All
+            data obtained from the <c>wrap()</c> method should be sent to the
+            peer.</para>
+      <para>
+        <c>#closeOutbound()</c> is used to signal the engine that the
+            application will not be sending any more data.</para>
+      <para>A peer will signal its intent to close by sending its own closure
+            handshake message.  After this message has been received and
+            processed by the local <c>SSLEngine</c>'s <c>unwrap()</c>
+            call, the application can detect the close by calling
+            <c>unwrap()</c> and looking for a <c>SSLEngineResult</c>
+            with status "CLOSED", or if <c>#isInboundDone()</c> returns true.
+            If for some reason the peer closes the communication link without
+            sending the proper SSL/TLS closure message, the application can
+            detect the end-of-stream and can signal the engine via <c>#closeInbound()</c> that there will no more inbound messages to
+            process.  Some applications might choose to require orderly shutdown
+            messages from a peer, in which case they can check that the closure
+            was generated by a handshake message and not by an end-of-stream
+            condition.</para>
+      <para>There are two groups of cipher suites which you will need to know
+            about when managing cipher suites:
+            
+            &lt;UL&gt;
+                 &lt;LI&gt; &lt;em&gt;Supported&lt;/em&gt; cipher suites:  all the suites which are
+                 supported by the SSL implementation.  This list is reported
+                 using <c>#getSupportedCipherSuites()</c>.
+            
+                 &lt;LI&gt; &lt;em&gt;Enabled&lt;/em&gt; cipher suites, which may be fewer than
+                 the full set of supported suites.  This group is set using the
+                 <c>#setEnabledCipherSuites(String [])</c> method, and
+                 queried using the <c>#getEnabledCipherSuites()</c> method.
+                 Initially, a default set of cipher suites will be enabled on a
+                 new engine that represents the minimum suggested
+                 configuration.
+            &lt;/UL&gt;
+            
+            Implementation defaults require that only cipher suites which
+            authenticate servers and provide confidentiality be enabled by
+            default.  Only if both sides explicitly agree to unauthenticated
+            and/or non-private (unencrypted) communications will such a
+            cipher suite be selected.</para>
+      <para>Each SSL/TLS connection must have one client and one server, thus
+            each endpoint must decide which role to assume.  This choice determines
+            who begins the handshaking process as well as which type of messages
+            should be sent by each party.  The method <c>#setUseClientMode(boolean)</c> configures the mode.  Once the initial
+            handshaking has started, an <c>SSLEngine</c> can not switch
+            between client and server modes, even when performing renegotiations.</para>
+      <para>Applications might choose to process delegated tasks in different
+            threads.  When an <c>SSLEngine</c>
+            is created, the current <c>java.security.AccessControlContext</c>
+            is saved.  All future delegated tasks will be processed using this
+            context:  that is, all access control decisions will be made using the
+            context captured at engine creation.
+            
+            &lt;HR&gt;
+            
+            &lt;B&gt;Concurrency Notes&lt;/B&gt;:
+            There are two concurrency issues to be aware of:
+            
+            &lt;OL&gt;
+                 &lt;li&gt;The <c>wrap()</c> and <c>unwrap()</c> methods
+                 may execute concurrently of each other.
+            
+                 &lt;li&gt; The SSL/TLS protocols employ ordered packets.
+                 Applications must take care to ensure that generated packets
+                 are delivered in sequence.  If packets arrive
+                 out-of-order, unexpected or fatal results may occur.</para>
+      <para>For example:</para>
+      <code lang="text/java">synchronized (outboundLock) {
+                             sslEngine.wrap(src, dst);
+                             outboundQueue.put(dst);
+                         }
+                 </code>
+      <para>As a corollary, two threads must not attempt to call the same method
+                 (either <c>wrap()</c> or <c>unwrap()</c>) concurrently,
+                 because there is no way to guarantee the eventual packet ordering.
+            &lt;/OL&gt;
+            
+            &lt;h3&gt;Default configuration for different Android versions&lt;/h3&gt;</para>
+      <para>
+        <c>SSLEngine</c> instances obtained from the default <c>SSLContext</c> are configured as
+            follows:
+            
+            &lt;style type="text/css"&gt;
+              tr.deprecated {
+                background-color: #ccc;
+                color: #999;
+                font-style: italic;
+              }&lt;/style&gt;
+            
+            &lt;h4&gt;Protocols&lt;/h4&gt;
+            &lt;table&gt;
+                &lt;thead&gt;
+                    &lt;tr&gt;
+                        &lt;th&gt;Protocol&lt;/th&gt;
+                        &lt;th&gt;Supported (API Levels)&lt;/th&gt;
+                        &lt;th&gt;Enabled by default (API Levels)&lt;/th&gt;
+                    &lt;/tr&gt;
+                &lt;/thead&gt;
+                &lt;tbody&gt;
+                    &lt;tr class="deprecated"&gt;
+                        &lt;td&gt;SSLv3&lt;/td&gt;
+                        &lt;td&gt;1&amp;ndash;25&lt;/td&gt;
+                        &lt;td&gt;1&amp;ndash;22&lt;/td&gt;
+                    &lt;/tr&gt;
+                    &lt;tr&gt;
+                        &lt;td&gt;TLSv1&lt;/td&gt;
+                        &lt;td&gt;1+&lt;/td&gt;
+                        &lt;td&gt;1+&lt;/td&gt;
+                    &lt;/tr&gt;
+                    &lt;tr&gt;
+                        &lt;td&gt;TLSv1.1&lt;/td&gt;
+                        &lt;td&gt;20+&lt;/td&gt;
+                        &lt;td&gt;20+&lt;/td&gt;
+                    &lt;/tr&gt;
+                    &lt;tr&gt;
+                        &lt;td&gt;TLSv1.2&lt;/td&gt;
+                        &lt;td&gt;20+&lt;/td&gt;
+                        &lt;td&gt;20+&lt;/td&gt;
+                    &lt;/tr&gt;
+                    &lt;tr&gt;
+                        &lt;td&gt;TLSv1.3&lt;/td&gt;
+                        &lt;td&gt;29+&lt;/td&gt;
+                        &lt;td&gt;29+&lt;/td&gt;
+                    &lt;/tr&gt;
+                &lt;/tbody&gt;
+            &lt;/table&gt;
+            
+            &lt;h4&gt;Cipher suites&lt;/h4&gt;
+            &lt;table&gt;
+              &lt;thead&gt;
+                &lt;tr&gt;
+                  &lt;th&gt;Cipher suite&lt;/th&gt;
+                  &lt;th&gt;Supported (API Levels)&lt;/th&gt;
+                  &lt;th&gt;Enabled by default (API Levels)&lt;/th&gt;
+                &lt;/tr&gt;
+              &lt;/thead&gt;
+              &lt;tbody&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DHE_DSS_WITH_DES_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DHE_RSA_WITH_DES_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DH_anon_EXPORT_WITH_RC4_40_MD5&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DH_anon_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DH_anon_WITH_DES_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_DH_anon_WITH_RC4_128_MD5&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_RSA_EXPORT_WITH_DES40_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_RSA_EXPORT_WITH_RC4_40_MD5&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;SSL_RSA_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9+&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_RSA_WITH_DES_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_RSA_WITH_NULL_MD5&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_RSA_WITH_NULL_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_RSA_WITH_RC4_128_MD5&lt;/td&gt;
+                  &lt;td&gt;9-25&lt;/td&gt;
+                  &lt;td&gt;9-19&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;SSL_RSA_WITH_RC4_128_SHA&lt;/td&gt;
+                  &lt;td&gt;9-25&lt;/td&gt;
+                  &lt;td&gt;9-23&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_AES_128_GCM_SHA256&lt;/td&gt;
+                  &lt;td&gt;29+&lt;/td&gt;
+                  &lt;td&gt;29+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_AES_256_GCM_SHA384&lt;/td&gt;
+                  &lt;td&gt;29+&lt;/td&gt;
+                  &lt;td&gt;29+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_CHACHA20_POLY1305_SHA256&lt;/td&gt;
+                  &lt;td&gt;29+&lt;/td&gt;
+                  &lt;td&gt;29+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_DSS_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_DSS_WITH_AES_128_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_DSS_WITH_AES_128_GCM_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_DSS_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_DSS_WITH_AES_256_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_DSS_WITH_AES_256_GCM_SHA384&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_DSS_WITH_DES_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_RSA_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-25&lt;/td&gt;
+                  &lt;td&gt;9-25&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_RSA_WITH_AES_128_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-25&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_RSA_WITH_AES_128_GCM_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-25&lt;/td&gt;
+                  &lt;td&gt;20-25&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_RSA_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-25&lt;/td&gt;
+                  &lt;td&gt;20-25&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_RSA_WITH_AES_256_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-25&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_RSA_WITH_AES_256_GCM_SHA384&lt;/td&gt;
+                  &lt;td&gt;20-25&lt;/td&gt;
+                  &lt;td&gt;20-25&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DHE_RSA_WITH_DES_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_DSS_EXPORT_WITH_DES40_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_DSS_WITH_DES_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_RSA_EXPORT_WITH_DES40_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_RSA_WITH_DES_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_anon_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_anon_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_anon_WITH_AES_128_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_anon_WITH_AES_128_GCM_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_anon_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_anon_WITH_AES_256_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_anon_WITH_AES_256_GCM_SHA384&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_DH_anon_WITH_DES_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-28&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384&lt;/td&gt;
+                  &lt;td&gt;20-28&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256&lt;/td&gt;
+                  &lt;td&gt;24+&lt;/td&gt;
+                  &lt;td&gt;24+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDHE_ECDSA_WITH_NULL_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDHE_ECDSA_WITH_RC4_128_SHA&lt;/td&gt;
+                  &lt;td&gt;20-25&lt;/td&gt;
+                  &lt;td&gt;20-23&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;21+&lt;/td&gt;
+                  &lt;td&gt;21+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;21+&lt;/td&gt;
+                  &lt;td&gt;21+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256&lt;/td&gt;
+                  &lt;td&gt;24+&lt;/td&gt;
+                  &lt;td&gt;24+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-28&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384&lt;/td&gt;
+                  &lt;td&gt;20-28&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256&lt;/td&gt;
+                  &lt;td&gt;24+&lt;/td&gt;
+                  &lt;td&gt;24+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDHE_RSA_WITH_NULL_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDHE_RSA_WITH_RC4_128_SHA&lt;/td&gt;
+                  &lt;td&gt;20-25&lt;/td&gt;
+                  &lt;td&gt;20-23&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_ECDSA_WITH_NULL_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_ECDSA_WITH_RC4_128_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_RSA_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_RSA_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_RSA_WITH_NULL_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_RSA_WITH_RC4_128_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_anon_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_anon_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_anon_WITH_NULL_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_ECDH_anon_WITH_RC4_128_SHA&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_EMPTY_RENEGOTIATION_INFO_SCSV&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_FALLBACK_SCSV&lt;/td&gt;
+                  &lt;td&gt;21+&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_NULL_WITH_NULL_NULL&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_PSK_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;21-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_PSK_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;21+&lt;/td&gt;
+                  &lt;td&gt;21+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_PSK_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;21+&lt;/td&gt;
+                  &lt;td&gt;21+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_PSK_WITH_RC4_128_SHA&lt;/td&gt;
+                  &lt;td&gt;21-25&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_RSA_EXPORT_WITH_DES40_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_RSA_WITH_3DES_EDE_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_RSA_WITH_AES_128_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9+&lt;/td&gt;
+                  &lt;td&gt;9+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_RSA_WITH_AES_128_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-28&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_RSA_WITH_AES_128_GCM_SHA256&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_RSA_WITH_AES_256_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;9+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_RSA_WITH_AES_256_CBC_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-28&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;TLS_RSA_WITH_AES_256_GCM_SHA384&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                  &lt;td&gt;20+&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_RSA_WITH_DES_CBC_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_RSA_WITH_NULL_MD5&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_RSA_WITH_NULL_SHA&lt;/td&gt;
+                  &lt;td&gt;1-8&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr class="deprecated"&gt;
+                  &lt;td&gt;TLS_RSA_WITH_NULL_SHA256&lt;/td&gt;
+                  &lt;td&gt;20-22&lt;/td&gt;
+                  &lt;td&gt;&lt;/td&gt;
+                &lt;/tr&gt;
+              &lt;/tbody&gt;
+            &lt;/table&gt;</para>
+      <para>&lt;em&gt;NOTE&lt;/em&gt;: PSK cipher suites are enabled by default only if the <c>SSLContext</c> through
+            which the engine was created has been initialized with a <c>PSKKeyManager</c>.</para>
+      <para>Added in 1.5.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine</code>.</a>
@@ -43,8 +1000,8 @@
       <MemberSignature Language="DocId" Value="M:Javax.Net.Ssl.SSLEngine.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -57,6 +1014,8 @@
         <summary>Constructor for an <c>SSLEngine</c> providing no hints
             for an internal session reuse strategy.</summary>
         <remarks>
+          <para>Constructor for an <c>SSLEngine</c> providing no hints
+            for an internal session reuse strategy.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#SSLEngine()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.SSLEngine()</code>.</a>
@@ -78,8 +1037,8 @@
       <MemberSignature Language="F#" Value="new Javax.Net.Ssl.SSLEngine : nativeint * Android.Runtime.JniHandleOwnership -&gt; Javax.Net.Ssl.SSLEngine" Usage="new Javax.Net.Ssl.SSLEngine (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -101,8 +1060,8 @@
       <MemberSignature Language="F#" Value="new Javax.Net.Ssl.SSLEngine : string * int -&gt; Javax.Net.Ssl.SSLEngine" Usage="new Javax.Net.Ssl.SSLEngine (peerHost, peerPort)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -119,6 +1078,16 @@
         <param name="peerPort">the port number of the peer</param>
         <summary>Constructor for an <c>SSLEngine</c>.</summary>
         <remarks>
+          <para>Constructor for an <c>SSLEngine</c>.</para>
+          <para>
+            <c>SSLEngine</c> implementations may use the
+            <c>peerHost</c> and <c>peerPort</c> parameters as hints
+            for their internal session reuse strategy.</para>
+          <para>Some cipher suites (such as Kerberos) require remote hostname
+            information. Implementations of this class should use this
+            constructor to use Kerberos.</para>
+          <para>The parameters are not authenticated by the
+            <c>SSLEngine</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#SSLEngine(java.lang.String,%20int)" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.SSLEngine(java.lang.String, int)</code>.</a>
@@ -145,6 +1114,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getApplicationProtocol", "()Ljava/lang/String;", "GetGetApplicationProtocolHandler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getApplicationProtocol", "()Ljava/lang/String;", "GetGetApplicationProtocolHandler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -161,6 +1134,14 @@
                     be used, or a non-empty application protocol <c>String</c>
                     if a value was successfully negotiated.</value>
         <remarks>
+          <para>Returns the most recent application protocol value negotiated for this
+            connection.</para>
+          <para>If supported by the underlying SSL/TLS implementation,
+            application name negotiation mechanisms such as <see href="http://www.ietf.org/rfc/rfc7301.txt"> RFC 7301 </see>, the
+            Application-Layer Protocol Negotiation (ALPN), can negotiate
+            application-level values between peers.</para>
+          <para />
+          <para>Added in 9.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getApplicationProtocol()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getApplicationProtocol()</code>.</a>
@@ -181,8 +1162,8 @@
       <MemberSignature Language="F#" Value="abstract member BeginHandshake : unit -&gt; unit" Usage="sSLEngine.BeginHandshake " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -197,6 +1178,20 @@
       <Docs>
         <summary>Initiates handshaking (initial or renegotiation) on this SSLEngine.</summary>
         <remarks>
+          <para>Initiates handshaking (initial or renegotiation) on this SSLEngine.</para>
+          <para>This method is not needed for the initial handshake, as the
+            <c>wrap()</c> and <c>unwrap()</c> methods will
+            implicitly call this method if handshaking has not already begun.</para>
+          <para>Note that the peer may also request a session renegotiation with
+            this <c>SSLEngine</c> by sending the appropriate
+            session renegotiate handshake message.</para>
+          <para>Unlike the <c>SSLSocket#startHandshake()
+            SSLSocket#startHandshake()</c> method, this method does not block
+            until handshaking is completed.</para>
+          <para>To force a complete SSL/TLS session renegotiation, the current
+            session should be invalidated prior to calling this method.</para>
+          <para>Some protocols may not support multiple handshakes on an existing
+            engine and may throw an <c>SSLException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#beginHandshake()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.beginHandshake()</code>.</a>
@@ -222,8 +1217,8 @@
       <MemberSignature Language="F#" Value="abstract member CloseInbound : unit -&gt; unit" Usage="sSLEngine.CloseInbound " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -239,6 +1234,25 @@
         <summary>Signals that no more inbound network data will be sent
             to this <c>SSLEngine</c>.</summary>
         <remarks>
+          <para>Signals that no more inbound network data will be sent
+            to this <c>SSLEngine</c>.</para>
+          <para>If the application initiated the closing process by calling
+            <c>#closeOutbound()</c>, under some circumstances it is not
+            required that the initiator wait for the peer's corresponding
+            close message.  (See section 7.2.1 of the TLS specification (<see href="http://www.ietf.org/rfc/rfc2246.txt">RFC 2246</see>) for more
+            information on waiting for closure alerts.)  In such cases, this
+            method need not be called.</para>
+          <para>But if the application did not initiate the closure process, or
+            if the circumstances above do not apply, this method should be
+            called whenever the end of the SSL/TLS data stream is reached.
+            This ensures closure of the inbound side, and checks that the
+            peer followed the SSL/TLS close procedure properly, thus
+            detecting possible truncation attacks.</para>
+          <para>This method is idempotent:  if the inbound side has already
+            been closed, this method does not do anything.</para>
+          <para>
+            <c>#wrap(ByteBuffer, ByteBuffer) wrap()</c> should be
+            called to flush any remaining handshake data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#closeInbound()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.closeInbound()</code>.</a>
@@ -263,8 +1277,8 @@
       <MemberSignature Language="F#" Value="abstract member CloseOutbound : unit -&gt; unit" Usage="sSLEngine.CloseOutbound " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -280,6 +1294,13 @@
         <summary>Signals that no more outbound application data will be sent
             on this <c>SSLEngine</c>.</summary>
         <remarks>
+          <para>Signals that no more outbound application data will be sent
+            on this <c>SSLEngine</c>.</para>
+          <para>This method is idempotent:  if the outbound side has already
+            been closed, this method does not do anything.</para>
+          <para>
+            <c>#wrap(ByteBuffer, ByteBuffer)</c> should be
+            called to flush any remaining handshake data.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#closeOutbound()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.closeOutbound()</code>.</a>
@@ -301,8 +1322,8 @@
       <MemberSignature Language="F#" Value="member this.DelegatedTask : Java.Lang.IRunnable" Usage="Javax.Net.Ssl.SSLEngine.DelegatedTask" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -329,8 +1350,8 @@
       <MemberSignature Language="F#" Value="member this.EnableSessionCreation : bool with get, set" Usage="Javax.Net.Ssl.SSLEngine.EnableSessionCreation" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -361,8 +1382,8 @@
       <MemberSignature Language="F#" Value="abstract member GetEnabledCipherSuites : unit -&gt; string[]" Usage="sSLEngine.GetEnabledCipherSuites " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -379,6 +1400,14 @@
             enabled for use on this engine.</summary>
         <returns>an array of cipher suite names</returns>
         <remarks>
+          <para>Returns the names of the SSL cipher suites which are currently
+            enabled for use on this engine.  When an SSLEngine is first
+            created, all enabled cipher suites support a minimum quality of
+            service.  Thus, in some environments this value might be empty.</para>
+          <para>Even if a suite has been enabled, it might never be used.  (For
+            example, the peer does not support it, the requisite
+            certificates/private keys for the suite are not available, or an
+            anonymous suite is enabled but authentication is required.)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getEnabledCipherSuites()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getEnabledCipherSuites()</code>.</a>
@@ -400,8 +1429,8 @@
       <MemberSignature Language="F#" Value="abstract member GetEnabledProtocols : unit -&gt; string[]" Usage="sSLEngine.GetEnabledProtocols " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -418,6 +1447,8 @@
             enabled for use with this <c>SSLEngine</c>.</summary>
         <returns>an array of protocols</returns>
         <remarks>
+          <para>Returns the names of the protocol versions which are currently
+            enabled for use with this <c>SSLEngine</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getEnabledProtocols()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getEnabledProtocols()</code>.</a>
@@ -439,8 +1470,8 @@
       <MemberSignature Language="F#" Value="abstract member GetSupportedCipherSuites : unit -&gt; string[]" Usage="sSLEngine.GetSupportedCipherSuites " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -457,6 +1488,19 @@
             on this engine.</summary>
         <returns>an array of cipher suite names</returns>
         <remarks>
+          <para>Returns the names of the cipher suites which could be enabled for use
+            on this engine.  Normally, only a subset of these will actually
+            be enabled by default, since this list may include cipher suites which
+            do not meet quality of service requirements for those defaults.  Such
+            cipher suites might be useful in specialized applications.
+            
+            &lt;p class="caution"&gt;Applications should not blindly enable all supported
+            cipher suites.  The supported cipher suites can include signaling cipher suite
+            values that can cause connection problems if enabled inappropriately.</para>
+          <para>The proper way to use this method is to either check if a specific cipher
+            suite is supported via <c>Arrays.asList(getSupportedCipherSuites()).contains(...)</c>
+            or to filter a desired list of cipher suites to only the supported ones via
+            <c>desiredSuiteSet.retainAll(Arrays.asList(getSupportedCipherSuites()))</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getSupportedCipherSuites()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getSupportedCipherSuites()</code>.</a>
@@ -478,8 +1522,8 @@
       <MemberSignature Language="F#" Value="abstract member GetSupportedProtocols : unit -&gt; string[]" Usage="sSLEngine.GetSupportedProtocols " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -496,6 +1540,8 @@
             with this <c>SSLEngine</c>.</summary>
         <returns>an array of protocols supported</returns>
         <remarks>
+          <para>Returns the names of the protocols which could be enabled for use
+            with this <c>SSLEngine</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getSupportedProtocols()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getSupportedProtocols()</code>.</a>
@@ -522,6 +1568,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getHandshakeApplicationProtocol", "()Ljava/lang/String;", "GetGetHandshakeApplicationProtocolHandler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getHandshakeApplicationProtocol", "()Ljava/lang/String;", "GetGetHandshakeApplicationProtocolHandler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -538,6 +1588,13 @@
                     be used, or a non-empty application protocol <c>String</c>
                     if a value was successfully negotiated.</value>
         <remarks>
+          <para>Returns the application protocol value negotiated on a SSL/TLS
+            handshake currently in progress.</para>
+          <para>Like <c>#getHandshakeSession()</c>,
+            a connection may be in the middle of a handshake. The
+            application protocol may or may not yet be available.</para>
+          <para />
+          <para>Added in 9.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getHandshakeApplicationProtocol()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getHandshakeApplicationProtocol()</code>.</a>
@@ -563,12 +1620,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getHandshakeApplicationProtocolSelector", "()Ljava/util/function/BiFunction;", "GetGetHandshakeApplicationProtocolSelectorHandler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getHandshakeApplicationProtocolSelector", "()Ljava/util/function/BiFunction;", "GetGetHandshakeApplicationProtocolSelectorHandler", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setHandshakeApplicationProtocolSelector", "(Ljava/util/function/BiFunction;)V", "GetSetHandshakeApplicationProtocolSelector_Ljava_util_function_BiFunction_Handler", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setHandshakeApplicationProtocolSelector", "(Ljava/util/function/BiFunction;)V", "GetSetHandshakeApplicationProtocolSelector_Ljava_util_function_BiFunction_Handler", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -583,12 +1648,57 @@
         <value>the callback function, or null if none has been set.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Retrieves the callback function that selects an application protocol
+            value during a SSL/TLS handshake.
+            See <c>#setHandshakeApplicationProtocolSelector
+            setHandshakeApplicationProtocolSelector</c>
+            for the function's type parameters.</para>
+          <para>Added in 9.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getHandshakeApplicationProtocolSelector()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getHandshakeApplicationProtocolSelector()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Registers a callback function that selects an application protocol
+            value for a SSL/TLS handshake.
+            The function overrides any values supplied using
+            <c>SSLParameters#setApplicationProtocols
+            SSLParameters.setApplicationProtocols</c> and it supports the following
+            type parameters:
+            &lt;blockquote&gt;
+            &lt;dl&gt;
+            &lt;dt&gt; <c>SSLEngine</c>&lt;dd&gt; The function's first argument allows the current <c>SSLEngine</c>
+                 to be inspected, including the handshake session and configuration
+                 settings.
+            &lt;dt&gt; <c>List&lt;String&gt;</c>&lt;dd&gt; The function's second argument lists the application protocol names
+                 advertised by the TLS peer.
+            &lt;dt&gt; <c>String</c>&lt;dd&gt; The function's result is an application protocol name, or null to
+                 indicate that none of the advertised names are acceptable.
+                 If the return value is an empty <c>String</c> then application
+                 protocol indications will not be used.
+                 If the return value is null (no value chosen) or is a value that
+                 was not advertised by the peer, the underlying protocol will
+                 determine what action to take. (For example, ALPN will send a
+                 "no_application_protocol" alert and terminate the connection.)
+            &lt;/dl&gt;
+            &lt;/blockquote&gt;
+            
+            For example, the following call registers a callback function that
+            examines the TLS handshake parameters and selects an application protocol
+            name:</para>
+          <code lang="text/java">{@code
+                serverEngine.setHandshakeApplicationProtocolSelector(
+                    (serverEngine, clientProtocols) -&gt; {
+                        SSLSession session = serverEngine.getHandshakeSession();
+                        return chooseApplicationProtocol(
+                            serverEngine,
+                            clientProtocols,
+                            session.getProtocol(),
+                            session.getCipherSuite());
+                    });
+            }</code>
+          <para>Added in 9.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#setHandshakeApplicationProtocolSelector(java.util.function.BiFunction%3Cjavax.net.ssl.SSLEngine,%20java.util.List%3Cjava.lang.String%3E,%20java.lang.String%3E)" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.setHandshakeApplicationProtocolSelector(java.util.function.BiFunction&lt;javax.net.ssl.SSLEngine, java.util.List&lt;java.lang.String&gt;, java.lang.String&gt;)</code>.</a>
@@ -609,10 +1719,14 @@
       <MemberSignature Language="F#" Value="member this.HandshakeSession : Javax.Net.Ssl.ISSLSession" Usage="Javax.Net.Ssl.SSLEngine.HandshakeSession" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android24.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android24.0")&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getHandshakeSession", "()Ljavax/net/ssl/SSLSession;", "GetGetHandshakeSessionHandler", ApiSince=24)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getHandshakeSession", "()Ljavax/net/ssl/SSLSession;", "GetGetHandshakeSessionHandler", ApiSince=24)&gt;]</AttributeName>
@@ -629,6 +1743,24 @@
                     create a basic SSLSession.  Otherwise, this method returns the
                     <c>SSLSession</c> currently being negotiated.</value>
         <remarks>
+          <para>Returns the <c>SSLSession</c> being constructed during a SSL/TLS
+            handshake.</para>
+          <para>TLS protocols may negotiate parameters that are needed when using
+            an instance of this class, but before the <c>SSLSession</c> has
+            been completely initialized and made available via <c>getSession</c>.
+            For example, the list of valid signature algorithms may restrict
+            the type of certificates that can used during TrustManager
+            decisions, or the maximum TLS fragment packet sizes can be
+            resized to better support the network environment.</para>
+          <para>This method provides early access to the <c>SSLSession</c> being
+            constructed.  Depending on how far the handshake has progressed,
+            some data may not yet be available for use.  For example, if a
+            remote server will be sending a Certificate chain, but that chain
+            has yet not been processed, the <c>getPeerCertificates</c>
+            method of <c>SSLSession</c> will throw a
+            SSLPeerUnverifiedException.  Once that chain has been processed,
+            <c>getPeerCertificates</c> will return the proper value.</para>
+          <para>Added in 1.7.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getHandshakeSession()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getHandshakeSession()</code>.</a>
@@ -649,8 +1781,8 @@
       <MemberSignature Language="F#" Value="member this.HandshakeStatus : Javax.Net.Ssl.SSLEngineResult.HandshakeStatus" Usage="Javax.Net.Ssl.SSLEngine.HandshakeStatus" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -677,8 +1809,8 @@
       <MemberSignature Language="F#" Value="member this.IsInboundDone : bool" Usage="Javax.Net.Ssl.SSLEngine.IsInboundDone" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -705,8 +1837,8 @@
       <MemberSignature Language="F#" Value="member this.IsOutboundDone : bool" Usage="Javax.Net.Ssl.SSLEngine.IsOutboundDone" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -764,8 +1896,8 @@
       <MemberSignature Language="F#" Value="member this.NeedClientAuth : bool with get, set" Usage="Javax.Net.Ssl.SSLEngine.NeedClientAuth" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -796,8 +1928,8 @@
       <MemberSignature Language="F#" Value="member this.PeerHost : string" Usage="Javax.Net.Ssl.SSLEngine.PeerHost" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -813,6 +1945,9 @@
         <value>the host name of the peer, or null if nothing is
                      available.</value>
         <remarks>
+          <para>Returns the host name of the peer.</para>
+          <para>Note that the value is not authenticated, and should not be
+            relied upon.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getPeerHost()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getPeerHost()</code>.</a>
@@ -834,8 +1969,8 @@
       <MemberSignature Language="F#" Value="member this.PeerPort : int" Usage="Javax.Net.Ssl.SSLEngine.PeerPort" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -851,6 +1986,9 @@
         <value>the port number of the peer, or -1 if nothing is
                      available.</value>
         <remarks>
+          <para>Returns the port number of the peer.</para>
+          <para>Note that the value is not authenticated, and should not be
+            relied upon.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getPeerPort()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getPeerPort()</code>.</a>
@@ -872,8 +2010,8 @@
       <MemberSignature Language="F#" Value="member this.Session : Javax.Net.Ssl.ISSLSession" Usage="Javax.Net.Ssl.SSLEngine.Session" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -900,8 +2038,8 @@
       <MemberSignature Language="F#" Value="abstract member SetEnabledCipherSuites : string[] -&gt; unit" Usage="sSLEngine.SetEnabledCipherSuites suites" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -919,6 +2057,13 @@
         <param name="suites">Names of all the cipher suites to enable</param>
         <summary>Sets the cipher suites enabled for use on this engine.</summary>
         <remarks>
+          <para>Sets the cipher suites enabled for use on this engine.</para>
+          <para>Each cipher suite in the <c>suites</c> parameter must have
+            been listed by getSupportedCipherSuites(), or the method will
+            fail.  Following a successful call to this method, only suites
+            listed in the <c>suites</c> parameter are enabled for use.</para>
+          <para>See <c>#getEnabledCipherSuites()</c> for more information
+            on why a specific cipher suite may never be used on a engine.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#setEnabledCipherSuites(java.lang.String[])" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.setEnabledCipherSuites(java.lang.String[])</code>.</a>
@@ -943,8 +2088,8 @@
       <MemberSignature Language="F#" Value="abstract member SetEnabledProtocols : string[] -&gt; unit" Usage="sSLEngine.SetEnabledProtocols protocols" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -962,6 +2107,15 @@
         <param name="protocols">Names of all the protocols to enable.</param>
         <summary>Set the protocol versions enabled for use on this engine.</summary>
         <remarks>
+          <para>Set the protocol versions enabled for use on this engine.</para>
+          <para>The protocols must have been listed by getSupportedProtocols()
+            as being supported.  Following a successful call to this method,
+            only protocols listed in the <c>protocols</c> parameter
+            are enabled for use.</para>
+          <para>Because of the way the protocol version is negotiated, connections
+            will only be able to use a member of the lowest set of contiguous
+            enabled protocol versions.  For example, enabling TLSv1.2 and TLSv1
+            will result in connections only being able to use TLSv1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#setEnabledProtocols(java.lang.String[])" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.setEnabledProtocols(java.lang.String[])</code>.</a>
@@ -986,8 +2140,8 @@
       <MemberSignature Language="F#" Value="member this.SSLParameters : Javax.Net.Ssl.SSLParameters with get, set" Usage="Javax.Net.Ssl.SSLEngine.SSLParameters" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1008,12 +2162,34 @@
         <value>the SSLParameters in effect for this SSLEngine.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns the SSLParameters in effect for this SSLEngine.
+            The ciphersuites and protocols of the returned SSLParameters
+            are always non-null.</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#getSSLParameters()" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.getSSLParameters()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Applies SSLParameters to this engine.</para>
+          <para>This means:
+            &lt;ul&gt;
+            &lt;li&gt;If <c>params.getCipherSuites()</c> is non-null,
+              <c>setEnabledCipherSuites()</c> is called with that value.&lt;/li&gt;
+            &lt;li&gt;If <c>params.getProtocols()</c> is non-null,
+              <c>setEnabledProtocols()</c> is called with that value.&lt;/li&gt;
+            &lt;li&gt;If <c>params.getNeedClientAuth()</c> or
+              <c>params.getWantClientAuth()</c> return <c>true</c>,
+              <c>setNeedClientAuth(true)</c> and
+              <c>setWantClientAuth(true)</c> are called, respectively;
+              otherwise <c>setWantClientAuth(false)</c> is called.&lt;/li&gt;
+            &lt;li&gt;If <c>params.getServerNames()</c> is non-null, the engine will
+              configure its server names with that value.&lt;/li&gt;
+            &lt;li&gt;If <c>params.getSNIMatchers()</c> is non-null, the engine will
+              configure its SNI matchers with that value.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#setSSLParameters(javax.net.ssl.SSLParameters)" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.setSSLParameters(javax.net.ssl.SSLParameters)</code>.</a>
@@ -1035,8 +2211,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Javax.Net.Ssl.SSLEngine.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1066,8 +2242,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Javax.Net.Ssl.SSLEngine.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1097,8 +2273,8 @@
       <MemberSignature Language="F#" Value="abstract member Unwrap : Java.Nio.ByteBuffer * Java.Nio.ByteBuffer -&gt; Javax.Net.Ssl.SSLEngineResult&#xA;override this.Unwrap : Java.Nio.ByteBuffer * Java.Nio.ByteBuffer -&gt; Javax.Net.Ssl.SSLEngineResult" Usage="sSLEngine.Unwrap (src, dst)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1121,6 +2297,15 @@
         <returns>an <c>SSLEngineResult</c> describing the result
                      of this operation.</returns>
         <remarks>
+          <para>Attempts to decode SSL/TLS network data into a plaintext
+            application data buffer.</para>
+          <para>An invocation of this method behaves in exactly the same manner
+            as the invocation:
+            &lt;blockquote&gt;</para>
+          <code lang="text/java">{@link #unwrap(ByteBuffer, ByteBuffer [], int, int)
+                engine.unwrap(src, new ByteBuffer [] { dst }, 0, 1);}
+            </code>
+          <para>&lt;/blockquote&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#unwrap(java.nio.ByteBuffer,%20java.nio.ByteBuffer)" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.unwrap(java.nio.ByteBuffer, java.nio.ByteBuffer)</code>.</a>
@@ -1148,8 +2333,8 @@
       <MemberSignature Language="F#" Value="abstract member Unwrap : Java.Nio.ByteBuffer * Java.Nio.ByteBuffer[] -&gt; Javax.Net.Ssl.SSLEngineResult&#xA;override this.Unwrap : Java.Nio.ByteBuffer * Java.Nio.ByteBuffer[] -&gt; Javax.Net.Ssl.SSLEngineResult" Usage="sSLEngine.Unwrap (src, dsts)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1173,6 +2358,15 @@
         <returns>an <c>SSLEngineResult</c> describing the result
                      of this operation.</returns>
         <remarks>
+          <para>Attempts to decode SSL/TLS network data into a sequence of plaintext
+            application data buffers.</para>
+          <para>An invocation of this method behaves in exactly the same manner
+            as the invocation:
+            &lt;blockquote&gt;</para>
+          <code lang="text/java">{@link #unwrap(ByteBuffer, ByteBuffer [], int, int)
+                engine.unwrap(src, dsts, 0, dsts.length);}
+            </code>
+          <para>&lt;/blockquote&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#unwrap(java.nio.ByteBuffer,%20java.nio.ByteBuffer[])" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.unwrap(java.nio.ByteBuffer, java.nio.ByteBuffer[])</code>.</a>
@@ -1200,8 +2394,8 @@
       <MemberSignature Language="F#" Value="abstract member Unwrap : Java.Nio.ByteBuffer * Java.Nio.ByteBuffer[] * int * int -&gt; Javax.Net.Ssl.SSLEngineResult" Usage="sSLEngine.Unwrap (src, dsts, offset, length)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1233,6 +2427,41 @@
         <returns>an <c>SSLEngineResult</c> describing the result
                      of this operation.</returns>
         <remarks>
+          <para>Attempts to decode SSL/TLS network data into a subsequence of
+            plaintext application data buffers.  This <i>"scattering"</i>
+            operation decodes, in a single invocation, a sequence of bytes
+            into one or more of a given sequence of buffers.  Scattering
+            unwraps are often useful when implementing network protocols or
+            file formats that, for example, group data into segments
+            consisting of one or more fixed-length headers followed by a
+            variable-length body.  See
+            <c>java.nio.channels.ScatteringByteChannel</c> for more
+            information on scattering, and <c>java.nio.channels.ScatteringByteChannel#read(ByteBuffer[],
+            int, int)</c> for more information on the subsequence
+            behavior.</para>
+          <para>Depending on the state of the SSLEngine, this method may consume
+            network data without producing any application data (for example,
+            it may consume handshake data.)</para>
+          <para>The application is responsible for reliably obtaining the network
+            data from the peer, and for invoking unwrap() on the data in the
+            order it was received.  The application must properly synchronize
+            multiple calls to this method.</para>
+          <para>If this <c>SSLEngine</c> has not yet started its initial
+            handshake, this method will automatically start the handshake.</para>
+          <para>This method will attempt to consume one complete SSL/TLS network
+            packet, but will never consume more than the sum of the bytes
+            remaining in the buffers.  Each <c>ByteBuffer</c>'s
+            position is updated to reflect the amount of data consumed or
+            produced.  The limits remain the same.</para>
+          <para>The underlying memory used by the <c>src</c> and
+            <c>dsts ByteBuffer</c>s must not be the same.</para>
+          <para>The inbound network buffer may be modified as a result of this
+            call:  therefore if the network data packet is required for some
+            secondary purpose, the data should be duplicated before calling this
+            method.  Note:  the network data will not be useful to a second
+            SSLEngine, as each SSLEngine contains unique random state which
+            influences the SSL/TLS messages.</para>
+          <para>See the class description for more information on engine closure.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#unwrap(java.nio.ByteBuffer,%20java.nio.ByteBuffer[],%20int,%20int)" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.unwrap(java.nio.ByteBuffer, java.nio.ByteBuffer[], int, int)</code>.</a>
@@ -1263,8 +2492,8 @@
       <MemberSignature Language="F#" Value="member this.UseClientMode : bool with get, set" Usage="Javax.Net.Ssl.SSLEngine.UseClientMode" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1290,21 +2519,6 @@
         <exception cref="T:Java.Lang.IllegalArgumentException">if this method is called after starting the initial
              handshake.
 </exception>
-        <exception cref="T:Java.Lang.IllegalArgumentException">if this method is called after starting the initial
-             handshake.
-</exception>
-        <exception cref="T:Java.Lang.IllegalArgumentException">if this method is called after starting the initial
-             handshake.
-</exception>
-        <exception cref="T:Java.Lang.IllegalArgumentException">if this method is called after starting the initial
-             handshake.
-</exception>
-        <exception cref="T:Java.Lang.IllegalArgumentException">if this method is called after starting the initial
-             handshake.
-</exception>
-        <exception cref="T:Java.Lang.IllegalArgumentException">if this method is called after starting the initial
-             handshake.
-</exception>
       </Docs>
     </Member>
     <Member MemberName="WantClientAuth">
@@ -1314,8 +2528,8 @@
       <MemberSignature Language="F#" Value="member this.WantClientAuth : bool with get, set" Usage="Javax.Net.Ssl.SSLEngine.WantClientAuth" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1346,8 +2560,8 @@
       <MemberSignature Language="F#" Value="abstract member Wrap : Java.Nio.ByteBuffer * Java.Nio.ByteBuffer -&gt; Javax.Net.Ssl.SSLEngineResult&#xA;override this.Wrap : Java.Nio.ByteBuffer * Java.Nio.ByteBuffer -&gt; Javax.Net.Ssl.SSLEngineResult" Usage="sSLEngine.Wrap (src, dst)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1370,6 +2584,15 @@
         <returns>an <c>SSLEngineResult</c> describing the result
                      of this operation.</returns>
         <remarks>
+          <para>Attempts to encode a buffer of plaintext application data into
+            SSL/TLS network data.</para>
+          <para>An invocation of this method behaves in exactly the same manner
+            as the invocation:
+            &lt;blockquote&gt;</para>
+          <code lang="text/java">{@link #wrap(ByteBuffer [], int, int, ByteBuffer)
+                engine.wrap(new ByteBuffer [] { src }, 0, 1, dst);}
+            </code>
+          <para>&lt;/blockquote&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#wrap(java.nio.ByteBuffer,%20java.nio.ByteBuffer)" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.wrap(java.nio.ByteBuffer, java.nio.ByteBuffer)</code>.</a>
@@ -1397,8 +2620,8 @@
       <MemberSignature Language="F#" Value="abstract member Wrap : Java.Nio.ByteBuffer[] * Java.Nio.ByteBuffer -&gt; Javax.Net.Ssl.SSLEngineResult&#xA;override this.Wrap : Java.Nio.ByteBuffer[] * Java.Nio.ByteBuffer -&gt; Javax.Net.Ssl.SSLEngineResult" Usage="sSLEngine.Wrap (srcs, dst)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1422,6 +2645,15 @@
         <returns>an <c>SSLEngineResult</c> describing the result
                      of this operation.</returns>
         <remarks>
+          <para>Attempts to encode plaintext bytes from a sequence of data
+            buffers into SSL/TLS network data.</para>
+          <para>An invocation of this method behaves in exactly the same manner
+            as the invocation:
+            &lt;blockquote&gt;</para>
+          <code lang="text/java">{@link #wrap(ByteBuffer [], int, int, ByteBuffer)
+                engine.wrap(srcs, 0, srcs.length, dst);}
+            </code>
+          <para>&lt;/blockquote&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#wrap(java.nio.ByteBuffer[],%20java.nio.ByteBuffer)" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.wrap(java.nio.ByteBuffer[], java.nio.ByteBuffer)</code>.</a>
@@ -1449,8 +2681,8 @@
       <MemberSignature Language="F#" Value="abstract member Wrap : Java.Nio.ByteBuffer[] * int * int * Java.Nio.ByteBuffer -&gt; Javax.Net.Ssl.SSLEngineResult" Usage="sSLEngine.Wrap (srcs, offset, length, dst)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1482,6 +2714,37 @@
         <returns>an <c>SSLEngineResult</c> describing the result
                      of this operation.</returns>
         <remarks>
+          <para>Attempts to encode plaintext bytes from a subsequence of data
+            buffers into SSL/TLS network data.  This <i>"gathering"</i>
+            operation encodes, in a single invocation, a sequence of bytes
+            from one or more of a given sequence of buffers.  Gathering
+            wraps are often useful when implementing network protocols or
+            file formats that, for example, group data into segments
+            consisting of one or more fixed-length headers followed by a
+            variable-length body.  See
+            <c>java.nio.channels.GatheringByteChannel</c> for more
+            information on gathering, and <c>java.nio.channels.GatheringByteChannel#write(ByteBuffer[],
+            int, int)</c> for more information on the subsequence
+            behavior.</para>
+          <para>Depending on the state of the SSLEngine, this method may produce
+            network data without consuming any application data (for example,
+            it may generate handshake data.)</para>
+          <para>The application is responsible for reliably transporting the
+            network data to the peer, and for ensuring that data created by
+            multiple calls to wrap() is transported in the same order in which
+            it was generated.  The application must properly synchronize
+            multiple calls to this method.</para>
+          <para>If this <c>SSLEngine</c> has not yet started its initial
+            handshake, this method will automatically start the handshake.</para>
+          <para>This method will attempt to produce SSL/TLS records, and will
+            consume as much source data as possible, but will never consume
+            more than the sum of the bytes remaining in each buffer.  Each
+            <c>ByteBuffer</c>'s position is updated to reflect the
+            amount of data consumed or produced.  The limits remain the
+            same.</para>
+          <para>The underlying memory used by the <c>srcs</c> and
+            <c>dst ByteBuffer</c>s must not be the same.</para>
+          <para>See the class description for more information on engine closure.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/javax/net/ssl/SSLEngine#wrap(java.nio.ByteBuffer[],%20int,%20int,%20java.nio.ByteBuffer)" title="Reference documentation">Java documentation for <code>javax.net.ssl.SSLEngine.wrap(java.nio.ByteBuffer[], int, int, java.nio.ByteBuffer)</code>.</a>

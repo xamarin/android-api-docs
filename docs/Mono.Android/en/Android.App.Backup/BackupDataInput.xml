@@ -23,6 +23,40 @@
             <c>BackupAgent#onRestore(BackupDataInput, int, android.os.ParcelFileDescriptor) onRestore()</c>
             method.</summary>
     <remarks>
+      <para>Provides the structured interface through which a <c>BackupAgent</c> reads
+            information from the backup data set, via its
+            <c>BackupAgent#onRestore(BackupDataInput, int, android.os.ParcelFileDescriptor) onRestore()</c>
+            method.  The data is presented as a set of "entities," each
+            representing one named record as previously stored by the agent's
+            <c>BackupAgent#onBackup(ParcelFileDescriptor,BackupDataOutput,ParcelFileDescriptor)
+            onBackup()</c> implementation.  An entity is composed of a descriptive header plus a
+            byte array that holds the raw data saved in the remote backup.</para>
+      <para>The agent must consume every entity in the data stream, otherwise the
+            restored state of the application will be incomplete.
+            &lt;h3&gt;Example&lt;/h3&gt;</para>
+      <para>A typical
+            <c>BackupAgent#onRestore(BackupDataInput,int,ParcelFileDescriptor)
+            onRestore()</c> implementation might be structured something like this:</para>
+      <code lang="text/java">public void onRestore(BackupDataInput data, int appVersionCode,
+                                  ParcelFileDescriptor newState) {
+                while (data.readNextHeader()) {
+                    String key = data.getKey();
+                    int dataSize = data.getDataSize();
+            
+                    if (key.equals(MY_BACKUP_KEY_ONE)) {
+                        // process this kind of record here
+                        byte[] buffer = new byte[dataSize];
+                        data.readEntityData(buffer, 0, dataSize); // reads the entire entity at once
+            
+                        // now 'buffer' holds the raw data and can be processed however
+                        // the agent wishes
+                        processBackupKeyOne(buffer);
+                    } else if (key.equals(MY_BACKUP_KEY_TO_IGNORE) {
+                        // a key we recognize but wish to discard
+                        data.skipEntityData();
+                    } // ... etc.
+               }
+            }</code>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/app/backup/BackupDataInput" title="Reference documentation">Java documentation for <code>android.app.backup.BackupDataInput</code>.</a>
@@ -44,8 +78,8 @@
       <MemberSignature Language="F#" Value="new Android.App.Backup.BackupDataInput : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.App.Backup.BackupDataInput" Usage="new Android.App.Backup.BackupDataInput (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -67,8 +101,8 @@
       <MemberSignature Language="F#" Value="member this.DataSize : int" Usage="Android.App.Backup.BackupDataInput.DataSize" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -84,6 +118,8 @@
             restore stream.</summary>
         <value>The size of the record's raw data, in bytes</value>
         <remarks>
+          <para>Report the size in bytes of the data associated with the current entity in the
+            restore stream.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/backup/BackupDataInput#getDataSize()" title="Reference documentation">Java documentation for <code>android.app.backup.BackupDataInput.getDataSize()</code>.</a>
@@ -138,8 +174,8 @@
       <MemberSignature Language="F#" Value="member this.Key : string" Usage="Android.App.Backup.BackupDataInput.Key" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -154,6 +190,7 @@
         <summary>Report the key associated with the current entity in the restore stream</summary>
         <value>the current entity's key string</value>
         <remarks>
+          <para>Report the key associated with the current entity in the restore stream</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/backup/BackupDataInput#getKey()" title="Reference documentation">Java documentation for <code>android.app.backup.BackupDataInput.getKey()</code>.</a>
@@ -177,8 +214,8 @@
       <MemberSignature Language="F#" Value="abstract member ReadEntityData : byte[] * int * int -&gt; int&#xA;override this.ReadEntityData : byte[] * int * int -&gt; int" Usage="backupDataInput.ReadEntityData (data, offset, size)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -203,6 +240,11 @@
         <returns>The number of bytes of data read.  Once all of the data for this entity
                has been read, further calls to this method will return zero.</returns>
         <remarks>
+          <para>Read a record's raw data from the restore stream.  The record's header must first
+            have been processed by the <c>#readNextHeader()</c> method.  Multiple calls to
+            this method may be made in order to process the data in chunks; not all of it
+            must be read in a single call.  Once all of the raw data for the current entity
+            has been read, further calls to this method will simply return zero.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/backup/BackupDataInput#readEntityData(byte[],%20int,%20int)" title="Reference documentation">Java documentation for <code>android.app.backup.BackupDataInput.readEntityData(byte[], int, int)</code>.</a>
@@ -226,8 +268,8 @@
       <MemberSignature Language="F#" Value="member this.ReadEntityDataAsync : byte[] * int * int -&gt; System.Threading.Tasks.Task&lt;int&gt;" Usage="backupDataInput.ReadEntityDataAsync (data, offset, size)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;System.Int32&gt;</ReturnType>
@@ -255,8 +297,8 @@
       <MemberSignature Language="F#" Value="abstract member ReadNextHeader : unit -&gt; bool&#xA;override this.ReadNextHeader : unit -&gt; bool" Usage="backupDataInput.ReadNextHeader " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -274,6 +316,9 @@
           <c>true</c> when there is an entity ready for consumption from the
                restore stream, <c>false</c> if the restore stream has been fully consumed.</returns>
         <remarks>
+          <para>Extract the next entity header from the restore stream.  After this method
+            return success, the <c>#getKey()</c> and <c>#getDataSize()</c> methods can
+            be used to inspect the entity that is now available for processing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/backup/BackupDataInput#readNextHeader()" title="Reference documentation">Java documentation for <code>android.app.backup.BackupDataInput.readNextHeader()</code>.</a>
@@ -297,8 +342,8 @@
       <MemberSignature Language="F#" Value="member this.ReadNextHeaderAsync : unit -&gt; System.Threading.Tasks.Task&lt;bool&gt;" Usage="backupDataInput.ReadNextHeaderAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task&lt;System.Boolean&gt;</ReturnType>
@@ -319,8 +364,8 @@
       <MemberSignature Language="F#" Value="abstract member SkipEntityData : unit -&gt; unit&#xA;override this.SkipEntityData : unit -&gt; unit" Usage="backupDataInput.SkipEntityData " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -336,6 +381,10 @@
         <summary>Consume the current entity's data without extracting it into a buffer
             for further processing.</summary>
         <remarks>
+          <para>Consume the current entity's data without extracting it into a buffer
+            for further processing.  This allows a <c>android.app.backup.BackupAgent</c> to
+            efficiently discard obsolete or otherwise uninteresting records during the
+            restore operation.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/backup/BackupDataInput#skipEntityData()" title="Reference documentation">Java documentation for <code>android.app.backup.BackupDataInput.skipEntityData()</code>.</a>
@@ -359,8 +408,8 @@
       <MemberSignature Language="F#" Value="member this.SkipEntityDataAsync : unit -&gt; System.Threading.Tasks.Task" Usage="backupDataInput.SkipEntityDataAsync " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.Threading.Tasks.Task</ReturnType>
@@ -381,8 +430,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.App.Backup.BackupDataInput.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -412,8 +461,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.App.Backup.BackupDataInput.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

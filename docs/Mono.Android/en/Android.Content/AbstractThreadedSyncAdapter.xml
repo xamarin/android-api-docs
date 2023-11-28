@@ -20,6 +20,67 @@
   <Docs since="5">
     <summary>An abstract implementation of a SyncAdapter that spawns a thread to invoke a sync operation.</summary>
     <remarks>
+      <para>An abstract implementation of a SyncAdapter that spawns a thread to invoke a sync operation.
+            If a sync operation is already in progress when a sync request is received, an error will be
+            returned to the new request and the existing request will be allowed to continue.
+            However if there is no sync in progress then a thread will be spawned and <c>#onPerformSync</c>
+            will be invoked on that thread.</para>
+      <para>Syncs can be cancelled at any time by the framework. For example a sync that was not
+            user-initiated and lasts longer than 30 minutes will be considered timed-out and cancelled.
+            Similarly the framework will attempt to determine whether or not an adapter is making progress
+            by monitoring its network activity over the course of a minute. If the network traffic over this
+            window is close enough to zero the sync will be cancelled. You can also request the sync be
+            cancelled via <c>ContentResolver#cancelSync(Account, String)</c> or
+            <c>ContentResolver#cancelSync(SyncRequest)</c>.</para>
+      <para>A sync is cancelled by issuing a <c>Thread#interrupt()</c> on the syncing thread. &lt;strong&gt;Either
+            your code in <c>#onPerformSync(Account, Bundle, String, ContentProviderClient, SyncResult)</c>
+            must check <c>Thread#interrupted()</c>, or you you must override one of
+            <c>#onSyncCanceled(Thread)</c>/<c>#onSyncCanceled()</c>&lt;/strong&gt; (depending on whether or not
+            your adapter supports syncing of multiple accounts in parallel). If your adapter does not
+            respect the cancel issued by the framework you run the risk of your app's entire process being
+            killed.</para>
+      <para>In order to be a sync adapter one must extend this class, provide implementations for the
+            abstract methods and write a service that returns the result of <c>#getSyncAdapterBinder()</c>
+            in the service's <c>android.app.Service#onBind(android.content.Intent)</c> when invoked
+            with an intent with action <c>android.content.SyncAdapter</c>. This service
+            must specify the following intent filter and metadata tags in its AndroidManifest.xml file</para>
+      <code lang="text/java">&amp;lt;intent-filter&amp;gt;
+                &amp;lt;action android:name="android.content.SyncAdapter" /&amp;gt;
+              &amp;lt;/intent-filter&amp;gt;
+              &amp;lt;meta-data android:name="android.content.SyncAdapter"
+                        android:resource="@xml/syncadapter" /&amp;gt;
+            </code>
+      <para>The <c>android:resource</c> attribute must point to a resource that looks like:</para>
+      <code lang="text/java">&amp;lt;sync-adapter xmlns:android="http://schemas.android.com/apk/res/android"
+               android:contentAuthority="authority"
+               android:accountType="accountType"
+               android:userVisible="true|false"
+               android:supportsUploading="true|false"
+               android:allowParallelSyncs="true|false"
+               android:isAlwaysSyncable="true|false"
+               android:syncAdapterSettingsAction="ACTION_OF_SETTINGS_ACTIVITY"
+            /&amp;gt;
+            </code>
+      <para>&lt;ul&gt;
+            &lt;li&gt;The <c>android:contentAuthority</c> and <c>android:accountType</c> attributes
+            indicate which content authority and for which account types this sync adapter serves.
+            &lt;li&gt;<c>android:userVisible</c> defaults to true and controls whether or not this sync
+            adapter shows up in the Sync Settings screen.
+            &lt;li&gt;<c>android:supportsUploading</c> defaults
+            to true and if true an upload-only sync will be requested for all syncadapters associated
+            with an authority whenever that authority's content provider does a
+            <c>ContentResolver#notifyChange(android.net.Uri, android.database.ContentObserver, boolean)</c>
+            with syncToNetwork set to true.
+            &lt;li&gt;<c>android:allowParallelSyncs</c> defaults to false and if true indicates that
+            the sync adapter can handle syncs for multiple accounts at the same time. Otherwise
+            the SyncManager will wait until the sync adapter is not in use before requesting that
+            it sync an account's data.
+            &lt;li&gt;<c>android:isAlwaysSyncable</c> defaults to false and if true tells the SyncManager
+            to initialize the isSyncable state to 1 for that sync adapter for each account that is added.
+            &lt;li&gt;<c>android:syncAdapterSettingsAction</c> defaults to null and if supplied it
+            specifies an Intent action of an activity that can be used to adjust the sync adapter's
+            sync settings. The activity must live in the same package as the sync adapter.
+            &lt;/ul&gt;</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter</code>.</a>
@@ -41,8 +102,8 @@
       <MemberSignature Language="F#" Value="new Android.Content.AbstractThreadedSyncAdapter : Android.Content.Context * bool -&gt; Android.Content.AbstractThreadedSyncAdapter" Usage="new Android.Content.AbstractThreadedSyncAdapter (context, autoInitialize)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -63,6 +124,7 @@
             is currently set to &lt;0.</param>
         <summary>Creates an <c>AbstractThreadedSyncAdapter</c>.</summary>
         <remarks>
+          <para>Creates an <c>AbstractThreadedSyncAdapter</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#AbstractThreadedSyncAdapter(android.content.Context,%20boolean)" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.AbstractThreadedSyncAdapter(android.content.Context, boolean)</code>.</a>
@@ -84,8 +146,8 @@
       <MemberSignature Language="F#" Value="new Android.Content.AbstractThreadedSyncAdapter : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Content.AbstractThreadedSyncAdapter" Usage="new Android.Content.AbstractThreadedSyncAdapter (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -107,8 +169,8 @@
       <MemberSignature Language="F#" Value="new Android.Content.AbstractThreadedSyncAdapter : Android.Content.Context * bool * bool -&gt; Android.Content.AbstractThreadedSyncAdapter" Usage="new Android.Content.AbstractThreadedSyncAdapter (context, autoInitialize, allowParallelSyncs)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -133,6 +195,7 @@
             in the SyncAdapter's configuration file.</param>
         <summary>Creates an <c>AbstractThreadedSyncAdapter</c>.</summary>
         <remarks>
+          <para>Creates an <c>AbstractThreadedSyncAdapter</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#AbstractThreadedSyncAdapter(android.content.Context,%20boolean,%20boolean)" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.AbstractThreadedSyncAdapter(android.content.Context, boolean, boolean)</code>.</a>
@@ -154,8 +217,8 @@
       <MemberSignature Language="F#" Value="member this.Context : Android.Content.Context" Usage="Android.Content.AbstractThreadedSyncAdapter.Context" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -214,8 +277,8 @@
       <MemberSignature Language="F#" Value="val mutable LogSyncDetails : int" Usage="Android.Content.AbstractThreadedSyncAdapter.LogSyncDetails" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -234,6 +297,8 @@
       <Docs>
         <summary>Kernel event log tag.</summary>
         <remarks>
+          <para>Kernel event log tag.  Also listed in data/etc/event-log-tags.</para>
+          <para>This member is deprecated. Private constant.  May go away in the next release.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#LOG_SYNC_DETAILS" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.LOG_SYNC_DETAILS</code>.</a>
@@ -255,8 +320,8 @@
       <MemberSignature Language="F#" Value="abstract member OnPerformSync : Android.Accounts.Account * Android.OS.Bundle * string * Android.Content.ContentProviderClient * Android.Content.SyncResult -&gt; unit" Usage="abstractThreadedSyncAdapter.OnPerformSync (account, extras, authority, provider, syncResult)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -283,6 +348,9 @@
         <param name="syncResult">SyncAdapter-specific parameters</param>
         <summary>Perform a sync for this account.</summary>
         <remarks>
+          <para>Perform a sync for this account. SyncAdapter-specific parameters may
+            be specified in extras, which is guaranteed to not be null. Invocations
+            of this method are guaranteed to be serialized.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#onPerformSync(android.accounts.Account,%20android.os.Bundle,%20java.lang.String,%20android.content.ContentProviderClient,%20android.content.SyncResult)" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.onPerformSync(android.accounts.Account, android.os.Bundle, java.lang.String, android.content.ContentProviderClient, android.content.SyncResult)</code>.</a>
@@ -312,6 +380,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onSecurityException", "(Landroid/accounts/Account;Landroid/os/Bundle;Ljava/lang/String;Landroid/content/SyncResult;)V", "GetOnSecurityException_Landroid_accounts_Account_Landroid_os_Bundle_Ljava_lang_String_Landroid_content_SyncResult_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onSecurityException", "(Landroid/accounts/Account;Landroid/os/Bundle;Ljava/lang/String;Landroid/content/SyncResult;)V", "GetOnSecurityException_Landroid_accounts_Account_Landroid_os_Bundle_Ljava_lang_String_Landroid_content_SyncResult_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -330,6 +402,9 @@
         <summary>Report that there was a security exception when opening the content provider
             prior to calling <c>#onPerformSync</c>.</summary>
         <remarks>
+          <para>Report that there was a security exception when opening the content provider
+            prior to calling <c>#onPerformSync</c>.  This will be treated as a sync
+            database failure.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#onSecurityException(android.accounts.Account,%20android.os.Bundle,%20java.lang.String,%20android.content.SyncResult)" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.onSecurityException(android.accounts.Account, android.os.Bundle, java.lang.String, android.content.SyncResult)</code>.</a>
@@ -350,8 +425,8 @@
       <MemberSignature Language="F#" Value="abstract member OnSyncCanceled : unit -&gt; unit&#xA;override this.OnSyncCanceled : unit -&gt; unit" Usage="abstractThreadedSyncAdapter.OnSyncCanceled " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -366,6 +441,11 @@
       <Docs>
         <summary>Indicates that a sync operation has been canceled.</summary>
         <remarks>
+          <para>Indicates that a sync operation has been canceled. This will be invoked on a separate
+            thread than the sync thread and so you must consider the multi-threaded implications
+            of the work that you do in this method.</para>
+          <para>This will only be invoked when the SyncAdapter indicates that it doesn't support
+            parallel syncs.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#onSyncCanceled()" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.onSyncCanceled()</code>.</a>
@@ -387,8 +467,8 @@
       <MemberSignature Language="F#" Value="abstract member OnSyncCanceled : Java.Lang.Thread -&gt; unit&#xA;override this.OnSyncCanceled : Java.Lang.Thread -&gt; unit" Usage="abstractThreadedSyncAdapter.OnSyncCanceled thread" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -406,6 +486,11 @@
         <param name="thread">the Thread of the sync that is to be canceled.</param>
         <summary>Indicates that a sync operation has been canceled.</summary>
         <remarks>
+          <para>Indicates that a sync operation has been canceled. This will be invoked on a separate
+            thread than the sync thread and so you must consider the multi-threaded implications
+            of the work that you do in this method.</para>
+          <para>This will only be invoked when the SyncAdapter indicates that it does support
+            parallel syncs.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#onSyncCanceled(java.lang.Thread)" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.onSyncCanceled(java.lang.Thread)</code>.</a>
@@ -435,6 +520,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onUnsyncableAccount", "()Z", "GetOnUnsyncableAccountHandler", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onUnsyncableAccount", "()Z", "GetOnUnsyncableAccountHandler", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -445,6 +534,20 @@
         <returns>If <c>false</c> syncing is deferred. Returns <c>true</c> by default, i.e. by
                     default syncing starts immediately.</returns>
         <remarks>
+          <para>Allows to defer syncing until all accounts are properly set up.</para>
+          <para>Called when a account / authority pair
+            &lt;ul&gt;
+            &lt;li&gt;that can be handled by this adapter&lt;/li&gt;
+            &lt;li&gt;<c>ContentResolver#requestSync(SyncRequest) is synced</c>&lt;/li&gt;
+            &lt;li&gt;and the account/provider <c>ContentResolver#getIsSyncable(Account, String) has
+            unknown state (&lt;0)</c>.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+          <para>This might be called on a different service connection as <c>#onPerformSync</c>.</para>
+          <para>The system expects this method to immediately return. If the call stalls the system
+            behaves as if this method returned <c>true</c>. If it is required to perform a longer task
+            (such as interacting with the user), return <c>false</c> and proceed in a difference
+            context, such as an <c>android.app.Activity</c>, or foreground service. The sync can then be
+            rescheduled once the account becomes syncable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/content/AbstractThreadedSyncAdapter#onUnsyncableAccount()" title="Reference documentation">Java documentation for <code>android.content.AbstractThreadedSyncAdapter.onUnsyncableAccount()</code>.</a>
@@ -465,8 +568,8 @@
       <MemberSignature Language="F#" Value="member this.SyncAdapterBinder : Android.OS.IBinder" Usage="Android.Content.AbstractThreadedSyncAdapter.SyncAdapterBinder" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -503,8 +606,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Content.AbstractThreadedSyncAdapter.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -534,8 +637,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Content.AbstractThreadedSyncAdapter.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

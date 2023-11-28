@@ -25,6 +25,131 @@
             methods during the bundle loading process.</summary>
     <remarks>
       <para>
+        <c>ResourceBundle.Control</c> defines a set of callback methods
+            that are invoked by the <c>ResourceBundle#getBundle(String,
+            Locale, ClassLoader, Control) ResourceBundle.getBundle</c> factory
+            methods during the bundle loading process. In other words, a
+            <c>ResourceBundle.Control</c> collaborates with the factory
+            methods for loading resource bundles. The default implementation of
+            the callback methods provides the information necessary for the
+            factory methods to perform the default behavior.</para>
+      <para>In addition to the callback methods, the <c>#toBundleName(String, Locale) toBundleName</c> and <c>#toResourceName(String, String) toResourceName</c> methods are defined
+            primarily for convenience in implementing the callback
+            methods. However, the <c>toBundleName</c> method could be
+            overridden to provide different conventions in the organization and
+            packaging of localized resources.  The <c>toResourceName</c>
+            method is <c>final</c> to avoid use of wrong resource and class
+            name separators.</para>
+      <para>Two factory methods, <c>#getControl(List)</c> and <c>#getNoFallbackControl(List)</c>, provide
+            <c>ResourceBundle.Control</c> instances that implement common
+            variations of the default bundle loading process.</para>
+      <para>The formats returned by the <c>Control#getFormats(String)
+            getFormats</c> method and candidate locales returned by the <c>ResourceBundle.Control#getCandidateLocales(String, Locale)
+            getCandidateLocales</c> method must be consistent in all
+            <c>ResourceBundle.getBundle</c> invocations for the same base
+            bundle. Otherwise, the <c>ResourceBundle.getBundle</c> methods
+            may return unintended bundles. For example, if only
+            <c>"java.class"</c> is returned by the <c>getFormats</c>
+            method for the first call to <c>ResourceBundle.getBundle</c>
+            and only <c>"java.properties"</c> for the second call, then the
+            second call will return the class-based one that has been cached
+            during the first call.</para>
+      <para>A <c>ResourceBundle.Control</c> instance must be thread-safe
+            if it's simultaneously used by multiple threads.
+            <c>ResourceBundle.getBundle</c> does not synchronize to call
+            the <c>ResourceBundle.Control</c> methods. The default
+            implementations of the methods are thread-safe.</para>
+      <para>Applications can specify <c>ResourceBundle.Control</c>
+            instances returned by the <c>getControl</c> factory methods or
+            created from a subclass of <c>ResourceBundle.Control</c> to
+            customize the bundle loading process. The following are examples of
+            changing the default bundle loading process.</para>
+      <para>&lt;b&gt;Example 1&lt;/b&gt;</para>
+      <para>The following code lets <c>ResourceBundle.getBundle</c> look
+            up only properties-based resources.</para>
+      <code lang="text/java">import java.util.*;
+            import static java.util.ResourceBundle.Control.*;
+            ...
+            ResourceBundle bundle =
+              ResourceBundle.getBundle("MyResources", new Locale("fr", "CH"),
+                                       ResourceBundle.Control.getControl(FORMAT_PROPERTIES));
+            </code>
+      <para>Given the resource bundles in the example in
+            the <c>ResourceBundle.getBundle</c> description, this
+            <c>ResourceBundle.getBundle</c> call loads
+            <c>MyResources_fr_CH.properties</c> whose parent is
+            <c>MyResources_fr.properties</c> whose parent is
+            <c>MyResources.properties</c>. (<c>MyResources_fr_CH.properties</c>
+            is not hidden, but <c>MyResources_fr_CH.class</c> is.)</para>
+      <para>&lt;b&gt;Example 2&lt;/b&gt;</para>
+      <para>The following is an example of loading XML-based bundles
+            using <c>Properties#loadFromXML(java.io.InputStream)
+            Properties.loadFromXML</c>.</para>
+      <code lang="text/java">ResourceBundle rb = ResourceBundle.getBundle("Messages",
+                new ResourceBundle.Control() {
+                    public List&amp;lt;String&amp;gt; getFormats(String baseName) {
+                        if (baseName == null)
+                            throw new NullPointerException();
+                        return Arrays.asList("xml");
+                    }
+                    public ResourceBundle newBundle(String baseName,
+                                                    Locale locale,
+                                                    String format,
+                                                    ClassLoader loader,
+                                                    boolean reload)
+                                     throws IllegalAccessException,
+                                            InstantiationException,
+                                            IOException {
+                        if (baseName == null || locale == null
+                              || format == null || loader == null)
+                            throw new NullPointerException();
+                        ResourceBundle bundle = null;
+                        if (format.equals("xml")) {
+                            String bundleName = toBundleName(baseName, locale);
+                            String resourceName = toResourceName(bundleName, format);
+                            InputStream stream = null;
+                            if (reload) {
+                                URL url = loader.getResource(resourceName);
+                                if (url != null) {
+                                    URLConnection connection = url.openConnection();
+                                    if (connection != null) {
+                                        // Disable caches to get fresh data for
+                                        // reloading.
+                                        connection.setUseCaches(false);
+                                        stream = connection.getInputStream();
+                                    }
+                                }
+                            } else {
+                                stream = loader.getResourceAsStream(resourceName);
+                            }
+                            if (stream != null) {
+                                BufferedInputStream bis = new BufferedInputStream(stream);
+                                bundle = new XMLResourceBundle(bis);
+                                bis.close();
+                            }
+                        }
+                        return bundle;
+                    }
+                });
+            
+            ...
+            
+            private static class XMLResourceBundle extends ResourceBundle {
+                private Properties props;
+                XMLResourceBundle(InputStream stream) throws IOException {
+                    props = new Properties();
+                    props.loadFromXML(stream);
+                }
+                protected Object handleGetObject(String key) {
+                    return props.getProperty(key);
+                }
+                public Enumeration&amp;lt;String&amp;gt; getKeys() {
+                    ...
+                }
+            }
+            </code>
+      <para>Added in 1.6.</para>
+      <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control</code>.</a>
         </format>
@@ -44,8 +169,8 @@
       <MemberSignature Language="DocId" Value="M:Java.Util.ResourceBundle.Control.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -57,6 +182,8 @@
       <Docs>
         <summary>Sole constructor.</summary>
         <remarks>
+          <para>Sole constructor. (For invocation by subclass constructors,
+            typically implicit.)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#ResourceBundle$Control()" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.ResourceBundle$Control()</code>.</a>
@@ -78,8 +205,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.ResourceBundle.Control : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.ResourceBundle.Control" Usage="new Java.Util.ResourceBundle.Control (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -98,11 +225,11 @@
       <MemberSignature Language="C#" Value="public static System.Collections.IList FormatClass { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.IList FormatClass" />
       <MemberSignature Language="DocId" Value="P:Java.Util.ResourceBundle.Control.FormatClass" />
-      <MemberSignature Language="F#" Value="member this.FormatClass : System.Collections.IList" Usage="Java.Util.ResourceBundle.Control.FormatClass" />
+      <MemberSignature Language="F#" Value="static member FormatClass : System.Collections.IList" Usage="Java.Util.ResourceBundle.Control.FormatClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -118,6 +245,8 @@
             <c>"java.class"</c>.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The class-only format <c>List</c> containing
+            <c>"java.class"</c>. This <c>List</c> is unmodifiable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#FORMAT_CLASS" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.FORMAT_CLASS</code>.</a>
@@ -136,11 +265,11 @@
       <MemberSignature Language="C#" Value="public static System.Collections.IList FormatDefault { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.IList FormatDefault" />
       <MemberSignature Language="DocId" Value="P:Java.Util.ResourceBundle.Control.FormatDefault" />
-      <MemberSignature Language="F#" Value="member this.FormatDefault : System.Collections.IList" Usage="Java.Util.ResourceBundle.Control.FormatDefault" />
+      <MemberSignature Language="F#" Value="static member FormatDefault : System.Collections.IList" Usage="Java.Util.ResourceBundle.Control.FormatDefault" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -157,6 +286,9 @@
             this order.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The default format <c>List</c>, which contains the strings
+            <c>"java.class"</c> and <c>"java.properties"</c>, in
+            this order. This <c>List</c> is unmodifiable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#FORMAT_DEFAULT" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.FORMAT_DEFAULT</code>.</a>
@@ -175,11 +307,11 @@
       <MemberSignature Language="C#" Value="public static System.Collections.IList FormatProperties { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.IList FormatProperties" />
       <MemberSignature Language="DocId" Value="P:Java.Util.ResourceBundle.Control.FormatProperties" />
-      <MemberSignature Language="F#" Value="member this.FormatProperties : System.Collections.IList" Usage="Java.Util.ResourceBundle.Control.FormatProperties" />
+      <MemberSignature Language="F#" Value="static member FormatProperties : System.Collections.IList" Usage="Java.Util.ResourceBundle.Control.FormatProperties" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -195,6 +327,8 @@
             <c>"java.properties"</c>.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>The properties-only format <c>List</c> containing
+            <c>"java.properties"</c>. This <c>List</c> is unmodifiable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#FORMAT_PROPERTIES" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.FORMAT_PROPERTIES</code>.</a>
@@ -216,8 +350,8 @@
       <MemberSignature Language="F#" Value="abstract member GetCandidateLocales : string * Java.Util.Locale -&gt; System.Collections.Generic.IList&lt;Java.Util.Locale&gt;&#xA;override this.GetCandidateLocales : string * Java.Util.Locale -&gt; System.Collections.Generic.IList&lt;Java.Util.Locale&gt;" Usage="control.GetCandidateLocales (baseName, locale)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -241,6 +375,163 @@
         <returns>a <c>List</c> of candidate
                    <c>Locale</c>s for the given <c>locale</c></returns>
         <remarks>
+          <para>Returns a <c>List</c> of <c>Locale</c>s as candidate
+            locales for <c>baseName</c> and <c>locale</c>. This
+            method is called by the <c>ResourceBundle.getBundle</c>
+            factory method each time the factory method tries finding a
+            resource bundle for a target <c>Locale</c>.</para>
+          <para>The sequence of the candidate locales also corresponds to the
+            runtime resource lookup path (also known as the <i>parent
+            chain</i>), if the corresponding resource bundles for the
+            candidate locales exist and their parents are not defined by
+            loaded resource bundles themselves.  The last element of the list
+            must be a Locale#ROOT root locale if it is desired to
+            have the base bundle as the terminal of the parent chain.</para>
+          <para>If the given locale is equal to <c>Locale.ROOT</c> (the
+            root locale), a <c>List</c> containing only the root
+            <c>Locale</c> must be returned. In this case, the
+            <c>ResourceBundle.getBundle</c> factory method loads only
+            the base bundle as the resulting resource bundle.</para>
+          <para>It is not a requirement to return an immutable (unmodifiable)
+            <c>List</c>. However, the returned <c>List</c> must not
+            be mutated after it has been returned by
+            <c>getCandidateLocales</c>.</para>
+          <para>The default implementation returns a <c>List</c> containing
+            <c>Locale</c>s using the rules described below.  In the
+            description below, &lt;em&gt;L&lt;/em&gt;, &lt;em&gt;S&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt; and &lt;em&gt;V&lt;/em&gt;
+            respectively represent non-empty language, script, country, and
+            variant.  For example, [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;] represents a
+            <c>Locale</c> that has non-empty values only for language and
+            country.  The form &lt;em&gt;L&lt;/em&gt;("xx") represents the (non-empty)
+            language value is "xx".  For all cases, <c>Locale</c>s whose
+            final component values are empty strings are omitted.
+            
+            &lt;ol&gt;&lt;li&gt;For an input <c>Locale</c> with an empty script value,
+            append candidate <c>Locale</c>s by omitting the final component
+            one by one as below:
+            
+            &lt;ul&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;, &lt;em&gt;V&lt;/em&gt;] &lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;] &lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;] &lt;/li&gt;
+            &lt;li&gt; <c>Locale.ROOT</c>&lt;/li&gt;
+            &lt;/ul&gt;&lt;/li&gt;
+            
+            &lt;li&gt;For an input <c>Locale</c> with a non-empty script value,
+            append candidate <c>Locale</c>s by omitting the final component
+            up to language, then append candidates generated from the
+            <c>Locale</c> with country and variant restored:
+            
+            &lt;ul&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;S&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;, &lt;em&gt;V&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;S&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;S&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;, &lt;em&gt;V&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; <c>Locale.ROOT</c>&lt;/li&gt;
+            &lt;/ul&gt;&lt;/li&gt;
+            
+            &lt;li&gt;For an input <c>Locale</c> with a variant value consisting
+            of multiple subtags separated by underscore, generate candidate
+            <c>Locale</c>s by omitting the variant subtags one by one, then
+            insert them after every occurrence of <c> Locale</c>s with the
+            full variant value in the original list.  For example, if
+            the variant consists of two subtags &lt;em&gt;V1&lt;/em&gt; and &lt;em&gt;V2&lt;/em&gt;:
+            
+            &lt;ul&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;S&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;, &lt;em&gt;V1&lt;/em&gt;, &lt;em&gt;V2&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;S&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;, &lt;em&gt;V1&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;S&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;S&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;, &lt;em&gt;V1&lt;/em&gt;, &lt;em&gt;V2&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;, &lt;em&gt;V1&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;, &lt;em&gt;C&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;]&lt;/li&gt;
+            &lt;li&gt; <c>Locale.ROOT</c>&lt;/li&gt;
+            &lt;/ul&gt;&lt;/li&gt;
+            
+            &lt;li&gt;Special cases for Chinese.  When an input <c>Locale</c> has the
+            language "zh" (Chinese) and an empty script value, either "Hans" (Simplified) or
+            "Hant" (Traditional) might be supplied, depending on the country.
+            When the country is "CN" (China) or "SG" (Singapore), "Hans" is supplied.
+            When the country is "HK" (Hong Kong SAR China), "MO" (Macau SAR China),
+            or "TW" (Taiwan), "Hant" is supplied.  For all other countries or when the country
+            is empty, no script is supplied.  For example, for <c>Locale("zh", "CN")
+            </c>, the candidate list will be:
+            &lt;ul&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("zh"), &lt;em&gt;S&lt;/em&gt;("Hans"), &lt;em&gt;C&lt;/em&gt;("CN")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("zh"), &lt;em&gt;S&lt;/em&gt;("Hans")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("zh"), &lt;em&gt;C&lt;/em&gt;("CN")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("zh")]&lt;/li&gt;
+            &lt;li&gt; <c>Locale.ROOT</c>&lt;/li&gt;
+            &lt;/ul&gt;
+            
+            For <c>Locale("zh", "TW")</c>, the candidate list will be:
+            &lt;ul&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("zh"), &lt;em&gt;S&lt;/em&gt;("Hant"), &lt;em&gt;C&lt;/em&gt;("TW")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("zh"), &lt;em&gt;S&lt;/em&gt;("Hant")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("zh"), &lt;em&gt;C&lt;/em&gt;("TW")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("zh")]&lt;/li&gt;
+            &lt;li&gt; <c>Locale.ROOT</c>&lt;/li&gt;
+            &lt;/ul&gt;&lt;/li&gt;
+            
+            &lt;li&gt;Special cases for Norwegian.  Both <c>Locale("no", "NO",
+            "NY")</c> and <c>Locale("nn", "NO")</c> represent Norwegian
+            Nynorsk.  When a locale's language is "nn", the standard candidate
+            list is generated up to [&lt;em&gt;L&lt;/em&gt;("nn")], and then the following
+            candidates are added:
+            
+            &lt;ul&gt;&lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("no"), &lt;em&gt;C&lt;/em&gt;("NO"), &lt;em&gt;V&lt;/em&gt;("NY")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("no"), &lt;em&gt;C&lt;/em&gt;("NO")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("no")]&lt;/li&gt;
+            &lt;li&gt; <c>Locale.ROOT</c>&lt;/li&gt;
+            &lt;/ul&gt;
+            
+            If the locale is exactly <c>Locale("no", "NO", "NY")</c>, it is first
+            converted to <c>Locale("nn", "NO")</c> and then the above procedure is
+            followed.</para>
+          <para>Also, Java treats the language "no" as a synonym of Norwegian
+            Bokm&amp;#xE5;l "nb".  Except for the single case <c>Locale("no",
+            "NO", "NY")</c> (handled above), when an input <c>Locale</c>
+            has language "no" or "nb", candidate <c>Locale</c>s with
+            language code "no" and "nb" are interleaved, first using the
+            requested language, then using its synonym. For example,
+            <c>Locale("nb", "NO", "POSIX")</c> generates the following
+            candidate list:
+            
+            &lt;ul&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("nb"), &lt;em&gt;C&lt;/em&gt;("NO"), &lt;em&gt;V&lt;/em&gt;("POSIX")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("no"), &lt;em&gt;C&lt;/em&gt;("NO"), &lt;em&gt;V&lt;/em&gt;("POSIX")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("nb"), &lt;em&gt;C&lt;/em&gt;("NO")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("no"), &lt;em&gt;C&lt;/em&gt;("NO")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("nb")]&lt;/li&gt;
+            &lt;li&gt; [&lt;em&gt;L&lt;/em&gt;("no")]&lt;/li&gt;
+            &lt;li&gt; <c>Locale.ROOT</c>&lt;/li&gt;
+            &lt;/ul&gt;
+            
+            <c>Locale("no", "NO", "POSIX")</c> would generate the same list
+            except that locales with "no" would appear before the corresponding
+            locales with "nb".&lt;/li&gt;
+            &lt;/ol&gt;</para>
+          <para>The default implementation uses an <c>ArrayList</c> that
+            overriding implementations may modify before returning it to the
+            caller. However, a subclass must not modify it after it has
+            been returned by <c>getCandidateLocales</c>.</para>
+          <para>For example, if the given <c>baseName</c> is "Messages"
+            and the given <c>locale</c> is
+            <c>Locale("ja",&amp;nbsp;"",&amp;nbsp;"XX")</c>, then a
+            <c>List</c> of <c>Locale</c>s:</para>
+          <code lang="text/java">Locale("ja", "", "XX")
+                Locale("ja")
+                Locale.ROOT
+            </code>
+          <para>is returned. And if the resource bundles for the "ja" and
+            "" <c>Locale</c>s are found, then the runtime resource
+            lookup path (parent chain) is:</para>
+          <code lang="text/java">{@code
+                Messages_ja -&gt; Messages
+            }</code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#getCandidateLocales(java.lang.String,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.getCandidateLocales(java.lang.String, java.util.Locale)</code>.</a>
@@ -262,8 +553,8 @@
       <MemberSignature Language="F#" Value="static member GetControl : System.Collections.Generic.IList&lt;string&gt; -&gt; Java.Util.ResourceBundle.Control" Usage="Java.Util.ResourceBundle.Control.GetControl formats" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -293,8 +584,8 @@
       <MemberSignature Language="F#" Value="abstract member GetFallbackLocale : string * Java.Util.Locale -&gt; Java.Util.Locale&#xA;override this.GetFallbackLocale : string * Java.Util.Locale -&gt; Java.Util.Locale" Usage="control.GetFallbackLocale (baseName, locale)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -326,6 +617,19 @@
                    or <c>null</c> if no further fallback search
                    is desired.</returns>
         <remarks>
+          <para>Returns a <c>Locale</c> to be used as a fallback locale for
+            further resource bundle searches by the
+            <c>ResourceBundle.getBundle</c> factory method. This method
+            is called from the factory method every time when no resulting
+            resource bundle has been found for <c>baseName</c> and
+            <c>locale</c>, where locale is either the parameter for
+            <c>ResourceBundle.getBundle</c> or the previous fallback
+            locale returned by this method.</para>
+          <para>The method returns <c>null</c> if no further fallback
+            search is desired.</para>
+          <para>The default implementation returns the Locale#getDefault() default &lt;code&gt;Locale&lt;/code&gt; if the given
+            <c>locale</c> isn't the default one.  Otherwise,
+            <c>null</c> is returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#getFallbackLocale(java.lang.String,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.getFallbackLocale(java.lang.String, java.util.Locale)</code>.</a>
@@ -347,8 +651,8 @@
       <MemberSignature Language="F#" Value="abstract member GetFormats : string -&gt; System.Collections.Generic.IList&lt;string&gt;&#xA;override this.GetFormats : string -&gt; System.Collections.Generic.IList&lt;string&gt;" Usage="control.GetFormats baseName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -371,6 +675,24 @@
         <returns>a <c>List</c> of <c>String</c>s containing
                    formats for loading resource bundles.</returns>
         <remarks>
+          <para>Returns a <c>List</c> of <c>String</c>s containing
+            formats to be used to load resource bundles for the given
+            <c>baseName</c>. The <c>ResourceBundle.getBundle</c>
+            factory method tries to load resource bundles with formats in the
+            order specified by the list. The list returned by this method
+            must have at least one <c>String</c>. The predefined
+            formats are <c>"java.class"</c> for class-based resource
+            bundles and <c>"java.properties"</c> for PropertyResourceBundle properties-based ones. Strings starting
+            with <c>"java."</c> are reserved for future extensions and
+            must not be used by application-defined formats.</para>
+          <para>It is not a requirement to return an immutable (unmodifiable)
+            <c>List</c>.  However, the returned <c>List</c> must
+            not be mutated after it has been returned by
+            <c>getFormats</c>.</para>
+          <para>The default implementation returns <c>#FORMAT_DEFAULT</c> so
+            that the <c>ResourceBundle.getBundle</c> factory method
+            looks up first class-based resource bundles, then
+            properties-based ones.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#getFormats(java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.getFormats(java.lang.String)</code>.</a>
@@ -392,8 +714,8 @@
       <MemberSignature Language="F#" Value="static member GetNoFallbackControl : System.Collections.Generic.IList&lt;string&gt; -&gt; Java.Util.ResourceBundle.Control" Usage="Java.Util.ResourceBundle.Control.GetNoFallbackControl formats" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -423,8 +745,8 @@
       <MemberSignature Language="F#" Value="abstract member GetTimeToLive : string * Java.Util.Locale -&gt; int64&#xA;override this.GetTimeToLive : string * Java.Util.Locale -&gt; int64" Usage="control.GetTimeToLive (baseName, locale)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -453,6 +775,30 @@
                    expiration control, or <c>#TTL_DONT_CACHE</c> to disable
                    caching.</returns>
         <remarks>
+          <para>Returns the time-to-live (TTL) value for resource bundles that
+            are loaded under this
+            <c>ResourceBundle.Control</c>. Positive time-to-live values
+            specify the number of milliseconds a bundle can remain in the
+            cache without being validated against the source data from which
+            it was constructed. The value 0 indicates that a bundle must be
+            validated each time it is retrieved from the cache. <c>#TTL_DONT_CACHE</c> specifies that loaded resource bundles are not
+            put in the cache. <c>#TTL_NO_EXPIRATION_CONTROL</c> specifies
+            that loaded resource bundles are put in the cache with no
+            expiration control.</para>
+          <para>The expiration affects only the bundle loading process by the
+            <c>ResourceBundle.getBundle</c> factory method.  That is,
+            if the factory method finds a resource bundle in the cache that
+            has expired, the factory method calls the <c>#needsReload(String, Locale, String, ClassLoader, ResourceBundle,
+            long) needsReload</c> method to determine whether the resource
+            bundle needs to be reloaded. If <c>needsReload</c> returns
+            <c>true</c>, the cached resource bundle instance is removed
+            from the cache. Otherwise, the instance stays in the cache,
+            updated with the new TTL value returned by this method.</para>
+          <para>All cached resource bundles are subject to removal from the
+            cache due to memory constraints of the runtime environment.
+            Returning a large positive value doesn't mean to lock loaded
+            resource bundles in the cache.</para>
+          <para>The default implementation returns <c>#TTL_NO_EXPIRATION_CONTROL</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#getTimeToLive(java.lang.String,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.getTimeToLive(java.lang.String, java.util.Locale)</code>.</a>
@@ -505,8 +851,8 @@
       <MemberSignature Language="F#" Value="abstract member NeedsReload : string * Java.Util.Locale * string * Java.Lang.ClassLoader * Java.Util.ResourceBundle * int64 -&gt; bool&#xA;override this.NeedsReload : string * Java.Util.Locale * string * Java.Lang.ClassLoader * Java.Util.ResourceBundle * int64 -&gt; bool" Usage="control.NeedsReload (baseName, locale, format, loader, bundle, loadTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -543,6 +889,27 @@
           <c>true</c> if the expired bundle needs to be
                    reloaded; <c>false</c> otherwise.</returns>
         <remarks>
+          <para>Determines if the expired <c>bundle</c> in the cache needs
+            to be reloaded based on the loading time given by
+            <c>loadTime</c> or some other criteria. The method returns
+            <c>true</c> if reloading is required; <c>false</c>
+            otherwise. <c>loadTime</c> is a millisecond offset since
+            the  &lt;c&gt;Calendar&lt;/c&gt;
+            Epoch.</para>
+          <para>The calling <c>ResourceBundle.getBundle</c> factory method
+            calls this method on the <c>ResourceBundle.Control</c>
+            instance used for its current invocation, not on the instance
+            used in the invocation that originally loaded the resource
+            bundle.</para>
+          <para>The default implementation compares <c>loadTime</c> and
+            the last modified time of the source data of the resource
+            bundle. If it's determined that the source data has been modified
+            since <c>loadTime</c>, <c>true</c> is
+            returned. Otherwise, <c>false</c> is returned. This
+            implementation assumes that the given <c>format</c> is the
+            same string as its file suffix if it's not one of the default
+            formats, <c>"java.class"</c> or
+            <c>"java.properties"</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#needsReload(java.lang.String,%20java.util.Locale,%20java.lang.String,%20java.lang.ClassLoader,%20java.util.ResourceBundle,%20long)" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.needsReload(java.lang.String, java.util.Locale, java.lang.String, java.lang.ClassLoader, java.util.ResourceBundle, long)</code>.</a>
@@ -564,8 +931,8 @@
       <MemberSignature Language="F#" Value="abstract member NewBundle : string * Java.Util.Locale * string * Java.Lang.ClassLoader * bool -&gt; Java.Util.ResourceBundle&#xA;override this.NewBundle : string * Java.Util.Locale * string * Java.Lang.ClassLoader * bool -&gt; Java.Util.ResourceBundle" Usage="control.NewBundle (baseName, locale, format, loader, reload)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -599,6 +966,54 @@
         <returns>the resource bundle instance,
                    or <c>null</c> if none could be found.</returns>
         <remarks>
+          <para>Instantiates a resource bundle for the given bundle name of the
+            given format and locale, using the given class loader if
+            necessary. This method returns <c>null</c> if there is no
+            resource bundle available for the given parameters. If a resource
+            bundle can't be instantiated due to an unexpected error, the
+            error must be reported by throwing an <c>Error</c> or
+            <c>Exception</c> rather than simply returning
+            <c>null</c>.</para>
+          <para>If the <c>reload</c> flag is <c>true</c>, it
+            indicates that this method is being called because the previously
+            loaded resource bundle has expired.</para>
+          <para>The default implementation instantiates a
+            <c>ResourceBundle</c> as follows.
+            
+            &lt;ul&gt;
+            
+            &lt;li&gt;The bundle name is obtained by calling <c>#toBundleName(String, Locale) toBundleName(baseName,
+            locale)</c>.&lt;/li&gt;
+            
+            &lt;li&gt;If <c>format</c> is <c>"java.class"</c>, the
+            <c>Class</c> specified by the bundle name is loaded with the
+            given class loader. If the <c>Class</c> is found and accessible
+            then the <c>ResourceBundle</c> is instantiated.  The
+            resource bundle is accessible if the package of the bundle class file
+            is open unconditionally; otherwise, <c>IllegalAccessException</c>
+            will be thrown.
+            Note that the <c>reload</c> flag is ignored for loading
+            class-based resource bundles in this default implementation.
+            &lt;/li&gt;
+            
+            &lt;li&gt;If <c>format</c> is <c>"java.properties"</c>,
+            <c>#toResourceName(String, String) toResourceName(bundlename,
+            "properties")</c> is called to get the resource name.
+            If <c>reload</c> is <c>true</c>, <c>ClassLoader#getResource(String) load.getResource</c> is called
+            to get a <c>URL</c> for creating a <c>URLConnection</c>. This <c>URLConnection</c> is used to
+            URLConnection#setUseCaches(boolean) disable the
+            caches of the underlying resource loading layers,
+            and to URLConnection#getInputStream() get an
+            &lt;code&gt;InputStream&lt;/code&gt;.
+            Otherwise, <c>ClassLoader#getResourceAsStream(String)
+            loader.getResourceAsStream</c> is called to get an <c>InputStream</c>. Then, a <c>PropertyResourceBundle</c> is constructed with the
+            <c>InputStream</c>.&lt;/li&gt;
+            
+            &lt;li&gt;If <c>format</c> is neither <c>"java.class"</c>
+            nor <c>"java.properties"</c>, an
+            <c>IllegalArgumentException</c> is thrown.&lt;/li&gt;
+            
+            &lt;/ul&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#newBundle(java.lang.String,%20java.util.Locale,%20java.lang.String,%20java.lang.ClassLoader,%20boolean)" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.newBundle(java.lang.String, java.util.Locale, java.lang.String, java.lang.ClassLoader, boolean)</code>.</a>
@@ -624,8 +1039,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.ResourceBundle.Control.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -655,8 +1070,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.ResourceBundle.Control.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -686,8 +1101,8 @@
       <MemberSignature Language="F#" Value="abstract member ToBundleName : string * Java.Util.Locale -&gt; string&#xA;override this.ToBundleName : string * Java.Util.Locale -&gt; string" Usage="control.ToBundleName (baseName, locale)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -711,6 +1126,31 @@
             to the bundle name.</summary>
         <returns>the bundle name for the resource bundle</returns>
         <remarks>
+          <para>Converts the given <c>baseName</c> and <c>locale</c>
+            to the bundle name. This method is called from the default
+            implementation of the <c>#newBundle(String, Locale, String,
+            ClassLoader, boolean) newBundle</c> and <c>#needsReload(String,
+            Locale, String, ClassLoader, ResourceBundle, long) needsReload</c>
+            methods.</para>
+          <para>This implementation returns the following value:</para>
+          <code lang="text/java">baseName + "_" + language + "_" + script + "_" + country + "_" + variant
+            </code>
+          <para>where <c>language</c>, <c>script</c>, <c>country</c>,
+            and <c>variant</c> are the language, script, country, and variant
+            values of <c>locale</c>, respectively. Final component values that
+            are empty Strings are omitted along with the preceding '_'.  When the
+            script is empty, the script value is omitted along with the preceding '_'.
+            If all of the values are empty strings, then <c>baseName</c>
+            is returned.</para>
+          <para>For example, if <c>baseName</c> is
+            <c>"baseName"</c> and <c>locale</c> is
+            <c>Locale("ja",&amp;nbsp;"",&amp;nbsp;"XX")</c>, then
+            <c>"baseName_ja_&amp;thinsp;_XX"</c> is returned. If the given
+            locale is <c>Locale("en")</c>, then
+            <c>"baseName_en"</c> is returned.</para>
+          <para>Overriding this method allows applications to use different
+            conventions in the organization and packaging of localized
+            resources.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#toBundleName(java.lang.String,%20java.util.Locale)" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.toBundleName(java.lang.String, java.util.Locale)</code>.</a>
@@ -732,8 +1172,8 @@
       <MemberSignature Language="F#" Value="member this.ToResourceName : string * string -&gt; string" Usage="control.ToResourceName (bundleName, suffix)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -758,6 +1198,15 @@
             <c>'.'</c> and the given file <c>suffix</c>.</summary>
         <returns>the converted resource name</returns>
         <remarks>
+          <para>Converts the given <c>bundleName</c> to the form required
+            by the <c>ClassLoader#getResource ClassLoader.getResource</c>
+            method by replacing all occurrences of <c>'.'</c> in
+            <c>bundleName</c> with <c>'/'</c> and appending a
+            <c>'.'</c> and the given file <c>suffix</c>. For
+            example, if <c>bundleName</c> is
+            <c>"foo.bar.MyResources_ja_JP"</c> and <c>suffix</c>
+            is <c>"properties"</c>, then
+            <c>"foo/bar/MyResources_ja_JP.properties"</c> is returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#toResourceName(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.toResourceName(java.lang.String, java.lang.String)</code>.</a>
@@ -779,8 +1228,8 @@
       <MemberSignature Language="F#" Value="val mutable TtlDontCache : int64" Usage="Java.Util.ResourceBundle.Control.TtlDontCache" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -796,6 +1245,8 @@
         <summary>The time-to-live constant for not caching loaded resource bundle
             instances.</summary>
         <remarks>
+          <para>The time-to-live constant for not caching loaded resource bundle
+            instances.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#TTL_DONT_CACHE" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.TTL_DONT_CACHE</code>.</a>
@@ -817,8 +1268,8 @@
       <MemberSignature Language="F#" Value="val mutable TtlNoExpirationControl : int64" Usage="Java.Util.ResourceBundle.Control.TtlNoExpirationControl" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -834,6 +1285,8 @@
         <summary>The time-to-live constant for disabling the expiration control
             for loaded resource bundle instances in the cache.</summary>
         <remarks>
+          <para>The time-to-live constant for disabling the expiration control
+            for loaded resource bundle instances in the cache.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/ResourceBundle.Control#TTL_NO_EXPIRATION_CONTROL" title="Reference documentation">Java documentation for <code>java.util.ResourceBundle.Control.TTL_NO_EXPIRATION_CONTROL</code>.</a>

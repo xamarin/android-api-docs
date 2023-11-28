@@ -33,6 +33,50 @@
   <Docs since="9">
     <summary>Represents an immutable NDEF Record.</summary>
     <remarks>
+      <para>Represents an immutable NDEF Record.</para>
+      <para>NDEF (NFC Data Exchange Format) is a light-weight binary format,
+            used to encapsulate typed data. It is specified by the NFC Forum,
+            for transmission and storage with NFC, however it is transport agnostic.</para>
+      <para>NDEF defines messages and records. An NDEF Record contains
+            typed data, such as MIME-type media, a URI, or a custom
+            application payload. An NDEF Message is a container for
+            one or more NDEF Records.</para>
+      <para>This class represents logical (complete) NDEF Records, and can not be
+            used to represent chunked (partial) NDEF Records. However
+            <c>NdefMessage#NdefMessage(byte[])</c> can be used to parse a message
+            containing chunked records, and will return a message with unchunked
+            (complete) records.</para>
+      <para>A logical NDEF Record always contains a 3-bit TNF (Type Name Field)
+            that provides high level typing for the rest of the record. The
+            remaining fields are variable length and not always present:
+            &lt;ul&gt;
+            &lt;li&gt;&lt;em&gt;type&lt;/em&gt;: detailed typing for the payload&lt;/li&gt;
+            &lt;li&gt;&lt;em&gt;id&lt;/em&gt;: identifier meta-data, not commonly used&lt;/li&gt;
+            &lt;li&gt;&lt;em&gt;payload&lt;/em&gt;: the actual payload&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>Helpers such as <c>NdefRecord#createUri</c>, <c>NdefRecord#createMime</c>
+            and <c>NdefRecord#createExternal</c> are included to create well-formatted
+            NDEF Records with correctly set tnf, type, id and payload fields, please
+            use these helpers whenever possible.</para>
+      <para>Use the constructor <c>#NdefRecord(short, byte[], byte[], byte[])</c>
+            if you know what you are doing and what to set the fields individually.
+            Only basic validation is performed with this constructor, so it is possible
+            to create records that do not confirm to the strict NFC Forum
+            specifications.</para>
+      <para>The binary representation of an NDEF Record includes additional flags to
+            indicate location with an NDEF message, provide support for chunking of
+            NDEF records, and to pack optional fields. This class does not expose
+            those details. To write an NDEF Record as binary you must first put it
+            into an <c>NdefMessage</c>, then call <c>NdefMessage#toByteArray()</c>.
+            &lt;p class="note"&gt;
+            <c>NdefMessage</c> and <c>NdefRecord</c> implementations are
+            always available, even on Android devices that do not have NFC hardware.
+            &lt;p class="note"&gt;
+            <c>NdefRecord</c>s are intended to be immutable (and thread-safe),
+            however they may contain mutable fields. So take care not to modify
+            mutable fields passed into constructors, or modify mutable fields
+            obtained by getter methods, unless such modification is explicitly
+            marked as safe.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/nfc/NdefRecord" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord</code>.</a>
@@ -54,8 +98,8 @@
       <MemberSignature Language="F#" Value="new Android.Nfc.NdefRecord : byte[] -&gt; Android.Nfc.NdefRecord" Usage="new Android.Nfc.NdefRecord data" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -74,6 +118,17 @@
         <param name="data">raw bytes to parse</param>
         <summary>Construct an NDEF Record from raw bytes.</summary>
         <remarks>
+          <para>Construct an NDEF Record from raw bytes.</para>
+          <para>This method is deprecated, use <c>NdefMessage#NdefMessage(byte[])</c>
+            instead. This is because it does not make sense to parse a record:
+            the NDEF binary format is only defined for a message, and the
+            record flags MB and ME do not make sense outside of the context of
+            an entire message.</para>
+          <para>This implementation will attempt to parse a single record by ignoring
+            the MB and ME flags, and otherwise following the rules of
+            <c>NdefMessage#NdefMessage(byte[])</c>.</para>
+          <para />
+          <para>This member is deprecated. use <c>NdefMessage#NdefMessage(byte[])</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#NdefRecord(byte[])" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.NdefRecord(byte[])</code>.</a>
@@ -96,8 +151,8 @@
       <MemberSignature Language="F#" Value="new Android.Nfc.NdefRecord : int16 * byte[] * byte[] * byte[] -&gt; Android.Nfc.NdefRecord" Usage="new Android.Nfc.NdefRecord (tnf, type, id, payload)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -119,6 +174,36 @@
                            or null</param>
         <summary>Construct an NDEF Record from its component fields.</summary>
         <remarks>
+          <para>Construct an NDEF Record from its component fields.</para>
+          <para>Recommend to use helpers such as {#createUri} or
+            {<c>#createExternal</c> where possible, since they perform
+            stricter validation that the record is correctly formatted
+            as per NDEF specifications. However if you know what you are
+            doing then this constructor offers the most flexibility.</para>
+          <para>An <c>NdefRecord</c> represents a logical (complete)
+            record, and cannot represent NDEF Record chunks.</para>
+          <para>Basic validation of the tnf, type, id and payload is performed
+            as per the following rules:
+            &lt;ul&gt;
+            &lt;li&gt;The tnf paramter must be a 3-bit value.&lt;/li&gt;
+            &lt;li&gt;Records with a tnf of <c>#TNF_EMPTY</c> cannot have a type,
+            id or payload.&lt;/li&gt;
+            &lt;li&gt;Records with a tnf of <c>#TNF_UNKNOWN</c> or 0x07
+            cannot have a type.&lt;/li&gt;
+            &lt;li&gt;Records with a tnf of <c>#TNF_UNCHANGED</c> are not allowed
+            since this class only represents complete (unchunked) records.&lt;/li&gt;
+            &lt;/ul&gt;
+            This minimal validation is specified by
+            NFCForum-TS-NDEF_1.0 section 3.2.6 (Type Name Format).</para>
+          <para>If any of the above validation
+            steps fail then <c>IllegalArgumentException</c> is thrown.</para>
+          <para>Deep inspection of the type, id and payload fields is not
+            performed, so it is possible to create NDEF Records
+            that conform to section 3.2.6
+            but fail other more strict NDEF specification requirements. For
+            example, the payload may be invalid given the tnf and type.</para>
+          <para>To omit a type, id or payload field, set the parameter to an
+            empty byte array or null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#NdefRecord(short,%20byte[],%20byte[],%20byte[])" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.NdefRecord(short, byte[], byte[], byte[])</code>.</a>
@@ -140,8 +225,8 @@
       <MemberSignature Language="F#" Value="static member CreateApplicationRecord : string -&gt; Android.Nfc.NdefRecord" Usage="Android.Nfc.NdefRecord.CreateApplicationRecord packageName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -160,6 +245,23 @@
         <summary>Create a new Android Application Record (AAR).</summary>
         <returns>Android application NDEF record</returns>
         <remarks>
+          <para>Create a new Android Application Record (AAR).</para>
+          <para>This record indicates to other Android devices the package
+            that should be used to handle the entire NDEF message.
+            You can embed this record anywhere into your message
+            to ensure that the intended package receives the message.</para>
+          <para>When an Android device dispatches an <c>NdefMessage</c>
+            containing one or more Android application records,
+            the applications contained in those records will be the
+            preferred target for the <c>NfcAdapter#ACTION_NDEF_DISCOVERED</c>
+            intent, in the order in which they appear in the message.
+            This dispatch behavior was first added to Android in
+            Ice Cream Sandwich.</para>
+          <para>If none of the applications have a are installed on the device,
+            a Market link will be opened to the first application.</para>
+          <para>Note that Android application records do not overrule
+            applications that have called
+            <c>NfcAdapter#enableForegroundDispatch</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#createApplicationRecord(java.lang.String)" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.createApplicationRecord(java.lang.String)</code>.</a>
@@ -181,8 +283,8 @@
       <MemberSignature Language="F#" Value="static member CreateExternal : string * string * byte[] -&gt; Android.Nfc.NdefRecord" Usage="Android.Nfc.NdefRecord.CreateExternal (domain, type, data)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -205,6 +307,26 @@
         <summary>Create a new NDEF Record containing external (application-specific) data.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create a new NDEF Record containing external (application-specific) data.</para>
+          <para>Use this method to encode application specific data into an NDEF Record.
+            The data is typed by a domain name (usually your Android package name) and
+            a domain-specific type. This data is packaged into a "NFC Forum External
+            Type" NDEF Record.</para>
+          <para>NFC Forum requires that the domain and type used in an external record
+            are treated as case insensitive, however Android intent filtering is
+            always case sensitive. So this method will force the domain and type to
+            lower-case before creating the NDEF Record.</para>
+          <para>The unchecked exception <c>IllegalArgumentException</c> will be thrown
+            if the domain and type have serious problems, for example if either field
+            is empty, so always catch this
+            exception if you are passing user-generated data into this method.</para>
+          <para>There are no such restrictions on the payload data.</para>
+          <para>For efficiency, This method might not make an internal copy of the
+            data byte array, so take care not
+            to modify the data byte array while still using the returned
+            NdefRecord.
+            
+            Reference specification: NFCForum-TS-RTD_1.0</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#createExternal(java.lang.String,%20java.lang.String,%20byte[])" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.createExternal(java.lang.String, java.lang.String, byte[])</code>.</a>
@@ -226,8 +348,8 @@
       <MemberSignature Language="F#" Value="static member CreateMime : string * byte[] -&gt; Android.Nfc.NdefRecord" Usage="Android.Nfc.NdefRecord.CreateMime (mimeType, mimeData)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -248,6 +370,21 @@
         <summary>Create a new NDEF Record containing MIME data.</summary>
         <returns>an NDEF Record containing the MIME-typed data</returns>
         <remarks>
+          <para>Create a new NDEF Record containing MIME data.</para>
+          <para>Use this method to encode MIME-typed data into an NDEF Record,
+            such as "text/plain", or "image/jpeg".</para>
+          <para>The mimeType parameter will be normalized with
+            <c>Intent#normalizeMimeType</c> to follow Android best
+            practices for intent filtering, for example to force lower-case.
+            However the unchecked exception
+            <c>IllegalArgumentException</c> may be thrown
+            if the mimeType parameter has serious problems,
+            for example if it is empty, so always catch this
+            exception if you are passing user-generated data into this method.</para>
+          <para>For efficiency, This method might not make an internal copy of the
+            mimeData byte array, so take care not
+            to modify the mimeData byte array while still using the returned
+            NdefRecord.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#createMime(java.lang.String,%20byte[])" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.createMime(java.lang.String, byte[])</code>.</a>
@@ -269,8 +406,8 @@
       <MemberSignature Language="F#" Value="static member CreateTextRecord : string * string -&gt; Android.Nfc.NdefRecord" Usage="Android.Nfc.NdefRecord.CreateTextRecord (languageCode, text)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -292,6 +429,12 @@
         <summary>Create a new NDEF record containing UTF-8 text data.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Create a new NDEF record containing UTF-8 text data.</para>
+          <para>The caller can either specify the language code for the provided text,
+            or otherwise the language code corresponding to the current default
+            locale will be used.
+            
+            Reference specification: NFCForum-TS-RTD_Text_1.0</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#createTextRecord(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.createTextRecord(java.lang.String, java.lang.String)</code>.</a>
@@ -315,8 +458,8 @@
       <MemberSignature Language="F#" Value="static member CreateUri : Android.Net.Uri -&gt; Android.Nfc.NdefRecord" Usage="Android.Nfc.NdefRecord.CreateUri uri" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -335,6 +478,20 @@
         <summary>Create a new NDEF Record containing a URI.</summary>
         <returns>an NDEF Record containing the URI</returns>
         <remarks>
+          <para>Create a new NDEF Record containing a URI.</para>
+          <para>Use this method to encode a URI (or URL) into an NDEF Record.</para>
+          <para>Uses the well known URI type representation: <c>#TNF_WELL_KNOWN</c>
+            and <c>#RTD_URI</c>. This is the most efficient encoding
+            of a URI into NDEF.</para>
+          <para>The uri parameter will be normalized with
+            <c>Uri#normalizeScheme</c> to set the scheme to lower case to
+            follow Android best practices for intent filtering.
+            However the unchecked exception
+            <c>IllegalArgumentException</c> may be thrown if the uri
+            parameter has serious problems, for example if it is empty, so always
+            catch this exception if you are passing user-generated data into this
+            method.</para>
+          <para>Reference specification: NFCForum-TS-RTD_URI_1.0</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#createUri(android.net.Uri)" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.createUri(android.net.Uri)</code>.</a>
@@ -356,8 +513,8 @@
       <MemberSignature Language="F#" Value="static member CreateUri : string -&gt; Android.Nfc.NdefRecord" Usage="Android.Nfc.NdefRecord.CreateUri uriString" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -376,6 +533,20 @@
         <summary>Create a new NDEF Record containing a URI.</summary>
         <returns>an NDEF Record containing the URI</returns>
         <remarks>
+          <para>Create a new NDEF Record containing a URI.</para>
+          <para>Use this method to encode a URI (or URL) into an NDEF Record.</para>
+          <para>Uses the well known URI type representation: <c>#TNF_WELL_KNOWN</c>
+            and <c>#RTD_URI</c>. This is the most efficient encoding
+            of a URI into NDEF.</para>
+          <para>The uriString parameter will be normalized with
+            <c>Uri#normalizeScheme</c> to set the scheme to lower case to
+            follow Android best practices for intent filtering.
+            However the unchecked exception
+            <c>IllegalArgumentException</c> may be thrown if the uriString
+            parameter has serious problems, for example if it is empty, so always
+            catch this exception if you are passing user-generated data into this
+            method.</para>
+          <para>Reference specification: NFCForum-TS-RTD_URI_1.0</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#createUri(java.lang.String)" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.createUri(java.lang.String)</code>.</a>
@@ -394,11 +565,11 @@
       <MemberSignature Language="C#" Value="public static Android.OS.IParcelableCreator? Creator { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.OS.IParcelableCreator Creator" />
       <MemberSignature Language="DocId" Value="P:Android.Nfc.NdefRecord.Creator" />
-      <MemberSignature Language="F#" Value="member this.Creator : Android.OS.IParcelableCreator" Usage="Android.Nfc.NdefRecord.Creator" />
+      <MemberSignature Language="F#" Value="static member Creator : Android.OS.IParcelableCreator" Usage="Android.Nfc.NdefRecord.Creator" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -429,8 +600,8 @@
         <InterfaceMember>M:Android.OS.IParcelable.DescribeContents</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -459,8 +630,8 @@
       <MemberSignature Language="F#" Value="member this.GetId : unit -&gt; byte[]" Usage="ndefRecord.GetId " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -476,6 +647,9 @@
         <summary>Returns the variable length ID.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the variable length ID.</para>
+          <para>Returns an empty byte array if this record
+            does not have an id field.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#getId()" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.getId()</code>.</a>
@@ -497,8 +671,8 @@
       <MemberSignature Language="F#" Value="member this.GetPayload : unit -&gt; byte[]" Usage="ndefRecord.GetPayload " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -514,6 +688,9 @@
         <summary>Returns the variable length payload.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the variable length payload.</para>
+          <para>Returns an empty byte array if this record
+            does not have a payload field.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#getPayload()" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.getPayload()</code>.</a>
@@ -535,8 +712,8 @@
       <MemberSignature Language="F#" Value="member this.GetTypeInfo : unit -&gt; byte[]" Usage="ndefRecord.GetTypeInfo " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -552,6 +729,11 @@
         <summary>Returns the variable length Type field.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the variable length Type field.</para>
+          <para>This should be used in conjunction with the TNF field to determine the
+            payload format.</para>
+          <para>Returns an empty byte array if this record
+            does not have a type field.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#getType()" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.getType()</code>.</a>
@@ -604,11 +786,11 @@
       <MemberSignature Language="C#" Value="public static System.Collections.Generic.IList&lt;byte&gt;? RtdAlternativeCarrier { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.Generic.IList`1&lt;unsigned int8&gt; RtdAlternativeCarrier" />
       <MemberSignature Language="DocId" Value="P:Android.Nfc.NdefRecord.RtdAlternativeCarrier" />
-      <MemberSignature Language="F#" Value="member this.RtdAlternativeCarrier : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdAlternativeCarrier" />
+      <MemberSignature Language="F#" Value="static member RtdAlternativeCarrier : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdAlternativeCarrier" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -623,6 +805,7 @@
         <summary>RTD Alternative Carrier type.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>RTD Alternative Carrier type. For use with TNF_WELL_KNOWN.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#RTD_ALTERNATIVE_CARRIER" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.RTD_ALTERNATIVE_CARRIER</code>.</a>
@@ -642,11 +825,11 @@
       <MemberSignature Language="C#" Value="public static System.Collections.Generic.IList&lt;byte&gt;? RtdHandoverCarrier { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.Generic.IList`1&lt;unsigned int8&gt; RtdHandoverCarrier" />
       <MemberSignature Language="DocId" Value="P:Android.Nfc.NdefRecord.RtdHandoverCarrier" />
-      <MemberSignature Language="F#" Value="member this.RtdHandoverCarrier : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdHandoverCarrier" />
+      <MemberSignature Language="F#" Value="static member RtdHandoverCarrier : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdHandoverCarrier" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -661,6 +844,7 @@
         <summary>RTD Handover Carrier type.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>RTD Handover Carrier type. For use with TNF_WELL_KNOWN.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#RTD_HANDOVER_CARRIER" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.RTD_HANDOVER_CARRIER</code>.</a>
@@ -680,11 +864,11 @@
       <MemberSignature Language="C#" Value="public static System.Collections.Generic.IList&lt;byte&gt;? RtdHandoverRequest { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.Generic.IList`1&lt;unsigned int8&gt; RtdHandoverRequest" />
       <MemberSignature Language="DocId" Value="P:Android.Nfc.NdefRecord.RtdHandoverRequest" />
-      <MemberSignature Language="F#" Value="member this.RtdHandoverRequest : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdHandoverRequest" />
+      <MemberSignature Language="F#" Value="static member RtdHandoverRequest : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdHandoverRequest" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -699,6 +883,7 @@
         <summary>RTD Handover Request type.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>RTD Handover Request type. For use with TNF_WELL_KNOWN.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#RTD_HANDOVER_REQUEST" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.RTD_HANDOVER_REQUEST</code>.</a>
@@ -718,11 +903,11 @@
       <MemberSignature Language="C#" Value="public static System.Collections.Generic.IList&lt;byte&gt;? RtdHandoverSelect { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.Generic.IList`1&lt;unsigned int8&gt; RtdHandoverSelect" />
       <MemberSignature Language="DocId" Value="P:Android.Nfc.NdefRecord.RtdHandoverSelect" />
-      <MemberSignature Language="F#" Value="member this.RtdHandoverSelect : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdHandoverSelect" />
+      <MemberSignature Language="F#" Value="static member RtdHandoverSelect : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdHandoverSelect" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -737,6 +922,7 @@
         <summary>RTD Handover Select type.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>RTD Handover Select type. For use with TNF_WELL_KNOWN.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#RTD_HANDOVER_SELECT" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.RTD_HANDOVER_SELECT</code>.</a>
@@ -756,11 +942,11 @@
       <MemberSignature Language="C#" Value="public static System.Collections.Generic.IList&lt;byte&gt;? RtdSmartPoster { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.Generic.IList`1&lt;unsigned int8&gt; RtdSmartPoster" />
       <MemberSignature Language="DocId" Value="P:Android.Nfc.NdefRecord.RtdSmartPoster" />
-      <MemberSignature Language="F#" Value="member this.RtdSmartPoster : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdSmartPoster" />
+      <MemberSignature Language="F#" Value="static member RtdSmartPoster : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdSmartPoster" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -775,6 +961,7 @@
         <summary>RTD Smart Poster type.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>RTD Smart Poster type. For use with TNF_WELL_KNOWN.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#RTD_SMART_POSTER" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.RTD_SMART_POSTER</code>.</a>
@@ -794,11 +981,11 @@
       <MemberSignature Language="C#" Value="public static System.Collections.Generic.IList&lt;byte&gt;? RtdText { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.Generic.IList`1&lt;unsigned int8&gt; RtdText" />
       <MemberSignature Language="DocId" Value="P:Android.Nfc.NdefRecord.RtdText" />
-      <MemberSignature Language="F#" Value="member this.RtdText : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdText" />
+      <MemberSignature Language="F#" Value="static member RtdText : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdText" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -813,6 +1000,7 @@
         <summary>RTD Text type.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>RTD Text type. For use with TNF_WELL_KNOWN.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#RTD_TEXT" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.RTD_TEXT</code>.</a>
@@ -832,11 +1020,11 @@
       <MemberSignature Language="C#" Value="public static System.Collections.Generic.IList&lt;byte&gt;? RtdUri { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.Generic.IList`1&lt;unsigned int8&gt; RtdUri" />
       <MemberSignature Language="DocId" Value="P:Android.Nfc.NdefRecord.RtdUri" />
-      <MemberSignature Language="F#" Value="member this.RtdUri : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdUri" />
+      <MemberSignature Language="F#" Value="static member RtdUri : System.Collections.Generic.IList&lt;byte&gt;" Usage="Android.Nfc.NdefRecord.RtdUri" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -851,6 +1039,7 @@
         <summary>RTD URI type.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>RTD URI type. For use with TNF_WELL_KNOWN.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#RTD_URI" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.RTD_URI</code>.</a>
@@ -873,8 +1062,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Nfc.NdefRecord.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -904,8 +1093,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Nfc.NdefRecord.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -935,8 +1124,8 @@
       <MemberSignature Language="F#" Value="member this.Tnf : int16" Usage="Android.Nfc.NdefRecord.Tnf" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -951,6 +1140,8 @@
         <summary>Returns the 3-bit TNF.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the 3-bit TNF.</para>
+          <para>TNF is the top-level type.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#getTnf()" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.getTnf()</code>.</a>
@@ -975,8 +1166,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -992,6 +1183,11 @@
         <summary>Indicates the type field contains an absolute-URI
             BNF construct defined by RFC 3986.</summary>
         <remarks>
+          <para>Indicates the type field contains an absolute-URI
+            BNF construct defined by RFC 3986.</para>
+          <para>When creating new records prefer <c>#createUri</c>,
+            since it offers more compact URI encoding
+            (#RTD_URI allows compression of common URI prefixes).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#TNF_ABSOLUTE_URI" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.TNF_ABSOLUTE_URI</code>.</a>
@@ -1017,8 +1213,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1033,6 +1229,8 @@
       <Docs>
         <summary>Indicates the record is empty.</summary>
         <remarks>
+          <para>Indicates the record is empty.</para>
+          <para>Type, id and payload fields are empty in a TNF_EMPTY record.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#TNF_EMPTY" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.TNF_EMPTY</code>.</a>
@@ -1057,8 +1255,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1073,6 +1271,13 @@
       <Docs>
         <summary>Indicates the type field contains an external type name.</summary>
         <remarks>
+          <para>Indicates the type field contains an external type name.</para>
+          <para>Used to encode custom payloads. When creating new records
+            use the helper <c>#createExternal</c>.</para>
+          <para>The external-type RTD format is specified in NFCForum-TS-RTD_1.0.</para>
+          <para />
+          <para>Note this TNF should not be used with RTD_TEXT or RTD_URI constants.
+            Those are well known RTD constants, not external RTD constants.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#TNF_EXTERNAL_TYPE" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.TNF_EXTERNAL_TYPE</code>.</a>
@@ -1098,8 +1303,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1115,6 +1320,10 @@
         <summary>Indicates the type field contains a media-type BNF
             construct, defined by RFC 2046.</summary>
         <remarks>
+          <para>Indicates the type field contains a media-type BNF
+            construct, defined by RFC 2046.</para>
+          <para>Use this with MIME type names such as "image/jpeg", or
+            using the helper <c>#createMime</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#TNF_MIME_MEDIA" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.TNF_MIME_MEDIA</code>.</a>
@@ -1140,8 +1349,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1157,6 +1366,11 @@
         <summary>Indicates the payload is an intermediate or final chunk of a chunked
             NDEF Record.</summary>
         <remarks>
+          <para>Indicates the payload is an intermediate or final chunk of a chunked
+            NDEF Record.</para>
+          <para>TNF_UNCHANGED can not be used with this class
+            since all <c>NdefRecord</c>s are already unchunked, however they
+            may appear in the binary format.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#TNF_UNCHANGED" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.TNF_UNCHANGED</code>.</a>
@@ -1181,8 +1395,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1197,6 +1411,11 @@
       <Docs>
         <summary>Indicates the payload type is unknown.</summary>
         <remarks>
+          <para>Indicates the payload type is unknown.</para>
+          <para>NFC Forum explains this should be treated similarly to the
+            "application/octet-stream" MIME type. The payload
+            type is not explicitly encoded within the record.</para>
+          <para>The type field is empty in an TNF_UNKNOWN record.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#TNF_UNKNOWN" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.TNF_UNKNOWN</code>.</a>
@@ -1221,8 +1440,8 @@
         <InterfaceMember>F:Android.OS.IParcelable.ContentsFileDescriptor</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1237,6 +1456,9 @@
       <Docs>
         <summary>Indicates the type field contains a well-known RTD type name.</summary>
         <remarks>
+          <para>Indicates the type field contains a well-known RTD type name.</para>
+          <para>Use this tnf with RTD types such as <c>#RTD_TEXT</c>, <c>#RTD_URI</c>.</para>
+          <para>The RTD type name format is specified in NFCForum-TS-RTD_1.0.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#TNF_WELL_KNOWN" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.TNF_WELL_KNOWN</code>.</a>
@@ -1262,8 +1484,8 @@
       <MemberSignature Language="F#" Value="member this.ToByteArray : unit -&gt; byte[]" Usage="ndefRecord.ToByteArray " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1283,6 +1505,16 @@
         <summary>Return this NDEF Record as a byte array.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return this NDEF Record as a byte array.</para>
+          <para>This method is deprecated, use <c>NdefMessage#toByteArray</c>
+            instead. This is because the NDEF binary format is not defined for
+            a record outside of the context of a message: the MB and ME flags
+            cannot be set without knowing the location inside a message.</para>
+          <para>This implementation will attempt to serialize a single record by
+            always setting the MB and ME flags (in other words, assume this
+            is a single-record NDEF Message).</para>
+          <para />
+          <para>This member is deprecated. use <c>NdefMessage#toByteArray()</c> instead</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#toByteArray()" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.toByteArray()</code>.</a>
@@ -1304,8 +1536,8 @@
       <MemberSignature Language="F#" Value="member this.ToMimeType : unit -&gt; string" Usage="ndefRecord.ToMimeType " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1321,6 +1553,17 @@
         <summary>Map this record to a MIME type, or return null if it cannot be mapped.</summary>
         <returns>MIME type as a string, or null if this is not a MIME record</returns>
         <remarks>
+          <para>Map this record to a MIME type, or return null if it cannot be mapped.</para>
+          <para>Currently this method considers all <c>#TNF_MIME_MEDIA</c> records to
+            be MIME records, as well as some <c>#TNF_WELL_KNOWN</c> records such as
+            <c>#RTD_TEXT</c>. If this is a MIME record then the MIME type as string
+            is returned, otherwise null is returned.</para>
+          <para>This method does not perform validation that the MIME type is
+            actually valid. It always attempts to
+            return a string containing the type if this is a MIME record.</para>
+          <para>The returned MIME type will by normalized to lower-case using
+            <c>Intent#normalizeMimeType</c>.</para>
+          <para>The MIME payload can be obtained using <c>#getPayload</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#toMimeType()" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.toMimeType()</code>.</a>
@@ -1342,8 +1585,8 @@
       <MemberSignature Language="F#" Value="member this.ToUri : unit -&gt; Android.Net.Uri" Usage="ndefRecord.ToUri " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1359,6 +1602,23 @@
         <summary>Map this record to a URI, or return null if it cannot be mapped.</summary>
         <returns>URI, or null if this is not a URI record</returns>
         <remarks>
+          <para>Map this record to a URI, or return null if it cannot be mapped.</para>
+          <para>Currently this method considers the following to be URI records:
+            &lt;ul&gt;
+            &lt;li&gt;<c>#TNF_ABSOLUTE_URI</c> records.&lt;/li&gt;
+            &lt;li&gt;<c>#TNF_WELL_KNOWN</c> with a type of <c>#RTD_URI</c>.&lt;/li&gt;
+            &lt;li&gt;<c>#TNF_WELL_KNOWN</c> with a type of <c>#RTD_SMART_POSTER</c>
+            and containing a URI record in the NDEF message nested in the payload.
+            &lt;/li&gt;
+            &lt;li&gt;<c>#TNF_EXTERNAL_TYPE</c> records.&lt;/li&gt;
+            &lt;/ul&gt;
+            If this is not a URI record by the above rules, then null is returned.</para>
+          <para>This method does not perform validation that the URI is
+            actually valid: it always attempts to create and return a URI if
+            this record appears to be a URI record by the above rules.</para>
+          <para>The returned URI will be normalized to have a lower case scheme
+            using <c>Uri#normalizeScheme</c>.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/nfc/NdefRecord#toUri()" title="Reference documentation">Java documentation for <code>android.nfc.NdefRecord.toUri()</code>.</a>
@@ -1383,8 +1643,8 @@
         <InterfaceMember>M:Android.OS.IParcelable.WriteToParcel(Android.OS.Parcel,Android.OS.ParcelableWriteFlags)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

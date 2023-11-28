@@ -16,11 +16,202 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/graphics/RuntimeShader", ApiSince=33, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/graphics/RuntimeShader", ApiSince=33, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>A <c>RuntimeShader</c> calculates a per-pixel color based on the output of a user defined
             Android Graphics Shading Language (AGSL) function.</summary>
     <remarks>
+      <para>A <c>RuntimeShader</c> calculates a per-pixel color based on the output of a user defined
+            Android Graphics Shading Language (AGSL) function.</para>
+      <para>&lt;h3&gt;Android Graphics Shading Language&lt;/h3&gt;</para>
+      <para>The AGSL syntax is very similar to OpenGL ES Shading Language, but there are some important
+            differences that are highlighted here. Most of these differences are summed up in one basic fact:
+            &lt;b&gt;With GPU shading languages, you are programming a stage of the GPU pipeline. With AGSL, you
+            are programming a stage of the <c>Canvas</c> or <c>RenderNode</c> drawing pipeline.&lt;/b&gt;</para>
+      <para>In particular, a GLSL fragment shader controls the entire behavior of the GPU between the
+            rasterizer and the blending hardware. That shader does all of the work to compute a color, and
+            the color it generates is exactly what is fed to the blending stage of the pipeline.</para>
+      <para>In contrast, AGSL functions exist as part of a larger pipeline. When you issue a
+            <c>Canvas</c> drawing operation, Android (generally) assembles a single GPU fragment shader to
+            do all of the required work. This shader typically includes several pieces. For example, it might
+            include:</para>
+      <para>&lt;ul&gt;
+             &lt;li&gt;Evaluating whether a pixel falls inside or outside of the shape being drawn (or on the
+             border, where it might apply antialiasing).&lt;/li&gt;
+             &lt;li&gt;Evaluating whether a pixel falls inside or outside of the clipping region (again, with
+             possible antialiasing logic for border pixels).&lt;/li&gt;
+             &lt;li&gt;Logic for the <c>Shader</c>, <c>ColorFilter</c>, and <c>BlendMode</c> on the
+             <c>Paint</c>.&lt;/li&gt;
+             &lt;li&gt;Color space conversion code, as part of Android’s color management.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>A <c>RuntimeShader</c>, like other <c>Shader</c> types, effectively contributes a function
+            to the GPU’s fragment shader.</para>
+      <para>&lt;h3&gt;AGSL Shader Execution&lt;/h3&gt;</para>
+      <para>Just like a GLSL shader, an AGSL shader begins execution in a main function. Unlike GLSL, the
+            function receives as an input parameter the position of the pixel within the <c>Canvas</c> or
+            <c>RenderNode</c> coordinate space (similar to gl_fragCoord) and returns the color to be shaded
+            as a vec4 (similar to out vec4 color or gl_FragColor in GLSL).</para>
+      <code lang="text/java">vec4 main(vec2 canvas_coordinates);
+            </code>
+      <para>AGSL and GLSL use different coordinate spaces by default. In GLSL, the fragment coordinate
+            (fragCoord) is relative to the lower left. AGSL matches the screen coordinate system of the
+            Android <c>Canvas</c> which has its origin as the upper left corner. This means that the
+            coordinates provided as a parameter in the main function are local to the canvas with the
+            exception of any <c>Shader#getLocalMatrix(Matrix)</c> transformations applied to this shader.
+            Additionally, if the shader is invoked by another using <c>#setInputShader(String, Shader)</c>,
+            then that parent shader may modify the input coordinates arbitrarily.</para>
+      <para>&lt;h3&gt;AGSL and Color Spaces&lt;/h3&gt;</para>
+      <para>Android Graphics and by extension <c>RuntimeShader</c> are color managed.  The working
+            <c>ColorSpace</c> for an AGSL shader is defined to be the color space of the destination, which
+            in most cases is determined by <c>Window#setColorMode(int)</c>.</para>
+      <para>When authoring an AGSL shader, you won’t know what the working color space is. For many
+            effects, this is fine because by default color inputs are automatically converted into the
+            working color space. For certain effects, it may be important to do some math in a fixed, known
+            color space. A common example is lighting – to get physically accurate lighting, math should be
+            done in a linear color space. To help with this, AGSL provides two intrinsic functions that
+            convert colors between the working color space and the
+            <c>ColorSpace.Named#LINEAR_EXTENDED_SRGB</c> color space:</para>
+      <code lang="text/java">vec3 toLinearSrgb(vec3 color);
+            vec3 fromLinearSrgb(vec3 color);</code>
+      <para>&lt;h3&gt;AGSL and Premultiplied Alpha&lt;/h3&gt;</para>
+      <para>When dealing with transparent colors, there are two (common) possible representations:
+            straight (unassociated) alpha and premultiplied (associated) alpha. In ASGL the color returned
+            by the main function is expected to be premultiplied.  AGSL’s use of premultiplied alpha
+            implies:</para>
+      <para>&lt;ul&gt;
+             &lt;li&gt;If your AGSL shader will return transparent colors, be sure to multiply the RGB by A.  The
+             resulting color should be [R*A, G*A, B*A, A], not [R, G, B, A].&lt;/li&gt;
+             &lt;li&gt;For more complex shaders, you must understand which of your colors are premultiplied vs.
+             straight. Many operations don’t make sense if you mix both kinds of color together.&lt;/li&gt;
+            &lt;/ul&gt;
+            
+            &lt;h3&gt;Uniforms&lt;/h3&gt;</para>
+      <para>AGSL, like GLSL, exposes the concept of uniforms. An AGSL uniform is defined as a read-only,
+            global variable that is accessible by the AGSL code and is initialized by a number of setter
+            methods on <c>RuntimeShader</c>. AGSL exposes two primitive uniform data types (float, int) and
+            two specialized types (colors, shaders) that are outlined below.</para>
+      <para>&lt;h4&gt;Primitive Uniforms&lt;/h4&gt;</para>
+      <para>There are two primitive uniform types supported by AGSL, float and int. For these types and
+            uniforms representing a grouping of these types, like arrays and matrices, there are
+            corresponding <c>RuntimeShader</c> methods to initialize them.
+            &lt;table border="2" width="85%" align="center" cellpadding="5"&gt;
+                &lt;thead&gt;
+                    &lt;tr&gt;&lt;th&gt;Java Type&lt;/th&gt; &lt;th&gt;AGSL Type&lt;/th&gt; &lt;th&gt;Method&lt;/th&gt; &lt;/tr&gt;
+                &lt;/thead&gt;
+            
+                &lt;tbody&gt;
+                &lt;tr&gt;
+                    &lt;td rowspan="4"&gt;Floats&lt;/td&gt;
+                    &lt;td&gt;float&lt;/td&gt;
+                    &lt;td&gt;<c>RuntimeShader#setFloatUniform(String, float)</c>&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                    &lt;td&gt;vec2&lt;/td&gt;
+                    &lt;td&gt;<c>RuntimeShader#setFloatUniform(String, float, float)</c>&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                    &lt;td&gt;vec3&lt;/td&gt;
+                    &lt;td&gt;<c>RuntimeShader#setFloatUniform(String, float, float, float)</c>&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                    &lt;td&gt;vec4&lt;/td&gt;
+                    &lt;td&gt;<c>RuntimeShader#setFloatUniform(String, float, float, float, float)</c>&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                    &lt;td rowspan="4"&gt;Integers&lt;/td&gt;
+                    &lt;td&gt;int&lt;/td&gt;
+                    &lt;td&gt;<c>RuntimeShader#setIntUniform(String, int)</c>&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                    &lt;td&gt;ivec2&lt;/td&gt;
+                    &lt;td&gt;<c>RuntimeShader#setIntUniform(String, int, int)</c>&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                    &lt;td&gt;ivec3&lt;/td&gt;
+                    &lt;td&gt;<c>RuntimeShader#setIntUniform(String, int, int, int)</c>&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                    &lt;td&gt;ivec4&lt;/td&gt;
+                    &lt;td&gt;<c>RuntimeShader#setIntUniform(String, int, int, int, int)</c>&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                    &lt;td rowspan="2"&gt;Matrices and Arrays&lt;/td&gt;
+                    &lt;td&gt;mat2, mat3, and mat4, and float[]&lt;/td&gt;
+                    &lt;td&gt;<c>RuntimeShader#setFloatUniform(String, float[])</c>&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                    &lt;td&gt;int[]&lt;/td&gt;
+                    &lt;td&gt;<c>RuntimeShader#setIntUniform(String, int[])</c>&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;/tbody&gt;
+            &lt;/table&gt;
+            
+            For example, a simple AGSL shader making use of a float uniform to modulate the transparency
+            of the output color would look like:</para>
+      <code lang="text/java">uniform float alpha;
+            vec4 main(vec2 canvas_coordinates) {
+                vec3 red = vec3(1.0, 0.0, 0.0);
+                return vec4(red * alpha, alpha);
+            }</code>
+      <para>After creating a <c>RuntimeShader</c> with that program the uniform can then be initialized
+            and updated per frame by calling <c>RuntimeShader#setFloatUniform(String, float)</c> with the
+            value of alpha.  The value of a primitive uniform defaults to 0 if it is declared in the AGSL
+            shader but not initialized.</para>
+      <para>&lt;h4&gt;Color Uniforms&lt;/h4&gt;</para>
+      <para>AGSL doesn't know if uniform variables contain colors, it won't automatically convert them to
+            the working colorspace of the shader at runtime.  However, you can label your vec4 uniform with
+            the "layout(color)" qualifier which lets Android know that the uniform will be used as a color.
+            Doing so allows AGSL to transform the uniform value to the working color space. In AGSL, declare
+            the uniform like this:</para>
+      <code lang="text/java">layout(color) uniform vec4 inputColorA;
+            layout(color) uniform vec4 inputColorB;
+            vec4 main(vec2 canvas_coordinates) {
+                // blend the two colors together and return the resulting color
+                return mix(inputColorA, inputColorB, 0.5);
+            }</code>
+      <para>After creating a <c>RuntimeShader</c> with that program the uniforms can
+            then be initialized and updated per frame by calling
+            <c>RuntimeShader#setColorUniform(String, int)</c>,
+            <c>RuntimeShader#setColorUniform(String, long)</c>, or
+            <c>RuntimeShader#setColorUniform(String, Color)</c> with the desired colors.  The value of a
+            color uniform is undefined if it is declared in the AGSL shader but not initialized.</para>
+      <para>&lt;h4&gt;Shader Uniforms&lt;/h4&gt;
+            In GLSL, a fragment shader can sample a texture. For AGSL instead of sampling textures you can
+            sample from any <c>Shader</c>, which includes but is not limited to <c>BitmapShader</c>. To
+            make it clear that you are operating on an <c>Shader</c> object there is no "sample"
+            method. Instead, the shader uniform has an "eval()" method. This distinction enables AGSL shaders
+            to sample from existing bitmap and gradient shaders as well as other <c>RuntimeShader</c>
+            objects.  In AGSL, declare the uniform like this:</para>
+      <code lang="text/java">uniform shader myShader;
+            vec4 main(vec2 canvas_coordinates) {
+                // swap the red and blue color channels when sampling from myShader
+                return myShader.eval(canvas_coordinates).bgra;
+            }</code>
+      <para>After creating a <c>RuntimeShader</c> with that program the shader uniform can
+            then be initialized and updated per frame by calling
+            <c>RuntimeShader#setInputShader(String, Shader)</c> with the desired shader. The value of a
+            shader uniform is undefined if it is declared in the AGSL shader but not initialized.</para>
+      <para>Although most <c>BitmapShader</c>s contain colors that should be color managed, some contain
+            data that isn’t actually colors. This includes bitmaps storing normals, material properties
+            (e.g. roughness), heightmaps, or any other purely mathematical data that happens to be stored in
+            a bitmap. When using these kinds of shaders in AGSL, you probably want to initialize them with
+            <c>#setInputBuffer(String, BitmapShader)</c>. Shaders initialized this way work much like
+            a regular <c>BitmapShader</c> (including filtering and tiling), with a few major differences:
+            &lt;ul&gt;
+             &lt;li&gt;No color space transformation is applied (the color space of the bitmap is ignored).&lt;/li&gt;
+             &lt;li&gt;Bitmaps that return false for <c>Bitmap#isPremultiplied()</c> are not automatically
+             premultiplied.&lt;/li&gt;
+            &lt;/ul&gt;</para>
+      <para>In addition, when sampling from a <c>BitmapShader</c> be aware that the shader does not use
+            normalized coordinates (like a texture in GLSL). It uses (0, 0) in the upper-left corner, and
+            (width, height) in the bottom-right corner. Normally, this is exactly what you want. If you’re
+            evaluating the shader with coordinates based on the ones passed to your AGSL program, the scale
+            is correct. However, if you want to adjust those coordinates (to do some kind of re-mapping of
+            the bitmap), remember that the coordinates are local to the canvas.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/graphics/RuntimeShader" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader</code>.</a>
@@ -49,6 +240,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register(".ctor", "(Ljava/lang/String;)V", "", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register(".ctor", "(Ljava/lang/String;)V", "", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <Parameters>
         <Parameter Name="shader" Type="System.String" />
@@ -57,6 +252,7 @@
         <param name="shader">The text of AGSL shader program to run.</param>
         <summary>Creates a new RuntimeShader.</summary>
         <remarks>
+          <para>Creates a new RuntimeShader.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#RuntimeShader(java.lang.String)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.RuntimeShader(java.lang.String)</code>.</a>
@@ -135,6 +331,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setColorUniform", "(Ljava/lang/String;I)V", "GetSetColorUniform_Ljava_lang_String_IHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setColorUniform", "(Ljava/lang/String;I)V", "GetSetColorUniform_Ljava_lang_String_IHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -149,6 +349,9 @@
                          colorspace and will be available as a vec4 uniform in the program.</param>
         <summary>Sets the uniform color value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform color value corresponding to this shader.  If the shader does not have a
+            uniform with that name or if the uniform is declared with a type other than vec3 or vec4 and
+            corresponding layout(color) annotation then an IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setColorUniform(java.lang.String,%20int)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setColorUniform(java.lang.String, int)</code>.</a>
@@ -177,6 +380,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setColorUniform", "(Ljava/lang/String;Landroid/graphics/Color;)V", "GetSetColorUniform_Ljava_lang_String_Landroid_graphics_Color_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setColorUniform", "(Ljava/lang/String;Landroid/graphics/Color;)V", "GetSetColorUniform_Ljava_lang_String_Landroid_graphics_Color_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -191,6 +398,9 @@
                          colorspace and will be available as a vec4 uniform in the program.</param>
         <summary>Sets the uniform color value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform color value corresponding to this shader.  If the shader does not have a
+            uniform with that name or if the uniform is declared with a type other than vec3 or vec4 and
+            corresponding layout(color) annotation then an IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setColorUniform(java.lang.String,%20android.graphics.Color)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setColorUniform(java.lang.String, android.graphics.Color)</code>.</a>
@@ -219,6 +429,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setColorUniform", "(Ljava/lang/String;J)V", "GetSetColorUniform_Ljava_lang_String_JHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setColorUniform", "(Ljava/lang/String;J)V", "GetSetColorUniform_Ljava_lang_String_JHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -233,6 +447,9 @@
                          colorspace and will be available as a vec4 uniform in the program.</param>
         <summary>Sets the uniform color value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform color value corresponding to this shader.  If the shader does not have a
+            uniform with that name or if the uniform is declared with a type other than vec3 or vec4 and
+            corresponding layout(color) annotation then an IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setColorUniform(java.lang.String,%20long)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setColorUniform(java.lang.String, long)</code>.</a>
@@ -261,6 +478,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setFloatUniform", "(Ljava/lang/String;F)V", "GetSetFloatUniform_Ljava_lang_String_FHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setFloatUniform", "(Ljava/lang/String;F)V", "GetSetFloatUniform_Ljava_lang_String_FHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -274,6 +495,9 @@
         <param name="uniformName">name matching the uniform declared in the AGSL shader program</param>
         <summary>Sets the uniform value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform value corresponding to this shader.  If the shader does not have a uniform
+            with that name or if the uniform is declared with a type other than a float or float[1]
+            then an IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setFloatUniform(java.lang.String,%20float)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setFloatUniform(java.lang.String, float)</code>.</a>
@@ -302,6 +526,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setFloatUniform", "(Ljava/lang/String;[F)V", "GetSetFloatUniform_Ljava_lang_String_arrayFHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setFloatUniform", "(Ljava/lang/String;[F)V", "GetSetFloatUniform_Ljava_lang_String_arrayFHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -315,6 +543,10 @@
         <param name="uniformName">name matching the uniform declared in the AGSL shader program</param>
         <summary>Sets the uniform value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform value corresponding to this shader.  If the shader does not have a uniform
+            with that name or if the uniform is declared with a type other than a float (for N=1), vecN,
+            or float[N] where N is the length of the values param then an IllegalArgumentException is
+            thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setFloatUniform(java.lang.String,%20float[])" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setFloatUniform(java.lang.String, float[])</code>.</a>
@@ -343,6 +575,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setFloatUniform", "(Ljava/lang/String;FF)V", "GetSetFloatUniform_Ljava_lang_String_FFHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setFloatUniform", "(Ljava/lang/String;FF)V", "GetSetFloatUniform_Ljava_lang_String_FFHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -358,6 +594,9 @@
         <param name="uniformName">name matching the uniform declared in the AGSL shader program</param>
         <summary>Sets the uniform value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform value corresponding to this shader.  If the shader does not have a uniform
+            with that name or if the uniform is declared with a type other than vec2 or float[2] then an
+            IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setFloatUniform(java.lang.String,%20float,%20float)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setFloatUniform(java.lang.String, float, float)</code>.</a>
@@ -386,6 +625,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setFloatUniform", "(Ljava/lang/String;FFF)V", "GetSetFloatUniform_Ljava_lang_String_FFFHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setFloatUniform", "(Ljava/lang/String;FFF)V", "GetSetFloatUniform_Ljava_lang_String_FFFHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -403,6 +646,9 @@
         <param name="uniformName">name matching the uniform declared in the AGSL shader program</param>
         <summary>Sets the uniform value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform value corresponding to this shader.  If the shader does not have a uniform
+            with that name or if the uniform is declared with a type other than vec3 or float[3] then an
+            IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setFloatUniform(java.lang.String,%20float,%20float,%20float)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setFloatUniform(java.lang.String, float, float, float)</code>.</a>
@@ -431,6 +677,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setFloatUniform", "(Ljava/lang/String;FFFF)V", "GetSetFloatUniform_Ljava_lang_String_FFFFHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setFloatUniform", "(Ljava/lang/String;FFFF)V", "GetSetFloatUniform_Ljava_lang_String_FFFFHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -450,6 +700,9 @@
         <param name="uniformName">name matching the uniform declared in the AGSL shader program</param>
         <summary>Sets the uniform value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform value corresponding to this shader.  If the shader does not have a uniform
+            with that name or if the uniform is declared with a type other than vec4 or float[4] then an
+            IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setFloatUniform(java.lang.String,%20float,%20float,%20float,%20float)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setFloatUniform(java.lang.String, float, float, float, float)</code>.</a>
@@ -478,6 +731,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setInputBuffer", "(Ljava/lang/String;Landroid/graphics/BitmapShader;)V", "GetSetInputBuffer_Ljava_lang_String_Landroid_graphics_BitmapShader_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setInputBuffer", "(Ljava/lang/String;Landroid/graphics/BitmapShader;)V", "GetSetInputBuffer_Ljava_lang_String_Landroid_graphics_BitmapShader_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -491,6 +748,11 @@
         <param name="shader">To be added.</param>
         <summary>Assigns the uniform shader to the provided shader parameter.</summary>
         <remarks>
+          <para>Assigns the uniform shader to the provided shader parameter.  If the shader program does not
+            have a uniform shader with that name then an IllegalArgumentException is thrown.</para>
+          <para>Unlike setInputShader this method returns samples directly from the bitmap's buffer. This
+            means that there will be no transformation of the sampled pixels, such as colorspace
+            conversion or alpha premultiplication.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setInputBuffer(java.lang.String,%20android.graphics.BitmapShader)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setInputBuffer(java.lang.String, android.graphics.BitmapShader)</code>.</a>
@@ -519,6 +781,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setInputShader", "(Ljava/lang/String;Landroid/graphics/Shader;)V", "GetSetInputShader_Ljava_lang_String_Landroid_graphics_Shader_Handler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setInputShader", "(Ljava/lang/String;Landroid/graphics/Shader;)V", "GetSetInputShader_Ljava_lang_String_Landroid_graphics_Shader_Handler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -532,6 +798,8 @@
         <param name="shader">shader passed into the AGSL shader program for sampling</param>
         <summary>Assigns the uniform shader to the provided shader parameter.</summary>
         <remarks>
+          <para>Assigns the uniform shader to the provided shader parameter.  If the shader program does not
+            have a uniform shader with that name then an IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setInputShader(java.lang.String,%20android.graphics.Shader)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setInputShader(java.lang.String, android.graphics.Shader)</code>.</a>
@@ -560,6 +828,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setIntUniform", "(Ljava/lang/String;I)V", "GetSetIntUniform_Ljava_lang_String_IHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setIntUniform", "(Ljava/lang/String;I)V", "GetSetIntUniform_Ljava_lang_String_IHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -573,6 +845,9 @@
         <param name="uniformName">name matching the uniform declared in the AGSL shader program</param>
         <summary>Sets the uniform value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform value corresponding to this shader.  If the shader does not have a uniform
+            with that name or if the uniform is declared with a type other than an int or int[1]
+            then an IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setIntUniform(java.lang.String,%20int)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setIntUniform(java.lang.String, int)</code>.</a>
@@ -601,6 +876,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setIntUniform", "(Ljava/lang/String;[I)V", "GetSetIntUniform_Ljava_lang_String_arrayIHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setIntUniform", "(Ljava/lang/String;[I)V", "GetSetIntUniform_Ljava_lang_String_arrayIHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -614,6 +893,10 @@
         <param name="uniformName">name matching the uniform declared in the AGSL shader program</param>
         <summary>Sets the uniform value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform value corresponding to this shader.  If the shader does not have a uniform
+            with that name or if the uniform is declared with a type other than an int (for N=1), ivecN,
+            or int[N] where N is the length of the values param then an IllegalArgumentException is
+            thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setIntUniform(java.lang.String,%20int[])" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setIntUniform(java.lang.String, int[])</code>.</a>
@@ -642,6 +925,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setIntUniform", "(Ljava/lang/String;II)V", "GetSetIntUniform_Ljava_lang_String_IIHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setIntUniform", "(Ljava/lang/String;II)V", "GetSetIntUniform_Ljava_lang_String_IIHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -657,6 +944,9 @@
         <param name="uniformName">name matching the uniform declared in the AGSL shader program</param>
         <summary>Sets the uniform value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform value corresponding to this shader.  If the shader does not have a uniform
+            with that name or if the uniform is declared with a type other than ivec2 or int[2] then an
+            IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setIntUniform(java.lang.String,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setIntUniform(java.lang.String, int, int)</code>.</a>
@@ -685,6 +975,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setIntUniform", "(Ljava/lang/String;III)V", "GetSetIntUniform_Ljava_lang_String_IIIHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setIntUniform", "(Ljava/lang/String;III)V", "GetSetIntUniform_Ljava_lang_String_IIIHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -702,6 +996,9 @@
         <param name="uniformName">name matching the uniform declared in the AGSL shader program</param>
         <summary>Sets the uniform value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform value corresponding to this shader.  If the shader does not have a uniform
+            with that name or if the uniform is declared with a type other than ivec3 or int[3] then an
+            IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setIntUniform(java.lang.String,%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setIntUniform(java.lang.String, int, int, int)</code>.</a>
@@ -730,6 +1027,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setIntUniform", "(Ljava/lang/String;IIII)V", "GetSetIntUniform_Ljava_lang_String_IIIIHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setIntUniform", "(Ljava/lang/String;IIII)V", "GetSetIntUniform_Ljava_lang_String_IIIIHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -749,6 +1050,9 @@
         <param name="uniformName">name matching the uniform declared in the AGSL shader program</param>
         <summary>Sets the uniform value corresponding to this shader.</summary>
         <remarks>
+          <para>Sets the uniform value corresponding to this shader.  If the shader does not have a uniform
+            with that name or if the uniform is declared with a type other than ivec4 or int[4] then an
+            IllegalArgumentException is thrown.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/RuntimeShader#setIntUniform(java.lang.String,%20int,%20int,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.graphics.RuntimeShader.setIntUniform(java.lang.String, int, int, int, int)</code>.</a>

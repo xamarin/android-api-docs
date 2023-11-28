@@ -21,6 +21,125 @@
     <summary>A TextureView can be used to display a content stream, such as that
             coming from a camera preview, a video, or an OpenGL scene.</summary>
     <remarks>
+      <para>A TextureView can be used to display a content stream, such as that
+            coming from a camera preview, a video, or an OpenGL scene. The content stream
+            can come from the application's process as well as a remote process.</para>
+      <para>TextureView can only be used in a hardware accelerated window. When
+            rendered in software, TextureView will draw nothing.</para>
+      <para>&lt;b&gt;TextureView vs. SurfaceView Capabilities&lt;/b&gt;</para>
+      <para>&lt;table&gt;
+                &lt;tr&gt;
+                  &lt;th&gt;&amp;nbsp;&lt;/th&gt;
+                  &lt;th style="text-align: center;"&gt;TextureView&lt;/th&gt;
+                  &lt;th style="text-align: center;"&gt;SurfaceView&lt;/th&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;Supports alpha&lt;/td&gt;
+                  &lt;td style="text-align: center;"&gt;X&lt;/td&gt;
+                  &lt;td style="text-align: center;"&gt;&amp;nbsp;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;Supports rotations&lt;/td&gt;
+                  &lt;td style="text-align: center;"&gt;X&lt;/td&gt;
+                  &lt;td style="text-align: center;"&gt;&amp;nbsp;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;Supports clipping&lt;/td&gt;
+                  &lt;td style="text-align: center;"&gt;X&lt;/td&gt;
+                  &lt;td style="text-align: center;"&gt;&amp;nbsp;&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;HDR support&lt;/td&gt;
+                  &lt;td style="text-align: center;"&gt;Limited (on Android T+)&lt;/td&gt;
+                  &lt;td style="text-align: center;"&gt;Full&lt;/td&gt;
+                &lt;/tr&gt;
+                &lt;tr&gt;
+                  &lt;td&gt;Renders DRM content&lt;/td&gt;
+                  &lt;td style="text-align: center;"&gt;&amp;nbsp;&lt;/td&gt;
+                  &lt;td style="text-align: center;"&gt;X&lt;/td&gt;
+                &lt;/tr&gt;
+              &lt;/table&gt;</para>
+      <para>Unlike <c>SurfaceView</c>, TextureView does not create a separate
+            window but behaves as a regular View. This key difference allows a
+            TextureView to have translucency, arbitrary rotations, and complex
+            clipping. For example, you can make a TextureView semi-translucent by
+            calling <c>myView.setAlpha(0.5f)</c>.</para>
+      <para>One implication of this integration of TextureView into the view
+            hierarchy is that it may have slower performance than
+            SurfaceView. TextureView contents must be copied, internally, from the
+            underlying surface into the view displaying those contents. For
+            that reason, &lt;b&gt;SurfaceView is recommended as a more general solution
+            to problems requiring rendering to surfaces.&lt;/b&gt;</para>
+      <para>Using a TextureView is simple: all you need to do is get its
+            <c>SurfaceTexture</c>. The <c>SurfaceTexture</c> can then be used to
+            render content. The following example demonstrates how to render a video
+            into a TextureView:</para>
+      <code lang="text/java">public class MyActivity extends Activity implements TextureView.SurfaceTextureListener {
+                 private MediaPlayer mMediaPlayer;
+                 private TextureView mTextureView;
+            
+                 protected void onCreate(Bundle savedInstanceState) {
+                     super.onCreate(savedInstanceState);
+            
+                     mMediaPlayer = new MediaPlayer();
+            
+                     mTextureView = new TextureView(this);
+                     mTextureView.setSurfaceTextureListener(this);
+                     setContentView(mTextureView);
+                 }
+            
+                 public void onSurfaceTextureAvailable(@NonNull SurfaceTexture surfaceTexture,
+                                                       int width, int height) {
+                     AssetFileDescriptor fileDescriptor = // get file descriptor
+                     mMediaPlayer.setDataSource(fileDescriptor);
+                     mMediaPlayer.setSurface(new Surface(surfaceTexture));
+                     mMediaPlayer.prepareAsync();
+                     mMediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                         &amp;#64;Override
+                         public void onPrepared(MediaPlayer mp) {
+                             mMediaPlayer.start();
+                         }
+                     });
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                 }
+            
+                &amp;#64;Override
+                public void onSurfaceTextureSizeChanged(@NonNull SurfaceTexture surfaceTexture,
+                                                        int width, int height) {
+                    // Handle size change depending on media needs
+                }
+            
+                &amp;#64;Override
+                public boolean onSurfaceTextureDestroyed(@NonNull SurfaceTexture surfaceTexture) {
+                    // Release unneeded resources
+                    mMediaPlayer.stop();
+                    mMediaPlayer.release();
+                    return true;
+                }
+            
+                &amp;#64;Override
+                public void onSurfaceTextureUpdated(@NonNull SurfaceTexture surfaceTexture) {
+                     // Invoked every time there's a new video frame
+                }
+            
+             }
+            </code>
+      <para>Similarly, TextureView can supply the surface needed for GL rendering or
+            camera previews. Camera2 APIs require the surface created by TextureView,
+            although developers are recommended to use the CameraX APIs instead, for which
+            PreviewView creates its own TextureView or SurfaceView internally.</para>
+      <para>A TextureView's SurfaceTexture can be obtained either by invoking
+            <c>#getSurfaceTexture()</c> or by using a <c>SurfaceTextureListener</c>.
+            It is important to know that a SurfaceTexture is available only after the
+            TextureView is attached to a window (and <c>#onAttachedToWindow()</c> has
+            been invoked.) It is therefore highly recommended you use a listener to
+            be notified when the SurfaceTexture becomes available.</para>
+      <para>It is important to note that only one producer can use the TextureView.
+            For instance, if you use a TextureView to display the camera preview, you
+            cannot use <c>#lockCanvas()</c> to draw onto the TextureView at the same
+            time.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/view/TextureView" title="Reference documentation">Java documentation for <code>android.view.TextureView</code>.</a>
@@ -42,8 +161,8 @@
       <MemberSignature Language="F#" Value="new Android.Views.TextureView : Android.Content.Context -&gt; Android.Views.TextureView" Usage="new Android.Views.TextureView context" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -58,6 +177,7 @@
         <param name="context">The context to associate this view with.</param>
         <summary>Creates a new TextureView.</summary>
         <remarks>
+          <para>Creates a new TextureView.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#TextureView(android.content.Context)" title="Reference documentation">Java documentation for <code>android.view.TextureView.TextureView(android.content.Context)</code>.</a>
@@ -79,8 +199,8 @@
       <MemberSignature Language="F#" Value="new Android.Views.TextureView : Android.Content.Context * Android.Util.IAttributeSet -&gt; Android.Views.TextureView" Usage="new Android.Views.TextureView (context, attrs)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -97,6 +217,7 @@
         <param name="attrs">The attributes of the XML tag that is inflating the view.</param>
         <summary>Creates a new TextureView.</summary>
         <remarks>
+          <para>Creates a new TextureView.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#TextureView(android.content.Context,%20android.util.AttributeSet)" title="Reference documentation">Java documentation for <code>android.view.TextureView.TextureView(android.content.Context, android.util.AttributeSet)</code>.</a>
@@ -118,8 +239,8 @@
       <MemberSignature Language="F#" Value="new Android.Views.TextureView : nativeint * Android.Runtime.JniHandleOwnership -&gt; Android.Views.TextureView" Usage="new Android.Views.TextureView (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -141,8 +262,8 @@
       <MemberSignature Language="F#" Value="new Android.Views.TextureView : Android.Content.Context * Android.Util.IAttributeSet * int -&gt; Android.Views.TextureView" Usage="new Android.Views.TextureView (context, attrs, defStyleAttr)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -163,6 +284,7 @@
                    the view. Can be 0 to not look for defaults.</param>
         <summary>Creates a new TextureView.</summary>
         <remarks>
+          <para>Creates a new TextureView.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#TextureView(android.content.Context,%20android.util.AttributeSet,%20int)" title="Reference documentation">Java documentation for <code>android.view.TextureView.TextureView(android.content.Context, android.util.AttributeSet, int)</code>.</a>
@@ -184,8 +306,8 @@
       <MemberSignature Language="F#" Value="new Android.Views.TextureView : Android.Content.Context * Android.Util.IAttributeSet * int * int -&gt; Android.Views.TextureView" Usage="new Android.Views.TextureView (context, attrs, defStyleAttr, defStyleRes)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -211,6 +333,7 @@
                    to not look for defaults.</param>
         <summary>Creates a new TextureView.</summary>
         <remarks>
+          <para>Creates a new TextureView.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#TextureView(android.content.Context,%20android.util.AttributeSet,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.view.TextureView.TextureView(android.content.Context, android.util.AttributeSet, int, int)</code>.</a>
@@ -231,8 +354,8 @@
       <MemberSignature Language="F#" Value="member this.Bitmap : Android.Graphics.Bitmap" Usage="Android.Views.TextureView.Bitmap" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -249,6 +372,14 @@
         <value>A valid <c>Bitmap.Config#ARGB_8888</c> bitmap, or null if the surface
                     texture is not available or the width &amp;lt;= 0 or the height &amp;lt;= 0</value>
         <remarks>
+          <para>Returns a <c>android.graphics.Bitmap</c> representation of the content
+            of the associated surface texture. If the surface texture is not available,
+            this method returns null.</para>
+          <para>The bitmap returned by this method uses the <c>Bitmap.Config#ARGB_8888</c>
+            pixel format and its dimensions are the same as this view's.</para>
+          <para>&lt;strong&gt;Do not&lt;/strong&gt; invoke this method from a drawing method
+            (<c>#onDraw(android.graphics.Canvas)</c> for instance).</para>
+          <para>If an error occurs during the copy, an empty bitmap will be returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#getBitmap()" title="Reference documentation">Java documentation for <code>android.view.TextureView.getBitmap()</code>.</a>
@@ -273,8 +404,8 @@
       <MemberSignature Language="F#" Value="override this.Draw : Android.Graphics.Canvas -&gt; unit" Usage="textureView.Draw canvas" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -293,6 +424,8 @@
         <summary>Subclasses of TextureView cannot do their own rendering
             with the <c>Canvas</c> object.</summary>
         <remarks>
+          <para>Subclasses of TextureView cannot do their own rendering
+            with the <c>Canvas</c> object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#draw(android.graphics.Canvas)" title="Reference documentation">Java documentation for <code>android.view.TextureView.draw(android.graphics.Canvas)</code>.</a>
@@ -314,8 +447,8 @@
       <MemberSignature Language="F#" Value="abstract member GetBitmap : Android.Graphics.Bitmap -&gt; Android.Graphics.Bitmap&#xA;override this.GetBitmap : Android.Graphics.Bitmap -&gt; Android.Graphics.Bitmap" Usage="textureView.GetBitmap bitmap" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -336,6 +469,13 @@
             bitmap.</summary>
         <returns>The bitmap specified as a parameter</returns>
         <remarks>
+          <para>Copies the content of this view's surface texture into the specified
+            bitmap. If the surface texture is not available, the copy is not executed.
+            The content of the surface texture will be scaled to fit exactly inside
+            the specified bitmap.</para>
+          <para>&lt;strong&gt;Do not&lt;/strong&gt; invoke this method from a drawing method
+            (<c>#onDraw(android.graphics.Canvas)</c> for instance).</para>
+          <para>If an error occurs, the bitmap is left unchanged.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#getBitmap(android.graphics.Bitmap)" title="Reference documentation">Java documentation for <code>android.view.TextureView.getBitmap(android.graphics.Bitmap)</code>.</a>
@@ -363,8 +503,8 @@
       <MemberSignature Language="F#" Value="abstract member GetBitmap : int * int -&gt; Android.Graphics.Bitmap&#xA;override this.GetBitmap : int * int -&gt; Android.Graphics.Bitmap" Usage="textureView.GetBitmap (width, height)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -387,6 +527,14 @@
         <returns>A valid <c>Bitmap.Config#ARGB_8888</c> bitmap, or null if the surface
                     texture is not available or width is &amp;lt;= 0 or height is &amp;lt;= 0</returns>
         <remarks>
+          <para>Returns a <c>android.graphics.Bitmap</c> representation of the content
+            of the associated surface texture. If the surface texture is not available,
+            this method returns null.</para>
+          <para>The bitmap returned by this method uses the <c>Bitmap.Config#ARGB_8888</c>
+            pixel format.</para>
+          <para>&lt;strong&gt;Do not&lt;/strong&gt; invoke this method from a drawing method
+            (<c>#onDraw(android.graphics.Canvas)</c> for instance).</para>
+          <para>If an error occurs during the copy, an empty bitmap will be returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#getBitmap(int,%20int)" title="Reference documentation">Java documentation for <code>android.view.TextureView.getBitmap(int, int)</code>.</a>
@@ -411,8 +559,8 @@
       <MemberSignature Language="F#" Value="abstract member GetTransform : Android.Graphics.Matrix -&gt; Android.Graphics.Matrix&#xA;override this.GetTransform : Android.Graphics.Matrix -&gt; Android.Graphics.Matrix" Usage="textureView.GetTransform transform" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -433,6 +581,7 @@
         <returns>The specified matrix if not null or a new <c>Matrix</c>
                     instance otherwise.</returns>
         <remarks>
+          <para>Returns the transform associated with this texture view.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#getTransform(android.graphics.Matrix)" title="Reference documentation">Java documentation for <code>android.view.TextureView.getTransform(android.graphics.Matrix)</code>.</a>
@@ -455,8 +604,8 @@
       <MemberSignature Language="F#" Value="member this.IsAvailable : bool" Usage="Android.Views.TextureView.IsAvailable" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -472,6 +621,9 @@
             TextureView is available for rendering.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns true if the <c>SurfaceTexture</c> associated with this
+            TextureView is available for rendering. When this method returns
+            true, <c>#getSurfaceTexture()</c> returns a valid surface texture.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#isAvailable()" title="Reference documentation">Java documentation for <code>android.view.TextureView.isAvailable()</code>.</a>
@@ -524,8 +676,8 @@
       <MemberSignature Language="F#" Value="abstract member LockCanvas : unit -&gt; Android.Graphics.Canvas&#xA;override this.LockCanvas : unit -&gt; Android.Graphics.Canvas" Usage="textureView.LockCanvas " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -542,6 +694,20 @@
         <returns>A Canvas used to draw into the surface, or null if the surface cannot be locked for
             drawing (see <c>#isAvailable()</c>).</returns>
         <remarks>
+          <para>Start editing the pixels in the surface.  The returned Canvas can be used
+            to draw into the surface's bitmap.  A null is returned if the surface has
+            not been created or otherwise cannot be edited. You will usually need
+            to implement
+            <c>SurfaceTextureListener#onSurfaceTextureAvailable(android.graphics.SurfaceTexture, int, int)</c>
+            to find out when the Surface is available for use.</para>
+          <para>The content of the Surface is never preserved between unlockCanvas()
+            and lockCanvas(), for this reason, every pixel within the Surface area
+            must be written. The only exception to this rule is when a dirty
+            rectangle is specified, in which case, non-dirty pixels will be
+            preserved.</para>
+          <para>This method can only be used if the underlying surface is not already
+            owned by another producer. For instance, if the TextureView is being used
+            to render the camera's preview you cannot invoke this method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#lockCanvas()" title="Reference documentation">Java documentation for <code>android.view.TextureView.lockCanvas()</code>.</a>
@@ -565,8 +731,8 @@
       <MemberSignature Language="F#" Value="abstract member LockCanvas : Android.Graphics.Rect -&gt; Android.Graphics.Canvas&#xA;override this.LockCanvas : Android.Graphics.Rect -&gt; Android.Graphics.Canvas" Usage="textureView.LockCanvas dirty" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -588,6 +754,15 @@
         <returns>A Canvas used to draw into the surface, or null if the surface cannot be locked for
             drawing (see <c>#isAvailable()</c>).</returns>
         <remarks>
+          <para>Just like <c>#lockCanvas()</c> but allows specification of a dirty
+            rectangle. Every pixel within that rectangle must be written; however
+            pixels outside the dirty rectangle will be preserved by the next call
+            to lockCanvas().
+            
+            This method can return null if the underlying surface texture is not
+            available (see <c>#isAvailable()</c> or if the surface texture is
+            already connected to an image producer (for instance: the camera,
+            OpenGL, a media player, etc.)</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#lockCanvas(android.graphics.Rect)" title="Reference documentation">Java documentation for <code>android.view.TextureView.lockCanvas(android.graphics.Rect)</code>.</a>
@@ -612,8 +787,8 @@
       <MemberSignature Language="F#" Value="override this.OnDraw : Android.Graphics.Canvas -&gt; unit" Usage="textureView.OnDraw canvas" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -632,6 +807,8 @@
         <summary>Subclasses of TextureView cannot do their own rendering
             with the <c>Canvas</c> object.</summary>
         <remarks>
+          <para>Subclasses of TextureView cannot do their own rendering
+            with the <c>Canvas</c> object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#onDraw(android.graphics.Canvas)" title="Reference documentation">Java documentation for <code>android.view.TextureView.onDraw(android.graphics.Canvas)</code>.</a>
@@ -653,8 +830,8 @@
       <MemberSignature Language="F#" Value="abstract member SetOpaque : bool -&gt; unit&#xA;override this.SetOpaque : bool -&gt; unit" Usage="textureView.SetOpaque opaque" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -673,6 +850,8 @@
                           false otherwise</param>
         <summary>Indicates whether the content of this TextureView is opaque.</summary>
         <remarks>
+          <para>Indicates whether the content of this TextureView is opaque. The
+            content is assumed to be opaque by default.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#setOpaque(boolean)" title="Reference documentation">Java documentation for <code>android.view.TextureView.setOpaque(boolean)</code>.</a>
@@ -694,8 +873,8 @@
       <MemberSignature Language="F#" Value="abstract member SetTransform : Android.Graphics.Matrix -&gt; unit&#xA;override this.SetTransform : Android.Graphics.Matrix -&gt; unit" Usage="textureView.SetTransform transform" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -714,6 +893,13 @@
                    this view. If null the transform will be set to identity.</param>
         <summary>Sets the transform to associate with this texture view.</summary>
         <remarks>
+          <para>Sets the transform to associate with this texture view.
+            The specified transform applies to the underlying surface
+            texture and does not affect the size or position of the view
+            itself, only of its content.</para>
+          <para>Some transforms might prevent the content from drawing
+            all the pixels contained within this view's bounds. In such
+            situations, make sure this texture view is not marked opaque.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#setTransform(android.graphics.Matrix)" title="Reference documentation">Java documentation for <code>android.view.TextureView.setTransform(android.graphics.Matrix)</code>.</a>
@@ -737,8 +923,8 @@
       <MemberSignature Language="F#" Value="member this.SurfaceTexture : Android.Graphics.SurfaceTexture with get, set" Usage="Android.Views.TextureView.SurfaceTexture" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -759,12 +945,22 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Returns the <c>SurfaceTexture</c> used by this view. This method
+            may return null if the view is not attached to a window or if the surface
+            texture has not been initialized yet.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#getSurfaceTexture()" title="Reference documentation">Java documentation for <code>android.view.TextureView.getSurfaceTexture()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Set the <c>SurfaceTexture</c> for this view to use. If a <c>SurfaceTexture</c> is already being used by this view, it is immediately
+            released and not usable any more.  The <c>SurfaceTextureListener#onSurfaceTextureDestroyed</c> callback is &lt;b&gt;not&lt;/b&gt;
+            called for the previous <c>SurfaceTexture</c>.  Similarly, the <c>SurfaceTextureListener#onSurfaceTextureAvailable</c> callback is &lt;b&gt;not&lt;/b&gt;
+            called for the <c>SurfaceTexture</c> passed to setSurfaceTexture.
+            
+            The <c>SurfaceTexture</c> object must be detached from all OpenGL ES
+            contexts prior to calling this method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#setSurfaceTexture(android.graphics.SurfaceTexture)" title="Reference documentation">Java documentation for <code>android.view.TextureView.setSurfaceTexture(android.graphics.SurfaceTexture)</code>.</a>
@@ -788,8 +984,8 @@
       <MemberSignature Language="F#" Value="member this.SurfaceTextureAvailable : EventHandler&lt;Android.Views.TextureView.SurfaceTextureAvailableEventArgs&gt; " Usage="member this.SurfaceTextureAvailable : System.EventHandler&lt;Android.Views.TextureView.SurfaceTextureAvailableEventArgs&gt; " />
       <MemberType>Event</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.EventHandler&lt;Android.Views.TextureView+SurfaceTextureAvailableEventArgs&gt;</ReturnType>
@@ -808,8 +1004,8 @@
       <MemberSignature Language="F#" Value="member this.SurfaceTextureDestroyed : EventHandler&lt;Android.Views.TextureView.SurfaceTextureDestroyedEventArgs&gt; " Usage="member this.SurfaceTextureDestroyed : System.EventHandler&lt;Android.Views.TextureView.SurfaceTextureDestroyedEventArgs&gt; " />
       <MemberType>Event</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.EventHandler&lt;Android.Views.TextureView+SurfaceTextureDestroyedEventArgs&gt;</ReturnType>
@@ -828,8 +1024,8 @@
       <MemberSignature Language="F#" Value="member this.SurfaceTextureListener : Android.Views.TextureView.ISurfaceTextureListener with get, set" Usage="Android.Views.TextureView.SurfaceTextureListener" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -870,7 +1066,6 @@
         </remarks>
         <since version="Added in API level 14" />
         <altmember cref="P:Android.Views.TextureView.SurfaceTextureListener" />
-        <altmember cref="P:Android.Views.TextureView.SurfaceTextureListener" />
       </Docs>
     </Member>
     <Member MemberName="SurfaceTextureSizeChanged">
@@ -880,8 +1075,8 @@
       <MemberSignature Language="F#" Value="member this.SurfaceTextureSizeChanged : EventHandler&lt;Android.Views.TextureView.SurfaceTextureSizeChangedEventArgs&gt; " Usage="member this.SurfaceTextureSizeChanged : System.EventHandler&lt;Android.Views.TextureView.SurfaceTextureSizeChangedEventArgs&gt; " />
       <MemberType>Event</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.EventHandler&lt;Android.Views.TextureView+SurfaceTextureSizeChangedEventArgs&gt;</ReturnType>
@@ -900,8 +1095,8 @@
       <MemberSignature Language="F#" Value="member this.SurfaceTextureUpdated : EventHandler&lt;Android.Views.TextureView.SurfaceTextureUpdatedEventArgs&gt; " Usage="member this.SurfaceTextureUpdated : System.EventHandler&lt;Android.Views.TextureView.SurfaceTextureUpdatedEventArgs&gt; " />
       <MemberType>Event</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.EventHandler&lt;Android.Views.TextureView+SurfaceTextureUpdatedEventArgs&gt;</ReturnType>
@@ -920,8 +1115,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Views.TextureView.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -951,8 +1146,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Views.TextureView.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -982,8 +1177,8 @@
       <MemberSignature Language="F#" Value="abstract member UnlockCanvasAndPost : Android.Graphics.Canvas -&gt; unit&#xA;override this.UnlockCanvasAndPost : Android.Graphics.Canvas -&gt; unit" Usage="textureView.UnlockCanvasAndPost canvas" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1001,6 +1196,10 @@
         <param name="canvas">The Canvas previously returned by lockCanvas()</param>
         <summary>Finish editing pixels in the surface.</summary>
         <remarks>
+          <para>Finish editing pixels in the surface. After this call, the surface's
+            current pixels will be shown on the screen, but its content is lost,
+            in particular there is no guarantee that the content of the Surface
+            will remain unchanged when lockCanvas() is called again.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/TextureView#unlockCanvasAndPost(android.graphics.Canvas)" title="Reference documentation">Java documentation for <code>android.view.TextureView.unlockCanvasAndPost(android.graphics.Canvas)</code>.</a>
