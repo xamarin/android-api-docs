@@ -37,6 +37,163 @@
     <summary>An implementation of <c>ReadWriteLock</c> supporting similar
             semantics to <c>ReentrantLock</c>.</summary>
     <remarks>
+      <para>An implementation of <c>ReadWriteLock</c> supporting similar
+            semantics to <c>ReentrantLock</c>.</para>
+      <para>This class has the following properties:
+            
+            &lt;ul&gt;
+            &lt;li&gt;&lt;b&gt;Acquisition order&lt;/b&gt;</para>
+      <para>This class does not impose a reader or writer preference
+            ordering for lock access.  However, it does support an optional
+            &lt;em&gt;fairness&lt;/em&gt; policy.
+            
+            &lt;dl&gt;
+            &lt;dt&gt;&lt;b&gt;<i>Non-fair mode (default)</i>&lt;/b&gt;
+            &lt;dd&gt;When constructed as non-fair (the default), the order of entry
+            to the read and write lock is unspecified, subject to reentrancy
+            constraints.  A nonfair lock that is continuously contended may
+            indefinitely postpone one or more reader or writer threads, but
+            will normally have higher throughput than a fair lock.
+            
+            &lt;dt&gt;&lt;b&gt;<i>Fair mode</i>&lt;/b&gt;
+            &lt;dd&gt;When constructed as fair, threads contend for entry using an
+            approximately arrival-order policy. When the currently held lock
+            is released, either the longest-waiting single writer thread will
+            be assigned the write lock, or if there is a group of reader threads
+            waiting longer than all waiting writer threads, that group will be
+            assigned the read lock.</para>
+      <para>A thread that tries to acquire a fair read lock (non-reentrantly)
+            will block if either the write lock is held, or there is a waiting
+            writer thread. The thread will not acquire the read lock until
+            after the oldest currently waiting writer thread has acquired and
+            released the write lock. Of course, if a waiting writer abandons
+            its wait, leaving one or more reader threads as the longest waiters
+            in the queue with the write lock free, then those readers will be
+            assigned the read lock.</para>
+      <para>A thread that tries to acquire a fair write lock (non-reentrantly)
+            will block unless both the read lock and write lock are free (which
+            implies there are no waiting threads).  (Note that the non-blocking
+            <c>ReadLock#tryLock()</c> and <c>WriteLock#tryLock()</c> methods
+            do not honor this fair setting and will immediately acquire the lock
+            if it is possible, regardless of waiting threads.)
+            &lt;/dl&gt;
+            
+            &lt;li&gt;&lt;b&gt;Reentrancy&lt;/b&gt;</para>
+      <para>This lock allows both readers and writers to reacquire read or
+            write locks in the style of a <c>ReentrantLock</c>. Non-reentrant
+            readers are not allowed until all write locks held by the writing
+            thread have been released.</para>
+      <para>Additionally, a writer can acquire the read lock, but not
+            vice-versa.  Among other applications, reentrancy can be useful
+            when write locks are held during calls or callbacks to methods that
+            perform reads under read locks.  If a reader tries to acquire the
+            write lock it will never succeed.
+            
+            &lt;li&gt;&lt;b&gt;Lock downgrading&lt;/b&gt;</para>
+      <para>Reentrancy also allows downgrading from the write lock to a read lock,
+            by acquiring the write lock, then the read lock and then releasing the
+            write lock. However, upgrading from a read lock to the write lock is
+            &lt;b&gt;not&lt;/b&gt; possible.
+            
+            &lt;li&gt;&lt;b&gt;Interruption of lock acquisition&lt;/b&gt;</para>
+      <para>The read lock and write lock both support interruption during lock
+            acquisition.
+            
+            &lt;li&gt;&lt;b&gt;<c>Condition</c> support&lt;/b&gt;</para>
+      <para>The write lock provides a <c>Condition</c> implementation that
+            behaves in the same way, with respect to the write lock, as the
+            <c>Condition</c> implementation provided by
+            <c>ReentrantLock#newCondition</c> does for <c>ReentrantLock</c>.
+            This <c>Condition</c> can, of course, only be used with the write lock.</para>
+      <para>The read lock does not support a <c>Condition</c> and
+            <c>readLock().newCondition()</c> throws
+            <c>UnsupportedOperationException</c>.
+            
+            &lt;li&gt;&lt;b&gt;Instrumentation&lt;/b&gt;</para>
+      <para>This class supports methods to determine whether locks
+            are held or contended. These methods are designed for monitoring
+            system state, not for synchronization control.
+            &lt;/ul&gt;</para>
+      <para>Serialization of this class behaves in the same way as built-in
+            locks: a deserialized lock is in the unlocked state, regardless of
+            its state when serialized.</para>
+      <para>&lt;b&gt;Sample usages.&lt;/b&gt; Here is a code sketch showing how to perform
+            lock downgrading after updating a cache (exception handling is
+            particularly tricky when handling multiple locks in a non-nested
+            fashion):</para>
+      <code lang="text/java">{@code
+            class CachedData {
+              Object data;
+              boolean cacheValid;
+              final ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+            
+              void processCachedData() {
+                rwl.readLock().lock();
+                if (!cacheValid) {
+                  // Must release read lock before acquiring write lock
+                  rwl.readLock().unlock();
+                  rwl.writeLock().lock();
+                  try {
+                    // Recheck state because another thread might have
+                    // acquired write lock and changed state before we did.
+                    if (!cacheValid) {
+                      data = ...;
+                      cacheValid = true;
+                    }
+                    // Downgrade by acquiring read lock before releasing write lock
+                    rwl.readLock().lock();
+                  } finally {
+                    rwl.writeLock().unlock(); // Unlock write, still hold read
+                  }
+                }
+            
+                try {
+                  use(data);
+                } finally {
+                  rwl.readLock().unlock();
+                }
+              }
+            }}</code>
+      <para>ReentrantReadWriteLocks can be used to improve concurrency in some
+            uses of some kinds of Collections. This is typically worthwhile
+            only when the collections are expected to be large, accessed by
+            more reader threads than writer threads, and entail operations with
+            overhead that outweighs synchronization overhead. For example, here
+            is a class using a TreeMap that is expected to be large and
+            concurrently accessed.</para>
+      <code lang="text/java">{@code
+            class RWDictionary {
+              private final Map&lt;String, Data&gt; m = new TreeMap&lt;&gt;();
+              private final ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+              private final Lock r = rwl.readLock();
+              private final Lock w = rwl.writeLock();
+            
+              public Data get(String key) {
+                r.lock();
+                try { return m.get(key); }
+                finally { r.unlock(); }
+              }
+              public List&lt;String&gt; allKeys() {
+                r.lock();
+                try { return new ArrayList&lt;&gt;(m.keySet()); }
+                finally { r.unlock(); }
+              }
+              public Data put(String key, Data value) {
+                w.lock();
+                try { return m.put(key, value); }
+                finally { w.unlock(); }
+              }
+              public void clear() {
+                w.lock();
+                try { m.clear(); }
+                finally { w.unlock(); }
+              }
+            }}</code>
+      <para>&lt;h2&gt;Implementation Notes&lt;/h2&gt;</para>
+      <para>This lock supports a maximum of 65535 recursive write locks
+            and 65535 read locks. Attempts to exceed these limits result in
+            <c>Error</c> throws from locking methods.</para>
+      <para>Added in 1.5.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock</code>.</a>
@@ -57,8 +214,8 @@
       <MemberSignature Language="DocId" Value="M:Java.Util.Concurrent.Locks.ReentrantReadWriteLock.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -71,6 +228,8 @@
         <summary>Creates a new <c>ReentrantReadWriteLock</c> with
             default (nonfair) ordering properties.</summary>
         <remarks>
+          <para>Creates a new <c>ReentrantReadWriteLock</c> with
+            default (nonfair) ordering properties.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#ReentrantReadWriteLock()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.ReentrantReadWriteLock()</code>.</a>
@@ -92,8 +251,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Locks.ReentrantReadWriteLock : bool -&gt; Java.Util.Concurrent.Locks.ReentrantReadWriteLock" Usage="new Java.Util.Concurrent.Locks.ReentrantReadWriteLock fair" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -110,6 +269,8 @@
         <summary>Creates a new <c>ReentrantReadWriteLock</c> with
             the given fairness policy.</summary>
         <remarks>
+          <para>Creates a new <c>ReentrantReadWriteLock</c> with
+            the given fairness policy.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#ReentrantReadWriteLock(boolean)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.ReentrantReadWriteLock(boolean)</code>.</a>
@@ -131,8 +292,8 @@
       <MemberSignature Language="F#" Value="new Java.Util.Concurrent.Locks.ReentrantReadWriteLock : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Util.Concurrent.Locks.ReentrantReadWriteLock" Usage="new Java.Util.Concurrent.Locks.ReentrantReadWriteLock (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -154,8 +315,8 @@
       <MemberSignature Language="F#" Value="abstract member GetWaitingThreads : Java.Util.Concurrent.Locks.ICondition -&gt; System.Collections.Generic.ICollection&lt;Java.Lang.Thread&gt;&#xA;override this.GetWaitingThreads : Java.Util.Concurrent.Locks.ICondition -&gt; System.Collections.Generic.ICollection&lt;Java.Lang.Thread&gt;" Usage="reentrantReadWriteLock.GetWaitingThreads condition" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -175,6 +336,14 @@
             waiting on the given condition associated with the write lock.</summary>
         <returns>the collection of threads</returns>
         <remarks>
+          <para>Returns a collection containing those threads that may be
+            waiting on the given condition associated with the write lock.
+            Because the actual set of threads may change dynamically while
+            constructing this result, the returned collection is only a
+            best-effort estimate. The elements of the returned collection
+            are in no particular order.  This method is designed to
+            facilitate construction of subclasses that provide more
+            extensive condition monitoring facilities.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#getWaitingThreads(java.util.concurrent.locks.Condition)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.getWaitingThreads(java.util.concurrent.locks.Condition)</code>.</a>
@@ -201,8 +370,8 @@
       <MemberSignature Language="F#" Value="abstract member GetWaitQueueLength : Java.Util.Concurrent.Locks.ICondition -&gt; int&#xA;override this.GetWaitQueueLength : Java.Util.Concurrent.Locks.ICondition -&gt; int" Usage="reentrantReadWriteLock.GetWaitQueueLength condition" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -222,6 +391,12 @@
             given condition associated with the write lock.</summary>
         <returns>the estimated number of waiting threads</returns>
         <remarks>
+          <para>Returns an estimate of the number of threads waiting on the
+            given condition associated with the write lock. Note that because
+            timeouts and interrupts may occur at any time, the estimate
+            serves only as an upper bound on the actual number of waiters.
+            This method is designed for use in monitoring of the system
+            state, not for synchronization control.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#getWaitQueueLength(java.util.concurrent.locks.Condition)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.getWaitQueueLength(java.util.concurrent.locks.Condition)</code>.</a>
@@ -248,8 +423,8 @@
       <MemberSignature Language="F#" Value="member this.HasQueuedThread : Java.Lang.Thread -&gt; bool" Usage="reentrantReadWriteLock.HasQueuedThread thread" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -270,6 +445,11 @@
         <returns>
           <c>true</c> if the given thread is queued waiting for this lock</returns>
         <remarks>
+          <para>Queries whether the given thread is waiting to acquire either
+            the read or write lock. Note that because cancellations may
+            occur at any time, a <c>true</c> return does not guarantee
+            that this thread will ever acquire a lock.  This method is
+            designed primarily for use in monitoring of the system state.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#hasQueuedThread(java.lang.Thread)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.hasQueuedThread(java.lang.Thread)</code>.</a>
@@ -293,8 +473,8 @@
       <MemberSignature Language="F#" Value="member this.HasQueuedThreads : bool" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.HasQueuedThreads" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -312,6 +492,11 @@
           <c>true</c> if there may be other threads waiting to
                     acquire the lock</value>
         <remarks>
+          <para>Queries whether any threads are waiting to acquire the read or
+            write lock. Note that because cancellations may occur at any
+            time, a <c>true</c> return does not guarantee that any other
+            thread will ever acquire a lock.  This method is designed
+            primarily for use in monitoring of the system state.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#hasQueuedThreads()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.hasQueuedThreads()</code>.</a>
@@ -333,8 +518,8 @@
       <MemberSignature Language="F#" Value="abstract member HasWaiters : Java.Util.Concurrent.Locks.ICondition -&gt; bool&#xA;override this.HasWaiters : Java.Util.Concurrent.Locks.ICondition -&gt; bool" Usage="reentrantReadWriteLock.HasWaiters condition" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -355,6 +540,12 @@
         <returns>
           <c>true</c> if there are any waiting threads</returns>
         <remarks>
+          <para>Queries whether any threads are waiting on the given condition
+            associated with the write lock. Note that because timeouts and
+            interrupts may occur at any time, a <c>true</c> return does
+            not guarantee that a future <c>signal</c> will awaken any
+            threads.  This method is designed primarily for use in
+            monitoring of the system state.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#hasWaiters(java.util.concurrent.locks.Condition)" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.hasWaiters(java.util.concurrent.locks.Condition)</code>.</a>
@@ -381,8 +572,8 @@
       <MemberSignature Language="F#" Value="member this.IsFair : bool" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.IsFair" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -398,6 +589,7 @@
         <value>
           <c>true</c> if this lock has fairness set true</value>
         <remarks>
+          <para>Returns <c>true</c> if this lock has fairness set true.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#isFair()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.isFair()</code>.</a>
@@ -419,8 +611,8 @@
       <MemberSignature Language="F#" Value="member this.IsWriteLocked : bool" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.IsWriteLocked" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -437,6 +629,9 @@
           <c>true</c> if any thread holds the write lock and
                     <c>false</c> otherwise</value>
         <remarks>
+          <para>Queries if the write lock is held by any thread. This method is
+            designed for use in monitoring system state, not for
+            synchronization control.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#isWriteLocked()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.isWriteLocked()</code>.</a>
@@ -458,8 +653,8 @@
       <MemberSignature Language="F#" Value="member this.IsWriteLockedByCurrentThread : bool" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.IsWriteLockedByCurrentThread" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -476,6 +671,7 @@
           <c>true</c> if the current thread holds the write lock and
                     <c>false</c> otherwise</value>
         <remarks>
+          <para>Queries if the write lock is held by the current thread.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#isWriteLockedByCurrentThread()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.isWriteLockedByCurrentThread()</code>.</a>
@@ -531,8 +727,8 @@
       <MemberSignature Language="F#" Value="member this.Owner : Java.Lang.Thread" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.Owner" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -548,6 +744,15 @@
             <c>null</c> if not owned.</summary>
         <value>the owner, or <c>null</c> if not owned</value>
         <remarks>
+          <para>Returns the thread that currently owns the write lock, or
+            <c>null</c> if not owned. When this method is called by a
+            thread that is not the owner, the return value reflects a
+            best-effort approximation of current lock status. For example,
+            the owner may be momentarily <c>null</c> even if there are
+            threads trying to acquire the lock but have not yet done so.
+            This method is designed to facilitate construction of
+            subclasses that provide more extensive lock monitoring
+            facilities.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#getOwner()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.getOwner()</code>.</a>
@@ -569,8 +774,8 @@
       <MemberSignature Language="F#" Value="member this.QueuedReaderThreads : System.Collections.Generic.ICollection&lt;Java.Lang.Thread&gt;" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.QueuedReaderThreads" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -586,6 +791,13 @@
             acquire the read lock.</summary>
         <value>the collection of threads</value>
         <remarks>
+          <para>Returns a collection containing threads that may be waiting to
+            acquire the read lock.  Because the actual set of threads may
+            change dynamically while constructing this result, the returned
+            collection is only a best-effort estimate.  The elements of the
+            returned collection are in no particular order.  This method is
+            designed to facilitate construction of subclasses that provide
+            more extensive lock monitoring facilities.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#getQueuedReaderThreads()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.getQueuedReaderThreads()</code>.</a>
@@ -607,8 +819,8 @@
       <MemberSignature Language="F#" Value="member this.QueuedThreads : System.Collections.Generic.ICollection&lt;Java.Lang.Thread&gt;" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.QueuedThreads" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -624,6 +836,13 @@
             acquire either the read or write lock.</summary>
         <value>the collection of threads</value>
         <remarks>
+          <para>Returns a collection containing threads that may be waiting to
+            acquire either the read or write lock.  Because the actual set
+            of threads may change dynamically while constructing this
+            result, the returned collection is only a best-effort estimate.
+            The elements of the returned collection are in no particular
+            order.  This method is designed to facilitate construction of
+            subclasses that provide more extensive monitoring facilities.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#getQueuedThreads()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.getQueuedThreads()</code>.</a>
@@ -645,8 +864,8 @@
       <MemberSignature Language="F#" Value="member this.QueuedWriterThreads : System.Collections.Generic.ICollection&lt;Java.Lang.Thread&gt;" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.QueuedWriterThreads" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -662,6 +881,13 @@
             acquire the write lock.</summary>
         <value>the collection of threads</value>
         <remarks>
+          <para>Returns a collection containing threads that may be waiting to
+            acquire the write lock.  Because the actual set of threads may
+            change dynamically while constructing this result, the returned
+            collection is only a best-effort estimate.  The elements of the
+            returned collection are in no particular order.  This method is
+            designed to facilitate construction of subclasses that provide
+            more extensive lock monitoring facilities.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#getQueuedWriterThreads()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.getQueuedWriterThreads()</code>.</a>
@@ -683,8 +909,8 @@
       <MemberSignature Language="F#" Value="member this.QueueLength : int" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.QueueLength" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -700,6 +926,12 @@
             either the read or write lock.</summary>
         <value>the estimated number of threads waiting for this lock</value>
         <remarks>
+          <para>Returns an estimate of the number of threads waiting to acquire
+            either the read or write lock.  The value is only an estimate
+            because the number of threads may change dynamically while this
+            method traverses internal data structures.  This method is
+            designed for use in monitoring system state, not for
+            synchronization control.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#getQueueLength()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.getQueueLength()</code>.</a>
@@ -721,8 +953,8 @@
       <MemberSignature Language="F#" Value="member this.ReadHoldCount : int" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.ReadHoldCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -739,6 +971,10 @@
         <value>the number of holds on the read lock by the current thread,
                     or zero if the read lock is not held by the current thread</value>
         <remarks>
+          <para>Queries the number of reentrant read holds on this lock by the
+            current thread.  A reader thread has a hold on a lock for
+            each lock action that is not matched by an unlock action.</para>
+          <para>Added in 1.6.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#getReadHoldCount()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.getReadHoldCount()</code>.</a>
@@ -763,8 +999,8 @@
         <InterfaceMember>M:Java.Util.Concurrent.Locks.IReadWriteLock.ReadLock</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -792,8 +1028,8 @@
       <MemberSignature Language="F#" Value="member this.ReadLockCount : int" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.ReadLockCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -808,6 +1044,9 @@
         <summary>Queries the number of read locks held for this lock.</summary>
         <value>the number of read locks held</value>
         <remarks>
+          <para>Queries the number of read locks held for this lock. This
+            method is designed for use in monitoring system state, not for
+            synchronization control.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#getReadLockCount()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.getReadLockCount()</code>.</a>
@@ -829,8 +1068,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -860,8 +1099,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -891,8 +1130,8 @@
       <MemberSignature Language="F#" Value="member this.WriteHoldCount : int" Usage="Java.Util.Concurrent.Locks.ReentrantReadWriteLock.WriteHoldCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -909,6 +1148,9 @@
         <value>the number of holds on the write lock by the current thread,
                     or zero if the write lock is not held by the current thread</value>
         <remarks>
+          <para>Queries the number of reentrant write holds on this lock by the
+            current thread.  A writer thread has a hold on a lock for
+            each lock action that is not matched by an unlock action.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/util/concurrent/locks/ReentrantReadWriteLock#getWriteHoldCount()" title="Reference documentation">Java documentation for <code>java.util.concurrent.locks.ReentrantReadWriteLock.getWriteHoldCount()</code>.</a>
@@ -933,8 +1175,8 @@
         <InterfaceMember>M:Java.Util.Concurrent.Locks.IReadWriteLock.WriteLock</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

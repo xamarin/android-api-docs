@@ -29,6 +29,10 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/service/autofill/SaveInfo", ApiSince=26, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/service/autofill/SaveInfo", ApiSince=26, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>Information used to indicate that an <c>AutofillService</c> is interested on saving the
@@ -36,6 +40,93 @@
             <c>AutofillService#onSaveRequest(SaveRequest, SaveCallback)</c>
             call.</summary>
     <remarks>
+      <para>Information used to indicate that an <c>AutofillService</c> is interested on saving the
+            user-inputed data for future use, through a
+            <c>AutofillService#onSaveRequest(SaveRequest, SaveCallback)</c>
+            call.</para>
+      <para>A <c>SaveInfo</c> is always associated with a <c>FillResponse</c>, and it contains at least
+            two pieces of information:
+            
+            &lt;ol&gt;
+              &lt;li&gt;The type(s) of user data (like password or credit card info) that would be saved.
+              &lt;li&gt;The minimum set of views (represented by their <c>AutofillId</c>) that need to be changed
+                  to trigger a save request.
+            &lt;/ol&gt;</para>
+      <para>Typically, the <c>SaveInfo</c> contains the same <c>id</c>s as the <c>Dataset</c>:</para>
+      <code lang="text/java">new FillResponse.Builder()
+                  .addDataset(new Dataset.Builder()
+                      .setValue(id1, AutofillValue.forText("homer"), createPresentation("homer")) // username
+                      .setValue(id2, AutofillValue.forText("D'OH!"), createPresentation("password for homer")) // password
+                      .build())
+                  .setSaveInfo(new SaveInfo.Builder(
+                      SaveInfo.SAVE_DATA_TYPE_USERNAME | SaveInfo.SAVE_DATA_TYPE_PASSWORD,
+                      new AutofillId[] { id1, id2 }).build())
+                  .build();
+            </code>
+      <para>The save type flags are used to display the appropriate strings in the autofill save UI.
+            You can pass multiple values, but try to keep it short if possible. In the above example, just
+            <c>SaveInfo.SAVE_DATA_TYPE_PASSWORD</c> would be enough.</para>
+      <para>There might be cases where the <c>AutofillService</c> knows how to fill the screen,
+            but the user has no data for it. In that case, the <c>FillResponse</c> should contain just the
+            <c>SaveInfo</c>, but no <c>Dataset Datasets</c>:</para>
+      <code lang="text/java">new FillResponse.Builder()
+                  .setSaveInfo(new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_PASSWORD,
+                      new AutofillId[] { id1, id2 }).build())
+                  .build();
+            </code>
+      <para>There might be cases where the user data in the <c>AutofillService</c> is enough
+            to populate some fields but not all, and the service would still be interested on saving the
+            other fields. In that case, the service could set the
+            <c>SaveInfo.Builder#setOptionalIds(AutofillId[])</c> as well:</para>
+      <code lang="text/java">new FillResponse.Builder()
+                  .addDataset(new Dataset.Builder()
+                      .setValue(id1, AutofillValue.forText("742 Evergreen Terrace"),
+                          createPresentation("742 Evergreen Terrace")) // street
+                      .setValue(id2, AutofillValue.forText("Springfield"),
+                          createPresentation("Springfield")) // city
+                      .build())
+                  .setSaveInfo(new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_ADDRESS,
+                      new AutofillId[] { id1, id2 }) // street and  city
+                      .setOptionalIds(new AutofillId[] { id3, id4 }) // state and zipcode
+                      .build())
+                  .build();
+            </code>
+      <para>"TriggeringSaveRequest"&gt;&lt;h3&gt;Triggering a save request&lt;/h3&gt;</para>
+      <para>The <c>AutofillService#onSaveRequest(SaveRequest, SaveCallback)</c> can be triggered after
+            any of the following events:
+            &lt;ul&gt;
+              &lt;li&gt;The <c>Activity</c> finishes.
+              &lt;li&gt;The app explicitly calls <c>AutofillManager#commit()</c>.
+              &lt;li&gt;All required views become invisible (if the <c>SaveInfo</c> was created with the
+                  <c>#FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE</c> flag).
+              &lt;li&gt;The user clicks a specific view (defined by <c>Builder#setTriggerId(AutofillId)</c>.
+            &lt;/ul&gt;</para>
+      <para>But it is only triggered when all conditions below are met:
+            &lt;ul&gt;
+              &lt;li&gt;The <c>SaveInfo</c> associated with the <c>FillResponse</c> is not <c>null</c> neither
+                  has the <c>#FLAG_DELAY_SAVE</c> flag.
+              &lt;li&gt;The <c>AutofillValue</c>s of all required views (as set by the <c>requiredIds</c> passed
+                  to the <c>SaveInfo.Builder</c> constructor are not empty.
+              &lt;li&gt;The <c>AutofillValue</c> of at least one view (be it required or optional) has changed
+                  (i.e., it's neither the same value passed in a <c>Dataset</c>, nor the initial value
+                  presented in the view).
+              &lt;li&gt;There is no <c>Dataset</c> in the last <c>FillResponse</c> that completely matches the
+                  screen state (i.e., all required and optional fields in the dataset have the same value as
+                  the fields in the screen).
+              &lt;li&gt;The user explicitly tapped the autofill save UI asking to save data for autofill.
+            &lt;/ul&gt;
+            
+            "CustomizingSaveUI"&gt;&lt;h3&gt;Customizing the autofill save UI&lt;/h3&gt;</para>
+      <para>The service can also customize some aspects of the autofill save UI:
+            &lt;ul&gt;
+              &lt;li&gt;Add a simple subtitle by calling <c>Builder#setDescription(CharSequence)</c>.
+              &lt;li&gt;Add a customized subtitle by calling
+                  <c>Builder#setCustomDescription(CustomDescription)</c>.
+              &lt;li&gt;Customize the button used to reject the save request by calling
+                  <c>Builder#setNegativeAction(int, IntentSender)</c>.
+              &lt;li&gt;Decide whether the UI should be shown based on the user input validation by calling
+                  <c>Builder#setValidator(Validator)</c>.
+            &lt;/ul&gt;</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo</code>.</a>
@@ -53,7 +144,7 @@
       <MemberSignature Language="C#" Value="public static Android.OS.IParcelableCreator? Creator { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class Android.OS.IParcelableCreator Creator" />
       <MemberSignature Language="DocId" Value="P:Android.Service.Autofill.SaveInfo.Creator" />
-      <MemberSignature Language="F#" Value="member this.Creator : Android.OS.IParcelableCreator" Usage="Android.Service.Autofill.SaveInfo.Creator" />
+      <MemberSignature Language="F#" Value="static member Creator : Android.OS.IParcelableCreator" Usage="Android.Service.Autofill.SaveInfo.Creator" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -63,6 +154,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("CREATOR", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("CREATOR", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -93,6 +188,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("describeContents", "()I", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("describeContents", "()I", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -163,6 +262,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.NegativeButtonStyle enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.NegativeButtonStyle enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Service.Autofill.NegativeButtonStyle</ReturnType>
@@ -172,6 +275,12 @@
         <summary>Style for the negative button of the save UI to never do the
             save operation.</summary>
         <remarks>
+          <para>Style for the negative button of the save UI to never do the
+            save operation. This means that the user does not need to save
+            any data on this activity or application. Once the user tapping
+            the negative button, the service should never trigger the save
+            UI again. In addition to this, must consider providing restore
+            options for the user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#NEGATIVE_BUTTON_STYLE_NEVER" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.NEGATIVE_BUTTON_STYLE_NEVER</code>.</a>
@@ -207,6 +316,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.PositiveButtonStyle enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.PositiveButtonStyle enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Service.Autofill.PositiveButtonStyle</ReturnType>
@@ -215,6 +328,11 @@
       <Docs>
         <summary>Style for the positive button of save UI to have next action before the save operation.</summary>
         <remarks>
+          <para>Style for the positive button of save UI to have next action before the save operation.
+            This could be useful if the filled content contains sensitive personally identifiable
+            information and then requires user confirmation or verification. In this case, the user
+            tapping the positive button signals that they would complete the next required action
+            to save the filled content.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#POSITIVE_BUTTON_STYLE_CONTINUE" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.POSITIVE_BUTTON_STYLE_CONTINUE</code>.</a>
@@ -250,6 +368,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.PositiveButtonStyle enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.PositiveButtonStyle enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Service.Autofill.PositiveButtonStyle</ReturnType>
@@ -258,6 +380,9 @@
       <Docs>
         <summary>Style for the positive button of save UI to request the save operation.</summary>
         <remarks>
+          <para>Style for the positive button of save UI to request the save operation.
+            In this case, the user tapping the positive button signals that they
+            agrees to save the filled content.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#POSITIVE_BUTTON_STYLE_SAVE" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.POSITIVE_BUTTON_STYLE_SAVE</code>.</a>
@@ -293,6 +418,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.SaveDataType enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.SaveDataType enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Service.Autofill.SaveDataType</ReturnType>
@@ -301,6 +430,7 @@
       <Docs>
         <summary>Type used when the <c>FillResponse</c> represents a debit card.</summary>
         <remarks>
+          <para>Type used when the <c>FillResponse</c> represents a debit card.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#SAVE_DATA_TYPE_DEBIT_CARD" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.SAVE_DATA_TYPE_DEBIT_CARD</code>.</a>
@@ -336,6 +466,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.SaveDataType enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.SaveDataType enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Service.Autofill.SaveDataType</ReturnType>
@@ -345,6 +479,8 @@
         <summary>Type used when the <c>FillResponse</c> represents a card that does not a specified card or
             cannot identify what the card is for.</summary>
         <remarks>
+          <para>Type used when the <c>FillResponse</c> represents a card that does not a specified card or
+            cannot identify what the card is for.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#SAVE_DATA_TYPE_GENERIC_CARD" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC_CARD</code>.</a>
@@ -380,6 +516,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.SaveDataType enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Service.Autofill.SaveDataType enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Service.Autofill.SaveDataType</ReturnType>
@@ -389,6 +529,8 @@
         <summary>Type used when the <c>FillResponse</c> represents a payment card except for credit and
             debit cards.</summary>
         <remarks>
+          <para>Type used when the <c>FillResponse</c> represents a payment card except for credit and
+            debit cards.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/service/autofill/SaveInfo#SAVE_DATA_TYPE_PAYMENT_CARD" title="Reference documentation">Java documentation for <code>android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PAYMENT_CARD</code>.</a>
@@ -481,6 +623,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("writeToParcel", "(Landroid/os/Parcel;I)V", "", ApiSince=26)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("writeToParcel", "(Landroid/os/Parcel;I)V", "", ApiSince=26)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android26.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android26.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>

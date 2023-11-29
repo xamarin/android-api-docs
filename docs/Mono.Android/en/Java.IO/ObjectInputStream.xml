@@ -37,6 +37,135 @@
     <summary>An ObjectInputStream deserializes primitive data and objects previously
             written using an ObjectOutputStream.</summary>
     <remarks>
+      <para>An ObjectInputStream deserializes primitive data and objects previously
+            written using an ObjectOutputStream.</para>
+      <para>ObjectOutputStream and ObjectInputStream can provide an application with
+            persistent storage for graphs of objects when used with a FileOutputStream
+            and FileInputStream respectively.  ObjectInputStream is used to recover
+            those objects previously serialized. Other uses include passing objects
+            between hosts using a socket stream or for marshaling and unmarshaling
+            arguments and parameters in a remote communication system.</para>
+      <para>ObjectInputStream ensures that the types of all objects in the graph
+            created from the stream match the classes present in the Java Virtual
+            Machine.  Classes are loaded as required using the standard mechanisms.</para>
+      <para>Only objects that support the java.io.Serializable or
+            java.io.Externalizable interface can be read from streams.</para>
+      <para>The method <c>readObject</c> is used to read an object from the
+            stream.  Java's safe casting should be used to get the desired type.  In
+            Java, strings and arrays are objects and are treated as objects during
+            serialization. When read they need to be cast to the expected type.</para>
+      <para>Primitive data types can be read from the stream using the appropriate
+            method on DataInput.</para>
+      <para>The default deserialization mechanism for objects restores the contents
+            of each field to the value and type it had when it was written.  Fields
+            declared as transient or static are ignored by the deserialization process.
+            References to other objects cause those objects to be read from the stream
+            as necessary.  Graphs of objects are restored correctly using a reference
+            sharing mechanism.  New objects are always allocated when deserializing,
+            which prevents existing objects from being overwritten.</para>
+      <para>Reading an object is analogous to running the constructors of a new
+            object.  Memory is allocated for the object and initialized to zero (NULL).
+            No-arg constructors are invoked for the non-serializable classes and then
+            the fields of the serializable classes are restored from the stream starting
+            with the serializable class closest to java.lang.object and finishing with
+            the object's most specific class.</para>
+      <para>For example to read from a stream as written by the example in
+            ObjectOutputStream:
+            &lt;br&gt;</para>
+      <code lang="text/java">FileInputStream fis = new FileInputStream("t.tmp");
+                 ObjectInputStream ois = new ObjectInputStream(fis);
+            
+                 int i = ois.readInt();
+                 String today = (String) ois.readObject();
+                 Date date = (Date) ois.readObject();
+            
+                 ois.close();
+            </code>
+      <para>Classes control how they are serialized by implementing either the
+            java.io.Serializable or java.io.Externalizable interfaces.</para>
+      <para>Implementing the Serializable interface allows object serialization to
+            save and restore the entire state of the object and it allows classes to
+            evolve between the time the stream is written and the time it is read.  It
+            automatically traverses references between objects, saving and restoring
+            entire graphs.</para>
+      <para>Serializable classes that require special handling during the
+            serialization and deserialization process should implement the following
+            methods:</para>
+      <code lang="text/java">private void writeObject(java.io.ObjectOutputStream stream)
+                throws IOException;
+            private void readObject(java.io.ObjectInputStream stream)
+                throws IOException, ClassNotFoundException;
+            private void readObjectNoData()
+                throws ObjectStreamException;
+            </code>
+      <para>The readObject method is responsible for reading and restoring the state
+            of the object for its particular class using data written to the stream by
+            the corresponding writeObject method.  The method does not need to concern
+            itself with the state belonging to its superclasses or subclasses.  State is
+            restored by reading data from the ObjectInputStream for the individual
+            fields and making assignments to the appropriate fields of the object.
+            Reading primitive data types is supported by DataInput.</para>
+      <para>Any attempt to read object data which exceeds the boundaries of the
+            custom data written by the corresponding writeObject method will cause an
+            OptionalDataException to be thrown with an eof field value of true.
+            Non-object reads which exceed the end of the allotted data will reflect the
+            end of data in the same way that they would indicate the end of the stream:
+            bytewise reads will return -1 as the byte read or number of bytes read, and
+            primitive reads will throw EOFExceptions.  If there is no corresponding
+            writeObject method, then the end of default serialized data marks the end of
+            the allotted data.</para>
+      <para>Primitive and object read calls issued from within a readExternal method
+            behave in the same manner--if the stream is already positioned at the end of
+            data written by the corresponding writeExternal method, object reads will
+            throw OptionalDataExceptions with eof set to true, bytewise reads will
+            return -1, and primitive reads will throw EOFExceptions.  Note that this
+            behavior does not hold for streams written with the old
+            <c>ObjectStreamConstants.PROTOCOL_VERSION_1</c> protocol, in which the
+            end of data written by writeExternal methods is not demarcated, and hence
+            cannot be detected.</para>
+      <para>The readObjectNoData method is responsible for initializing the state of
+            the object for its particular class in the event that the serialization
+            stream does not list the given class as a superclass of the object being
+            deserialized.  This may occur in cases where the receiving party uses a
+            different version of the deserialized instance's class than the sending
+            party, and the receiver's version extends classes that are not extended by
+            the sender's version.  This may also occur if the serialization stream has
+            been tampered; hence, readObjectNoData is useful for initializing
+            deserialized objects properly despite a "hostile" or incomplete source
+            stream.</para>
+      <para>Serialization does not read or assign values to the fields of any object
+            that does not implement the java.io.Serializable interface.  Subclasses of
+            Objects that are not serializable can be serializable. In this case the
+            non-serializable class must have a no-arg constructor to allow its fields to
+            be initialized.  In this case it is the responsibility of the subclass to
+            save and restore the state of the non-serializable class. It is frequently
+            the case that the fields of that class are accessible (public, package, or
+            protected) or that there are get and set methods that can be used to restore
+            the state.</para>
+      <para>Any exception that occurs while deserializing an object will be caught by
+            the ObjectInputStream and abort the reading process.</para>
+      <para>Implementing the Externalizable interface allows the object to assume
+            complete control over the contents and format of the object's serialized
+            form.  The methods of the Externalizable interface, writeExternal and
+            readExternal, are called to save and restore the objects state.  When
+            implemented by a class they can write and read their own state using all of
+            the methods of ObjectOutput and ObjectInput.  It is the responsibility of
+            the objects to handle any versioning that occurs.</para>
+      <para>Enum constants are deserialized differently than ordinary serializable or
+            externalizable objects.  The serialized form of an enum constant consists
+            solely of its name; field values of the constant are not transmitted.  To
+            deserialize an enum constant, ObjectInputStream reads the constant name from
+            the stream; the deserialized constant is then obtained by calling the static
+            method <c>Enum.valueOf(Class, String)</c> with the enum constant's
+            base type and the received constant name as arguments.  Like other
+            serializable or externalizable objects, enum constants can function as the
+            targets of back references appearing subsequently in the serialization
+            stream.  The process by which enum constants are deserialized cannot be
+            customized: any class-specific readObject, readObjectNoData, and readResolve
+            methods defined by enum types are ignored during deserialization.
+            Similarly, any serialPersistentFields or serialVersionUID field declarations
+            are also ignored--all enum types have a fixed serialVersionUID of 0L.</para>
+      <para>Added in JDK1.1.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/io/ObjectInputStream" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream</code>.</a>
@@ -57,8 +186,8 @@
       <MemberSignature Language="DocId" Value="M:Java.IO.ObjectInputStream.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -72,6 +201,13 @@
             ObjectInputStream to not have to allocate private data just used by this
             implementation of ObjectInputStream.</summary>
         <remarks>
+          <para>Provide a way for subclasses that are completely reimplementing
+            ObjectInputStream to not have to allocate private data just used by this
+            implementation of ObjectInputStream.</para>
+          <para>If there is a security manager installed, this method first calls the
+            security manager's <c>checkPermission</c> method with the
+            <c>SerializablePermission("enableSubclassImplementation")</c>
+            permission to ensure it's ok to enable subclassing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#ObjectInputStream()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.ObjectInputStream()</code>.</a>
@@ -95,8 +231,8 @@
       <MemberSignature Language="F#" Value="new Java.IO.ObjectInputStream : System.IO.Stream -&gt; Java.IO.ObjectInputStream" Usage="new Java.IO.ObjectInputStream in" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -111,6 +247,15 @@
         <param name="in">input stream to read from</param>
         <summary>Creates an ObjectInputStream that reads from the specified InputStream.</summary>
         <remarks>
+          <para>Creates an ObjectInputStream that reads from the specified InputStream.
+            A serialization stream header is read from the stream and verified.
+            This constructor will block until the corresponding ObjectOutputStream
+            has written and flushed the header.</para>
+          <para>If a security manager is installed, this constructor will check for
+            the "enableSubclassImplementation" SerializablePermission when invoked
+            directly or indirectly by the constructor of a subclass which overrides
+            the ObjectInputStream.readFields or ObjectInputStream.readUnshared
+            methods.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#ObjectInputStream(java.io.InputStream)" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.ObjectInputStream(java.io.InputStream)</code>.</a>
@@ -136,8 +281,8 @@
       <MemberSignature Language="F#" Value="new Java.IO.ObjectInputStream : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.IO.ObjectInputStream" Usage="new Java.IO.ObjectInputStream (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -159,8 +304,8 @@
       <MemberSignature Language="F#" Value="abstract member DefaultReadObject : unit -&gt; unit&#xA;override this.DefaultReadObject : unit -&gt; unit" Usage="objectInputStream.DefaultReadObject " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -176,6 +321,10 @@
         <summary>Read the non-static and non-transient fields of the current class from
             this stream.</summary>
         <remarks>
+          <para>Read the non-static and non-transient fields of the current class from
+            this stream.  This may only be called from the readObject method of the
+            class being deserialized. It will throw the NotActiveException if it is
+            called otherwise.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#defaultReadObject()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.defaultReadObject()</code>.</a>
@@ -201,8 +350,8 @@
       <MemberSignature Language="F#" Value="abstract member EnableResolveObject : bool -&gt; bool&#xA;override this.EnableResolveObject : bool -&gt; bool" Usage="objectInputStream.EnableResolveObject enable" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -222,6 +371,15 @@
         <summary>Enable the stream to allow objects read from the stream to be replaced.</summary>
         <returns>the previous setting before this method was invoked</returns>
         <remarks>
+          <para>Enable the stream to allow objects read from the stream to be replaced.
+            When enabled, the resolveObject method is called for every object being
+            deserialized.</para>
+          <para>If <i>enable</i> is true, and there is a security manager installed,
+            this method first calls the security manager's
+            <c>checkPermission</c> method with the
+            <c>SerializablePermission("enableSubstitution")</c> permission to
+            ensure it's ok to enable the stream to allow objects read from the
+            stream to be replaced.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#enableResolveObject(boolean)" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.enableResolveObject(boolean)</code>.</a>
@@ -282,8 +440,8 @@
         <InterfaceMember>M:Java.IO.IObjectInput.Read</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -299,6 +457,7 @@
         <summary>Reads a byte of data.</summary>
         <returns>the byte read, or -1 if the end of the stream is reached.</returns>
         <remarks>
+          <para>Reads a byte of data. This method will block if no input is available.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#read()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.read()</code>.</a>
@@ -325,8 +484,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadBoolean</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -342,6 +501,7 @@
         <summary>Reads in a boolean.</summary>
         <returns>the boolean read.</returns>
         <remarks>
+          <para>Reads in a boolean.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readBoolean()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readBoolean()</code>.</a>
@@ -370,8 +530,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadByte</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -387,6 +547,7 @@
         <summary>Reads an 8 bit byte.</summary>
         <returns>the 8 bit byte read.</returns>
         <remarks>
+          <para>Reads an 8 bit byte.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readByte()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readByte()</code>.</a>
@@ -415,8 +576,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadChar</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -432,6 +593,7 @@
         <summary>Reads a 16 bit char.</summary>
         <returns>the 16 bit char read.</returns>
         <remarks>
+          <para>Reads a 16 bit char.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readChar()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readChar()</code>.</a>
@@ -457,8 +619,8 @@
       <MemberSignature Language="F#" Value="abstract member ReadClassDescriptor : unit -&gt; Java.IO.ObjectStreamClass&#xA;override this.ReadClassDescriptor : unit -&gt; Java.IO.ObjectStreamClass" Usage="objectInputStream.ReadClassDescriptor " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -474,6 +636,15 @@
         <summary>Read a class descriptor from the serialization stream.</summary>
         <returns>the class descriptor read</returns>
         <remarks>
+          <para>Read a class descriptor from the serialization stream.  This method is
+            called when the ObjectInputStream expects a class descriptor as the next
+            item in the serialization stream.  Subclasses of ObjectInputStream may
+            override this method to read in class descriptors that have been written
+            in non-standard formats (by subclasses of ObjectOutputStream which have
+            overridden the <c>writeClassDescriptor</c> method).  By default,
+            this method reads class descriptors according to the format defined in
+            the Object Serialization specification.</para>
+          <para>Added in 1.3.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readClassDescriptor()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readClassDescriptor()</code>.</a>
@@ -501,8 +672,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadDouble</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -518,6 +689,7 @@
         <summary>Reads a 64 bit double.</summary>
         <returns>the 64 bit double read.</returns>
         <remarks>
+          <para>Reads a 64 bit double.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readDouble()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readDouble()</code>.</a>
@@ -543,8 +715,8 @@
       <MemberSignature Language="F#" Value="abstract member ReadFields : unit -&gt; Java.IO.ObjectInputStream.GetField&#xA;override this.ReadFields : unit -&gt; Java.IO.ObjectInputStream.GetField" Usage="objectInputStream.ReadFields " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -591,8 +763,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadFloat</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -608,6 +780,7 @@
         <summary>Reads a 32 bit float.</summary>
         <returns>the 32 bit float read.</returns>
         <remarks>
+          <para>Reads a 32 bit float.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readFloat()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readFloat()</code>.</a>
@@ -636,8 +809,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadFully(System.Byte[])</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -655,6 +828,7 @@
         <param name="buf">the buffer into which the data is read</param>
         <summary>Reads bytes, blocking until all bytes are read.</summary>
         <remarks>
+          <para>Reads bytes, blocking until all bytes are read.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readFully(byte[])" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readFully(byte[])</code>.</a>
@@ -683,8 +857,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadFully(System.Byte[],System.Int32,System.Int32)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -706,6 +880,7 @@
         <param name="len">the maximum number of bytes to read</param>
         <summary>Reads bytes, blocking until all bytes are read.</summary>
         <remarks>
+          <para>Reads bytes, blocking until all bytes are read.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readFully(byte[],%20int,%20int)" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readFully(byte[], int, int)</code>.</a>
@@ -734,8 +909,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadInt</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -751,6 +926,7 @@
         <summary>Reads a 32 bit int.</summary>
         <returns>the 32 bit integer read.</returns>
         <remarks>
+          <para>Reads a 32 bit int.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readInt()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readInt()</code>.</a>
@@ -779,8 +955,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadLine</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -800,6 +976,9 @@
         <summary>Reads in a line that has been terminated by a \n, \r, \r\n or EOF.</summary>
         <returns>a String copy of the line.</returns>
         <remarks>
+          <para>Reads in a line that has been terminated by a \n, \r, \r\n or EOF.</para>
+          <para>This member is deprecated. This method does not properly convert bytes to characters.
+                     see DataInputStream for the details and alternatives.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readLine()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readLine()</code>.</a>
@@ -825,8 +1004,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadLong</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -842,6 +1021,7 @@
         <summary>Reads a 64 bit long.</summary>
         <returns>the read 64 bit long.</returns>
         <remarks>
+          <para>Reads a 64 bit long.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readLong()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readLong()</code>.</a>
@@ -870,8 +1050,8 @@
         <InterfaceMember>M:Java.IO.IObjectInput.ReadObject</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -887,6 +1067,22 @@
         <summary>Read an object from the ObjectInputStream.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read an object from the ObjectInputStream.  The class of the object, the
+            signature of the class, and the values of the non-transient and
+            non-static fields of the class and all of its supertypes are read.
+            Default deserializing for a class can be overridden using the writeObject
+            and readObject methods.  Objects referenced by this object are read
+            transitively so that a complete equivalent graph of objects is
+            reconstructed by readObject.</para>
+          <para>The root object is completely restored when all of its fields and the
+            objects it references are completely restored.  At this point the object
+            validation callbacks are executed in order based on their registered
+            priorities. The callbacks are registered by objects (in the readObject
+            special methods) as they are individually restored.</para>
+          <para>Exceptions are thrown for problems with the InputStream and for
+            classes that should not be deserialized.  All exceptions are fatal to
+            the InputStream and leave it in an indeterminate state; it is up to the
+            caller to ignore or recover the stream state.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readObject()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readObject()</code>.</a>
@@ -913,8 +1109,8 @@
       <MemberSignature Language="F#" Value="abstract member ReadObjectOverride : unit -&gt; Java.Lang.Object&#xA;override this.ReadObjectOverride : unit -&gt; Java.Lang.Object" Usage="objectInputStream.ReadObjectOverride " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -931,6 +1127,11 @@
             constructed ObjectOutputStream using the protected no-arg constructor.</summary>
         <returns>the Object read from the stream.</returns>
         <remarks>
+          <para>This method is called by trusted subclasses of ObjectOutputStream that
+            constructed ObjectOutputStream using the protected no-arg constructor.
+            The subclass is expected to provide an override method with the modifier
+            "final".</para>
+          <para>Added in 1.2.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readObjectOverride()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readObjectOverride()</code>.</a>
@@ -960,8 +1161,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadShort</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -977,6 +1178,7 @@
         <summary>Reads a 16 bit short.</summary>
         <returns>the 16 bit short read.</returns>
         <remarks>
+          <para>Reads a 16 bit short.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readShort()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readShort()</code>.</a>
@@ -1000,8 +1202,8 @@
       <MemberSignature Language="F#" Value="abstract member ReadStreamHeader : unit -&gt; unit&#xA;override this.ReadStreamHeader : unit -&gt; unit" Usage="objectInputStream.ReadStreamHeader " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1017,6 +1219,9 @@
         <summary>The readStreamHeader method is provided to allow subclasses to read and
             verify their own stream headers.</summary>
         <remarks>
+          <para>The readStreamHeader method is provided to allow subclasses to read and
+            verify their own stream headers. It reads and verifies the magic number
+            and version number.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readStreamHeader()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readStreamHeader()</code>.</a>
@@ -1042,8 +1247,8 @@
       <MemberSignature Language="F#" Value="abstract member ReadUnshared : unit -&gt; Java.Lang.Object&#xA;override this.ReadUnshared : unit -&gt; Java.Lang.Object" Usage="objectInputStream.ReadUnshared " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1059,6 +1264,38 @@
         <summary>Reads an "unshared" object from the ObjectInputStream.</summary>
         <returns>reference to deserialized object</returns>
         <remarks>
+          <para>Reads an "unshared" object from the ObjectInputStream.  This method is
+            identical to readObject, except that it prevents subsequent calls to
+            readObject and readUnshared from returning additional references to the
+            deserialized instance obtained via this call.  Specifically:
+            &lt;ul&gt;
+              &lt;li&gt;If readUnshared is called to deserialize a back-reference (the
+                  stream representation of an object which has been written
+                  previously to the stream), an ObjectStreamException will be
+                  thrown.
+            
+              &lt;li&gt;If readUnshared returns successfully, then any subsequent attempts
+                  to deserialize back-references to the stream handle deserialized
+                  by readUnshared will cause an ObjectStreamException to be thrown.
+            &lt;/ul&gt;
+            Deserializing an object via readUnshared invalidates the stream handle
+            associated with the returned object.  Note that this in itself does not
+            always guarantee that the reference returned by readUnshared is unique;
+            the deserialized object may define a readResolve method which returns an
+            object visible to other parties, or readUnshared may return a Class
+            object or enum constant obtainable elsewhere in the stream or through
+            external means. If the deserialized object defines a readResolve method
+            and the invocation of that method returns an array, then readUnshared
+            returns a shallow clone of that array; this guarantees that the returned
+            array object is unique and cannot be obtained a second time from an
+            invocation of readObject or readUnshared on the ObjectInputStream,
+            even if the underlying data stream has been manipulated.</para>
+          <para>ObjectInputStream subclasses which override this method can only be
+            constructed in security contexts possessing the
+            "enableSubclassImplementation" SerializablePermission; any attempt to
+            instantiate such a subclass without this permission will cause a
+            SecurityException to be thrown.</para>
+          <para>Added in 1.4.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readUnshared()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readUnshared()</code>.</a>
@@ -1087,8 +1324,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadUnsignedByte</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1104,6 +1341,7 @@
         <summary>Reads an unsigned 8 bit byte.</summary>
         <returns>the 8 bit byte read.</returns>
         <remarks>
+          <para>Reads an unsigned 8 bit byte.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readUnsignedByte()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readUnsignedByte()</code>.</a>
@@ -1132,8 +1370,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadUnsignedShort</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1149,6 +1387,7 @@
         <summary>Reads an unsigned 16 bit short.</summary>
         <returns>the 16 bit short read.</returns>
         <remarks>
+          <para>Reads an unsigned 16 bit short.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readUnsignedShort()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readUnsignedShort()</code>.</a>
@@ -1177,8 +1416,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.ReadUTF</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1192,9 +1431,13 @@
       <Parameters />
       <Docs>
         <summary>Reads a String in
-            "DataInput.</summary>
+            modified UTF-8
+            format.</summary>
         <returns>the String.</returns>
         <remarks>
+          <para>Reads a String in
+            modified UTF-8
+            format.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#readUTF()" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.readUTF()</code>.</a>
@@ -1220,8 +1463,8 @@
       <MemberSignature Language="F#" Value="abstract member RegisterValidation : Java.IO.IObjectInputValidation * int -&gt; unit&#xA;override this.RegisterValidation : Java.IO.IObjectInputValidation * int -&gt; unit" Usage="objectInputStream.RegisterValidation (obj, prio)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1244,6 +1487,11 @@
                      no particular order.</param>
         <summary>Register an object to be validated before the graph is returned.</summary>
         <remarks>
+          <para>Register an object to be validated before the graph is returned.  While
+            similar to resolveObject these validations are called after the entire
+            graph has been reconstituted.  Typically, a readObject method will
+            register the object with the stream so that when all of the objects are
+            restored a final set of validations can be performed.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#registerValidation(java.io.ObjectInputValidation,%20int)" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.registerValidation(java.io.ObjectInputValidation, int)</code>.</a>
@@ -1269,8 +1517,8 @@
       <MemberSignature Language="F#" Value="abstract member ResolveClass : Java.IO.ObjectStreamClass -&gt; Java.Lang.Class&#xA;override this.ResolveClass : Java.IO.ObjectStreamClass -&gt; Java.Lang.Class" Usage="objectInputStream.ResolveClass desc" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1290,6 +1538,36 @@
             description.</summary>
         <returns>a <c>Class</c> object corresponding to <c>desc</c></returns>
         <remarks>
+          <para>Load the local class equivalent of the specified stream class
+            description.  Subclasses may implement this method to allow classes to
+            be fetched from an alternate source.</para>
+          <para>The corresponding method in <c>ObjectOutputStream</c> is
+            <c>annotateClass</c>.  This method will be invoked only once for
+            each unique class in the stream.  This method can be implemented by
+            subclasses to use an alternate loading mechanism but must return a
+            <c>Class</c> object. Once returned, if the class is not an array
+            class, its serialVersionUID is compared to the serialVersionUID of the
+            serialized class, and if there is a mismatch, the deserialization fails
+            and an <c>InvalidClassException</c> is thrown.</para>
+          <para>The default implementation of this method in
+            <c>ObjectInputStream</c> returns the result of calling</para>
+          <code lang="text/java">Class.forName(desc.getName(), false, loader)
+            </code>
+          <para>where <c>loader</c> is determined as follows: if there is a
+            method on the current thread's stack whose declaring class was
+            defined by a user-defined class loader (and was not a generated to
+            implement reflective invocations), then <c>loader</c> is class
+            loader corresponding to the closest such method to the currently
+            executing frame; otherwise, <c>loader</c> is
+            <c>null</c>. If this call results in a
+            <c>ClassNotFoundException</c> and the name of the passed
+            <c>ObjectStreamClass</c> instance is the Java language keyword
+            for a primitive type or void, then the <c>Class</c> object
+            representing that primitive type or void will be returned
+            (e.g., an <c>ObjectStreamClass</c> with the name
+            <c>"int"</c> will be resolved to <c>Integer.TYPE</c>).
+            Otherwise, the <c>ClassNotFoundException</c> will be thrown to
+            the caller of this method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#resolveClass(java.io.ObjectStreamClass)" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.resolveClass(java.io.ObjectStreamClass)</code>.</a>
@@ -1313,8 +1591,8 @@
       <MemberSignature Language="F#" Value="abstract member ResolveObject : Java.Lang.Object -&gt; Java.Lang.Object&#xA;override this.ResolveObject : Java.Lang.Object -&gt; Java.Lang.Object" Usage="objectInputStream.ResolveObject obj" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1334,6 +1612,24 @@
             substitute one object for another during deserialization.</summary>
         <returns>the substituted object</returns>
         <remarks>
+          <para>This method will allow trusted subclasses of ObjectInputStream to
+            substitute one object for another during deserialization. Replacing
+            objects is disabled until enableResolveObject is called. The
+            enableResolveObject method checks that the stream requesting to resolve
+            object can be trusted. Every reference to serializable objects is passed
+            to resolveObject.  To insure that the private state of objects is not
+            unintentionally exposed only trusted streams may use resolveObject.</para>
+          <para>This method is called after an object has been read but before it is
+            returned from readObject.  The default resolveObject method just returns
+            the same object.</para>
+          <para>When a subclass is replacing objects it must insure that the
+            substituted object is compatible with every field where the reference
+            will be stored.  Objects whose type is not a subclass of the type of the
+            field or array element abort the serialization by raising an exception
+            and the object is not be stored.</para>
+          <para>This method is called only once when each object is first
+            encountered.  All subsequent references to the object will be redirected
+            to the new object.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#resolveObject(java.lang.Object)" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.resolveObject(java.lang.Object)</code>.</a>
@@ -1360,8 +1656,8 @@
       <MemberSignature Language="F#" Value="abstract member ResolveProxyClass : string[] -&gt; Java.Lang.Class&#xA;override this.ResolveProxyClass : string[] -&gt; Java.Lang.Class" Usage="objectInputStream.ResolveProxyClass interfaces" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1385,6 +1681,42 @@
             interfaces and the proxy class.</summary>
         <returns>a proxy class for the specified interfaces</returns>
         <remarks>
+          <para>Returns a proxy class that implements the interfaces named in a proxy
+            class descriptor; subclasses may implement this method to read custom
+            data from the stream along with the descriptors for dynamic proxy
+            classes, allowing them to use an alternate loading mechanism for the
+            interfaces and the proxy class.</para>
+          <para>This method is called exactly once for each unique proxy class
+            descriptor in the stream.</para>
+          <para>The corresponding method in <c>ObjectOutputStream</c> is
+            <c>annotateProxyClass</c>.  For a given subclass of
+            <c>ObjectInputStream</c> that overrides this method, the
+            <c>annotateProxyClass</c> method in the corresponding subclass of
+            <c>ObjectOutputStream</c> must write any data or objects read by
+            this method.</para>
+          <para>The default implementation of this method in
+            <c>ObjectInputStream</c> returns the result of calling
+            <c>Proxy.getProxyClass</c> with the list of <c>Class</c>
+            objects for the interfaces that are named in the <c>interfaces</c>
+            parameter.  The <c>Class</c> object for each interface name
+            <c>i</c> is the value returned by calling</para>
+          <code lang="text/java">Class.forName(i, false, loader)
+            </code>
+          <para>where <c>loader</c> is that of the first non-<c>null</c>
+            class loader up the execution stack, or <c>null</c> if no
+            non-<c>null</c> class loaders are on the stack (the same class
+            loader choice used by the <c>resolveClass</c> method).  Unless any
+            of the resolved interfaces are non-public, this same value of
+            <c>loader</c> is also the class loader passed to
+            <c>Proxy.getProxyClass</c>; if non-public interfaces are present,
+            their class loader is passed instead (if more than one non-public
+            interface class loader is encountered, an
+            <c>IllegalAccessError</c> is thrown).
+            If <c>Proxy.getProxyClass</c> throws an
+            <c>IllegalArgumentException</c>, <c>resolveProxyClass</c>
+            will throw a <c>ClassNotFoundException</c> containing the
+            <c>IllegalArgumentException</c>.</para>
+          <para>Added in 1.3.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#resolveProxyClass(java.lang.String[])" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.resolveProxyClass(java.lang.String[])</code>.</a>
@@ -1412,8 +1744,8 @@
         <InterfaceMember>M:Java.IO.IDataInput.SkipBytes(System.Int32)</InterfaceMember>
       </Implements>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1432,6 +1764,7 @@
         <summary>Skips bytes.</summary>
         <returns>the actual number of bytes skipped.</returns>
         <remarks>
+          <para>Skips bytes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/io/ObjectInputStream#skipBytes(int)" title="Reference documentation">Java documentation for <code>java.io.ObjectInputStream.skipBytes(int)</code>.</a>
@@ -1456,8 +1789,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.IO.ObjectInputStream.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1487,8 +1820,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.IO.ObjectInputStream.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

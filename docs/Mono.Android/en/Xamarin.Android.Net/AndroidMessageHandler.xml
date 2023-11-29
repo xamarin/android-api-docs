@@ -12,8 +12,42 @@
   </Base>
   <Interfaces />
   <Docs>
-    <summary>To be added.</summary>
-    <remarks>To be added.</remarks>
+    <summary>
+             A custom implementation of <see cref="T:System.Net.Http.HttpMessageHandler" /> which internally uses <see cref="T:Java.Net.HttpURLConnection" />
+             (or its HTTPS incarnation) to send HTTP requests.
+             </summary>
+    <remarks>
+      <para>Instance of this class is used to configure <see cref="T:System.Net.Http.HttpClient" /> instance
+             in the following way:
+            
+             <example>
+             var handler = new AndroidMessageHandler {
+                UseCookies = true,
+                AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
+             };
+            
+             var httpClient = new HttpClient (handler);
+             var response = httpClient.GetAsync ("http://example.com")?.Result as AndroidHttpResponseMessage;
+             </example></para>
+      <para>
+             The class supports pre-authentication of requests albeit in a slightly "manual" way. Namely, whenever a request to a server requiring authentication
+             is made and no authentication credentials are provided in the <see cref="P:Xamarin.Android.Net.AndroidMessageHandler.PreAuthenticationData" /> property (which is usually the case on the first
+             request), the <see cref="P:Xamarin.Android.Net.AndroidMessageHandler.RequestNeedsAuthorization" /> property will return <c>true</c> and the <see cref="P:Xamarin.Android.Net.AndroidMessageHandler.RequestedAuthentication" /> property will
+             contain all the authentication information gathered from the server. The application must then fill in the blanks (i.e. the credentials) and re-send
+             the request configured to perform pre-authentication. The reason for this manual process is that the underlying Java HTTP client API supports only a
+             single, VM-wide, authentication handler which cannot be configured to handle credentials for several requests. AndroidMessageHandler, therefore, implements
+             the authentication in managed .NET code. Message handler supports both Basic and Digest authentication. If an authentication scheme that's not supported
+             by AndroidMessageHandler is requested by the server, the application can provide its own authentication module (<see cref="T:Xamarin.Android.Net.AuthenticationData" />,
+             <see cref="P:Xamarin.Android.Net.AndroidMessageHandler.PreAuthenticationData" />) to handle the protocol authorization.</para>
+      <para>AndroidMessageHandler also supports requests to servers with "invalid" (e.g. self-signed) SSL certificates. Since this process is a bit convoluted using
+             the Java APIs, AndroidMessageHandler defines two ways to handle the situation. First, easier, is to store the necessary certificates (either CA or server certificates)
+             in the <see cref="P:Xamarin.Android.Net.AndroidMessageHandler.TrustedCerts" /> collection or, after deriving a custom class from AndroidMessageHandler, by overriding one or more methods provided for this purpose
+             (<see cref="M:Xamarin.Android.Net.AndroidMessageHandler.ConfigureTrustManagerFactory(Java.Security.KeyStore)" />, <see cref="M:Xamarin.Android.Net.AndroidMessageHandler.ConfigureKeyManagerFactory(Java.Security.KeyStore)" /> and <see cref="M:Xamarin.Android.Net.AndroidMessageHandler.ConfigureKeyStore(Java.Security.KeyStore)" />). The former method should be sufficient
+             for most use cases, the latter allows the application to provide fully customized key store, trust manager and key manager, if needed. Note that the instance of
+             AndroidMessageHandler configured to accept an "invalid" certificate from the particular server will most likely fail to validate certificates from other servers (even
+             if they use a certificate with a fully validated trust chain) unless you store the CA certificates from your Android system in <see cref="P:Xamarin.Android.Net.AndroidMessageHandler.TrustedCerts" /> along with
+             the self-signed certificate(s).</para>
+    </remarks>
   </Docs>
   <Members>
     <Member MemberName=".ctor">
@@ -127,7 +161,7 @@
       </Docs>
     </Member>
     <Member MemberName="ClientCertificates">
-      <MemberSignature Language="C#" Value="public System.Security.Cryptography.X509Certificates.X509CertificateCollection ClientCertificates { get; set; }" />
+      <MemberSignature Language="C#" Value="public System.Security.Cryptography.X509Certificates.X509CertificateCollection? ClientCertificates { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Security.Cryptography.X509Certificates.X509CertificateCollection ClientCertificates" />
       <MemberSignature Language="DocId" Value="P:Xamarin.Android.Net.AndroidMessageHandler.ClientCertificates" />
       <MemberSignature Language="F#" Value="member this.ClientCertificates : System.Security.Cryptography.X509Certificates.X509CertificateCollection with get, set" Usage="Xamarin.Android.Net.AndroidMessageHandler.ClientCertificates" />
@@ -331,7 +365,7 @@
       </Docs>
     </Member>
     <Member MemberName="DefaultProxyCredentials">
-      <MemberSignature Language="C#" Value="public System.Net.ICredentials DefaultProxyCredentials { get; set; }" />
+      <MemberSignature Language="C#" Value="public System.Net.ICredentials? DefaultProxyCredentials { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Net.ICredentials DefaultProxyCredentials" />
       <MemberSignature Language="DocId" Value="P:Xamarin.Android.Net.AndroidMessageHandler.DefaultProxyCredentials" />
       <MemberSignature Language="F#" Value="member this.DefaultProxyCredentials : System.Net.ICredentials with get, set" Usage="Xamarin.Android.Net.AndroidMessageHandler.DefaultProxyCredentials" />
@@ -531,7 +565,7 @@
       </Docs>
     </Member>
     <Member MemberName="Properties">
-      <MemberSignature Language="C#" Value="public System.Collections.Generic.IDictionary&lt;string,object?&gt; Properties { get; set; }" />
+      <MemberSignature Language="C#" Value="public System.Collections.Generic.IDictionary&lt;string,object?&gt;? Properties { get; set; }" />
       <MemberSignature Language="ILAsm" Value=".property instance class System.Collections.Generic.IDictionary`2&lt;string, object&gt; Properties" />
       <MemberSignature Language="DocId" Value="P:Xamarin.Android.Net.AndroidMessageHandler.Properties" />
       <MemberSignature Language="F#" Value="member this.Properties : System.Collections.Generic.IDictionary&lt;string, obj&gt; with get, set" Usage="Xamarin.Android.Net.AndroidMessageHandler.Properties" />
@@ -660,6 +694,16 @@
         <AssemblyName>Mono.Android</AssemblyName>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Diagnostics.CodeAnalysis.MemberNotNullWhen(true, "RequestedAuthentication")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Diagnostics.CodeAnalysis.MemberNotNullWhen(true, "RequestedAuthentication")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[get: System.Diagnostics.CodeAnalysis.MemberNotNullWhen(true, "RequestedAuthentication")]</AttributeName>
+          <AttributeName Language="F#">[&lt;get: System.Diagnostics.CodeAnalysis.MemberNotNullWhen(true, "RequestedAuthentication")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
       </ReturnValue>

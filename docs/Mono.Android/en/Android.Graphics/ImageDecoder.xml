@@ -29,12 +29,101 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/graphics/ImageDecoder", ApiSince=28, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/graphics/ImageDecoder", ApiSince=28, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>A class for converting encoded images (like <c>PNG</c>, <c>JPEG</c>,
              <c>WEBP</c>, <c>GIF</c>, or <c>HEIF</c>) into <c>Drawable</c> or
              <c>Bitmap</c> objects.</summary>
     <remarks>
+      <para>A class for converting encoded images (like <c>PNG</c>, <c>JPEG</c>,
+             <c>WEBP</c>, <c>GIF</c>, or <c>HEIF</c>) into <c>Drawable</c> or
+             <c>Bitmap</c> objects.</para>
+      <para>To use it, first create a <c>Source Source</c> using one of the
+             <c>createSource</c> overloads. For example, to decode from a <c>Uri</c>, call
+             <c>#createSource(ContentResolver, Uri)</c> and pass the result to
+             <c>#decodeDrawable(Source)</c> or <c>#decodeBitmap(Source)</c>:</para>
+      <code lang="text/java">File file = new File(...);
+             ImageDecoder.Source source = ImageDecoder.createSource(file);
+             Drawable drawable = ImageDecoder.decodeDrawable(source);
+             </code>
+      <para>To change the default settings, pass the <c>Source Source</c> and an
+             <c>OnHeaderDecodedListener OnHeaderDecodedListener</c> to
+             <c>#decodeDrawable(Source, OnHeaderDecodedListener)</c> or
+             <c>#decodeBitmap(Source, OnHeaderDecodedListener)</c>. For example, to
+             create a sampled image with half the width and height of the original image,
+             call <c>#setTargetSampleSize setTargetSampleSize(2)</c> inside
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>:</para>
+      <code lang="text/java">OnHeaderDecodedListener listener = new OnHeaderDecodedListener() {
+                 public void onHeaderDecoded(ImageDecoder decoder, ImageInfo info, Source source) {
+                     decoder.setTargetSampleSize(2);
+                 }
+             };
+             Drawable drawable = ImageDecoder.decodeDrawable(source, listener);
+             </code>
+      <para>The <c>ImageInfo ImageInfo</c> contains information about the encoded image, like
+             its width and height, and the <c>Source Source</c> can be used to match to a particular
+             <c>Source Source</c> if a single <c>OnHeaderDecodedListener OnHeaderDecodedListener</c>
+             is used with multiple <c>Source Source</c> objects.</para>
+      <para>The <c>OnHeaderDecodedListener OnHeaderDecodedListener</c> can also be implemented
+             as a lambda:</para>
+      <code lang="text/java">Drawable drawable = ImageDecoder.decodeDrawable(source, (decoder, info, src) -&amp;gt; {
+                 decoder.setTargetSampleSize(2);
+             });
+             </code>
+      <para>If the encoded image is an animated <c>GIF</c> or <c>WEBP</c>,
+             <c>#decodeDrawable decodeDrawable</c> will return an <c>AnimatedImageDrawable</c>. To
+             start its animation, call <c>AnimatedImageDrawable#start AnimatedImageDrawable.start()</c>:</para>
+      <code lang="text/java">Drawable drawable = ImageDecoder.decodeDrawable(source);
+             if (drawable instanceof AnimatedImageDrawable) {
+                 ((AnimatedImageDrawable) drawable).start();
+             }
+             </code>
+      <para>By default, a <c>Bitmap</c> created by <c>ImageDecoder</c> (including
+             one that is inside a <c>Drawable</c>) will be immutable (i.e.
+             <c>Bitmap#isMutable Bitmap.isMutable()</c> returns <c>false</c>), and it
+             will typically have <c>Config</c><c>Bitmap.Config#HARDWARE</c>. Although
+             these properties can be changed with <c>#setMutableRequired setMutableRequired(true)</c>
+             (which is only compatible with <c>#decodeBitmap(Source)</c> and
+             <c>#decodeBitmap(Source, OnHeaderDecodedListener)</c>) and <c>#setAllocator</c>,
+             it is also possible to apply custom effects regardless of the mutability of
+             the final returned object by passing a <c>PostProcessor</c> to
+             <c>#setPostProcessor setPostProcessor</c>. A <c>PostProcessor</c> can also be a lambda:</para>
+      <code lang="text/java">Drawable drawable = ImageDecoder.decodeDrawable(source, (decoder, info, src) -&amp;gt; {
+                 decoder.setPostProcessor((canvas) -&amp;gt; {
+                         // This will create rounded corners.
+                         Path path = new Path();
+                         path.setFillType(Path.FillType.INVERSE_EVEN_ODD);
+                         int width = canvas.getWidth();
+                         int height = canvas.getHeight();
+                         path.addRoundRect(0, 0, width, height, 20, 20, Path.Direction.CW);
+                         Paint paint = new Paint();
+                         paint.setAntiAlias(true);
+                         paint.setColor(Color.TRANSPARENT);
+                         paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+                         canvas.drawPath(path, paint);
+                         return PixelFormat.TRANSLUCENT;
+                 });
+             });
+             </code>
+      <para>If the encoded image is incomplete or contains an error, or if an
+             <c>Exception</c> occurs during decoding, a <c>DecodeException DecodeException</c>
+             will be thrown. In some cases, the <c>ImageDecoder</c> may have decoded part of
+             the image. In order to display the partial image, an
+             <c>OnPartialImageListener OnPartialImageListener</c> must be passed to
+             <c>#setOnPartialImageListener setOnPartialImageListener</c>. For example:</para>
+      <code lang="text/java">Drawable drawable = ImageDecoder.decodeDrawable(source, (decoder, info, src) -&amp;gt; {
+                 decoder.setOnPartialImageListener((DecodeException e) -&amp;gt; {
+                         // Returning true indicates to create a Drawable or Bitmap even
+                         // if the whole image could not be decoded. Any remaining lines
+                         // will be blank.
+                         return true;
+                 });
+             });
+             </code>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/graphics/ImageDecoder" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder</code>.</a>
@@ -67,6 +156,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderAllocator enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderAllocator enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.ImageDecoderAllocator</ReturnType>
@@ -75,6 +168,13 @@
       <Docs>
         <summary>Use the default allocation for the pixel memory.</summary>
         <remarks>
+          <para>Use the default allocation for the pixel memory.
+            
+             Will typically result in a <c>Bitmap.Config#HARDWARE</c>
+             allocation, but may be software for small images. In addition, this will
+             switch to software when HARDWARE is incompatible, e.g.
+             <c>#setMutableRequired setMutableRequired(true)</c> or
+             <c>#setDecodeAsAlphaMaskEnabled setDecodeAsAlphaMaskEnabled(true)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#ALLOCATOR_DEFAULT" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.ALLOCATOR_DEFAULT</code>.</a>
@@ -107,6 +207,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderAllocator enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderAllocator enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.ImageDecoderAllocator</ReturnType>
@@ -115,6 +219,12 @@
       <Docs>
         <summary>Require a <c>Bitmap.Config#HARDWARE</c><c>Bitmap</c>.</summary>
         <remarks>
+          <para>Require a <c>Bitmap.Config#HARDWARE</c><c>Bitmap</c>.</para>
+          <para>When this is combined with incompatible options, like
+             <c>#setMutableRequired setMutableRequired(true)</c> or
+             <c>#setDecodeAsAlphaMaskEnabled setDecodeAsAlphaMaskEnabled(true)</c>,
+             <c>#decodeDrawable decodeDrawable</c> or <c>#decodeBitmap decodeBitmap</c>
+             will throw an <c>java.lang.IllegalStateException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#ALLOCATOR_HARDWARE" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.ALLOCATOR_HARDWARE</code>.</a>
@@ -147,6 +257,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderAllocator enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderAllocator enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.ImageDecoderAllocator</ReturnType>
@@ -155,6 +269,9 @@
       <Docs>
         <summary>Use shared memory for the pixel memory.</summary>
         <remarks>
+          <para>Use shared memory for the pixel memory.</para>
+          <para />
+          <para>Useful for sharing across processes.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#ALLOCATOR_SHARED_MEMORY" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.ALLOCATOR_SHARED_MEMORY</code>.</a>
@@ -187,6 +304,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderAllocator enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderAllocator enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.ImageDecoderAllocator</ReturnType>
@@ -195,6 +316,10 @@
       <Docs>
         <summary>Use a software allocation for the pixel memory.</summary>
         <remarks>
+          <para>Use a software allocation for the pixel memory.</para>
+          <para />
+          <para>Useful for drawing to a software <c>Canvas</c> or for
+             accessing the pixels on the final output.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#ALLOCATOR_SOFTWARE" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE</code>.</a>
@@ -226,6 +351,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("close", "()V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("close", "()V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -234,6 +363,11 @@
       <Docs>
         <summary>Closes this resource, relinquishing any underlying resources.</summary>
         <remarks>
+          <para>Closes this resource, relinquishing any underlying resources. This method
+            is invoked automatically on objects managed by the try-with-resources
+            statement.</para>
+          <para>This is an implementation detail of <c>ImageDecoder</c>, and should
+            never be called manually.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#close()" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.close()</code>.</a>
@@ -261,6 +395,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("createSource", "(Ljava/io/File;)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createSource", "(Ljava/io/File;)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -303,6 +441,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("createSource", "(Ljava/nio/ByteBuffer;)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createSource", "(Ljava/nio/ByteBuffer;)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.ImageDecoder+Source</ReturnType>
@@ -343,6 +485,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("createSource", "(Ljava/util/concurrent/Callable;)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createSource", "(Ljava/util/concurrent/Callable;)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -385,6 +531,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("createSource", "([B)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createSource", "([B)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.ImageDecoder+Source</ReturnType>
@@ -425,6 +575,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("createSource", "(Landroid/content/ContentResolver;Landroid/net/Uri;)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createSource", "(Landroid/content/ContentResolver;Landroid/net/Uri;)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -469,6 +623,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("createSource", "(Landroid/content/res/AssetManager;Ljava/lang/String;)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createSource", "(Landroid/content/res/AssetManager;Ljava/lang/String;)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.ImageDecoder+Source</ReturnType>
@@ -511,6 +669,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("createSource", "(Landroid/content/res/Resources;I)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createSource", "(Landroid/content/res/Resources;I)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -555,6 +717,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("createSource", "([BII)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("createSource", "([BII)Landroid/graphics/ImageDecoder$Source;", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.ImageDecoder+Source</ReturnType>
@@ -597,12 +763,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getCrop", "()Landroid/graphics/Rect;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getCrop", "()Landroid/graphics/Rect;", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setCrop", "(Landroid/graphics/Rect;)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setCrop", "(Landroid/graphics/Rect;)V", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -613,12 +787,24 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Return the cropping rectangle, if set.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#getCrop()" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.getCrop()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Crop the output to <c>subset</c> of the (possibly) scaled image.</para>
+          <para>
+            <c>subset</c> must be contained within the size set by
+             <c>#setTargetSize</c> or the bounds of the image if setTargetSize was
+             not called. Otherwise an <c>IllegalStateException</c> will be thrown by
+             <c>#decodeDrawable decodeDrawable</c>/<c>#decodeBitmap decodeBitmap</c>.</para>
+          <para>NOT intended as a replacement for
+             <c>BitmapRegionDecoder#decodeRegion BitmapRegionDecoder.decodeRegion()</c>.
+             This supports all formats, but merely crops the output.</para>
+          <para>Like all setters on ImageDecoder, this must be called inside
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#setCrop(android.graphics.Rect)" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.setCrop(android.graphics.Rect)</code>.</a>
@@ -644,12 +830,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isDecodeAsAlphaMaskEnabled", "()Z", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isDecodeAsAlphaMaskEnabled", "()Z", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setDecodeAsAlphaMaskEnabled", "(Z)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setDecodeAsAlphaMaskEnabled", "(Z)V", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -660,12 +854,29 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Return whether to treat single channel input as alpha.</para>
+          <para />
+          <para>This returns whether <c>#setDecodeAsAlphaMaskEnabled</c> was set to
+             <c>true</c>. It may still return <c>true</c> even if the image has
+             more than one channel and therefore will not be treated as an alpha
+             mask.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#isDecodeAsAlphaMaskEnabled()" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.isDecodeAsAlphaMaskEnabled()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Specify whether to potentially treat the output as an alpha mask.</para>
+          <para />
+          <para>If this is set to <c>true</c> and the image is encoded in a format
+             with only one channel, treat that channel as alpha. Otherwise this call has
+             no effect.</para>
+          <para>This is incompatible with <c>#ALLOCATOR_HARDWARE</c>. Trying to
+             combine them will result in <c>#decodeDrawable decodeDrawable</c>/
+             <c>#decodeBitmap decodeBitmap</c> throwing an
+             <c>java.lang.IllegalStateException</c>.</para>
+          <para>Like all setters on ImageDecoder, this must be called inside
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#setDecodeAsAlphaMaskEnabled(boolean)" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.setDecodeAsAlphaMaskEnabled(boolean)</code>.</a>
@@ -693,6 +904,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("decodeBitmap", "(Landroid/graphics/ImageDecoder$Source;)Landroid/graphics/Bitmap;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("decodeBitmap", "(Landroid/graphics/ImageDecoder$Source;)Landroid/graphics/Bitmap;", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -733,6 +948,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("decodeBitmap", "(Landroid/graphics/ImageDecoder$Source;Landroid/graphics/ImageDecoder$OnHeaderDecodedListener;)Landroid/graphics/Bitmap;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("decodeBitmap", "(Landroid/graphics/ImageDecoder$Source;Landroid/graphics/ImageDecoder$OnHeaderDecodedListener;)Landroid/graphics/Bitmap;", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -776,6 +995,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("decodeDrawable", "(Landroid/graphics/ImageDecoder$Source;)Landroid/graphics/drawable/Drawable;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("decodeDrawable", "(Landroid/graphics/ImageDecoder$Source;)Landroid/graphics/drawable/Drawable;", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.Drawables.Drawable</ReturnType>
@@ -815,6 +1038,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("decodeDrawable", "(Landroid/graphics/ImageDecoder$Source;Landroid/graphics/ImageDecoder$OnHeaderDecodedListener;)Landroid/graphics/drawable/Drawable;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("decodeDrawable", "(Landroid/graphics/ImageDecoder$Source;Landroid/graphics/ImageDecoder$OnHeaderDecodedListener;)Landroid/graphics/drawable/Drawable;", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -858,6 +1085,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("isMimeTypeSupported", "(Ljava/lang/String;)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("isMimeTypeSupported", "(Ljava/lang/String;)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -871,6 +1102,10 @@
             decoded by this class.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Return if the given MIME type is a supported file format that can be
+            decoded by this class. This can be useful to determine if a file can be
+            decoded directly, or if it needs to be converted into a more general
+            format using an API like <c>ContentResolver#openTypedAssetFile</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#isMimeTypeSupported(java.lang.String)" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.isMimeTypeSupported(java.lang.String)</code>.</a>
@@ -935,6 +1170,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderMemoryPolicy enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderMemoryPolicy enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.ImageDecoderMemoryPolicy</ReturnType>
@@ -943,6 +1182,12 @@
       <Docs>
         <summary>Use the most natural <c>Bitmap.Config</c> for the internal <c>Bitmap</c>.</summary>
         <remarks>
+          <para>Use the most natural <c>Bitmap.Config</c> for the internal <c>Bitmap</c>.</para>
+          <para>This is the recommended default for most applications and usages. This
+            will use the closest <c>Bitmap.Config</c> for the encoded source. If the
+            encoded source does not exactly match any <c>Bitmap.Config</c>, the next
+            highest quality <c>Bitmap.Config</c> will be used avoiding any loss in
+            image quality.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#MEMORY_POLICY_DEFAULT" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.MEMORY_POLICY_DEFAULT</code>.</a>
@@ -975,6 +1220,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderMemoryPolicy enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Graphics.ImageDecoderMemoryPolicy enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Graphics.ImageDecoderMemoryPolicy</ReturnType>
@@ -984,6 +1233,11 @@
         <summary>Save memory if possible by using a denser <c>Bitmap.Config</c> at the
             cost of some image quality.</summary>
         <remarks>
+          <para>Save memory if possible by using a denser <c>Bitmap.Config</c> at the
+            cost of some image quality.</para>
+          <para>For example an opaque 8-bit image may be compressed into an
+            <c>Bitmap.Config#RGB_565</c> configuration, sacrificing image
+            quality to save memory.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#MEMORY_POLICY_LOW_RAM" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.MEMORY_POLICY_LOW_RAM</code>.</a>
@@ -1009,12 +1263,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getMemorySizePolicy", "()I", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getMemorySizePolicy", "()I", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setMemorySizePolicy", "(I)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setMemorySizePolicy", "(I)V", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1025,12 +1287,16 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Retrieve the memory policy for the decoded <c>Bitmap</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#getMemorySizePolicy()" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.getMemorySizePolicy()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Specify the memory policy for the decoded <c>Bitmap</c>.</para>
+          <para>Like all setters on ImageDecoder, this must be called inside
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#setMemorySizePolicy(int)" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.setMemorySizePolicy(int)</code>.</a>
@@ -1056,12 +1322,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isMutableRequired", "()Z", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isMutableRequired", "()Z", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setMutableRequired", "(Z)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setMutableRequired", "(Z)V", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1072,12 +1346,27 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Return whether the decoded <c>Bitmap</c> will be mutable.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#isMutableRequired()" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.isMutableRequired()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Specify whether the <c>Bitmap</c> should be mutable.</para>
+          <para>By default, a <c>Bitmap</c> created by <c>#decodeBitmap decodeBitmap</c>
+             will be immutable i.e. <c>Bitmap#isMutable() Bitmap.isMutable()</c> returns
+             <c>false</c>. This can be changed with <c>setMutableRequired(true)</c>.</para>
+          <para>Mutable Bitmaps are incompatible with <c>#ALLOCATOR_HARDWARE</c>,
+             because <c>Bitmap.Config#HARDWARE</c> Bitmaps cannot be mutable.
+             Attempting to combine them will throw an
+             <c>java.lang.IllegalStateException</c>.</para>
+          <para>Mutable Bitmaps are also incompatible with <c>#decodeDrawable decodeDrawable</c>,
+             which would require retrieving the Bitmap from the returned Drawable in
+             order to modify. Attempting to decode a mutable <c>Drawable</c> will
+             throw an <c>java.lang.IllegalStateException</c>.</para>
+          <para>Like all setters on ImageDecoder, this must be called inside
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#setMutableRequired(boolean)" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.setMutableRequired(boolean)</code>.</a>
@@ -1103,12 +1392,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getOnPartialImageListener", "()Landroid/graphics/ImageDecoder$OnPartialImageListener;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getOnPartialImageListener", "()Landroid/graphics/ImageDecoder$OnPartialImageListener;", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setOnPartialImageListener", "(Landroid/graphics/ImageDecoder$OnPartialImageListener;)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setOnPartialImageListener", "(Landroid/graphics/ImageDecoder$OnPartialImageListener;)V", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1141,6 +1438,12 @@
         <AssemblyName>Mono.Android</AssemblyName>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
+      <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+      </Attributes>
       <ReturnValue>
         <ReturnType>System.EventHandler&lt;Android.Graphics.ImageDecoder+PartialImageEventArgs&gt;</ReturnType>
       </ReturnValue>
@@ -1161,12 +1464,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getPostProcessor", "()Landroid/graphics/PostProcessor;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getPostProcessor", "()Landroid/graphics/PostProcessor;", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setPostProcessor", "(Landroid/graphics/PostProcessor;)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setPostProcessor", "(Landroid/graphics/PostProcessor;)V", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1177,12 +1488,26 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Return the <c>PostProcessor</c> currently set.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#getPostProcessor()" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.getPostProcessor()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Modify the image after decoding and scaling.</para>
+          <para />
+          <para>This allows adding effects prior to returning a <c>Drawable</c> or
+             <c>Bitmap</c>. For a <c>Drawable</c> or an immutable <c>Bitmap</c>,
+             this is the only way to process the image after decoding.</para>
+          <para>If combined with <c>#setTargetSize</c> and/or <c>#setCrop</c>,
+             <c>PostProcessor#onPostProcess</c> occurs last.</para>
+          <para>If set on a nine-patch image, the nine-patch data is ignored.</para>
+          <para>For an animated image, the drawing commands drawn on the
+             <c>Canvas</c> will be recorded immediately and then applied to each
+             frame.</para>
+          <para>Like all setters on ImageDecoder, this must be called inside
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#setPostProcessor(android.graphics.PostProcessor)" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.setPostProcessor(android.graphics.PostProcessor)</code>.</a>
@@ -1211,6 +1536,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setTargetColorSpace", "(Landroid/graphics/ColorSpace;)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setTargetColorSpace", "(Landroid/graphics/ColorSpace;)V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1222,6 +1551,33 @@
         <param name="colorSpace">To be added.</param>
         <summary>Specify the desired <c>ColorSpace</c> for the output.</summary>
         <remarks>
+          <para>Specify the desired <c>ColorSpace</c> for the output.</para>
+          <para>If non-null, the decoder will try to decode into <c>colorSpace</c>.
+            If it is null, which is the default, or the request cannot be met, the
+            decoder will pick either the color space embedded in the image or the
+            <c>ColorSpace</c> best suited for the requested image configuration
+            (for instance <c>ColorSpace.Named#SRGB sRGB</c> for the
+            <c>Bitmap.Config#ARGB_8888</c> configuration and
+            <c>ColorSpace.Named#EXTENDED_SRGB EXTENDED_SRGB</c> for
+            <c>Bitmap.Config#RGBA_F16</c>).</para>
+          <para>&lt;p class="note"&gt;Only <c>ColorSpace.Model#RGB</c> color spaces are
+            currently supported. An <c>IllegalArgumentException</c> will
+            be thrown by <c>#decodeDrawable decodeDrawable</c>/
+            <c>#decodeBitmap decodeBitmap</c> when setting a non-RGB color space
+            such as <c>ColorSpace.Named#CIE_LAB Lab</c>.&lt;/p&gt;
+            
+            &lt;p class="note"&gt;Prior to <c>android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE</c>,
+            the specified color space's transfer function must be
+            an <c>ColorSpace.Rgb.TransferParameters ICC parametric curve</c>. An
+            <c>IllegalArgumentException</c> will be thrown by the decode methods
+            if calling <c>ColorSpace.Rgb#getTransferParameters()</c> on the
+            specified color space returns null.
+            Starting from <c>android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE</c>,
+            the color spaces with non ICC parametric curve transfer function are allowed.
+            E.g., <c>ColorSpace.Named#BT2020_HLG BT2020_HLG</c>.
+            &lt;/p&gt;</para>
+          <para>Like all setters on ImageDecoder, this must be called inside
+            <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#setTargetColorSpace(android.graphics.ColorSpace)" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.setTargetColorSpace(android.graphics.ColorSpace)</code>.</a>
@@ -1250,6 +1606,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setTargetSampleSize", "(I)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setTargetSampleSize", "(I)V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1261,6 +1621,25 @@
         <param name="sampleSize">sampling rate of the encoded image.</param>
         <summary>Set the target size with a sampleSize.</summary>
         <remarks>
+          <para>Set the target size with a sampleSize.</para>
+          <para />
+          <para>By default, the output size will match the size of the encoded
+             image, which can be retrieved from the <c>ImageInfo ImageInfo</c> in
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
+          <para>Requests the decoder to subsample the original image, returning a
+             smaller image to save memory. The <c>sampleSize</c> is the number of pixels
+             in either dimension that correspond to a single pixel in the output.
+             For example, <c>sampleSize == 4</c> returns an image that is 1/4 the
+             width/height of the original, and 1/16 the number of pixels.</para>
+          <para>Must be greater than or equal to 1.</para>
+          <para>This has the same effect as calling <c>#setTargetSize</c> with
+             dimensions based on the <c>sampleSize</c>. Unlike dividing the original
+             width and height by the <c>sampleSize</c> manually, calling this method
+             allows <c>ImageDecoder</c> to round in the direction that it can do most
+             efficiently.</para>
+          <para>Only the last call to this or <c>#setTargetSize</c> is respected.</para>
+          <para>Like all setters on ImageDecoder, this must be called inside
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#setTargetSampleSize(int)" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.setTargetSampleSize(int)</code>.</a>
@@ -1289,6 +1668,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setTargetSize", "(II)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setTargetSize", "(II)V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -1302,6 +1685,16 @@
         <param name="height">height in pixels of the output, must be greater than 0</param>
         <summary>Specify the size of the output <c>Drawable</c> or <c>Bitmap</c>.</summary>
         <remarks>
+          <para>Specify the size of the output <c>Drawable</c> or <c>Bitmap</c>.</para>
+          <para>By default, the output size will match the size of the encoded
+             image, which can be retrieved from the <c>ImageInfo ImageInfo</c> in
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
+          <para>This will sample or scale the output to an arbitrary size that may
+             be smaller or larger than the encoded size.</para>
+          <para>Only the last call to this or <c>#setTargetSampleSize</c> is
+             respected.</para>
+          <para>Like all setters on ImageDecoder, this must be called inside
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#setTargetSize(int,%20int)" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.setTargetSize(int, int)</code>.</a>
@@ -1385,12 +1778,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isUnpremultipliedRequired", "()Z", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isUnpremultipliedRequired", "()Z", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setUnpremultipliedRequired", "(Z)V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setUnpremultipliedRequired", "(Z)V", "", ApiSince=28)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -1401,12 +1802,25 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Return whether the <c>Bitmap</c> will have unpremultiplied pixels.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#isUnpremultipliedRequired()" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.isUnpremultipliedRequired()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Specify whether the <c>Bitmap</c> should have unpremultiplied pixels.</para>
+          <para>By default, ImageDecoder will create a <c>Bitmap</c> with
+             premultiplied pixels, which is required for drawing with the
+             <c>android.view.View</c> system (i.e. to a <c>Canvas</c>). Calling
+             this method with a value of <c>true</c> will result in
+             <c>#decodeBitmap</c> returning a <c>Bitmap</c> with unpremultiplied
+             pixels. See <c>Bitmap#isPremultiplied Bitmap.isPremultiplied()</c>.
+             This is incompatible with <c>#decodeDrawable decodeDrawable</c>;
+             attempting to decode an unpremultiplied <c>Drawable</c> will throw an
+             <c>java.lang.IllegalStateException</c>.</para>
+          <para>Like all setters on ImageDecoder, this must be called inside
+             <c>OnHeaderDecodedListener#onHeaderDecoded onHeaderDecoded</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/graphics/ImageDecoder#setUnpremultipliedRequired(boolean)" title="Reference documentation">Java documentation for <code>android.graphics.ImageDecoder.setUnpremultipliedRequired(boolean)</code>.</a>

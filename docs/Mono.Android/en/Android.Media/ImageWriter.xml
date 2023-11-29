@@ -29,12 +29,50 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/media/ImageWriter", ApiSince=23, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/media/ImageWriter", ApiSince=23, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
     <summary>The ImageWriter class allows an application to produce Image data into a
             <c>android.view.Surface</c>, and have it be consumed by another component
             like <c>android.hardware.camera2.CameraDevice CameraDevice</c>.</summary>
     <remarks>
+      <para>The ImageWriter class allows an application to produce Image data into a
+            <c>android.view.Surface</c>, and have it be consumed by another component
+            like <c>android.hardware.camera2.CameraDevice CameraDevice</c>.</para>
+      <para>Several Android API classes can provide input <c>android.view.Surface
+            Surface</c> objects for ImageWriter to produce data into, including
+            <c>MediaCodec MediaCodec</c> (encoder),
+            <c>android.hardware.camera2.CameraCaptureSession CameraCaptureSession</c>
+            (reprocessing input), <c>ImageReader</c>, etc.</para>
+      <para>The input Image data is encapsulated in <c>Image</c> objects. To produce
+            Image data into a destination <c>android.view.Surface Surface</c>, the
+            application can get an input Image via <c>#dequeueInputImage</c> then write
+            Image data into it. Multiple such <c>Image</c> objects can be dequeued at
+            the same time and queued back in any order, up to the number specified by the
+            <c>maxImages</c> constructor parameter.</para>
+      <para>If the application already has an Image from <c>ImageReader</c>, the
+            application can directly queue this Image into the ImageWriter (via
+            <c>#queueInputImage</c>), potentially with zero buffer copies. This
+            even works if the image format of the ImageWriter is
+            <c>ImageFormat#PRIVATE PRIVATE</c>, and prior to Android P is the only
+            way to enqueue images into such an ImageWriter. Starting in Android P
+            private images may also be accessed through their hardware buffers
+            (when available) through the <c>Image#getHardwareBuffer()</c> method.
+            Attempting to access the planes of a private image, will return an
+            empty array.</para>
+      <para>Once new input Images are queued into an ImageWriter, it's up to the
+            downstream components (e.g. <c>ImageReader</c> or
+            <c>android.hardware.camera2.CameraDevice</c>) to consume the Images. If the
+            downstream components cannot consume the Images at least as fast as the
+            ImageWriter production rate, the <c>#dequeueInputImage</c> call will
+            eventually block and the application will have to drop input frames.</para>
+      <para>If the consumer component that provided the input <c>android.view.Surface Surface</c>
+            abandons the <c>android.view.Surface Surface</c>, <c>#queueInputImage queueing</c>
+            or <c>#dequeueInputImage dequeueing</c> an <c>Image</c> will throw an
+            <c>IllegalStateException</c>.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/media/ImageWriter" title="Reference documentation">Java documentation for <code>android.media.ImageWriter</code>.</a>
@@ -89,6 +127,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("close", "()V", "GetCloseHandler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("close", "()V", "GetCloseHandler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -97,6 +139,14 @@
       <Docs>
         <summary>Free up all the resources associated with this ImageWriter.</summary>
         <remarks>
+          <para>Free up all the resources associated with this ImageWriter.</para>
+          <para>After calling this method, this ImageWriter cannot be used. Calling any
+            methods on this ImageWriter and Images previously provided by
+            <c>#dequeueInputImage()</c> will result in an
+            <c>IllegalStateException</c>, and attempting to write into
+            <c>ByteBuffer ByteBuffers</c> returned by an earlier
+            <c>Image.Plane#getBuffer Plane#getBuffer</c> call will have undefined
+            behavior.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#close()" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.close()</code>.</a>
@@ -122,6 +172,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getDataSpace", "()I", "GetGetDataSpaceHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getDataSpace", "()I", "GetGetDataSpaceHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -133,6 +187,9 @@
         <summary>Get the ImageWriter dataspace.</summary>
         <value>The ImageWriter dataspace.</value>
         <remarks>
+          <para>Get the ImageWriter dataspace.</para>
+          <para>Use this function if the ImageWriter instance is created by builder pattern
+            <c>ImageWriter.Builder</c> and <c>Builder#setDataSpace</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#getDataSpace()" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.getDataSpace()</code>.</a>
@@ -161,6 +218,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("dequeueInputImage", "()Landroid/media/Image;", "GetDequeueInputImageHandler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("dequeueInputImage", "()Landroid/media/Image;", "GetDequeueInputImageHandler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.Image</ReturnType>
@@ -171,6 +232,33 @@
             data into.</summary>
         <returns>The next available input Image from this ImageWriter.</returns>
         <remarks>
+          <para>Dequeue the next available input Image for the application to produce
+            data into.</para>
+          <para>This method requests a new input Image from ImageWriter. The application
+            owns this Image after this call. Once the application fills the Image
+            data, it is expected to return this Image back to ImageWriter for
+            downstream consumer components (e.g.
+            <c>android.hardware.camera2.CameraDevice</c>) to consume. The Image can
+            be returned to ImageWriter via <c>#queueInputImage</c> or
+            <c>Image#close()</c>.</para>
+          <para>This call will block if all available input images have been queued by
+            the application and the downstream consumer has not yet consumed any.
+            When an Image is consumed by the downstream consumer and released, an
+            <c>OnImageReleasedListener#onImageReleased</c> callback will be fired,
+            which indicates that there is one input Image available. For non-
+            <c>ImageFormat#PRIVATE PRIVATE</c> formats (
+            <c>ImageWriter#getFormat()</c> != <c>ImageFormat#PRIVATE</c>), it is
+            recommended to dequeue the next Image only after this callback is fired,
+            in the steady state.</para>
+          <para>If the format of ImageWriter is <c>ImageFormat#PRIVATE PRIVATE</c> (
+            <c>ImageWriter#getFormat()</c> == <c>ImageFormat#PRIVATE</c>), the
+            image buffer is accessible to the application only through the hardware
+            buffer obtained through <c>Image#getHardwareBuffer()</c>. (On Android
+            versions prior to P, dequeueing private buffers will cause an
+            <c>IllegalStateException</c> to be thrown). Alternatively,
+            the application can acquire images from some other component (e.g. an
+            <c>ImageReader</c>), and queue them directly to this ImageWriter via the
+            <c>ImageWriter#queueInputImage queueInputImage()</c> method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#dequeueInputImage()" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.dequeueInputImage()</code>.</a>
@@ -196,6 +284,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getFormat", "()I", "GetGetFormatHandler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getFormat", "()I", "GetGetFormatHandler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
@@ -207,6 +299,11 @@
         <summary>Get the ImageWriter format.</summary>
         <value>The ImageWriter format.</value>
         <remarks>
+          <para>Get the ImageWriter format.</para>
+          <para>This format may be different than the Image format returned by
+            <c>Image#getFormat()</c>. However, if the ImageWriter format is
+            <c>ImageFormat#PRIVATE PRIVATE</c>, calling <c>#dequeueInputImage()</c>
+            will result in an <c>IllegalStateException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#getFormat()" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.getFormat()</code>.</a>
@@ -232,6 +329,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getHardwareBufferFormat", "()I", "GetGetHardwareBufferFormatHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getHardwareBufferFormat", "()I", "GetGetHardwareBufferFormatHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -243,6 +344,10 @@
         <summary>Get the ImageWriter hardwareBuffer format.</summary>
         <value>The ImageWriter hardwareBuffer format.</value>
         <remarks>
+          <para>Get the ImageWriter hardwareBuffer format.</para>
+          <para>Use this function if the ImageWriter instance is created by builder pattern
+            <c>ImageWriter.Builder</c> and using <c>Builder#setHardwareBufferFormat</c> and
+            <c>Builder#setDataSpace</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#getHardwareBufferFormat()" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.getHardwareBufferFormat()</code>.</a>
@@ -268,6 +373,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getHeight", "()I", "GetGetHeightHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getHeight", "()I", "GetGetHeightHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -279,6 +388,9 @@
         <summary>The height of <c>Image Images</c>, in pixels.</summary>
         <value>the expected height of an Image.</value>
         <remarks>
+          <para>The height of <c>Image Images</c>, in pixels.</para>
+          <para>If <c>Builder#setWidthAndHeight</c> is not called, the default height of the Image
+            depends on the Surface provided by customer end-point.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#getHeight()" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.getHeight()</code>.</a>
@@ -338,6 +450,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getMaxImages", "()I", "GetGetMaxImagesHandler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getMaxImages", "()I", "GetGetMaxImagesHandler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
@@ -351,6 +467,15 @@
         <value>Maximum number of Images that can be dequeued from this
                     ImageWriter.</value>
         <remarks>
+          <para>Maximum number of Images that can be dequeued from the ImageWriter
+            simultaneously (for example, with <c>#dequeueInputImage()</c>).</para>
+          <para>An Image is considered dequeued after it's returned by
+            <c>#dequeueInputImage()</c> from ImageWriter, and until the Image is
+            sent back to ImageWriter via <c>#queueInputImage</c>, or
+            <c>Image#close()</c>.</para>
+          <para>Attempting to dequeue more than <c>maxImages</c> concurrently will
+            result in the <c>#dequeueInputImage()</c> function throwing an
+            <c>IllegalStateException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#getMaxImages()" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.getMaxImages()</code>.</a>
@@ -379,6 +504,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("newInstance", "(Landroid/view/Surface;I)Landroid/media/ImageWriter;", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("newInstance", "(Landroid/view/Surface;I)Landroid/media/ImageWriter;", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.ImageWriter</ReturnType>
@@ -399,6 +528,13 @@
         <summary>Create a new ImageWriter.</summary>
         <returns>a new ImageWriter instance.</returns>
         <remarks>
+          <para>Create a new ImageWriter.</para>
+          <para>The <c>maxImages</c> parameter determines the maximum number of
+            <c>Image</c> objects that can be be dequeued from the
+            <c>ImageWriter</c> simultaneously. Requesting more buffers will use up
+            more memory, so it is important to use only the minimum number necessary.</para>
+          <para>The input Image size and format depend on the Surface that is provided by
+            the downstream consumer end-point.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#newInstance(android.view.Surface,%20int)" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.newInstance(android.view.Surface, int)</code>.</a>
@@ -426,6 +562,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("newInstance", "(Landroid/view/Surface;II)Landroid/media/ImageWriter;", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("newInstance", "(Landroid/view/Surface;II)Landroid/media/ImageWriter;", "", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -457,6 +597,22 @@
         <summary>Create a new ImageWriter with given number of max Images and format.</summary>
         <returns>a new ImageWriter instance.</returns>
         <remarks>
+          <para>Create a new ImageWriter with given number of max Images and format.</para>
+          <para>The <c>maxImages</c> parameter determines the maximum number of
+            <c>Image</c> objects that can be be dequeued from the
+            <c>ImageWriter</c> simultaneously. Requesting more buffers will use up
+            more memory, so it is important to use only the minimum number necessary.</para>
+          <para>The format specifies the image format of this ImageWriter. The format
+            from the <c>surface</c> will be overridden with this format. For example,
+            if the surface is obtained from a <c>android.graphics.SurfaceTexture</c>, the default
+            format may be <c>PixelFormat#RGBA_8888</c>. If the application creates an ImageWriter
+            with this surface and <c>ImageFormat#PRIVATE</c>, this ImageWriter will be able to operate
+            with <c>ImageFormat#PRIVATE</c> Images.</para>
+          <para>Note that the consumer end-point may or may not be able to support Images with different
+            format, for such case, the application should only use this method if the consumer is able
+            to consume such images.</para>
+          <para>The input Image size depends on the Surface that is provided by
+            the downstream consumer end-point.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#newInstance(android.view.Surface,%20int,%20int)" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.newInstance(android.view.Surface, int, int)</code>.</a>
@@ -485,6 +641,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("queueInputImage", "(Landroid/media/Image;)V", "GetQueueInputImage_Landroid_media_Image_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("queueInputImage", "(Landroid/media/Image;)V", "GetQueueInputImage_Landroid_media_Image_Handler", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -498,6 +658,36 @@
         <summary>Queue an input <c>Image</c> back to ImageWriter for the downstream
             consumer to access.</summary>
         <remarks>
+          <para>Queue an input <c>Image</c> back to ImageWriter for the downstream
+            consumer to access.</para>
+          <para>The input <c>Image</c> could be from ImageReader (acquired via
+            <c>ImageReader#acquireNextImage</c> or
+            <c>ImageReader#acquireLatestImage</c>), or from this ImageWriter
+            (acquired via <c>#dequeueInputImage</c>). In the former case, the Image
+            data will be moved to this ImageWriter. Note that the Image properties
+            (size, format, strides, etc.) must be the same as the properties of the
+            images dequeued from this ImageWriter. In the latter case, the application has
+            filled the input image with data. This method then passes the filled
+            buffer to the downstream consumer. In both cases, it's up to the caller
+            to ensure that the Image timestamp (in nanoseconds) is correctly set, as
+            the downstream component may want to use it to indicate the Image data
+            capture time.</para>
+          <para>After this method is called and the downstream consumer consumes and
+            releases the Image, an <c>OnImageReleasedListener#onImageReleased</c>
+            callback will fire. The application can use this callback to avoid
+            sending Images faster than the downstream consumer processing rate in
+            steady state.</para>
+          <para>Passing in an Image from some other component (e.g. an
+            <c>ImageReader</c>) requires a free input Image from this ImageWriter as
+            the destination. In this case, this call will block, as
+            <c>#dequeueInputImage</c> does, if there are no free Images available.
+            To avoid blocking, the application should ensure that there is at least
+            one free Image available in this ImageWriter before calling this method.</para>
+          <para>After this call, the input Image is no longer valid for further access,
+            as if the Image is <c>Image#close closed</c>. Attempting to access the
+            <c>ByteBuffer ByteBuffers</c> returned by an earlier
+            <c>Image.Plane#getBuffer Plane#getBuffer</c> call will result in an
+            <c>IllegalStateException</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#queueInputImage(android.media.Image)" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.queueInputImage(android.media.Image)</code>.</a>
@@ -525,6 +715,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOnImageReleasedListener", "(Landroid/media/ImageWriter$OnImageReleasedListener;Landroid/os/Handler;)V", "GetSetOnImageReleasedListener_Landroid_media_ImageWriter_OnImageReleasedListener_Landroid_os_Handler_Handler", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnImageReleasedListener", "(Landroid/media/ImageWriter$OnImageReleasedListener;Landroid/os/Handler;)V", "GetSetOnImageReleasedListener_Landroid_media_ImageWriter_OnImageReleasedListener_Landroid_os_Handler_Handler", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -629,6 +823,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getUsage", "()J", "GetGetUsageHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getUsage", "()J", "GetGetUsageHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -640,6 +838,9 @@
         <summary>Get the ImageWriter usage flag.</summary>
         <value>The ImageWriter usage flag.</value>
         <remarks>
+          <para>Get the ImageWriter usage flag.</para>
+          <para>It is not recommended to use this function if <c>Builder#setUsage</c> is not called.
+            Invalid usage value will be returned if so.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#getUsage()" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.getUsage()</code>.</a>
@@ -665,6 +866,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getWidth", "()I", "GetGetWidthHandler", ApiSince=33)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getWidth", "()I", "GetGetWidthHandler", ApiSince=33)&gt;]</AttributeName>
         </Attribute>
@@ -676,6 +881,9 @@
         <summary>The width of <c>Image Images</c>, in pixels.</summary>
         <value>the expected actual width of an Image.</value>
         <remarks>
+          <para>The width of <c>Image Images</c>, in pixels.</para>
+          <para>If <c>Builder#setWidthAndHeight</c> is not called, the default width of the Image
+            depends on the Surface provided by customer end-point.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/ImageWriter#getWidth()" title="Reference documentation">Java documentation for <code>android.media.ImageWriter.getWidth()</code>.</a>

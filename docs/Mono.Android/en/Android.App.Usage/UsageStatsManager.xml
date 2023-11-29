@@ -20,6 +20,30 @@
   <Docs since="21">
     <summary>Provides access to device usage history and statistics.</summary>
     <remarks>
+      <para>Provides access to device usage history and statistics. Usage data is aggregated into
+            time intervals: days, weeks, months, and years.
+            &lt;p /&gt;
+            When requesting usage data since a particular time, the request might look something like this:</para>
+      <code lang="text/java">PAST                   REQUEST_TIME                    TODAY                   FUTURE
+            ————————————————————————————||———————————————————————————¦-----------------------|
+                                   YEAR ||                           ¦                       |
+            ————————————————————————————||———————————————————————————¦-----------------------|
+             MONTH            |         ||                MONTH      ¦                       |
+            ——————————————————|—————————||———————————————————————————¦-----------------------|
+              |      WEEK     |     WEEK||    |     WEEK     |     WE¦EK     |      WEEK     |
+            ————————————————————————————||———————————————————|———————¦-----------------------|
+                                        ||           |DAY|DAY|DAY|DAY¦DAY|DAY|DAY|DAY|DAY|DAY|
+            ————————————————————————————||———————————————————————————¦-----------------------|
+            </code>
+      <para>A request for data in the middle of a time interval will include that interval.
+            &lt;p/&gt;
+            &lt;b&gt;NOTE:&lt;/b&gt; Most methods on this API require the permission
+            android.permission.PACKAGE_USAGE_STATS. However, declaring the permission implies intention to
+            use the API and the user of the device still needs to grant permission through the Settings
+            application.
+            See <c>android.provider.Settings#ACTION_USAGE_ACCESS_SETTINGS</c>.
+            Methods which only return the information for the calling package do not require this permission.
+            E.g. <c>#getAppStandbyBucket()</c> and <c>#queryEventsForSelf(long, long)</c>.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager</code>.</a>
@@ -45,6 +69,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getAppStandbyBucket", "()I", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getAppStandbyBucket", "()I", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
@@ -56,6 +84,21 @@
         <summary>Returns the current standby bucket of the calling app.</summary>
         <value>the current standby bucket of the calling app. One of STANDBY_BUCKET_* constants.</value>
         <remarks>
+          <para>Returns the current standby bucket of the calling app. The system determines the standby
+            state of the app based on app usage patterns. Standby buckets determine how much an app will
+            be restricted from running background tasks such as jobs and alarms.</para>
+          <para>Restrictions increase progressively from <c>#STANDBY_BUCKET_ACTIVE</c> to
+            <c>#STANDBY_BUCKET_RESTRICTED</c>, with <c>#STANDBY_BUCKET_ACTIVE</c> being the least
+            restrictive. The battery level of the device might also affect the restrictions.</para>
+          <para>Apps in buckets &amp;le; <c>#STANDBY_BUCKET_ACTIVE</c> have no standby restrictions imposed.
+            Apps in buckets &amp;gt; <c>#STANDBY_BUCKET_FREQUENT</c> may have network access restricted when
+            running in the background.</para>
+          <para>The standby state of an app can change at any time either due to a user interaction or a
+            system interaction or some algorithm determining that the app can be restricted for a period
+            of time before the user has a need for it.</para>
+          <para>You can also query the recent history of standby bucket changes by calling
+            <c>#queryEventsForSelf(long, long)</c> and searching for
+            <c>UsageEvents.Event#STANDBY_BUCKET_CHANGED</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#getAppStandbyBucket()" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.getAppStandbyBucket()</code>.</a>
@@ -84,6 +127,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("isAppInactive", "(Ljava/lang/String;)Z", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("isAppInactive", "(Ljava/lang/String;)Z", "", ApiSince=23)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -97,6 +144,12 @@
         <returns>whether the app is currently considered inactive or false if querying another app
             without <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></returns>
         <remarks>
+          <para>Returns whether the specified app is currently considered inactive. This will be true if the
+            app hasn't been used directly or indirectly for a period of time defined by the system. This
+            could be of the order of several hours or days. Apps are not considered inactive when the
+            device is charging.</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c> to query the
+            inactive state of other apps</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#isAppInactive(java.lang.String)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.isAppInactive(java.lang.String)</code>.</a>
@@ -148,8 +201,8 @@
       <MemberSignature Language="F#" Value="member this.QueryAndAggregateUsageStats : int64 * int64 -&gt; System.Collections.Generic.IDictionary&lt;string, Android.App.Usage.UsageStats&gt;" Usage="usageStatsManager.QueryAndAggregateUsageStats (beginTime, endTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -174,6 +227,10 @@
             for that range), merges the resulting data, and keys it by package name.</summary>
         <returns>A <c>java.util.Map</c> keyed by package name</returns>
         <remarks>
+          <para>A convenience method that queries for all stats in the given range (using the best interval
+            for that range), merges the resulting data, and keys it by package name.
+            See <c>#queryUsageStats(int, long, long)</c>.</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryAndAggregateUsageStats(long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryAndAggregateUsageStats(long, long)</code>.</a>
@@ -194,8 +251,8 @@
       <MemberSignature Language="F#" Value="member this.QueryConfigurations : Android.App.Usage.UsageStatsInterval * int64 * int64 -&gt; System.Collections.Generic.IList&lt;Android.App.Usage.ConfigurationStats&gt;" Usage="usageStatsManager.QueryConfigurations (intervalType, beginTime, endTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -229,6 +286,13 @@
             the specified interval.</summary>
         <returns>A list of <c>ConfigurationStats</c></returns>
         <remarks>
+          <para>Gets the hardware configurations the device was in for the given time range, aggregated by
+            the specified interval. The results are ordered as in
+            <c>#queryUsageStats(int, long, long)</c>.</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></para>
+          <para>&lt;em&gt;Note: Starting from <c>android.os.Build.VERSION_CODES#R Android R</c>, if the user's
+            device is not in an unlocked state (as defined by <c>UserManager#isUserUnlocked()</c>),
+            then <c>null</c> will be returned.&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryConfigurations(int,%20long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryConfigurations(int, long, long)</code>.</a>
@@ -249,8 +313,8 @@
       <MemberSignature Language="F#" Value="member this.QueryEvents : int64 * int64 -&gt; Android.App.Usage.UsageEvents" Usage="usageStatsManager.QueryEvents (beginTime, endTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -274,6 +338,12 @@
         <summary>Query for events in the given time range.</summary>
         <returns>A <c>UsageEvents</c>.</returns>
         <remarks>
+          <para>Query for events in the given time range. Events are only kept by the system for a few
+            days.</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></para>
+          <para>&lt;em&gt;Note: Starting from <c>android.os.Build.VERSION_CODES#R Android R</c>, if the user's
+            device is not in an unlocked state (as defined by <c>UserManager#isUserUnlocked()</c>),
+            then <c>null</c> will be returned.&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryEvents(long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryEvents(long, long)</code>.</a>
@@ -302,6 +372,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("queryEventsForSelf", "(JJ)Landroid/app/usage/UsageEvents;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("queryEventsForSelf", "(JJ)Landroid/app/usage/UsageEvents;", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.Usage.UsageEvents</ReturnType>
@@ -319,6 +393,10 @@
         <summary>Like <c>#queryEvents(long, long)</c>, but only returns events for the calling package.</summary>
         <returns>A <c>UsageEvents</c> object.</returns>
         <remarks>
+          <para>Like <c>#queryEvents(long, long)</c>, but only returns events for the calling package.
+            &lt;em&gt;Note: Starting from <c>android.os.Build.VERSION_CODES#R Android R</c>, if the user's
+            device is not in an unlocked state (as defined by <c>UserManager#isUserUnlocked()</c>),
+            then <c>null</c> will be returned.&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryEventsForSelf(long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryEventsForSelf(long, long)</code>.</a>
@@ -347,6 +425,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("queryEventStats", "(IJJ)Ljava/util/List;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("queryEventStats", "(IJJ)Ljava/util/List;", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Collections.Generic.IList&lt;Android.App.Usage.EventStats&gt;</ReturnType>
@@ -373,6 +455,20 @@
         <summary>Gets aggregated event stats for the given time range, aggregated by the specified interval.</summary>
         <returns>A list of <c>EventStats</c></returns>
         <remarks>
+          <para>Gets aggregated event stats for the given time range, aggregated by the specified interval.</para>
+          <para>The returned list will contain a <c>EventStats</c> object for each event type that
+            is being aggregated and has data for an interval that is a subset of the time range given.</para>
+          <para>The current event types that will be aggregated here are:</para>
+          <para>&lt;ul&gt;
+                &lt;li&gt;<c>UsageEvents.Event#SCREEN_INTERACTIVE</c>&lt;/li&gt;
+                &lt;li&gt;<c>UsageEvents.Event#SCREEN_NON_INTERACTIVE</c>&lt;/li&gt;
+                &lt;li&gt;<c>UsageEvents.Event#KEYGUARD_SHOWN</c>&lt;/li&gt;
+                &lt;li&gt;<c>UsageEvents.Event#KEYGUARD_HIDDEN</c>&lt;/li&gt;
+            &lt;/ul&gt;</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></para>
+          <para>&lt;em&gt;Note: Starting from <c>android.os.Build.VERSION_CODES#R Android R</c>, if the user's
+            device is not in an unlocked state (as defined by <c>UserManager#isUserUnlocked()</c>),
+            then <c>null</c> will be returned.&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryEventStats(int,%20long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryEventStats(int, long, long)</code>.</a>
@@ -393,8 +489,8 @@
       <MemberSignature Language="F#" Value="member this.QueryUsageStats : Android.App.Usage.UsageStatsInterval * int64 * int64 -&gt; System.Collections.Generic.IList&lt;Android.App.Usage.UsageStats&gt;" Usage="usageStatsManager.QueryUsageStats (intervalType, beginTime, endTime)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -427,6 +523,15 @@
         <summary>Gets application usage stats for the given time range, aggregated by the specified interval.</summary>
         <returns>A list of <c>UsageStats</c></returns>
         <remarks>
+          <para>Gets application usage stats for the given time range, aggregated by the specified interval.</para>
+          <para>The returned list will contain one or more <c>UsageStats</c> objects for each package, with
+            usage data that covers at least the given time range.
+            Note: The begin and end times of the time range may be expanded to the nearest whole interval
+            period.</para>
+          <para>The caller must have <c>android.Manifest.permission#PACKAGE_USAGE_STATS</c></para>
+          <para>&lt;em&gt;Note: Starting from <c>android.os.Build.VERSION_CODES#R Android R</c>, if the user's
+            device is not in an unlocked state (as defined by <c>UserManager#isUserUnlocked()</c>),
+            then <c>null</c> will be returned.&lt;/em&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#queryUsageStats(int,%20long,%20long)" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.queryUsageStats(int, long, long)</code>.</a>
@@ -459,6 +564,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.App.Usage.StandbyBucket enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.App.Usage.StandbyBucket enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.Usage.StandbyBucket</ReturnType>
@@ -467,6 +576,10 @@
       <Docs>
         <summary>The app was used very recently, currently in use or likely to be used very soon.</summary>
         <remarks>
+          <para>The app was used very recently, currently in use or likely to be used very soon. Standby
+            bucket values that are &amp;le; <c>#STANDBY_BUCKET_ACTIVE</c> will not be throttled by the
+            system while they are in this bucket. Buckets &amp;gt; <c>#STANDBY_BUCKET_ACTIVE</c> will most
+            likely be restricted in some way. For instance, jobs and alarms may be deferred.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#STANDBY_BUCKET_ACTIVE" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.STANDBY_BUCKET_ACTIVE</code>.</a>
@@ -499,6 +612,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.App.Usage.StandbyBucket enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.App.Usage.StandbyBucket enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.Usage.StandbyBucket</ReturnType>
@@ -507,6 +624,10 @@
       <Docs>
         <summary>The app was used in the last few days and/or likely to be used in the next few days.</summary>
         <remarks>
+          <para>The app was used in the last few days and/or likely to be used in the next few days.
+            Restrictions will apply to these apps, such as deferral of jobs and alarms. The delays may be
+            greater than for apps in higher buckets (lower bucket value). Bucket values &amp;gt;
+            <c>#STANDBY_BUCKET_FREQUENT</c> may additionally have network access limited.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#STANDBY_BUCKET_FREQUENT" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.STANDBY_BUCKET_FREQUENT</code>.</a>
@@ -539,6 +660,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.App.Usage.StandbyBucket enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.App.Usage.StandbyBucket enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.Usage.StandbyBucket</ReturnType>
@@ -547,6 +672,10 @@
       <Docs>
         <summary>The app has not be used for several days and/or is unlikely to be used for several days.</summary>
         <remarks>
+          <para>The app has not be used for several days and/or is unlikely to be used for several days.
+            Apps in this bucket will have more restrictions, including network restrictions, except
+            during certain short periods (at a minimum, once a day) when they are allowed to execute
+            jobs, access the network, etc.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#STANDBY_BUCKET_RARE" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.STANDBY_BUCKET_RARE</code>.</a>
@@ -579,6 +708,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.App.Usage.UsageStatsInterval enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.App.Usage.UsageStatsInterval enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.Usage.UsageStatsInterval</ReturnType>
@@ -588,6 +721,11 @@
         <summary>The app has not be used for several days, is unlikely to be used for several days, and has
             been misbehaving in some manner.</summary>
         <remarks>
+          <para>The app has not be used for several days, is unlikely to be used for several days, and has
+            been misbehaving in some manner.
+            Apps in this bucket will have the most restrictions, including network restrictions and
+            additional restrictions on jobs.</para>
+          <para>Note: this bucket is not enabled in <c>Build.VERSION_CODES#R</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#STANDBY_BUCKET_RESTRICTED" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.STANDBY_BUCKET_RESTRICTED</code>.</a>
@@ -620,6 +758,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.App.Usage.StandbyBucket enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.App.Usage.StandbyBucket enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.App.Usage.StandbyBucket</ReturnType>
@@ -628,6 +770,8 @@
       <Docs>
         <summary>The app was used recently and/or likely to be used in the next few hours.</summary>
         <remarks>
+          <para>The app was used recently and/or likely to be used in the next few hours. Restrictions will
+            apply to these apps, such as deferral of jobs and alarms.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/app/usage/UsageStatsManager#STANDBY_BUCKET_WORKING_SET" title="Reference documentation">Java documentation for <code>android.app.usage.UsageStatsManager.STANDBY_BUCKET_WORKING_SET</code>.</a>
@@ -648,8 +792,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.App.Usage.UsageStatsManager.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -679,8 +823,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.App.Usage.UsageStatsManager.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

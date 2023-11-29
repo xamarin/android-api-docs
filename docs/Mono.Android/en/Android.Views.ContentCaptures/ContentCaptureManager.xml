@@ -16,11 +16,143 @@
       <AttributeName Language="C#">[Android.Runtime.Register("android/view/contentcapture/ContentCaptureManager", ApiSince=29, DoNotGenerateAcw=true)]</AttributeName>
       <AttributeName Language="F#">[&lt;Android.Runtime.Register("android/view/contentcapture/ContentCaptureManager", ApiSince=29, DoNotGenerateAcw=true)&gt;]</AttributeName>
     </Attribute>
+    <Attribute>
+      <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+      <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+    </Attribute>
   </Attributes>
   <Docs>
-    <summary>The <c>ContentCaptureManager</c> provides additional ways for for apps to
-            integrate with the content capture subsystem.</summary>
+    <summary>Provides additional ways for apps to integrate with the content capture subsystem.</summary>
     <remarks>
+      <para>Provides additional ways for apps to integrate with the content capture subsystem.</para>
+      <para>Content capture provides real-time, continuous capture of application activity, display and
+            events to an intelligence service that is provided by the Android system. The intelligence
+            service then uses that info to mediate and speed user journey through different apps. For
+            example, when the user receives a restaurant address in a chat app and switches to a map app
+            to search for that restaurant, the intelligence service could offer an autofill dialog to
+            let the user automatically select its address.</para>
+      <para>Content capture was designed with two major concerns in mind: privacy and performance.
+            
+            &lt;ul&gt;
+              &lt;li&gt;&lt;b&gt;Privacy:&lt;/b&gt; the intelligence service is a trusted component provided that is provided
+              by the device manufacturer and that cannot be changed by the user (although the user can
+              globaly disable content capture using the Android Settings app). This service can only use the
+              data for in-device machine learning, which is enforced both by process isolation and
+              <see href="https://source.android.com/compatibility/cdd">CDD requirements</see>.
+              &lt;li&gt;&lt;b&gt;Performance:&lt;/b&gt; content capture is highly optimized to minimize its impact in the app
+              jankiness and overall device system health. For example, its only enabled on apps (or even
+              specific activities from an app) that were explicitly allowlisted by the intelligence service,
+              and it buffers the events so they are sent in a batch to the service (see
+              <c>#isContentCaptureEnabled()</c> for other cases when its disabled).
+            &lt;/ul&gt;</para>
+      <para>In fact, before using this manager, the app developer should check if it's available. Example:</para>
+      <code lang="text/java">&lt;code&gt;
+             ContentCaptureManager mgr = context.getSystemService(ContentCaptureManager.class);
+             if (mgr != null &amp;&amp; mgr.isContentCaptureEnabled()) {
+               // ...
+             }
+             &lt;/code&gt;</code>
+      <para>App developers usually don't need to explicitly interact with content capture, except when the
+            app:
+            
+            &lt;ul&gt;
+              &lt;li&gt;Can define a contextual <c>android.content.LocusId</c> to identify unique state (such as a
+              conversation between 2 chat users).
+              &lt;li&gt;Can have multiple view hierarchies with different contextual meaning (for example, a
+              browser app with multiple tabs, each representing a different URL).
+              &lt;li&gt;Contains custom views (that extend View directly and are not provided by the standard
+              Android SDK.
+              &lt;li&gt;Contains views that provide their own virtual hierarchy (like a web browser that render the
+              HTML elements using a Canvas).
+            &lt;/ul&gt;</para>
+      <para>The main integration point with content capture is the <c>ContentCaptureSession</c>. A "main"
+            session is automatically created by the Android System when content capture is enabled for the
+            activity and its used by the standard Android views to notify the content capture service of
+            events such as views being added, views been removed, and text changed by user input. The session
+            could have a <c>ContentCaptureContext</c> to provide more contextual info about it, such as
+            the locus associated with the view hierarchy (see <c>android.content.LocusId</c> for more info
+            about locus). By default, the main session doesn't have a <c>ContentCaptureContext</c>, but you
+            can change it after its created. Example:</para>
+      <code lang="text/java">&lt;code&gt;
+            protected void onCreate(Bundle savedInstanceState) {
+              // Initialize view structure
+              ContentCaptureSession session = rootView.getContentCaptureSession();
+              if (session != null) {
+                session.setContentCaptureContext(ContentCaptureContext.forLocusId("chat_UserA_UserB"));
+              }
+            }
+            &lt;/code&gt;</code>
+      <para>If your activity contains view hierarchies with a different contextual meaning, you should
+            created child sessions for each view hierarchy root. For example, if your activity is a browser,
+            you could use the main session for the main URL being rendered, then child sessions for each
+            <c>IFRAME</c>:</para>
+      <code lang="text/java">&lt;code&gt;
+            ContentCaptureSession mMainSession;
+            
+            protected void onCreate(Bundle savedInstanceState) {
+               // Initialize view structure...
+               mMainSession = rootView.getContentCaptureSession();
+               if (mMainSession != null) {
+                 mMainSession.setContentCaptureContext(
+                     ContentCaptureContext.forLocusId("https://example.com"));
+               }
+            }
+            
+            private void loadIFrame(View iframeRootView, String url) {
+              if (mMainSession != null) {
+                 ContentCaptureSession iFrameSession = mMainSession.newChild(
+                     ContentCaptureContext.forLocusId(url));
+                 }
+                 iframeRootView.setContentCaptureSession(iFrameSession);
+              }
+              // Load iframe...
+            }
+            &lt;/code&gt;</code>
+      <para>If your activity has custom views (i.e., views that extend <c>View</c> directly and provide
+            just one logical view, not a virtual tree hiearchy) and it provides content that's relevant for
+            content capture (as of <c>android.os.Build.VERSION_CODES#Q Android Q</c>, the only relevant
+            content is text), then your view implementation should:
+            
+            &lt;ul&gt;
+              &lt;li&gt;Set it as important for content capture.
+              &lt;li&gt;Fill <c>ViewStructure</c> used for content capture.
+              &lt;li&gt;Notify the <c>ContentCaptureSession</c> when the text is changed by user input.
+            &lt;/ul&gt;</para>
+      <para>Here's an example of the relevant methods for an <c>EditText</c>-like view:</para>
+      <code lang="text/java">&lt;code&gt;
+            public class MyEditText extends View {
+            
+            public MyEditText(...) {
+              if (getImportantForContentCapture() == IMPORTANT_FOR_CONTENT_CAPTURE_AUTO) {
+                setImportantForContentCapture(IMPORTANT_FOR_CONTENT_CAPTURE_YES);
+              }
+            }
+            
+            public void onProvideContentCaptureStructure(@NonNull ViewStructure structure, int flags) {
+              super.onProvideContentCaptureStructure(structure, flags);
+            
+              structure.setText(getText(), getSelectionStart(), getSelectionEnd());
+              structure.setHint(getHint());
+              structure.setInputType(getInputType());
+              // set other properties like setTextIdEntry(), setTextLines(), setTextStyle(),
+              // setMinTextEms(), setMaxTextEms(), setMaxTextLength()
+            }
+            
+            private void onTextChanged() {
+              if (isLaidOut() &amp;&amp; isImportantForContentCapture() &amp;&amp; isTextEditable()) {
+                ContentCaptureManager mgr = mContext.getSystemService(ContentCaptureManager.class);
+                if (cm != null &amp;&amp; cm.isContentCaptureEnabled()) {
+                   ContentCaptureSession session = getContentCaptureSession();
+                   if (session != null) {
+                     session.notifyViewTextChanged(getAutofillId(), getText());
+                   }
+              }
+            }
+            &lt;/code&gt;</code>
+      <para>If your view provides its own virtual hierarchy (for example, if it's a browser that draws
+            the HTML using <c>Canvas</c> or native libraries in a different render process), then the view
+            is also responsible to notify the session when the virtual elements appear and disappear - see
+            <c>View#onProvideContentCaptureStructure(ViewStructure, int)</c> for more info.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager</code>.</a>
@@ -46,6 +178,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getContentCaptureConditions", "()Ljava/util/Set;", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getContentCaptureConditions", "()Ljava/util/Set;", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -59,6 +195,9 @@
             (in which case content capture events should always be generated). If the list is empty,
             then it should not generate any event at all.</value>
         <remarks>
+          <para>Gets the list of conditions for when content capture should be allowed.</para>
+          <para>This method is typically used by web browsers so they don't generate unnecessary content
+            capture events for websites the content capture service is not interested on.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#getContentCaptureConditions()" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.getContentCaptureConditions()</code>.</a>
@@ -84,12 +223,20 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("isContentCaptureEnabled", "()Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("isContentCaptureEnabled", "()Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[set: Android.Runtime.Register("setContentCaptureEnabled", "(Z)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;set: Android.Runtime.Register("setContentCaptureEnabled", "(Z)V", "", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[set: System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;set: System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -100,12 +247,26 @@
         <value>To be added.</value>
         <remarks>
           <para>Property getter documentation:</para>
+          <para>Checks whether content capture is enabled for this activity.</para>
+          <para>There are many reasons it could be disabled, such as:
+            &lt;ul&gt;
+              &lt;li&gt;App itself disabled content capture through <c>#setContentCaptureEnabled(boolean)</c>.
+              &lt;li&gt;Intelligence service did not allowlist content capture for this activity's package.
+              &lt;li&gt;Intelligence service did not allowlist content capture for this specific activity.
+              &lt;li&gt;Intelligence service disabled content capture globally.
+              &lt;li&gt;User disabled content capture globally through the Android Settings app.
+              &lt;li&gt;Device manufacturer (OEM) disabled content capture globally.
+              &lt;li&gt;Transient errors, such as intelligence service package being updated.
+            &lt;/ul&gt;</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#isContentCaptureEnabled()" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.isContentCaptureEnabled()</code>.</a>
             </format>
           </para>
           <para>Property setter documentation:</para>
+          <para>Called by apps to explicitly enable or disable content capture.</para>
+          <para>&lt;b&gt;Note: &lt;/b&gt; this call is not persisted accross reboots, so apps should typically call
+            it on <c>android.app.Activity#onCreate(android.os.Bundle, android.os.PersistableBundle)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#setContentCaptureEnabled(boolean)" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.setContentCaptureEnabled(boolean)</code>.</a>
@@ -138,6 +299,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.ContentCapture.DataShareError enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.ContentCapture.DataShareError enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.ContentCapture.DataShareError</ReturnType>
@@ -146,6 +311,7 @@
       <Docs>
         <summary>Request has been rejected, because a concurrent data share sessions is in progress.</summary>
         <remarks>
+          <para>Request has been rejected, because a concurrent data share sessions is in progress.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#DATA_SHARE_ERROR_CONCURRENT_REQUEST" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.DATA_SHARE_ERROR_CONCURRENT_REQUEST</code>.</a>
@@ -178,6 +344,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.ContentCapture.DataShareError enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.ContentCapture.DataShareError enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.ContentCapture.DataShareError</ReturnType>
@@ -186,6 +356,7 @@
       <Docs>
         <summary>Request has been interrupted because of data share session timeout.</summary>
         <remarks>
+          <para>Request has been interrupted because of data share session timeout.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#DATA_SHARE_ERROR_TIMEOUT_INTERRUPTED" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.DATA_SHARE_ERROR_TIMEOUT_INTERRUPTED</code>.</a>
@@ -218,6 +389,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Views.ContentCapture.DataShareError enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Views.ContentCapture.DataShareError enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.ContentCapture.DataShareError</ReturnType>
@@ -226,6 +401,7 @@
       <Docs>
         <summary>Error happened during the data sharing session.</summary>
         <remarks>
+          <para>Error happened during the data sharing session.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#DATA_SHARE_ERROR_UNKNOWN" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.DATA_SHARE_ERROR_UNKNOWN</code>.</a>
@@ -283,6 +459,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("removeData", "(Landroid/view/contentcapture/DataRemovalRequest;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("removeData", "(Landroid/view/contentcapture/DataRemovalRequest;)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -295,6 +475,8 @@
         <summary>Called by the app to request the content capture service to remove content capture data
             associated with some context.</summary>
         <remarks>
+          <para>Called by the app to request the content capture service to remove content capture data
+            associated with some context.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#removeData(android.view.contentcapture.DataRemovalRequest)" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.removeData(android.view.contentcapture.DataRemovalRequest)</code>.</a>
@@ -320,6 +502,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getServiceComponentName", "()Landroid/content/ComponentName;", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getServiceComponentName", "()Landroid/content/ComponentName;", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -332,6 +518,8 @@
             the current user.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns the component name of the system service that is consuming the captured events for
+            the current user.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#getServiceComponentName()" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.getServiceComponentName()</code>.</a>
@@ -360,6 +548,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("shareData", "(Landroid/view/contentcapture/DataShareRequest;Ljava/util/concurrent/Executor;Landroid/view/contentcapture/DataShareWriteAdapter;)V", "", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("shareData", "(Landroid/view/contentcapture/DataShareRequest;Ljava/util/concurrent/Executor;Landroid/view/contentcapture/DataShareWriteAdapter;)V", "", ApiSince=30)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -375,6 +567,12 @@
         <param name="request">object specifying details of the data being shared.</param>
         <summary>Called by the app to request data sharing via writing to a file.</summary>
         <remarks>
+          <para>Called by the app to request data sharing via writing to a file.</para>
+          <para>The ContentCaptureService app will receive a read-only file descriptor pointing to the
+            same file and will be able to read data being shared from it.</para>
+          <para>Note: using this API doesn't guarantee the app staying alive and is "best-effort".
+            Starting a foreground service would minimize the chances of the app getting killed during the
+            file sharing session.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/contentcapture/ContentCaptureManager#shareData(android.view.contentcapture.DataShareRequest,%20java.util.concurrent.Executor,%20android.view.contentcapture.DataShareWriteAdapter)" title="Reference documentation">Java documentation for <code>android.view.contentcapture.ContentCaptureManager.shareData(android.view.contentcapture.DataShareRequest, java.util.concurrent.Executor, android.view.contentcapture.DataShareWriteAdapter)</code>.</a>

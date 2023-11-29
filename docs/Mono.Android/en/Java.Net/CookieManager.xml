@@ -22,6 +22,82 @@
             which separates the storage of cookies from the policy surrounding accepting
             and rejecting cookies.</summary>
     <remarks>
+      <para>CookieManager provides a concrete implementation of <c>CookieHandler</c>,
+            which separates the storage of cookies from the policy surrounding accepting
+            and rejecting cookies. A CookieManager is initialized with a <c>CookieStore</c>
+            which manages storage, and a <c>CookiePolicy</c> object, which makes
+            policy decisions on cookie acceptance/rejection.</para>
+      <para>The HTTP cookie management in java.net package looks like:
+            &lt;blockquote&gt;</para>
+      <code lang="text/java">{@code
+                             use
+            CookieHandler &lt;------- HttpURLConnection
+                  ^
+                  | impl
+                  |         use
+            CookieManager -------&gt; CookiePolicy
+                        |   use
+                        |--------&gt; HttpCookie
+                        |              ^
+                        |              | use
+                        |   use        |
+                        |--------&gt; CookieStore
+                                       ^
+                                       | impl
+                                       |
+                             Internal in-memory implementation
+            }</code>
+      <para>&lt;ul&gt;
+              &lt;li&gt;
+                CookieHandler is at the core of cookie management. User can call
+                CookieHandler.setDefault to set a concrete CookieHanlder implementation
+                to be used.
+              &lt;/li&gt;
+              &lt;li&gt;
+                CookiePolicy.shouldAccept will be called by CookieManager.put to see whether
+                or not one cookie should be accepted and put into cookie store. User can use
+                any of three pre-defined CookiePolicy, namely ACCEPT_ALL, ACCEPT_NONE and
+                ACCEPT_ORIGINAL_SERVER, or user can define his own CookiePolicy implementation
+                and tell CookieManager to use it.
+              &lt;/li&gt;
+              &lt;li&gt;
+                CookieStore is the place where any accepted HTTP cookie is stored in.
+                If not specified when created, a CookieManager instance will use an internal
+                in-memory implementation. Or user can implements one and tell CookieManager
+                to use it.
+              &lt;/li&gt;
+              &lt;li&gt;
+                Currently, only CookieStore.add(URI, HttpCookie) and CookieStore.get(URI)
+                are used by CookieManager. Others are for completeness and might be needed
+                by a more sophisticated CookieStore implementation, e.g. a NetscapeCookieStore.
+              &lt;/li&gt;
+            &lt;/ul&gt;
+            &lt;/blockquote&gt;</para>
+      <para>There're various ways user can hook up his own HTTP cookie management behavior, e.g.
+            &lt;blockquote&gt;
+            &lt;ul&gt;
+              &lt;li&gt;Use CookieHandler.setDefault to set a brand new <c>CookieHandler</c> implementation
+              &lt;li&gt;Let CookieManager be the default <c>CookieHandler</c> implementation,
+                  but implement user's own <c>CookieStore</c> and <c>CookiePolicy</c>
+                  and tell default CookieManager to use them:
+                &lt;blockquote&gt;</para>
+      <code lang="text/java">// this should be done at the beginning of an HTTP session
+                  CookieHandler.setDefault(new CookieManager(new MyCookieStore(), new MyCookiePolicy()));
+                </code>
+      <para>&lt;/blockquote&gt;
+              &lt;li&gt;Let CookieManager be the default <c>CookieHandler</c> implementation, but
+                  use customized <c>CookiePolicy</c>:
+                &lt;blockquote&gt;</para>
+      <code lang="text/java">// this should be done at the beginning of an HTTP session
+                  CookieHandler.setDefault(new CookieManager());
+                  // this can be done at any point of an HTTP session
+                  ((CookieManager)CookieHandler.getDefault()).setCookiePolicy(new MyCookiePolicy());
+                </code>
+      <para>&lt;/blockquote&gt;
+            &lt;/ul&gt;
+            &lt;/blockquote&gt;</para>
+      <para>The implementation conforms to <see href="http://www.ietf.org/rfc/rfc2965.txt">RFC 2965</see>, section 3.3.</para>
+      <para>Added in 1.6.</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/java/net/CookieManager" title="Reference documentation">Java documentation for <code>java.net.CookieManager</code>.</a>
@@ -42,8 +118,8 @@
       <MemberSignature Language="DocId" Value="M:Java.Net.CookieManager.#ctor" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -55,6 +131,10 @@
       <Docs>
         <summary>Create a new cookie manager.</summary>
         <remarks>
+          <para>Create a new cookie manager.</para>
+          <para>This constructor will create new cookie manager with default
+            cookie store and accept policy. The effect is same as
+            <c>CookieManager(null, null)</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/CookieManager#CookieManager()" title="Reference documentation">Java documentation for <code>java.net.CookieManager.CookieManager()</code>.</a>
@@ -76,8 +156,8 @@
       <MemberSignature Language="F#" Value="new Java.Net.CookieManager : Java.Net.ICookieStore * Java.Net.ICookiePolicy -&gt; Java.Net.CookieManager" Usage="new Java.Net.CookieManager (store, cookiePolicy)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -99,6 +179,7 @@
                                      be used.</param>
         <summary>Create a new cookie manager with specified cookie store and cookie policy.</summary>
         <remarks>
+          <para>Create a new cookie manager with specified cookie store and cookie policy.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/CookieManager#CookieManager(java.net.CookieStore,%20java.net.CookiePolicy)" title="Reference documentation">Java documentation for <code>java.net.CookieManager.CookieManager(java.net.CookieStore, java.net.CookiePolicy)</code>.</a>
@@ -120,8 +201,8 @@
       <MemberSignature Language="F#" Value="new Java.Net.CookieManager : nativeint * Android.Runtime.JniHandleOwnership -&gt; Java.Net.CookieManager" Usage="new Java.Net.CookieManager (javaReference, transfer)" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Parameters>
         <Parameter Name="javaReference" Type="System.IntPtr" />
@@ -143,8 +224,8 @@
       <MemberSignature Language="F#" Value="member this.CookieStore : Java.Net.ICookieStore" Usage="Java.Net.CookieManager.CookieStore" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -159,6 +240,7 @@
         <summary>To retrieve current cookie store.</summary>
         <value>the cookie store currently used by cookie manager.</value>
         <remarks>
+          <para>To retrieve current cookie store.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/CookieManager#getCookieStore()" title="Reference documentation">Java documentation for <code>java.net.CookieManager.getCookieStore()</code>.</a>
@@ -180,8 +262,8 @@
       <MemberSignature Language="F#" Value="override this.Get : Java.Net.URI * System.Collections.Generic.IDictionary&lt;string, System.Collections.Generic.IList&lt;string&gt;&gt; -&gt; System.Collections.Generic.IDictionary&lt;string, System.Collections.Generic.IList&lt;string&gt;&gt;" Usage="cookieManager.Get (uri, requestHeaders)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -244,8 +326,8 @@
       <MemberSignature Language="F#" Value="override this.Put : Java.Net.URI * System.Collections.Generic.IDictionary&lt;string, System.Collections.Generic.IList&lt;string&gt;&gt; -&gt; unit" Usage="cookieManager.Put (uri, responseHeaders)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -276,8 +358,8 @@
       <MemberSignature Language="F#" Value="abstract member SetCookiePolicy : Java.Net.ICookiePolicy -&gt; unit&#xA;override this.SetCookiePolicy : Java.Net.ICookiePolicy -&gt; unit" Usage="cookieManager.SetCookiePolicy cookiePolicy" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -296,6 +378,10 @@
                                      has no effects on current cookie policy.</param>
         <summary>To set the cookie policy of this cookie manager.</summary>
         <remarks>
+          <para>To set the cookie policy of this cookie manager.</para>
+          <para>A instance of <c>CookieManager</c> will have
+            cookie policy ACCEPT_ORIGINAL_SERVER by default. Users always
+            can call this method to set another cookie policy.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/java/net/CookieManager#setCookiePolicy(java.net.CookiePolicy)" title="Reference documentation">Java documentation for <code>java.net.CookieManager.setCookiePolicy(java.net.CookiePolicy)</code>.</a>
@@ -317,8 +403,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Java.Net.CookieManager.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -348,8 +434,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Java.Net.CookieManager.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

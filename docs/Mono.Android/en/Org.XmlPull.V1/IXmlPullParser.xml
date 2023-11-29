@@ -1,6 +1,6 @@
 <Type Name="IXmlPullParser" FullName="Org.XmlPull.V1.IXmlPullParser">
   <TypeSignature Language="C#" Value="public interface IXmlPullParser : Android.Runtime.IJavaObject, IDisposable, Java.Interop.IJavaPeerable" />
-  <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract IXmlPullParser implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
+  <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract beforefieldinit IXmlPullParser implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Org.XmlPull.V1.IXmlPullParser" />
   <TypeSignature Language="F#" Value="type IXmlPullParser = interface&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
@@ -29,6 +29,104 @@
             in <see href="http://www.xmlpull.org/">XMLPULL V1 API</see> (visit this website to
             learn more about API and its implementations).</summary>
     <remarks>
+      <para>XML Pull Parser is an interface that defines parsing functionality provided
+            in <see href="http://www.xmlpull.org/">XMLPULL V1 API</see> (visit this website to
+            learn more about API and its implementations).</para>
+      <para>There are following different
+            kinds of parser depending on which features are set:&lt;ul&gt;
+            &lt;li&gt;&lt;b&gt;non-validating&lt;/b&gt; parser as defined in XML 1.0 spec when
+              FEATURE_PROCESS_DOCDECL is set to true
+            &lt;li&gt;&lt;b&gt;validating parser&lt;/b&gt; as defined in XML 1.0 spec when
+              FEATURE_VALIDATION is true (and that implies that FEATURE_PROCESS_DOCDECL is true)
+            &lt;li&gt;when FEATURE_PROCESS_DOCDECL is false (this is default and
+              if different value is required necessary must be changed before parsing is started)
+              then parser behaves like XML 1.0 compliant non-validating parser under condition that
+             &lt;em&gt;no DOCDECL is present&lt;/em&gt; in XML documents
+              (internal entites can still be defined with defineEntityReplacementText()).
+              This mode of operation is intended &lt;b&gt;for operation in constrained environments&lt;/b&gt; such as J2ME.
+            &lt;/ul&gt;</para>
+      <para>There are two key methods: next() and nextToken(). While next() provides
+            access to high level parsing events, nextToken() allows access to lower
+            level tokens.</para>
+      <para>The current event state of the parser
+            can be determined by calling the
+            getEventType() method.
+            Initially, the parser is in the START_DOCUMENT
+            state.</para>
+      <para>The method next() advances the parser to the
+            next event. The int value returned from next determines the current parser
+            state and is identical to the value returned from following calls to
+            getEventType ().</para>
+      <para>Th following event types are seen by next()&lt;dl&gt;
+            &lt;dt&gt;START_TAG&lt;dd&gt; An XML start tag was read.
+            &lt;dt&gt;TEXT&lt;dd&gt; Text content was read;
+            the text content can be retrieved using the getText() method.
+             (when in validating mode next() will not report ignorable whitespace, use nextToken() instead)
+            &lt;dt&gt;END_TAG&lt;dd&gt; An end tag was read
+            &lt;dt&gt;END_DOCUMENT&lt;dd&gt; No more events are available
+            &lt;/dl&gt;</para>
+      <para>after first next() or nextToken() (or any other next*() method)
+            is called user application can obtain
+            XML version, standalone and encoding from XML declaration
+            in following ways:&lt;ul&gt;
+            &lt;li&gt;&lt;b&gt;version&lt;/b&gt;:
+             getProperty(&amp;quot;<see href="http://xmlpull.org/v1/doc/properties.html#xmldecl-version">http://xmlpull.org/v1/doc/properties.html#xmldecl-version</see>&amp;quot;)
+                  returns String ("1.0") or null if XMLDecl was not read or if property is not supported
+            &lt;li&gt;&lt;b&gt;standalone&lt;/b&gt;:
+             getProperty(&amp;quot;<see href="http://xmlpull.org/v1/doc/properties.html#xmldecl-standalone">http://xmlpull.org/v1/doc/properties.html#xmldecl-standalone</see>&amp;quot;)
+                  returns Boolean: null if there was no standalone declaration
+             or if property is not supported
+                    otherwise returns Boolean(true) if standalone="yes" and Boolean(false) when standalone="no"
+            &lt;li&gt;&lt;b&gt;encoding&lt;/b&gt;: obtained from getInputEncoding()
+                  null if stream had unknown encoding (not set in setInputStream)
+                      and it was not declared in XMLDecl
+            &lt;/ul&gt;
+            
+            A minimal example for using this API may look as follows:</para>
+      <code lang="text/java">import java.io.IOException;
+            import java.io.StringReader;
+            
+            import org.xmlpull.v1.XmlPullParser;
+            import org.xmlpull.v1.&lt;a href="XmlPullParserException.html"&gt;XmlPullParserException&lt;/a&gt;;
+            import org.xmlpull.v1.&lt;a href="XmlPullParserFactory.html"&gt;XmlPullParserFactory&lt;/a&gt;;
+            
+            public class SimpleXmlPullApp
+            {
+            
+                public static void main (String args[])
+                    throws XmlPullParserException, IOException
+                {
+                    XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+                    factory.setNamespaceAware(true);
+                    XmlPullParser xpp = factory.newPullParser();
+            
+                    xpp.&lt;a href="#setInput"&gt;setInput&lt;/a&gt;( new StringReader ( "&amp;lt;foo&gt;Hello World!&amp;lt;/foo&gt;" ) );
+                    int eventType = xpp.getEventType();
+                    while (eventType != XmlPullParser.END_DOCUMENT) {
+                     if(eventType == XmlPullParser.START_DOCUMENT) {
+                         System.out.println("Start document");
+                     } else if(eventType == XmlPullParser.START_TAG) {
+                         System.out.println("Start tag "+xpp.&lt;a href="#getName()"&gt;getName()&lt;/a&gt;);
+                     } else if(eventType == XmlPullParser.END_TAG) {
+                         System.out.println("End tag "+xpp.getName());
+                     } else if(eventType == XmlPullParser.TEXT) {
+                         System.out.println("Text "+xpp.&lt;a href="#getText()"&gt;getText()&lt;/a&gt;);
+                     }
+                     eventType = xpp.next();
+                    }
+                    System.out.println("End document");
+                }
+            }
+            </code>
+      <para>The above example will generate the following output:</para>
+      <code lang="text/java">Start document
+            Start tag foo
+            Text Hello World!
+            End tag foo
+            End document
+            </code>
+      <para>For more details on API usage, please refer to the
+            quick Introduction available at <see href="http://www.xmlpull.org">http://www.xmlpull.org</see></para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser</code>.</a>
@@ -50,8 +148,8 @@
       <MemberSignature Language="F#" Value="member this.AttributeCount : int" Usage="Org.XmlPull.V1.IXmlPullParser.AttributeCount" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -79,8 +177,8 @@
       <MemberSignature Language="F#" Value="member this.ColumnNumber : int" Usage="Org.XmlPull.V1.IXmlPullParser.ColumnNumber" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -107,8 +205,8 @@
       <MemberSignature Language="F#" Value="abstract member DefineEntityReplacementText : string * string -&gt; unit" Usage="iXmlPullParser.DefineEntityReplacementText (entityName, replacementText)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -130,6 +228,27 @@
             <see href="http://www.w3.org/TR/REC-xml#intern-replacement">XML 1.0 Section 4.5
             Construction of Internal Entity Replacement Text</see>.</summary>
         <remarks>
+          <para>Set new value for entity replacement text as defined in
+            <see href="http://www.w3.org/TR/REC-xml#intern-replacement">XML 1.0 Section 4.5
+            Construction of Internal Entity Replacement Text</see>.
+            If FEATURE_PROCESS_DOCDECL or FEATURE_VALIDATION are set, calling this
+            function will result in an exception -- when processing of DOCDECL is
+            enabled, there is no need to the entity replacement text manually.</para>
+          <para>The motivation for this function is to allow very small
+            implementations of XMLPULL that will work in J2ME environments.
+            Though these implementations may not be able to process the document type
+            declaration, they still can work with known DTDs by using this function.</para>
+          <para>&lt;b&gt;Please notes:&lt;/b&gt; The given value is used literally as replacement text
+            and it corresponds to declaring entity in DTD that has all special characters
+            escaped: left angle bracket is replaced with &amp;amp;lt;, ampersand with &amp;amp;amp;
+            and so on.</para>
+          <para>&lt;b&gt;Note:&lt;/b&gt; The given value is the literal replacement text and must not
+            contain any other entity reference (if it contains any entity reference
+            there will be no further replacement).</para>
+          <para>&lt;b&gt;Note:&lt;/b&gt; The list of pre-defined entity names will
+            always contain standard XML entities such as
+            amp (&amp;amp;amp;), lt (&amp;amp;lt;), gt (&amp;amp;gt;), quot (&amp;amp;quot;), and apos (&amp;amp;apos;).
+            Those cannot be redefined by this method!</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#defineEntityReplacementText(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.defineEntityReplacementText(java.lang.String, java.lang.String)</code>.</a>
@@ -154,8 +273,8 @@
       <MemberSignature Language="F#" Value="member this.Depth : int" Usage="Org.XmlPull.V1.IXmlPullParser.Depth" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -182,8 +301,8 @@
       <MemberSignature Language="F#" Value="member this.EventType : Org.XmlPull.V1.XmlPullParserNode" Usage="Org.XmlPull.V1.IXmlPullParser.EventType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -227,6 +346,17 @@
         <summary>This feature determines whether the document declaration
             is processed.</summary>
         <remarks>
+          <para>This feature determines whether the document declaration
+            is processed. If set to false,
+            the DOCDECL event type is reported by nextToken()
+            and ignored by next().</para>
+          <para>If this feature is activated, then the document declaration
+            must be processed by the parser.</para>
+          <para>&lt;strong&gt;Please note:&lt;/strong&gt; If the document type declaration
+            was ignored, entity references may cause exceptions
+            later in the parsing process.
+            The default value of this feature is false. It cannot be changed
+            during parsing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#FEATURE_PROCESS_DOCDECL" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.FEATURE_PROCESS_DOCDECL</code>.</a>
@@ -263,6 +393,10 @@
         <summary>This feature determines whether the parser processes
             namespaces.</summary>
         <remarks>
+          <para>This feature determines whether the parser processes
+            namespaces. As for all features, the default value is false.</para>
+          <para>&lt;strong&gt;NOTE:&lt;/strong&gt; The value can not be changed during
+            parsing an must be set before parsing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#FEATURE_PROCESS_NAMESPACES" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.FEATURE_PROCESS_NAMESPACES</code>.</a>
@@ -299,6 +433,10 @@
         <summary>This feature determines whether namespace attributes are
             exposed via the attribute access methods.</summary>
         <remarks>
+          <para>This feature determines whether namespace attributes are
+            exposed via the attribute access methods. Like all features,
+            the default value is false. This feature cannot be changed
+            during parsing.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#FEATURE_REPORT_NAMESPACE_ATTRIBUTES" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.FEATURE_REPORT_NAMESPACE_ATTRIBUTES</code>.</a>
@@ -335,6 +473,12 @@
         <summary>If this feature is activated, all validation errors as
             defined in the XML 1.</summary>
         <remarks>
+          <para>If this feature is activated, all validation errors as
+            defined in the XML 1.0 specification are reported.
+            This implies that FEATURE_PROCESS_DOCDECL is true and both, the
+            internal and external document type declaration will be processed.</para>
+          <para>&lt;strong&gt;Please Note:&lt;/strong&gt; This feature can not be changed
+            during parsing. The default value is false.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#FEATURE_VALIDATION" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.FEATURE_VALIDATION</code>.</a>
@@ -355,8 +499,8 @@
       <MemberSignature Language="F#" Value="abstract member GetAttributeName : int -&gt; string" Usage="iXmlPullParser.GetAttributeName index" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -376,6 +520,10 @@
             if namespaces are enabled or just attribute name if namespaces are disabled.</summary>
         <returns>attribute name (null is never returned)</returns>
         <remarks>
+          <para>Returns the local name of the specified attribute
+            if namespaces are enabled or just attribute name if namespaces are disabled.
+            Throws an IndexOutOfBoundsException if the index is out of range
+            or current event type is not START_TAG.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getAttributeName(int)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getAttributeName(int)</code>.</a>
@@ -397,8 +545,8 @@
       <MemberSignature Language="F#" Value="abstract member GetAttributeNamespace : int -&gt; string" Usage="iXmlPullParser.GetAttributeNamespace index" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -420,6 +568,21 @@
               empty string ("") is returned  if namespaces processing is not enabled or
               namespaces processing is enabled but attribute has no namespace (it has no prefix).</returns>
         <remarks>
+          <para>Returns the namespace URI of the attribute
+            with the given index (starts from 0).
+            Returns an empty string ("") if namespaces are not enabled
+            or the attribute has no namespace.
+            Throws an IndexOutOfBoundsException if the index is out of range
+            or the current event type is not START_TAG.</para>
+          <para>&lt;strong&gt;NOTE:&lt;/strong&gt; if FEATURE_REPORT_NAMESPACE_ATTRIBUTES is set
+            then namespace attributes (xmlns:ns='...') must be reported
+            with namespace
+            <see href="http://www.w3.org/2000/xmlns/">http://www.w3.org/2000/xmlns/</see>
+            (visit this URL for description!).
+            The default namespace attribute (xmlns="...") will be reported with empty namespace.</para>
+          <para>&lt;strong&gt;NOTE:&lt;/strong&gt;The xml prefix is bound as defined in
+            <see href="http://www.w3.org/TR/REC-xml-names/#ns-using">Namespaces in XML</see>
+            specification to "http://www.w3.org/XML/1998/namespace".</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getAttributeNamespace(int)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getAttributeNamespace(int)</code>.</a>
@@ -441,8 +604,8 @@
       <MemberSignature Language="F#" Value="abstract member GetAttributePrefix : int -&gt; string" Usage="iXmlPullParser.GetAttributePrefix index" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -462,6 +625,11 @@
             Returns null if the element has no prefix.</summary>
         <returns>attribute prefix or null if namespaces processing is not enabled.</returns>
         <remarks>
+          <para>Returns the prefix of the specified attribute
+            Returns null if the element has no prefix.
+            If namespaces are disabled it will always return null.
+            Throws an IndexOutOfBoundsException if the index is out of range
+            or current event type is not START_TAG.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getAttributePrefix(int)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getAttributePrefix(int)</code>.</a>
@@ -483,8 +651,8 @@
       <MemberSignature Language="F#" Value="abstract member GetAttributeType : int -&gt; string" Usage="iXmlPullParser.GetAttributeType index" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -504,6 +672,8 @@
             If parser is non-validating it MUST return CDATA.</summary>
         <returns>attribute type (null is never returned)</returns>
         <remarks>
+          <para>Returns the type of the specified attribute
+            If parser is non-validating it MUST return CDATA.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getAttributeType(int)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getAttributeType(int)</code>.</a>
@@ -525,8 +695,8 @@
       <MemberSignature Language="F#" Value="abstract member GetAttributeValue : int -&gt; string" Usage="iXmlPullParser.GetAttributeValue index" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -545,6 +715,13 @@
         <summary>Returns the given attributes value.</summary>
         <returns>value of attribute (null is never returned)</returns>
         <remarks>
+          <para>Returns the given attributes value.
+            Throws an IndexOutOfBoundsException if the index is out of range
+            or current event type is not START_TAG.</para>
+          <para>&lt;strong&gt;NOTE:&lt;/strong&gt; attribute value must be normalized
+            (including entity replacement text if PROCESS_DOCDECL is false) as described in
+            <see href="http://www.w3.org/TR/REC-xml#AVNormalize">XML 1.0 section
+            3.3.3 Attribute-Value Normalization</see></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getAttributeValue(int)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getAttributeValue(int)</code>.</a>
@@ -566,8 +743,8 @@
       <MemberSignature Language="F#" Value="abstract member GetAttributeValue : string * string -&gt; string" Usage="iXmlPullParser.GetAttributeValue (namespace, name)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -588,6 +765,13 @@
         <summary>Returns the attributes value identified by namespace URI and namespace localName.</summary>
         <returns>value of attribute or null if attribute with given name does not exist</returns>
         <remarks>
+          <para>Returns the attributes value identified by namespace URI and namespace localName.
+            If namespaces are disabled namespace must be null.
+            If current event type is not START_TAG then IndexOutOfBoundsException will be thrown.</para>
+          <para>&lt;strong&gt;NOTE:&lt;/strong&gt; attribute value must be normalized
+            (including entity replacement text if PROCESS_DOCDECL is false) as described in
+            <see href="http://www.w3.org/TR/REC-xml#AVNormalize">XML 1.0 section
+            3.3.3 Attribute-Value Normalization</see></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getAttributeValue(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getAttributeValue(java.lang.String, java.lang.String)</code>.</a>
@@ -609,8 +793,8 @@
       <MemberSignature Language="F#" Value="abstract member GetFeature : string -&gt; bool" Usage="iXmlPullParser.GetFeature name" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -629,6 +813,9 @@
         <summary>Returns the current value of the given feature.</summary>
         <returns>The value of the feature.</returns>
         <remarks>
+          <para>Returns the current value of the given feature.</para>
+          <para>&lt;strong&gt;Please note:&lt;/strong&gt; unknown features are
+            &lt;strong&gt;always&lt;/strong&gt; returned as false.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getFeature(java.lang.String)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getFeature(java.lang.String)</code>.</a>
@@ -652,8 +839,8 @@
       <MemberSignature Language="F#" Value="abstract member GetNamespace : string -&gt; string" Usage="iXmlPullParser.GetNamespace prefix" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -673,6 +860,27 @@
             depending on current state of the parser.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the URI corresponding to the given prefix,
+            depending on current state of the parser.</para>
+          <para>If the prefix was not declared in the current scope,
+            null is returned. The default namespace is included
+            in the namespace table and is available via
+            getNamespace (null).</para>
+          <para>This method is a convenience method for</para>
+          <code lang="text/java">for (int i = getNamespaceCount(getDepth ())-1; i &gt;= 0; i--) {
+              if (getNamespacePrefix(i).equals( prefix )) {
+                return getNamespaceUri(i);
+              }
+             }
+             return null;
+            </code>
+          <para>&lt;strong&gt;Please note:&lt;/strong&gt; parser implementations
+            may provide more efficient lookup, e.g. using a Hashtable.
+            The 'xml' prefix is bound to "http://www.w3.org/XML/1998/namespace", as
+            defined in the
+            <see href="http://www.w3.org/TR/REC-xml-names/#ns-using">Namespaces in XML</see>
+            specification. Analogous, the 'xmlns' prefix is resolved to
+            <see href="http://www.w3.org/2000/xmlns/">http://www.w3.org/2000/xmlns/</see></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getNamespace(java.lang.String)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getNamespace(java.lang.String)</code>.</a>
@@ -694,8 +902,8 @@
       <MemberSignature Language="F#" Value="abstract member GetNamespaceCount : int -&gt; int" Usage="iXmlPullParser.GetNamespaceCount depth" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -715,6 +923,22 @@
             depth.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the numbers of elements in the namespace stack for the given
+            depth.
+            If namespaces are not enabled, 0 is returned.</para>
+          <para>&lt;b&gt;NOTE:&lt;/b&gt; when parser is on END_TAG then it is allowed to call
+             this function with getDepth()+1 argument to retrieve position of namespace
+             prefixes and URIs that were declared on corresponding START_TAG.</para>
+          <para>&lt;b&gt;NOTE:&lt;/b&gt; to retrieve list of namespaces declared in current element:</para>
+          <code lang="text/java">XmlPullParser pp = ...
+                  int nsStart = pp.getNamespaceCount(pp.getDepth()-1);
+                  int nsEnd = pp.getNamespaceCount(pp.getDepth());
+                  for (int i = nsStart; i &lt; nsEnd; i++) {
+                     String prefix = pp.getNamespacePrefix(i);
+                     String ns = pp.getNamespaceUri(i);
+                      // ...
+                 }
+            </code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getNamespaceCount(int)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getNamespaceCount(int)</code>.</a>
@@ -737,8 +961,8 @@
       <MemberSignature Language="F#" Value="abstract member GetNamespacePrefix : int -&gt; string" Usage="iXmlPullParser.GetNamespacePrefix pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -758,6 +982,14 @@
             in the namespace stack.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the namespace prefix for the given position
+            in the namespace stack.
+            Default namespace declaration (xmlns='...') will have null as prefix.
+            If the given index is out of range, an exception is thrown.</para>
+          <para>&lt;b&gt;Please note:&lt;/b&gt; when the parser is on an END_TAG,
+            namespace prefixes that were declared
+            in the corresponding START_TAG are still accessible
+            although they are no longer in scope.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getNamespacePrefix(int)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getNamespacePrefix(int)</code>.</a>
@@ -780,8 +1012,8 @@
       <MemberSignature Language="F#" Value="abstract member GetNamespaceUri : int -&gt; string" Usage="iXmlPullParser.GetNamespaceUri pos" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -802,6 +1034,11 @@
             If the position is out of range, an exception is thrown.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Returns the namespace URI for the given position in the
+            namespace stack
+            If the position is out of range, an exception is thrown.</para>
+          <para>&lt;b&gt;NOTE:&lt;/b&gt; when parser is on END_TAG then namespace prefixes that were declared
+             in corresponding START_TAG are still accessible even though they are not in scope</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getNamespaceUri(int)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getNamespaceUri(int)</code>.</a>
@@ -824,8 +1061,8 @@
       <MemberSignature Language="F#" Value="abstract member GetProperty : string -&gt; Java.Lang.Object" Usage="iXmlPullParser.GetProperty name" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -844,6 +1081,10 @@
         <summary>Look up the value of a property.</summary>
         <returns>The value of named property.</returns>
         <remarks>
+          <para>Look up the value of a property.</para>
+          <para>The property name is any fully-qualified URI.</para>
+          <para>&lt;strong&gt;NOTE:&lt;/strong&gt; unknown properties are &lt;strong&gt;always&lt;/strong&gt;
+            returned as null.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getProperty(java.lang.String)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getProperty(java.lang.String)</code>.</a>
@@ -865,8 +1106,8 @@
       <MemberSignature Language="F#" Value="abstract member GetTextCharacters : int[] -&gt; char[]" Usage="iXmlPullParser.GetTextCharacters holderForStartAndLength" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -889,6 +1130,19 @@
         <returns>char buffer that contains the text of the current event
              (null if the current event has no text associated).</returns>
         <remarks>
+          <para>Returns the buffer that contains the text of the current event,
+            as well as the start offset and length relevant for the current
+            event. See getText(), next() and nextToken() for description of possible returned values.</para>
+          <para>&lt;strong&gt;Please note:&lt;/strong&gt; this buffer must not
+            be modified and its content MAY change after a call to
+            next() or nextToken(). This method will always return the
+            same value as getText(), except for ENTITY_REF. In the case
+            of ENTITY ref, getText() returns the replacement text and
+            this method returns the actual input buffer containing the
+            entity name.
+            If getText() returns null, this method returns null as well and
+            the values returned in the holder array MUST be -1 (both start
+            and length).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#getTextCharacters(int[])" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.getTextCharacters(int[])</code>.</a>
@@ -910,8 +1164,8 @@
       <MemberSignature Language="F#" Value="member this.InputEncoding : string" Usage="Org.XmlPull.V1.IXmlPullParser.InputEncoding" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -938,8 +1192,8 @@
       <MemberSignature Language="F#" Value="abstract member IsAttributeDefault : int -&gt; bool" Usage="iXmlPullParser.IsAttributeDefault index" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -958,6 +1212,9 @@
         <summary>Returns if the specified attribute was not in input was declared in XML.</summary>
         <returns>false if attribute was in input</returns>
         <remarks>
+          <para>Returns if the specified attribute was not in input was declared in XML.
+            If parser is non-validating it MUST always return false.
+            This information is part of XML infoset:</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#isAttributeDefault(int)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.isAttributeDefault(int)</code>.</a>
@@ -979,8 +1236,8 @@
       <MemberSignature Language="F#" Value="member this.IsEmptyElementTag : bool" Usage="Org.XmlPull.V1.IXmlPullParser.IsEmptyElementTag" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1010,8 +1267,8 @@
       <MemberSignature Language="F#" Value="member this.IsWhitespace : bool" Usage="Org.XmlPull.V1.IXmlPullParser.IsWhitespace" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1040,8 +1297,8 @@
       <MemberSignature Language="F#" Value="member this.LineNumber : int" Usage="Org.XmlPull.V1.IXmlPullParser.LineNumber" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1068,8 +1325,8 @@
       <MemberSignature Language="F#" Value="member this.Name : string" Usage="Org.XmlPull.V1.IXmlPullParser.Name" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1097,8 +1354,8 @@
       <MemberSignature Language="F#" Value="member this.Namespace : string" Usage="Org.XmlPull.V1.IXmlPullParser.Namespace" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1125,8 +1382,8 @@
       <MemberSignature Language="F#" Value="abstract member Next : unit -&gt; Org.XmlPull.V1.XmlPullParserNode" Usage="iXmlPullParser.Next " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1151,6 +1408,15 @@
             must be expanded or exception must be thrown if entity reference can not be expanded).</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Get next parsing event - element content will be coalesced and only one
+            TEXT event must be returned for whole element content
+            (comments and processing instructions will be ignored and entity references
+            must be expanded or exception must be thrown if entity reference can not be expanded).
+            If element content is empty (content is "") then no TEXT event will be reported.</para>
+          <para>&lt;b&gt;NOTE:&lt;/b&gt; empty element (such as &amp;lt;tag/&gt;) will be reported
+             with  two separate events: START_TAG, END_TAG - it must be so to preserve
+              parsing equivalency of empty element to &amp;lt;tag&gt;&amp;lt;/tag&gt;.
+             (see isEmptyElementTag ())</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#next()" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.next()</code>.</a>
@@ -1174,8 +1440,8 @@
       <MemberSignature Language="F#" Value="abstract member NextTag : unit -&gt; Org.XmlPull.V1.XmlPullParserNode" Usage="iXmlPullParser.NextTag " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1198,6 +1464,19 @@
             otherwise throw an exception.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Call next() and return event if it is START_TAG or END_TAG
+            otherwise throw an exception.
+            It will skip whitespace TEXT before actual tag if any.</para>
+          <para>essentially it does this</para>
+          <code lang="text/java">int eventType = next();
+              if(eventType == TEXT &amp;amp;&amp;amp;  isWhitespace()) {   // skip whitespace
+                 eventType = next();
+              }
+              if (eventType != START_TAG &amp;amp;&amp;amp;  eventType != END_TAG) {
+                 throw new XmlPullParserException("expected start or end tag", this, null);
+              }
+              return eventType;
+            </code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#nextTag()" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.nextTag()</code>.</a>
@@ -1221,8 +1500,8 @@
       <MemberSignature Language="F#" Value="abstract member NextText : unit -&gt; string" Usage="iXmlPullParser.NextText " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1239,6 +1518,50 @@
             or if next event is END_TAG then empty string is returned, otherwise exception is thrown.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>If current event is START_TAG then if next element is TEXT then element content is returned
+            or if next event is END_TAG then empty string is returned, otherwise exception is thrown.
+            After calling this function successfully parser will be positioned on END_TAG.</para>
+          <para>The motivation for this function is to allow to parse consistently both
+            empty elements and elements that has non empty content, for example for input: &lt;ol&gt;
+            &lt;li&gt;&amp;lt;tag&amp;gt;foo&amp;lt;/tag&amp;gt;
+            &lt;li&gt;&amp;lt;tag&amp;gt;&amp;lt;/tag&amp;gt; (which is equivalent to &amp;lt;tag/&amp;gt;
+            both input can be parsed with the same code:</para>
+          <code lang="text/java">p.nextTag()
+              p.requireEvent(p.START_TAG, "", "tag");
+              String content = p.nextText();
+              p.requireEvent(p.END_TAG, "", "tag");
+            </code>
+          <para>This function together with nextTag make it very easy to parse XML that has
+            no mixed content.</para>
+          <para />
+          <para>Essentially it does this</para>
+          <code lang="text/java">if(getEventType() != START_TAG) {
+                throw new XmlPullParserException(
+                  "parser must be on START_TAG to read next text", this, null);
+             }
+             int eventType = next();
+             if(eventType == TEXT) {
+                String result = getText();
+                eventType = next();
+                if(eventType != END_TAG) {
+                  throw new XmlPullParserException(
+                     "event TEXT it must be immediately followed by END_TAG", this, null);
+                 }
+                 return result;
+             } else if(eventType == END_TAG) {
+                return "";
+             } else {
+                throw new XmlPullParserException(
+                  "parser must be on START_TAG or TEXT to read text", this, null);
+             }
+            </code>
+          <para>&lt;strong&gt;Warning:&lt;/strong&gt; Prior to API level 14, the pull parser returned by <c>android.util.Xml</c> did not always advance to the END_TAG event when this method was called.
+            Work around by using manually advancing after calls to nextText():</para>
+          <code lang="text/java">String text = xpp.nextText();
+             if (xpp.getEventType() != XmlPullParser.END_TAG) {
+                 xpp.next();
+             }
+            </code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#nextText()" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.nextText()</code>.</a>
@@ -1262,8 +1585,8 @@
       <MemberSignature Language="F#" Value="abstract member NextToken : unit -&gt; Org.XmlPull.V1.XmlPullParserNode" Usage="iXmlPullParser.NextToken " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1287,6 +1610,76 @@
             IGNORABLE_WHITESPACE) if they are available in input.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>This method works similarly to next() but will expose
+            additional event types (COMMENT, CDSECT, DOCDECL, ENTITY_REF, PROCESSING_INSTRUCTION, or
+            IGNORABLE_WHITESPACE) if they are available in input.</para>
+          <para>If special feature
+            <see href="http://xmlpull.org/v1/doc/features.html#xml-roundtrip">FEATURE_XML_ROUNDTRIP</see>
+            (identified by URI: http://xmlpull.org/v1/doc/features.html#xml-roundtrip)
+            is enabled it is possible to do XML document round trip ie. reproduce
+            exectly on output the XML input using getText():
+            returned content is always unnormalized (exactly as in input).
+            Otherwise returned content is end-of-line normalized as described
+            <see href="http://www.w3.org/TR/REC-xml#sec-line-ends">XML 1.0 End-of-Line Handling</see>
+            and. Also when this feature is enabled exact content of START_TAG, END_TAG,
+            DOCDECL and PROCESSING_INSTRUCTION is available.</para>
+          <para>Here is the list of tokens that can be  returned from nextToken()
+            and what getText() and getTextCharacters() returns:&lt;dl&gt;
+            &lt;dt&gt;START_DOCUMENT&lt;dd&gt;null
+            &lt;dt&gt;END_DOCUMENT&lt;dd&gt;null
+            &lt;dt&gt;START_TAG&lt;dd&gt;null unless FEATURE_XML_ROUNDTRIP
+              enabled and then returns XML tag, ex: &amp;lt;tag attr='val'&gt;
+            &lt;dt&gt;END_TAG&lt;dd&gt;null unless FEATURE_XML_ROUNDTRIP
+             id enabled and then returns XML tag, ex: &amp;lt;/tag&gt;
+            &lt;dt&gt;TEXT&lt;dd&gt;return element content.
+             &lt;br&gt;Note: that element content may be delivered in multiple consecutive TEXT events.
+            &lt;dt&gt;IGNORABLE_WHITESPACE&lt;dd&gt;return characters that are determined to be ignorable white
+            space. If the FEATURE_XML_ROUNDTRIP is enabled all whitespace content outside root
+            element will always reported as IGNORABLE_WHITESPACE otherwise reporting is optional.
+             &lt;br&gt;Note: that element content may be delivered in multiple consecutive IGNORABLE_WHITESPACE events.
+            &lt;dt&gt;CDSECT&lt;dd&gt;
+            return text &lt;em&gt;inside&lt;/em&gt; CDATA
+             (ex. 'fo&amp;lt;o' from &amp;lt;!CDATA[fo&amp;lt;o]]&gt;)
+            &lt;dt&gt;PROCESSING_INSTRUCTION&lt;dd&gt;
+             if FEATURE_XML_ROUNDTRIP is true
+             return exact PI content ex: 'pi foo' from &amp;lt;?pi foo?&gt;
+             otherwise it may be exact PI content or concatenation of PI target,
+            space and data so for example for
+              &amp;lt;?target    data?&gt; string &amp;quot;target data&amp;quot; may
+                  be returned if FEATURE_XML_ROUNDTRIP is false.
+            &lt;dt&gt;COMMENT&lt;dd&gt;return comment content ex. 'foo bar' from &amp;lt;!--foo bar--&gt;
+            &lt;dt&gt;ENTITY_REF&lt;dd&gt;getText() MUST return entity replacement text if PROCESS_DOCDECL is false
+            otherwise getText() MAY return null,
+            additionally getTextCharacters() MUST return entity name
+            (for example 'entity_name' for &amp;amp;entity_name;).
+            &lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt; this is the only place where value returned from getText() and
+              getTextCharacters() &lt;b&gt;are different&lt;/b&gt;
+            &lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt; it is user responsibility to resolve entity reference
+               if PROCESS_DOCDECL is false and there is no entity replacement text set in
+               defineEntityReplacementText() method (getText() will be null)
+            &lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt; character entities (ex. &amp;amp;#32;) and standard entities such as
+             &amp;amp;amp; &amp;amp;lt; &amp;amp;gt; &amp;amp;quot; &amp;amp;apos; are reported as well
+             and are &lt;b&gt;not&lt;/b&gt; reported as TEXT tokens but as ENTITY_REF tokens!
+             This requirement is added to allow to do roundtrip of XML documents!
+            &lt;dt&gt;DOCDECL&lt;dd&gt;
+            if FEATURE_XML_ROUNDTRIP is true or PROCESS_DOCDECL is false
+            then return what is inside of DOCDECL for example it returns:</para>
+          <code lang="text/java">&amp;quot; titlepage SYSTEM "http://www.foo.bar/dtds/typo.dtd"
+            [&amp;lt;!ENTITY % active.links "INCLUDE"&gt;]&amp;quot;</code>
+          <para>for input document that contained:</para>
+          <code lang="text/java">&amp;lt;!DOCTYPE titlepage SYSTEM "http://www.foo.bar/dtds/typo.dtd"
+            [&amp;lt;!ENTITY % active.links "INCLUDE"&gt;]&gt;</code>
+          <para>otherwise if FEATURE_XML_ROUNDTRIP is false and PROCESS_DOCDECL is true
+               then what is returned is undefined (it may be even null)
+            &lt;/dd&gt;
+            &lt;/dl&gt;</para>
+          <para>&lt;strong&gt;NOTE:&lt;/strong&gt; there is no guarantee that there will only one TEXT or
+            IGNORABLE_WHITESPACE event from nextToken() as parser may chose to deliver element content in
+            multiple tokens (dividing element content into chunks)</para>
+          <para>&lt;strong&gt;NOTE:&lt;/strong&gt; whether returned text of token is end-of-line normalized
+             is depending on FEATURE_XML_ROUNDTRIP.</para>
+          <para>&lt;strong&gt;NOTE:&lt;/strong&gt; XMLDecl (&amp;lt;?xml ...?&amp;gt;) is not reported but its content
+            is available through optional properties (see class description above).</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#nextToken()" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.nextToken()</code>.</a>
@@ -1325,6 +1718,7 @@
       <Docs>
         <summary>This constant represents the default namespace (empty string "")</summary>
         <remarks>
+          <para>This constant represents the default namespace (empty string "")</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#NO_NAMESPACE" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.NO_NAMESPACE</code>.</a>
@@ -1345,8 +1739,8 @@
       <MemberSignature Language="F#" Value="member this.PositionDescription : string" Usage="Org.XmlPull.V1.IXmlPullParser.PositionDescription" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1375,8 +1769,8 @@
       <MemberSignature Language="F#" Value="member this.Prefix : string" Usage="Org.XmlPull.V1.IXmlPullParser.Prefix" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1403,8 +1797,8 @@
       <MemberSignature Language="F#" Value="abstract member Require : Org.XmlPull.V1.XmlPullParserNode * string * string -&gt; unit" Usage="iXmlPullParser.Require (type, namespace, name)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1434,6 +1828,18 @@
         <summary>Test if the current event is of the given type and if the
             namespace and name do match.</summary>
         <remarks>
+          <para>Test if the current event is of the given type and if the
+            namespace and name do match. null will match any namespace
+            and any name. If the test is not passed, an exception is
+            thrown. The exception text indicates the parser position,
+            the expected event and the current event that is not meeting the
+            requirement.</para>
+          <para>Essentially it does this</para>
+          <code lang="text/java">if (type != getEventType()
+             || (namespace != null &amp;amp;&amp;amp;  !namespace.equals( getNamespace () ) )
+             || (name != null &amp;amp;&amp;amp;  !name.equals( getName() ) ) )
+                throw new XmlPullParserException( "expected "+ TYPES[ type ]+getPositionDescription());
+            </code>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#require(int,%20java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.require(int, java.lang.String, java.lang.String)</code>.</a>
@@ -1457,8 +1863,8 @@
       <MemberSignature Language="F#" Value="abstract member SetFeature : string * bool -&gt; unit" Usage="iXmlPullParser.SetFeature (name, state)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1479,6 +1885,14 @@
         <summary>Use this call to change the general behaviour of the parser,
             such as namespace processing or doctype declaration handling.</summary>
         <remarks>
+          <para>Use this call to change the general behaviour of the parser,
+            such as namespace processing or doctype declaration handling.
+            This method must be called before the first call to next or
+            nextToken. Otherwise, an exception is thrown.</para>
+          <para>Example: call setFeature(FEATURE_PROCESS_NAMESPACES, true) in order
+            to switch on namespace processing. The initial settings correspond
+            to the properties requested from the XML Pull Parser factory.
+            If none were requested, all features are deactivated by default.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#setFeature(java.lang.String,%20boolean)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.setFeature(java.lang.String, boolean)</code>.</a>
@@ -1503,8 +1917,8 @@
       <MemberSignature Language="F#" Value="abstract member SetInput : Java.IO.Reader -&gt; unit" Usage="iXmlPullParser.SetInput in" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1523,6 +1937,13 @@
         <summary>Set the input source for parser to the given reader and
             resets the parser.</summary>
         <remarks>
+          <para>Set the input source for parser to the given reader and
+            resets the parser. The event type is set to the initial value
+            START_DOCUMENT.
+            Setting the reader to null will just stop parsing and
+            reset parser state,
+            allowing the parser to free internal resources
+            such as parsing buffers.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#setInput(java.io.Reader)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.setInput(java.io.Reader)</code>.</a>
@@ -1545,8 +1966,8 @@
       <MemberSignature Language="F#" Value="abstract member SetInput : System.IO.Stream * string -&gt; unit" Usage="iXmlPullParser.SetInput (inputStream, inputEncoding)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1567,6 +1988,16 @@
         <param name="inputEncoding">if not null it MUST be used as encoding for inputStream</param>
         <summary>Sets the input stream the parser is going to process.</summary>
         <remarks>
+          <para>Sets the input stream the parser is going to process.
+            This call resets the parser state and sets the event type
+            to the initial value START_DOCUMENT.</para>
+          <para>&lt;strong&gt;NOTE:&lt;/strong&gt; If an input encoding string is passed,
+             it MUST be used. Otherwise,
+             if inputEncoding is null, the parser SHOULD try to determine
+             input encoding following XML 1.0 specification (see below).
+             If encoding detection is supported then following feature
+             <see href="http://xmlpull.org/v1/doc/features.html#detect-encoding">http://xmlpull.org/v1/doc/features.html#detect-encoding</see>
+             MUST be true and otherwise it must be false.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#setInput(java.io.InputStream,%20java.lang.String)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.setInput(java.io.InputStream, java.lang.String)</code>.</a>
@@ -1589,8 +2020,8 @@
       <MemberSignature Language="F#" Value="abstract member SetProperty : string * Java.Lang.Object -&gt; unit" Usage="iXmlPullParser.SetProperty (name, value)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1610,6 +2041,8 @@
         <param name="value">To be added.</param>
         <summary>Set the value of a property.</summary>
         <remarks>
+          <para>Set the value of a property.</para>
+          <para>The property name is any fully-qualified URI.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#setProperty(java.lang.String,%20java.lang.Object)" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.setProperty(java.lang.String, java.lang.Object)</code>.</a>
@@ -1634,8 +2067,8 @@
       <MemberSignature Language="F#" Value="member this.Text : string" Usage="Org.XmlPull.V1.IXmlPullParser.Text" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1659,7 +2092,7 @@
       <MemberSignature Language="C#" Value="public static System.Collections.Generic.IList&lt;string&gt;? Types { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.Generic.IList`1&lt;string&gt; Types" />
       <MemberSignature Language="DocId" Value="P:Org.XmlPull.V1.IXmlPullParser.Types" />
-      <MemberSignature Language="F#" Value="member this.Types : System.Collections.Generic.IList&lt;string&gt;" Usage="Org.XmlPull.V1.IXmlPullParser.Types" />
+      <MemberSignature Language="F#" Value="static member Types : System.Collections.Generic.IList&lt;string&gt;" Usage="Org.XmlPull.V1.IXmlPullParser.Types" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
@@ -1680,6 +2113,14 @@
             to a string.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>This array can be used to convert the event type integer constants
+            such as START_TAG or TEXT to
+            to a string. For example, the value of TYPES[START_TAG] is
+            the string "START_TAG".</para>
+          <para>This array is intended for diagnostic output only. Relying
+            on the contents of the array may be dangerous since malicious
+            applications may alter the array, although it is final, due
+            to limitations of the Java language.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/org/xmlpull/v1/XmlPullParser#TYPES" title="Reference documentation">Java documentation for <code>org.xmlpull.v1.XmlPullParser.TYPES</code>.</a>

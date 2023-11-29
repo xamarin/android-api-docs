@@ -34,6 +34,72 @@
     <summary>MediaDrm can be used to obtain keys for decrypting protected media streams, in
             conjunction with <c>android.media.MediaCrypto</c>.</summary>
     <remarks>
+      <para>MediaDrm can be used to obtain keys for decrypting protected media streams, in
+            conjunction with <c>android.media.MediaCrypto</c>.  The MediaDrm APIs
+            are designed to support the ISO/IEC 23001-7: Common Encryption standard, but
+            may also be used to implement other encryption schemes.</para>
+      <para>Encrypted content is prepared using an encryption server and stored in a content
+            library. The encrypted content is streamed or downloaded from the content library to
+            client devices via content servers.  Licenses to view the content are obtained from
+            a License Server.</para>
+      <para />
+      <para>&lt;img src="../../../images/mediadrm_overview.png"
+                 alt="MediaDrm Overview diagram"
+                 border="0" /&gt;</para>
+      <para>Keys are requested from the license server using a key request. The key
+            response is delivered to the client app, which provides the response to the
+            MediaDrm API.</para>
+      <para>A Provisioning server may be required to distribute device-unique credentials to
+            the devices.</para>
+      <para>Enforcing requirements related to the number of devices that may play content
+            simultaneously can be performed either through key renewal or using the secure
+            stop methods.</para>
+      <para>The following sequence diagram shows the interactions between the objects
+            involved while playing back encrypted content:</para>
+      <para />
+      <para>&lt;img src="../../../images/mediadrm_decryption_sequence.png"
+                    alt="MediaDrm Overview diagram"
+                    border="0" /&gt;</para>
+      <para>The app first constructs <c>android.media.MediaExtractor</c> and
+            <c>android.media.MediaCodec</c> objects. It accesses the DRM-scheme-identifying UUID,
+            typically from metadata in the content, and uses this UUID to construct an instance
+            of a MediaDrm object that is able to support the DRM scheme required by the content.
+            Crypto schemes are assigned 16 byte UUIDs.  The method <c>#isCryptoSchemeSupported</c>
+            can be used to query if a given scheme is supported on the device.</para>
+      <para>The app calls <c>#openSession</c> to generate a sessionId that will uniquely identify
+            the session in subsequent interactions. The app next uses the MediaDrm object to
+            obtain a key request message and send it to the license server, then provide
+            the server's response to the MediaDrm object.</para>
+      <para>Once the app has a sessionId, it can construct a MediaCrypto object from the UUID and
+            sessionId.  The MediaCrypto object is registered with the MediaCodec in the
+            <c>MediaCodec#configure</c> method to enable the codec to decrypt content.</para>
+      <para>When the app has constructed <c>android.media.MediaExtractor</c>,
+            <c>android.media.MediaCodec</c> and <c>android.media.MediaCrypto</c> objects,
+            it proceeds to pull samples from the extractor and queue them into the decoder.  For
+            encrypted content, the samples returned from the extractor remain encrypted, they
+            are only decrypted when the samples are delivered to the decoder.</para>
+      <para>MediaDrm methods throw <c>android.media.MediaDrm.MediaDrmStateException</c>
+            when a method is called on a MediaDrm object that has had an unrecoverable failure
+            in the DRM plugin or security hardware.
+            <c>android.media.MediaDrm.MediaDrmStateException</c> extends
+            <c>java.lang.IllegalStateException</c> with the addition of a developer-readable
+            diagnostic information string associated with the exception.</para>
+      <para>In the event of a mediaserver process crash or restart while a MediaDrm object
+            is active, MediaDrm methods may throw <c>android.media.MediaDrmResetException</c>.
+            To recover, the app must release the MediaDrm object, then create and initialize
+            a new one.</para>
+      <para>As <c>android.media.MediaDrmResetException</c> and
+            <c>android.media.MediaDrm.MediaDrmStateException</c> both extend
+            <c>java.lang.IllegalStateException</c>, they should be in an earlier catch()
+            block than <c>java.lang.IllegalStateException</c> if handled separately.</para>
+      <para>"Callbacks"&gt;&lt;h3&gt;Callbacks&lt;/h3&gt;</para>
+      <para>Applications should register for informational events in order
+            to be informed of key state updates during playback or streaming.
+            Registration for these events is done via a call to
+            <c>#setOnEventListener</c>. In order to receive the respective
+            callback associated with this listener, applications are required to create
+            MediaDrm objects on a thread with its own Looper running (main UI
+            thread by default has a Looper running).</para>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/media/MediaDrm" title="Reference documentation">Java documentation for <code>android.media.MediaDrm</code>.</a>
@@ -55,8 +121,8 @@
       <MemberSignature Language="F#" Value="new Android.Media.MediaDrm : Java.Util.UUID -&gt; Android.Media.MediaDrm" Usage="new Android.Media.MediaDrm uuid" />
       <MemberType>Constructor</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -71,6 +137,7 @@
         <param name="uuid">The UUID of the crypto scheme.</param>
         <summary>Instantiate a MediaDrm object</summary>
         <remarks>
+          <para>Instantiate a MediaDrm object</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#MediaDrm(java.util.UUID)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.MediaDrm(java.util.UUID)</code>.</a>
@@ -103,6 +170,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("clearOnEventListener", "()V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("clearOnEventListener", "()V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -111,6 +182,7 @@
       <Docs>
         <summary>Clear the <c>OnEventListener</c>.</summary>
         <remarks>
+          <para>Clear the <c>OnEventListener</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#clearOnEventListener()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.clearOnEventListener()</code>.</a>
@@ -139,6 +211,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("clearOnExpirationUpdateListener", "()V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("clearOnExpirationUpdateListener", "()V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -147,6 +223,7 @@
       <Docs>
         <summary>Clear the <c>OnExpirationUpdateListener</c>.</summary>
         <remarks>
+          <para>Clear the <c>OnExpirationUpdateListener</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#clearOnExpirationUpdateListener()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.clearOnExpirationUpdateListener()</code>.</a>
@@ -175,6 +252,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("clearOnKeyStatusChangeListener", "()V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("clearOnKeyStatusChangeListener", "()V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -183,6 +264,7 @@
       <Docs>
         <summary>Clear the <c>OnKeyStatusChangeListener</c>.</summary>
         <remarks>
+          <para>Clear the <c>OnKeyStatusChangeListener</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#clearOnKeyStatusChangeListener()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.clearOnKeyStatusChangeListener()</code>.</a>
@@ -211,6 +293,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("clearOnSessionLostStateListener", "()V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("clearOnSessionLostStateListener", "()V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -219,6 +305,7 @@
       <Docs>
         <summary>Clear the <c>OnSessionLostStateListener</c>.</summary>
         <remarks>
+          <para>Clear the <c>OnSessionLostStateListener</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#clearOnSessionLostStateListener()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.clearOnSessionLostStateListener()</code>.</a>
@@ -250,6 +337,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("close", "()V", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("close", "()V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -259,6 +350,15 @@
         <summary>Releases resources associated with the current session of
             MediaDrm.</summary>
         <remarks>
+          <para>Releases resources associated with the current session of
+            MediaDrm. It is considered good practice to call this method when
+            the <c>MediaDrm</c> object is no longer needed in your
+            application. After this method is called, <c>MediaDrm</c> is no
+            longer usable since it has lost all of its required resource.
+            
+            This method was added in API 28. In API versions 18 through 27, release()
+            should be called instead. There is no need to do anything for API
+            versions prior to 18.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#close()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.close()</code>.</a>
@@ -279,8 +379,8 @@
       <MemberSignature Language="F#" Value="member this.CloseSession : byte[] -&gt; unit" Usage="mediaDrm.CloseSession sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -299,6 +399,8 @@
         <summary>Close a session on the MediaDrm object that was previously opened
             with <c>#openSession</c>.</summary>
         <remarks>
+          <para>Close a session on the MediaDrm object that was previously opened
+            with <c>#openSession</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#closeSession(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.closeSession(byte[])</code>.</a>
@@ -325,6 +427,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getConnectedHdcpLevel", "()I", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getConnectedHdcpLevel", "()I", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
@@ -337,6 +443,14 @@
             device is connected to.</summary>
         <value>the connected HDCP level</value>
         <remarks>
+          <para>Return the HDCP level negotiated with downstream receivers the
+            device is connected to. If multiple HDCP-capable displays are
+            simultaneously connected to separate interfaces, this method
+            returns the lowest negotiated level of all interfaces.</para>
+          <para>This method should only be used for informational purposes, not for
+            enforcing compliance with HDCP requirements. Trusted enforcement of
+            HDCP policies must be handled by the DRM system.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getConnectedHdcpLevel()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getConnectedHdcpLevel()</code>.</a>
@@ -357,8 +471,8 @@
       <MemberSignature Language="F#" Value="val mutable EventKeyExpired : Android.Media.MediaDrmEventType" Usage="Android.Media.MediaDrm.EventKeyExpired" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -366,8 +480,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EVENT_KEY_EXPIRED")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaDrmEventType enum directly instead of this field.", true)]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaDrmEventType enum directly instead of this field.", true)&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android26.0", "This constant will be removed in the future version. Use Android.Media.MediaDrmEventType enum directly instead of this field.")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android26.0", "This constant will be removed in the future version. Use Android.Media.MediaDrmEventType enum directly instead of this field.")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -378,6 +492,11 @@
         <summary>This event type indicates that the licensed usage duration for keys in a session
             has expired.</summary>
         <remarks>
+          <para>This event type indicates that the licensed usage duration for keys in a session
+            has expired.  The keys are no longer valid.</para>
+          <para>This member is deprecated. Use <c>OnKeyStatusChangeListener#onKeyStatusChange</c>
+            and check for <c>MediaDrm.KeyStatus#STATUS_EXPIRED</c> in the <c>MediaDrm.KeyStatus</c>
+            instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#EVENT_KEY_EXPIRED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.EVENT_KEY_EXPIRED</code>.</a>
@@ -399,8 +518,8 @@
       <MemberSignature Language="F#" Value="val mutable EventKeyRequired : Android.Media.MediaDrmEventType" Usage="Android.Media.MediaDrm.EventKeyRequired" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -420,6 +539,8 @@
         <summary>This event type indicates that the app needs to request keys from a license
             server.</summary>
         <remarks>
+          <para>This event type indicates that the app needs to request keys from a license
+            server.  The request message data is obtained using <c>#getKeyRequest</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#EVENT_KEY_REQUIRED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.EVENT_KEY_REQUIRED</code>.</a>
@@ -441,8 +562,8 @@
       <MemberSignature Language="F#" Value="val mutable EventProvisionRequired : Android.Media.MediaDrmEventType" Usage="Android.Media.MediaDrm.EventProvisionRequired" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -450,8 +571,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("EVENT_PROVISION_REQUIRED")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaDrmEventType enum directly instead of this field.", true)]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaDrmEventType enum directly instead of this field.", true)&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android23.0", "This constant will be removed in the future version. Use Android.Media.MediaDrmEventType enum directly instead of this field.")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android23.0", "This constant will be removed in the future version. Use Android.Media.MediaDrmEventType enum directly instead of this field.")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -462,6 +583,11 @@
         <summary>This event type indicates that the app needs to request a certificate from
             the provisioning server.</summary>
         <remarks>
+          <para>This event type indicates that the app needs to request a certificate from
+            the provisioning server.  The request message data is obtained using
+            <c>#getProvisionRequest</c></para>
+          <para>This member is deprecated. Handle provisioning via <c>android.media.NotProvisionedException</c>
+            instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#EVENT_PROVISION_REQUIRED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.EVENT_PROVISION_REQUIRED</code>.</a>
@@ -495,6 +621,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaDrmEventType enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.MediaDrmEventType enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.MediaDrmEventType</ReturnType>
@@ -504,6 +634,8 @@
         <summary>This event indicates that a session opened by the app has been reclaimed by the resource
             manager.</summary>
         <remarks>
+          <para>This event indicates that a session opened by the app has been reclaimed by the resource
+            manager.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#EVENT_SESSION_RECLAIMED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.EVENT_SESSION_RECLAIMED</code>.</a>
@@ -524,8 +656,8 @@
       <MemberSignature Language="F#" Value="val mutable EventVendorDefined : Android.Media.MediaDrmEventType" Usage="Android.Media.MediaDrm.EventVendorDefined" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -545,6 +677,8 @@
         <summary>This event may indicate some specific vendor-defined condition, see your
             DRM provider documentation for details</summary>
         <remarks>
+          <para>This event may indicate some specific vendor-defined condition, see your
+            DRM provider documentation for details</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#EVENT_VENDOR_DEFINED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.EVENT_VENDOR_DEFINED</code>.</a>
@@ -566,8 +700,8 @@
       <MemberSignature Language="F#" Value="member this.GetCryptoSession : byte[] * string * string -&gt; Android.Media.MediaDrm.CryptoSession" Usage="mediaDrm.GetCryptoSession (sessionId, cipherAlgorithm, macAlgorithm)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -624,8 +758,8 @@
       <MemberSignature Language="F#" Value="member this.GetKeyRequest : byte[] * byte[] * string * int * System.Collections.Generic.IDictionary&lt;string, string&gt; -&gt; Android.Media.MediaDrm.KeyRequest" Usage="mediaDrm.GetKeyRequest (scope, init, mimeType, keyType, optionalParameters)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -703,6 +837,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getOfflineLicenseState", "([B)I", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getOfflineLicenseState", "([B)I", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.OfflineLicenseState</ReturnType>
@@ -721,6 +859,12 @@
         <summary>Request the state of an offline license.</summary>
         <returns>the offline license state</returns>
         <remarks>
+          <para>Request the state of an offline license. An offline license may be usable
+            or inactive. The keys in a usable offline license are available for
+            decryption. When the offline license state is inactive, the keys have
+            been marked for release using <c>#getKeyRequest</c> with
+            KEY_TYPE_RELEASE but the key response has not been received. The keys in
+            an inactive offline license are not usable for decryption.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getOfflineLicenseState(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getOfflineLicenseState(byte[])</code>.</a>
@@ -748,6 +892,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("getPlaybackComponent", "([B)Landroid/media/MediaDrm$PlaybackComponent;", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getPlaybackComponent", "([B)Landroid/media/MediaDrm$PlaybackComponent;", "", ApiSince=31)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -782,8 +930,8 @@
       <MemberSignature Language="F#" Value="member this.GetPropertyByteArray : string -&gt; byte[]" Usage="mediaDrm.GetPropertyByteArray propertyName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -802,6 +950,8 @@
         <summary>Read a MediaDrm byte array property value, given the property name string.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a MediaDrm byte array property value, given the property name string.</para>
+          <para>Standard fields names are <c>#PROPERTY_DEVICE_UNIQUE_ID</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getPropertyByteArray(java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getPropertyByteArray(java.lang.String)</code>.</a>
@@ -823,8 +973,8 @@
       <MemberSignature Language="F#" Value="member this.GetPropertyString : string -&gt; string" Usage="mediaDrm.GetPropertyString propertyName" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -843,6 +993,10 @@
         <summary>Read a MediaDrm String property value, given the property name string.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Read a MediaDrm String property value, given the property name string.</para>
+          <para>Standard fields names are:
+            <c>#PROPERTY_VENDOR</c>, <c>#PROPERTY_VERSION</c>,
+            <c>#PROPERTY_DESCRIPTION</c>, <c>#PROPERTY_ALGORITHMS</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getPropertyString(java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getPropertyString(java.lang.String)</code>.</a>
@@ -864,8 +1018,8 @@
       <MemberSignature Language="F#" Value="member this.GetProvisionRequest : unit -&gt; Android.Media.MediaDrm.ProvisionRequest" Usage="mediaDrm.GetProvisionRequest " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -912,8 +1066,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getSecureStop", "([B)[B", "", ApiSince=22)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android22.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android22.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -927,6 +1085,12 @@
         <summary>Access a specific secure stop given its secure stop ID.</summary>
         <returns>the secure stop identified by ssid</returns>
         <remarks>
+          <para>Access a specific secure stop given its secure stop ID.
+            Each secure stop has a unique ID.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Use renewals by calling <c>#getKeyRequest</c> to track
+            concurrent playback. See additional information in
+            <c>#getSecureStops</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getSecureStop(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getSecureStop(byte[])</code>.</a>
@@ -955,6 +1119,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("getSecurityLevel", "([B)I", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("getSecurityLevel", "([B)I", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.SecurityLevel</ReturnType>
@@ -974,6 +1142,10 @@
         <summary>Return the current security level of a session.</summary>
         <returns>the security level of the session</returns>
         <remarks>
+          <para>Return the current security level of a session. A session has an initial
+            security level determined by the robustness of the DRM system's
+            implementation on the device. The security level may be changed at the
+            time a session is opened using <c>#openSession</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getSecurityLevel(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getSecurityLevel(byte[])</code>.</a>
@@ -1006,6 +1178,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.HdcpLevel</ReturnType>
@@ -1015,6 +1191,8 @@
         <summary>The DRM plugin did not report an HDCP level, or an error
             occurred accessing it</summary>
         <remarks>
+          <para>The DRM plugin did not report an HDCP level, or an error
+            occurred accessing it</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_LEVEL_UNKNOWN" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_LEVEL_UNKNOWN</code>.</a>
@@ -1047,6 +1225,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.HdcpLevel</ReturnType>
@@ -1055,6 +1237,7 @@
       <Docs>
         <summary>No digital output, implicitly secure</summary>
         <remarks>
+          <para>No digital output, implicitly secure</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_NO_DIGITAL_OUTPUT" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_NO_DIGITAL_OUTPUT</code>.</a>
@@ -1087,6 +1270,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.HdcpLevel</ReturnType>
@@ -1095,6 +1282,7 @@
       <Docs>
         <summary>HDCP is not supported on this device, content is unprotected</summary>
         <remarks>
+          <para>HDCP is not supported on this device, content is unprotected</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_NONE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_NONE</code>.</a>
@@ -1127,6 +1315,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.HdcpLevel</ReturnType>
@@ -1135,6 +1327,7 @@
       <Docs>
         <summary>HDCP version 1.</summary>
         <remarks>
+          <para>HDCP version 1.0</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_V1" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_V1</code>.</a>
@@ -1167,6 +1360,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.HdcpLevel</ReturnType>
@@ -1175,6 +1372,7 @@
       <Docs>
         <summary>HDCP version 2.</summary>
         <remarks>
+          <para>HDCP version 2.0 Type 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_V2" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_V2</code>.</a>
@@ -1207,6 +1405,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.HdcpLevel</ReturnType>
@@ -1215,6 +1417,7 @@
       <Docs>
         <summary>HDCP version 2.</summary>
         <remarks>
+          <para>HDCP version 2.1 Type 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_V2_1" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_V2_1</code>.</a>
@@ -1247,6 +1450,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.HdcpLevel</ReturnType>
@@ -1255,6 +1462,7 @@
       <Docs>
         <summary>HDCP version 2.</summary>
         <remarks>
+          <para>HDCP version 2.2 Type 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_V2_2" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_V2_2</code>.</a>
@@ -1287,6 +1495,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.HdcpLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.HdcpLevel</ReturnType>
@@ -1295,6 +1507,7 @@
       <Docs>
         <summary>HDCP version 2.</summary>
         <remarks>
+          <para>HDCP version 2.3 Type 1.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#HDCP_V2_3" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.HDCP_V2_3</code>.</a>
@@ -1315,8 +1528,8 @@
       <MemberSignature Language="F#" Value="static member IsCryptoSchemeSupported : Java.Util.UUID -&gt; bool" Usage="Android.Media.MediaDrm.IsCryptoSchemeSupported uuid" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1336,6 +1549,8 @@
             this device.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Query if the given scheme identified by its UUID is supported on
+            this device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#isCryptoSchemeSupported(java.util.UUID)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.isCryptoSchemeSupported(java.util.UUID)</code>.</a>
@@ -1357,8 +1572,8 @@
       <MemberSignature Language="F#" Value="static member IsCryptoSchemeSupported : Java.Util.UUID * string -&gt; bool" Usage="Android.Media.MediaDrm.IsCryptoSchemeSupported (uuid, mimeType)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1382,6 +1597,9 @@
             media container format specified by mimeType.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Query if the given scheme identified by its UUID is supported on
+            this device, and whether the DRM plugin is able to handle the
+            media container format specified by mimeType.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#isCryptoSchemeSupported(java.util.UUID,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.isCryptoSchemeSupported(java.util.UUID, java.lang.String)</code>.</a>
@@ -1410,6 +1628,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("isCryptoSchemeSupported", "(Ljava/util/UUID;Ljava/lang/String;I)Z", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("isCryptoSchemeSupported", "(Ljava/util/UUID;Ljava/lang/String;I)Z", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -1437,6 +1659,10 @@
             security level.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Query if the given scheme identified by its UUID is supported on
+            this device, and whether the DRM plugin is able to handle the
+            media container format specified by mimeType at the requested
+            security level.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#isCryptoSchemeSupported(java.util.UUID,%20java.lang.String,%20int)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.isCryptoSchemeSupported(java.util.UUID, java.lang.String, int)</code>.</a>
@@ -1491,8 +1717,8 @@
       <MemberSignature Language="F#" Value="val mutable KeyTypeOffline : Android.Media.MediaDrmKeyType" Usage="Android.Media.MediaDrm.KeyTypeOffline" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1512,6 +1738,8 @@
         <summary>This key request type specifies that the keys will be for offline use, they
             will be saved to the device for use when the device is not connected to a network.</summary>
         <remarks>
+          <para>This key request type specifies that the keys will be for offline use, they
+            will be saved to the device for use when the device is not connected to a network.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#KEY_TYPE_OFFLINE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.KEY_TYPE_OFFLINE</code>.</a>
@@ -1533,8 +1761,8 @@
       <MemberSignature Language="F#" Value="val mutable KeyTypeRelease : Android.Media.MediaDrmKeyType" Usage="Android.Media.MediaDrm.KeyTypeRelease" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1553,6 +1781,7 @@
       <Docs>
         <summary>This key request type specifies that previously saved offline keys should be released.</summary>
         <remarks>
+          <para>This key request type specifies that previously saved offline keys should be released.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#KEY_TYPE_RELEASE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.KEY_TYPE_RELEASE</code>.</a>
@@ -1574,8 +1803,8 @@
       <MemberSignature Language="F#" Value="val mutable KeyTypeStreaming : Android.Media.MediaDrmKeyType" Usage="Android.Media.MediaDrm.KeyTypeStreaming" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -1596,6 +1825,9 @@
             not be saved to the device for subsequent use when the device is not connected
             to a network.</summary>
         <remarks>
+          <para>This key request type species that the keys will be for online use, they will
+            not be saved to the device for subsequent use when the device is not connected
+            to a network.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#KEY_TYPE_STREAMING" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.KEY_TYPE_STREAMING</code>.</a>
@@ -1622,6 +1854,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getLogMessages", "()Ljava/util/List;", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getLogMessages", "()Ljava/util/List;", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
@@ -1634,6 +1870,8 @@
             instance.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns recent <c>LogMessage LogMessages</c> associated with this <c>MediaDrm</c>
+            instance.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getLogMessages()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getLogMessages()</code>.</a>
@@ -1659,6 +1897,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getMaxHdcpLevel", "()I", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getMaxHdcpLevel", "()I", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
@@ -1670,6 +1912,11 @@
         <summary>Return the maximum supported HDCP level.</summary>
         <value>the maximum supported HDCP level</value>
         <remarks>
+          <para>Return the maximum supported HDCP level. The maximum HDCP level is a
+            constant for a given device, it does not depend on downstream receivers
+            that may be connected. If multiple HDCP-capable interfaces are present,
+            it indicates the highest of the maximum HDCP levels of all interfaces.</para>
+          <para />
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getMaxHdcpLevel()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getMaxHdcpLevel()</code>.</a>
@@ -1687,13 +1934,17 @@
       <MemberSignature Language="C#" Value="public static int MaxSecurityLevel { get; }" />
       <MemberSignature Language="ILAsm" Value=".property int32 MaxSecurityLevel" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.MaxSecurityLevel" />
-      <MemberSignature Language="F#" Value="member this.MaxSecurityLevel : int" Usage="Android.Media.MediaDrm.MaxSecurityLevel" />
+      <MemberSignature Language="F#" Value="static member MaxSecurityLevel : int" Usage="Android.Media.MediaDrm.MaxSecurityLevel" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getMaxSecurityLevel", "()I", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getMaxSecurityLevel", "()I", "", ApiSince=28)&gt;]</AttributeName>
@@ -1708,6 +1959,9 @@
             the device.</summary>
         <value>To be added.</value>
         <remarks>
+          <para>Returns a value that may be passed as a parameter to <c>#openSession(int)</c>
+            requesting that the session be opened at the maximum security level of
+            the device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getMaxSecurityLevel()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getMaxSecurityLevel()</code>.</a>
@@ -1733,6 +1987,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getMaxSessionCount", "()I", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getMaxSessionCount", "()I", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
@@ -1746,6 +2004,10 @@
             scheme.</summary>
         <value>maximum sessions.</value>
         <remarks>
+          <para>Return the maximum number of MediaDrm sessions that may be opened
+            simultaneosly among all MediaDrm instances for the active DRM
+            scheme. The maximum number of sessions is not affected by any
+            sessions that may have already been opened.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getMaxSessionCount()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getMaxSessionCount()</code>.</a>
@@ -1766,8 +2028,8 @@
       <MemberSignature Language="F#" Value="member this.MediaDrmEvent : EventHandler&lt;Android.Media.MediaDrm.MediaDrmEventArgs&gt; " Usage="member this.MediaDrmEvent : System.EventHandler&lt;Android.Media.MediaDrm.MediaDrmEventArgs&gt; " />
       <MemberType>Event</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <ReturnValue>
         <ReturnType>System.EventHandler&lt;Android.Media.MediaDrm+MediaDrmEventArgs&gt;</ReturnType>
@@ -1791,6 +2053,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getMetrics", "()Landroid/os/PersistableBundle;", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getMetrics", "()Landroid/os/PersistableBundle;", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
@@ -1807,6 +2073,7 @@
             Additional vendor-specific fields may also be present in
             the return value.</value>
         <remarks>
+          <para>Return Metrics data about the current MediaDrm instance.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getMetrics()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getMetrics()</code>.</a>
@@ -1832,6 +2099,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getOfflineLicenseKeySetIds", "()Ljava/util/List;", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getOfflineLicenseKeySetIds", "()Ljava/util/List;", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
@@ -1844,6 +2115,18 @@
             if the device is not connected to a network.</summary>
         <value>a list of offline license keySetIds</value>
         <remarks>
+          <para>The keys in an offline license allow protected content to be played even
+            if the device is not connected to a network. Offline licenses are stored
+            on the device after a key request/response exchange when the key request
+            KeyType is OFFLINE. Normally each app is responsible for keeping track of
+            the keySetIds it has created. If an app loses the keySetId for any stored
+            licenses that it created, however, it must be able to recover the stored
+            keySetIds so those licenses can be removed when they expire or when the
+            app is uninstalled.</para>
+          <para>This method returns a list of the keySetIds for all offline licenses.
+            The offline license keySetId may be used to query the status of an
+            offline license with <c>#getOfflineLicenseState</c> or remove it with
+            <c>#removeOfflineLicense</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getOfflineLicenseKeySetIds()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getOfflineLicenseKeySetIds()</code>.</a>
@@ -1876,6 +2159,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.OfflineLicenseState enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.OfflineLicenseState enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.OfflineLicenseState</ReturnType>
@@ -1886,6 +2173,9 @@
             release using <c>#getKeyRequest</c> with KEY_TYPE_RELEASE but
             the key response has not been received.</summary>
         <remarks>
+          <para>Offline license is released, the keys have been marked for
+            release using <c>#getKeyRequest</c> with KEY_TYPE_RELEASE but
+            the key response has not been received.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#OFFLINE_LICENSE_STATE_RELEASED" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.OFFLINE_LICENSE_STATE_RELEASED</code>.</a>
@@ -1918,6 +2208,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.OfflineLicenseState enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.OfflineLicenseState enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.OfflineLicenseState</ReturnType>
@@ -1927,6 +2221,8 @@
         <summary>Offline license state is unknown, an error occurred while trying
             to access it.</summary>
         <remarks>
+          <para>Offline license state is unknown, an error occurred while trying
+            to access it.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#OFFLINE_LICENSE_STATE_UNKNOWN" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.OFFLINE_LICENSE_STATE_UNKNOWN</code>.</a>
@@ -1959,6 +2255,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.OfflineLicenseState enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.OfflineLicenseState enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.OfflineLicenseState</ReturnType>
@@ -1967,6 +2267,7 @@
       <Docs>
         <summary>Offline license is usable, the keys may be used for decryption.</summary>
         <remarks>
+          <para>Offline license is usable, the keys may be used for decryption.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#OFFLINE_LICENSE_STATE_USABLE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.OFFLINE_LICENSE_STATE_USABLE</code>.</a>
@@ -1987,8 +2288,8 @@
       <MemberSignature Language="F#" Value="member this.OpenSession : unit -&gt; byte[]" Usage="mediaDrm.OpenSession " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2004,6 +2305,8 @@
         <summary>Open a new session with the MediaDrm object.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Open a new session with the MediaDrm object. A session ID is returned.
+            By default, sessions are opened at the native security level of the device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#openSession()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.openSession()</code>.</a>
@@ -2036,6 +2339,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("openSession", "(I)[B", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("openSession", "(I)[B", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Byte[]</ReturnType>
@@ -2055,6 +2362,17 @@
         <summary>Open a new session at a requested security level.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Open a new session at a requested security level. The security level
+            represents the robustness of the device's DRM implementation. By default,
+            sessions are opened at the native security level of the device.
+            Overriding the security level is necessary when the decrypted frames need
+            to be manipulated, such as for image compositing. The security level
+            parameter must be lower than the native level. Reducing the security
+            level will typically limit the content to lower resolutions, as
+            determined by the license policy. If the requested level is not
+            supported, the next lower supported security level will be set. The level
+            can be queried using <c>#getSecurityLevel</c>. A session
+            ID is returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#openSession(int)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.openSession(int)</code>.</a>
@@ -2080,6 +2398,10 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getOpenSessionCount", "()I", "", ApiSince=28)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getOpenSessionCount", "()I", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
@@ -2092,6 +2414,8 @@
             simultaneously among all MediaDrm instances for the active DRM scheme.</summary>
         <value>the number of open sessions.</value>
         <remarks>
+          <para>Return the number of MediaDrm sessions that are currently opened
+            simultaneously among all MediaDrm instances for the active DRM scheme.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getOpenSessionCount()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getOpenSessionCount()</code>.</a>
@@ -2112,8 +2436,8 @@
       <MemberSignature Language="F#" Value="val mutable PropertyAlgorithms : string" Usage="Android.Media.MediaDrm.PropertyAlgorithms" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2128,6 +2452,9 @@
         <summary>String property name: a comma-separated list of cipher and mac algorithms
             supported by CryptoSession.</summary>
         <remarks>
+          <para>String property name: a comma-separated list of cipher and mac algorithms
+            supported by CryptoSession.  The list may be empty if the DRM
+            plugin does not support CryptoSession operations.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#PROPERTY_ALGORITHMS" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.PROPERTY_ALGORITHMS</code>.</a>
@@ -2149,8 +2476,8 @@
       <MemberSignature Language="F#" Value="val mutable PropertyDescription : string" Usage="Android.Media.MediaDrm.PropertyDescription" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2164,6 +2491,7 @@
       <Docs>
         <summary>String property name: describes the DRM plugin</summary>
         <remarks>
+          <para>String property name: describes the DRM plugin</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#PROPERTY_DESCRIPTION" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.PROPERTY_DESCRIPTION</code>.</a>
@@ -2185,8 +2513,8 @@
       <MemberSignature Language="F#" Value="val mutable PropertyDeviceUniqueId : string" Usage="Android.Media.MediaDrm.PropertyDeviceUniqueId" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2201,6 +2529,8 @@
         <summary>Byte array property name: the device unique identifier is established during
             device provisioning and provides a means of uniquely identifying each device.</summary>
         <remarks>
+          <para>Byte array property name: the device unique identifier is established during
+            device provisioning and provides a means of uniquely identifying each device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#PROPERTY_DEVICE_UNIQUE_ID" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.PROPERTY_DEVICE_UNIQUE_ID</code>.</a>
@@ -2222,8 +2552,8 @@
       <MemberSignature Language="F#" Value="val mutable PropertyVendor : string" Usage="Android.Media.MediaDrm.PropertyVendor" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2237,6 +2567,7 @@
       <Docs>
         <summary>String property name: identifies the maker of the DRM plugin</summary>
         <remarks>
+          <para>String property name: identifies the maker of the DRM plugin</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#PROPERTY_VENDOR" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.PROPERTY_VENDOR</code>.</a>
@@ -2258,8 +2589,8 @@
       <MemberSignature Language="F#" Value="val mutable PropertyVersion : string" Usage="Android.Media.MediaDrm.PropertyVersion" />
       <MemberType>Field</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2273,6 +2604,7 @@
       <Docs>
         <summary>String property name: identifies the version of the DRM plugin</summary>
         <remarks>
+          <para>String property name: identifies the version of the DRM plugin</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#PROPERTY_VERSION" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.PROPERTY_VERSION</code>.</a>
@@ -2294,8 +2626,8 @@
       <MemberSignature Language="F#" Value="member this.ProvideKeyResponse : byte[] * byte[] -&gt; byte[]" Usage="mediaDrm.ProvideKeyResponse (scope, response)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2322,6 +2654,13 @@
             keys will be returned. If the response is for a streaming or release request
             an empty byte array will be returned.</returns>
         <remarks>
+          <para>A key response is received from the license server by the app, then it is
+            provided to the MediaDrm instance using provideKeyResponse.  When the
+            response is for an offline key request, a keySetId is returned that can be
+            used to later restore the keys to a new session with the method
+            <c>#restoreKeys</c>.
+            When the response is for a streaming or release request, an empty byte array
+            is returned.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#provideKeyResponse(byte[],%20byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.provideKeyResponse(byte[], byte[])</code>.</a>
@@ -2348,8 +2687,8 @@
       <MemberSignature Language="F#" Value="member this.ProvideProvisionResponse : byte[] -&gt; unit" Usage="mediaDrm.ProvideProvisionResponse response" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2369,6 +2708,8 @@
         <summary>After a provision response is received by the app, it is provided to the
             MediaDrm instance using this method.</summary>
         <remarks>
+          <para>After a provision response is received by the app, it is provided to the
+            MediaDrm instance using this method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#provideProvisionResponse(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.provideProvisionResponse(byte[])</code>.</a>
@@ -2393,8 +2734,8 @@
       <MemberSignature Language="F#" Value="member this.QueryKeyStatus : byte[] -&gt; System.Collections.Generic.IDictionary&lt;string, string&gt;" Usage="mediaDrm.QueryKeyStatus sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2413,6 +2754,11 @@
         <summary>Request an informative description of the key status for the session.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Request an informative description of the key status for the session.  The status is
+            in the form of {name, value} pairs.  Since DRM license policies vary by vendor,
+            the specific status field names are determined by each DRM vendor.  Refer to your
+            DRM provider documentation for definitions of the field names for a particular
+            DRM plugin.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#queryKeyStatus(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.queryKeyStatus(byte[])</code>.</a>
@@ -2434,8 +2780,8 @@
       <MemberSignature Language="F#" Value="member this.Release : unit -&gt; unit" Usage="mediaDrm.Release " />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2443,8 +2789,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("release", "()V", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2452,9 +2798,9 @@
       </ReturnValue>
       <Parameters />
       <Docs>
-        <summary>
-        </summary>
+        <summary>This member is deprecated.</summary>
         <remarks>
+          <para>This member is deprecated. replaced by <c>#close()</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#release()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.release()</code>.</a>
@@ -2485,8 +2831,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("releaseAllSecureStops", "()V", "", ApiSince=22)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android22.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android22.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2497,6 +2847,9 @@
         <summary>Remove all secure stops without requiring a secure stop release message from
             the license server.</summary>
         <remarks>
+          <para>Remove all secure stops without requiring a secure stop release message from
+            the license server.</para>
+          <para>This member is deprecated. Remove all secure stops using <c>#removeAllSecureStops</c> instead.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#releaseAllSecureStops()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.releaseAllSecureStops()</code>.</a>
@@ -2517,8 +2870,8 @@
       <MemberSignature Language="F#" Value="member this.ReleaseSecureStops : byte[] -&gt; unit" Usage="mediaDrm.ReleaseSecureStops ssRelease" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2526,8 +2879,8 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("releaseSecureStops", "([B)V", "")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2540,6 +2893,13 @@
         <param name="ssRelease">the server response indicating which secure stops to release</param>
         <summary>Process the secure stop server response message ssRelease.</summary>
         <remarks>
+          <para>Process the secure stop server response message ssRelease.  After
+            authenticating the message, remove the secure stops identified in the
+            response.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Use renewals by calling <c>#getKeyRequest</c> to track
+            concurrent playback. See additional information in
+            <c>#getSecureStops</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#releaseSecureStops(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.releaseSecureStops(byte[])</code>.</a>
@@ -2570,8 +2930,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("removeAllSecureStops", "()V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2582,6 +2946,16 @@
         <summary>Remove all secure stops without requiring a secure stop release message from
             the license server.</summary>
         <remarks>
+          <para>Remove all secure stops without requiring a secure stop release message from
+            the license server.
+            
+            This method was added in API 28. In API versions 18 through 27,
+            <c>#releaseAllSecureStops</c> should be called instead. There is no need to
+            do anything for API versions prior to 18.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Use renewals by calling <c>#getKeyRequest</c> to track
+            concurrent playback. See additional information in
+            <c>#getSecureStops</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#removeAllSecureStops()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.removeAllSecureStops()</code>.</a>
@@ -2602,8 +2976,8 @@
       <MemberSignature Language="F#" Value="member this.RemoveKeys : byte[] -&gt; unit" Usage="mediaDrm.RemoveKeys sessionId" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2621,6 +2995,7 @@
         <param name="sessionId">the session ID for the DRM session</param>
         <summary>Remove the current keys from a session.</summary>
         <remarks>
+          <para>Remove the current keys from a session.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#removeKeys(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.removeKeys(byte[])</code>.</a>
@@ -2650,6 +3025,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("removeOfflineLicense", "([B)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("removeOfflineLicense", "([B)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -2663,6 +3042,14 @@
             exchange using <c>#getKeyRequest</c> where the key type is
             KEY_TYPE_RELEASE, followed by <c>#provideKeyResponse</c>.</summary>
         <remarks>
+          <para>Normally offline licenses are released using a key request/response
+            exchange using <c>#getKeyRequest</c> where the key type is
+            KEY_TYPE_RELEASE, followed by <c>#provideKeyResponse</c>. This allows
+            the server to cryptographically confirm that the license has been removed
+            and then adjust the count of offline licenses allocated to the device.</para>
+          <para>In some exceptional situations it may be necessary to directly remove
+            offline licenses without notifying the server, which may be performed
+            using this method.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#removeOfflineLicense(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.removeOfflineLicense(byte[])</code>.</a>
@@ -2692,8 +3079,12 @@
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("removeSecureStop", "([B)V", "", ApiSince=28)&gt;]</AttributeName>
         </Attribute>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -2707,6 +3098,12 @@
         <summary>Remove a specific secure stop without requiring a secure stop release message
             from the license server.</summary>
         <remarks>
+          <para>Remove a specific secure stop without requiring a secure stop release message
+            from the license server.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Use renewals by calling <c>#getKeyRequest</c> to track
+            concurrent playback. See additional information in
+            <c>#getSecureStops</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#removeSecureStop(byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.removeSecureStop(byte[])</code>.</a>
@@ -2735,6 +3132,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("requiresSecureDecoder", "(Ljava/lang/String;)Z", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("requiresSecureDecoder", "(Ljava/lang/String;)Z", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2749,6 +3150,10 @@
             to decode data of the given mime type at the default security level.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Query if the crypto scheme requires the use of a secure decoder
+            to decode data of the given mime type at the default security level.
+            The default security level is defined as the highest security level
+            supported on the device.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#requiresSecureDecoder(java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.requiresSecureDecoder(java.lang.String)</code>.</a>
@@ -2777,6 +3182,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("requiresSecureDecoder", "(Ljava/lang/String;I)Z", "", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("requiresSecureDecoder", "(Ljava/lang/String;I)Z", "", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Boolean</ReturnType>
@@ -2804,6 +3213,8 @@
             to decode data of the given mime type at the given security level.</summary>
         <returns>To be added.</returns>
         <remarks>
+          <para>Query if the crypto scheme requires the use of a secure decoder
+            to decode data of the given mime type at the given security level.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#requiresSecureDecoder(java.lang.String,%20int)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.requiresSecureDecoder(java.lang.String, int)</code>.</a>
@@ -2824,8 +3235,8 @@
       <MemberSignature Language="F#" Value="member this.RestoreKeys : byte[] * byte[] -&gt; unit" Usage="mediaDrm.RestoreKeys (sessionId, keySetId)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -2845,6 +3256,8 @@
         <param name="keySetId">identifies the saved key set to restore</param>
         <summary>Restore persisted offline keys into a new session.</summary>
         <remarks>
+          <para>Restore persisted offline keys into a new session.  keySetId identifies the
+            keys to load, obtained from a prior call to <c>#provideKeyResponse</c>.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#restoreKeys(byte[],%20byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.restoreKeys(byte[], byte[])</code>.</a>
@@ -2871,8 +3284,12 @@
       </AssemblyInfo>
       <Attributes>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getSecureStopIds", "()Ljava/util/List;", "", ApiSince=28)]</AttributeName>
@@ -2886,6 +3303,13 @@
         <summary>Return a list of all secure stop IDs currently in persistent memory.</summary>
         <value>a list of secure stop IDs</value>
         <remarks>
+          <para>Return a list of all secure stop IDs currently in persistent memory.
+            The secure stop ID can be used to access or remove the corresponding
+            secure stop.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Use renewals by calling <c>#getKeyRequest</c> to track
+            concurrent playback. See additional information in
+            <c>#getSecureStops</c></para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getSecureStopIds()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getSecureStopIds()</code>.</a>
@@ -2906,13 +3330,13 @@
       <MemberSignature Language="F#" Value="member this.SecureStops : System.Collections.Generic.IList&lt;byte[]&gt;" Usage="Android.Media.MediaDrm.SecureStops" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
-          <AttributeName Language="C#">[System.Obsolete("deprecated")]</AttributeName>
-          <AttributeName Language="F#">[&lt;System.Obsolete("deprecated")&gt;]</AttributeName>
+          <AttributeName Language="C#">[System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.ObsoletedOSPlatform("android33.0")&gt;]</AttributeName>
         </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getSecureStops", "()Ljava/util/List;", "")]</AttributeName>
@@ -2927,6 +3351,29 @@
             streams per subscriber across devices.</summary>
         <value>a list of all secure stops from secure persistent memory</value>
         <remarks>
+          <para>Secure stops are a way to enforce limits on the number of concurrent
+            streams per subscriber across devices. They provide secure monitoring of
+            the lifetime of content decryption keys in MediaDrm sessions.</para>
+          <para>A secure stop is written to secure persistent memory when keys are loaded
+            into a MediaDrm session. The secure stop state indicates that the keys
+            are available for use. When playback completes and the keys are removed
+            or the session is destroyed, the secure stop state is updated to indicate
+            that keys are no longer usable.</para>
+          <para>After playback, the app can query the secure stop and send it in a
+            message to the license server confirming that the keys are no longer
+            active. The license server returns a secure stop release response
+            message to the app which then deletes the secure stop from persistent
+            memory using <c>#releaseSecureStops</c>.</para>
+          <para>Each secure stop has a unique ID that can be used to identify it during
+            enumeration, access and removal.</para>
+          <para>This member is deprecated. This method is deprecated and may be removed in a future
+            release. Secure stops are a way to enforce limits on the number of
+            concurrent streams per subscriber across devices. They provide secure
+            monitoring of the lifetime of content decryption keys in MediaDrm
+            sessions. Limits on concurrent streams may also be enforced by
+            periodically renewing licenses. This can be achieved by calling
+            <c>#getKeyRequest</c> to initiate a renewal. MediaDrm users should
+            transition away from secure stops to periodic renewals.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#getSecureStops()" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.getSecureStops()</code>.</a>
@@ -2960,6 +3407,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.SecurityLevel</ReturnType>
@@ -2970,6 +3421,9 @@
             handling of the media (compressed and uncompressed) is handled within a
             hardware backed trusted execution environment.</summary>
         <remarks>
+          <para>DRM key management, crypto operations, decoding of content and all
+            handling of the media (compressed and uncompressed) is handled within a
+            hardware backed trusted execution environment.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_HW_SECURE_ALL" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_HW_SECURE_ALL</code>.</a>
@@ -3002,6 +3456,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.SecurityLevel</ReturnType>
@@ -3011,6 +3469,8 @@
         <summary>DRM key management and crypto operations are performed within a hardware
             backed trusted execution environment.</summary>
         <remarks>
+          <para>DRM key management and crypto operations are performed within a hardware
+            backed trusted execution environment.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_HW_SECURE_CRYPTO" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_HW_SECURE_CRYPTO</code>.</a>
@@ -3043,6 +3503,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.SecurityLevel</ReturnType>
@@ -3052,6 +3516,8 @@
         <summary>DRM key management, crypto operations and decoding of content are
             performed within a hardware backed trusted execution environment.</summary>
         <remarks>
+          <para>DRM key management, crypto operations and decoding of content are
+            performed within a hardware backed trusted execution environment.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_HW_SECURE_DECODE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_HW_SECURE_DECODE</code>.</a>
@@ -3084,6 +3550,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.SecurityLevel</ReturnType>
@@ -3092,6 +3562,7 @@
       <Docs>
         <summary>DRM key management uses software-based whitebox crypto.</summary>
         <remarks>
+          <para>DRM key management uses software-based whitebox crypto.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_SW_SECURE_CRYPTO" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_SW_SECURE_CRYPTO</code>.</a>
@@ -3124,6 +3595,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.SecurityLevel</ReturnType>
@@ -3132,6 +3607,7 @@
       <Docs>
         <summary>DRM key management and decoding use software-based whitebox crypto.</summary>
         <remarks>
+          <para>DRM key management and decoding use software-based whitebox crypto.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_SW_SECURE_DECODE" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_SW_SECURE_DECODE</code>.</a>
@@ -3164,6 +3640,10 @@
           <AttributeName Language="C#">[System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)]</AttributeName>
           <AttributeName Language="F#">[&lt;System.Obsolete("This constant will be removed in the future version. Use Android.Media.SecurityLevel enum directly instead of this field.", true)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android28.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android28.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Media.SecurityLevel</ReturnType>
@@ -3173,6 +3653,8 @@
         <summary>The DRM plugin did not report a security level, or an error occurred
             accessing it</summary>
         <remarks>
+          <para>The DRM plugin did not report a security level, or an error occurred
+            accessing it</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#SECURITY_LEVEL_UNKNOWN" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.SECURITY_LEVEL_UNKNOWN</code>.</a>
@@ -3193,8 +3675,8 @@
       <MemberSignature Language="F#" Value="member this.SetOnEventListener : Android.Media.MediaDrm.IOnEventListener -&gt; unit" Usage="mediaDrm.SetOnEventListener listener" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3242,6 +3724,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setOnEventListener", "(Landroid/media/MediaDrm$OnEventListener;Landroid/os/Handler;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnEventListener", "(Landroid/media/MediaDrm$OnEventListener;Landroid/os/Handler;)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -3284,6 +3770,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setOnEventListener", "(Ljava/util/concurrent/Executor;Landroid/media/MediaDrm$OnEventListener;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnEventListener", "(Ljava/util/concurrent/Executor;Landroid/media/MediaDrm$OnEventListener;)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -3325,6 +3815,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOnExpirationUpdateListener", "(Landroid/media/MediaDrm$OnExpirationUpdateListener;Landroid/os/Handler;)V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnExpirationUpdateListener", "(Landroid/media/MediaDrm$OnExpirationUpdateListener;Landroid/os/Handler;)V", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -3370,6 +3864,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setOnExpirationUpdateListener", "(Ljava/util/concurrent/Executor;Landroid/media/MediaDrm$OnExpirationUpdateListener;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnExpirationUpdateListener", "(Ljava/util/concurrent/Executor;Landroid/media/MediaDrm$OnExpirationUpdateListener;)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -3412,6 +3910,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOnKeyStatusChangeListener", "(Landroid/media/MediaDrm$OnKeyStatusChangeListener;Landroid/os/Handler;)V", "", ApiSince=23)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnKeyStatusChangeListener", "(Landroid/media/MediaDrm$OnKeyStatusChangeListener;Landroid/os/Handler;)V", "", ApiSince=23)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android23.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android23.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -3457,6 +3959,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setOnKeyStatusChangeListener", "(Ljava/util/concurrent/Executor;Landroid/media/MediaDrm$OnKeyStatusChangeListener;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnKeyStatusChangeListener", "(Ljava/util/concurrent/Executor;Landroid/media/MediaDrm$OnKeyStatusChangeListener;)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -3499,6 +4005,10 @@
         <Attribute>
           <AttributeName Language="C#">[Android.Runtime.Register("setOnSessionLostStateListener", "(Landroid/media/MediaDrm$OnSessionLostStateListener;Landroid/os/Handler;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnSessionLostStateListener", "(Landroid/media/MediaDrm$OnSessionLostStateListener;Landroid/os/Handler;)V", "", ApiSince=29)&gt;]</AttributeName>
+        </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
         </Attribute>
       </Attributes>
       <ReturnValue>
@@ -3544,6 +4054,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("setOnSessionLostStateListener", "(Ljava/util/concurrent/Executor;Landroid/media/MediaDrm$OnSessionLostStateListener;)V", "", ApiSince=29)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("setOnSessionLostStateListener", "(Ljava/util/concurrent/Executor;Landroid/media/MediaDrm$OnSessionLostStateListener;)V", "", ApiSince=29)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android29.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android29.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>System.Void</ReturnType>
@@ -3579,8 +4093,8 @@
       <MemberSignature Language="F#" Value="member this.SetPropertyByteArray : string * byte[] -&gt; unit" Usage="mediaDrm.SetPropertyByteArray (propertyName, value)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3601,6 +4115,8 @@
         <summary>Set a MediaDrm byte array property value, given the property name string
             and new value for the property.</summary>
         <remarks>
+          <para>Set a MediaDrm byte array property value, given the property name string
+            and new value for the property.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#setPropertyByteArray(java.lang.String,%20byte[])" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.setPropertyByteArray(java.lang.String, byte[])</code>.</a>
@@ -3622,8 +4138,8 @@
       <MemberSignature Language="F#" Value="member this.SetPropertyString : string * string -&gt; unit" Usage="mediaDrm.SetPropertyString (propertyName, value)" />
       <MemberType>Method</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3644,6 +4160,8 @@
         <summary>Set a MediaDrm String property value, given the property name string
             and new value for the property.</summary>
         <remarks>
+          <para>Set a MediaDrm String property value, given the property name string
+            and new value for the property.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/media/MediaDrm#setPropertyString(java.lang.String,%20java.lang.String)" title="Reference documentation">Java documentation for <code>android.media.MediaDrm.setPropertyString(java.lang.String, java.lang.String)</code>.</a>
@@ -3662,13 +4180,17 @@
       <MemberSignature Language="C#" Value="public static System.Collections.Generic.IList&lt;Java.Util.UUID&gt; SupportedCryptoSchemes { get; }" />
       <MemberSignature Language="ILAsm" Value=".property class System.Collections.Generic.IList`1&lt;class Java.Util.UUID&gt; SupportedCryptoSchemes" />
       <MemberSignature Language="DocId" Value="P:Android.Media.MediaDrm.SupportedCryptoSchemes" />
-      <MemberSignature Language="F#" Value="member this.SupportedCryptoSchemes : System.Collections.Generic.IList&lt;Java.Util.UUID&gt;" Usage="Android.Media.MediaDrm.SupportedCryptoSchemes" />
+      <MemberSignature Language="F#" Value="static member SupportedCryptoSchemes : System.Collections.Generic.IList&lt;Java.Util.UUID&gt;" Usage="Android.Media.MediaDrm.SupportedCryptoSchemes" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
         <AssemblyName>Mono.Android</AssemblyName>
         <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android30.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android30.0")&gt;]</AttributeName>
+        </Attribute>
         <Attribute>
           <AttributeName Language="C#">[get: Android.Runtime.Register("getSupportedCryptoSchemes", "()Ljava/util/List;", "", ApiSince=30)]</AttributeName>
           <AttributeName Language="F#">[&lt;get: Android.Runtime.Register("getSupportedCryptoSchemes", "()Ljava/util/List;", "", ApiSince=30)&gt;]</AttributeName>
@@ -3703,8 +4225,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdClass : nativeint" Usage="Android.Media.MediaDrm.ThresholdClass" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>
@@ -3734,8 +4256,8 @@
       <MemberSignature Language="F#" Value="member this.ThresholdType : Type" Usage="Android.Media.MediaDrm.ThresholdType" />
       <MemberType>Property</MemberType>
       <AssemblyInfo>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
         <AssemblyName>Mono.Android</AssemblyName>
+        <AssemblyVersion>0.0.0.0</AssemblyVersion>
       </AssemblyInfo>
       <Attributes>
         <Attribute>

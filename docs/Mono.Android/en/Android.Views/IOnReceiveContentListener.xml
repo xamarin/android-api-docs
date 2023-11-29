@@ -1,6 +1,6 @@
 <Type Name="IOnReceiveContentListener" FullName="Android.Views.IOnReceiveContentListener">
   <TypeSignature Language="C#" Value="public interface IOnReceiveContentListener : Android.Runtime.IJavaObject, IDisposable, Java.Interop.IJavaPeerable" />
-  <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract IOnReceiveContentListener implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
+  <TypeSignature Language="ILAsm" Value=".class public interface auto ansi abstract beforefieldinit IOnReceiveContentListener implements class Android.Runtime.IJavaObject, class Java.Interop.IJavaPeerable, class System.IDisposable" />
   <TypeSignature Language="DocId" Value="T:Android.Views.IOnReceiveContentListener" />
   <TypeSignature Language="F#" Value="type IOnReceiveContentListener = interface&#xA;    interface IJavaObject&#xA;    interface IDisposable&#xA;    interface IJavaPeerable" />
   <AssemblyInfo>
@@ -27,6 +27,45 @@
   <Docs>
     <summary>Listener for apps to implement handling for insertion of content.</summary>
     <remarks>
+      <para>Listener for apps to implement handling for insertion of content. Content may be both text and
+            non-text (plain/styled text, HTML, images, videos, audio files, etc).</para>
+      <para>This listener can be attached to different types of UI components using
+            <c>View#setOnReceiveContentListener</c>.</para>
+      <para>Here is a sample implementation that handles content URIs and delegates the processing for
+            text and everything else to the platform:&lt;br&gt;</para>
+      <code lang="text/java">// (1) Define the listener
+            public class MyReceiver implements OnReceiveContentListener {
+                public static final String[] MIME_TYPES = new String[] {"image/*", "video/*"};
+            
+                &amp;#64;Override
+                public ContentInfo onReceiveContent(View view, ContentInfo payload) {
+                    Pair&amp;lt;ContentInfo, ContentInfo&amp;gt; split =
+                            ContentInfoCompat.partition(payload, item -&amp;gt; item.getUri() != null);
+                    ContentInfo uriContent = split.first;
+                    ContentInfo remaining = split.second;
+                    if (uriContent != null) {
+                        ClipData clip = uriContent.getClip();
+                        for (int i = 0; i &lt; clip.getItemCount(); i++) {
+                            Uri uri = clip.getItemAt(i).getUri();
+                            // ... app-specific logic to handle the URI ...
+                        }
+                    }
+                    // Return anything that we didn't handle ourselves. This preserves the default platform
+                    // behavior for text and anything else for which we are not implementing custom handling.
+                    return remaining;
+                }
+            }
+            
+            // (2) Register the listener
+            public class MyActivity extends Activity {
+                &amp;#64;Override
+                public void onCreate(Bundle savedInstanceState) {
+                    // ...
+            
+                    EditText myInput = findViewById(R.id.my_input);
+                    myInput.setOnReceiveContentListener(MyReceiver.MIME_TYPES, new MyReceiver());
+                }
+            </code>
       <para>
         <format type="text/html">
           <a href="https://developer.android.com/reference/android/view/OnReceiveContentListener" title="Reference documentation">Java documentation for <code>android.view.OnReceiveContentListener</code>.</a>
@@ -55,6 +94,10 @@
           <AttributeName Language="C#">[Android.Runtime.Register("onReceiveContent", "(Landroid/view/View;Landroid/view/ContentInfo;)Landroid/view/ContentInfo;", "GetOnReceiveContent_Landroid_view_View_Landroid_view_ContentInfo_Handler:Android.Views.IOnReceiveContentListenerInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=31)]</AttributeName>
           <AttributeName Language="F#">[&lt;Android.Runtime.Register("onReceiveContent", "(Landroid/view/View;Landroid/view/ContentInfo;)Landroid/view/ContentInfo;", "GetOnReceiveContent_Landroid_view_View_Landroid_view_ContentInfo_Handler:Android.Views.IOnReceiveContentListenerInvoker, Mono.Android, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null", ApiSince=31)&gt;]</AttributeName>
         </Attribute>
+        <Attribute>
+          <AttributeName Language="C#">[System.Runtime.Versioning.SupportedOSPlatform("android31.0")]</AttributeName>
+          <AttributeName Language="F#">[&lt;System.Runtime.Versioning.SupportedOSPlatform("android31.0")&gt;]</AttributeName>
+        </Attribute>
       </Attributes>
       <ReturnValue>
         <ReturnType>Android.Views.ContentInfo</ReturnType>
@@ -80,6 +123,42 @@
             succeed even if this method returns null. For example, an app may end up not inserting
             an item if it exceeds the app's size limit for that type of content.</returns>
         <remarks>
+          <para>Receive the given content.</para>
+          <para>Implementations should handle any content items of interest and return all unhandled
+            items to preserve the default platform behavior for content that does not have app-specific
+            handling. For example, an implementation may provide handling for content URIs (to provide
+            support for inserting images, etc) and delegate the processing of text to the platform to
+            preserve the common behavior for inserting text. See the class javadoc for a sample
+            implementation.
+            
+            &lt;h3&gt;Handling different content&lt;/h3&gt;
+            &lt;ul&gt;
+                &lt;li&gt;Text. If the <c>ContentInfo#getSource() source</c> is
+                <c>ContentInfo#SOURCE_AUTOFILL autofill</c>, the view's content should be fully
+                replaced by the passed-in text. For sources other than autofill, the passed-in text
+                should overwrite the current selection or be inserted at the current cursor position
+                if there is no selection.
+                &lt;li&gt;Non-text content (e.g. images). The content may be inserted inline if the widget
+                supports this, or it may be added as an attachment (could potentially be shown in a
+                completely separate view).
+            &lt;/ul&gt;
+            
+            &lt;h3&gt;URI permissions&lt;/h3&gt;</para>
+          <para>
+            <c>android.content.Intent#FLAG_GRANT_READ_URI_PERMISSION Read permissions</c> are
+            granted automatically by the platform for any
+            <c>android.content.ContentResolver#SCHEME_CONTENT content URIs</c> in the payload passed
+            to this listener. Permissions are transient and will be released automatically by the
+            platform.</para>
+          <para>Processing of content should normally be done in a service or activity.
+            For long-running processing, using <c>androidx.work.WorkManager</c> is recommended.
+            When implementing this, permissions should be extended to the target service or activity
+            by passing the content using <c>android.content.Intent#setClipData Intent.setClipData</c>
+            and <c>android.content.Intent#addFlags(int) setting</c> the flag
+            <c>android.content.Intent#FLAG_GRANT_READ_URI_PERMISSION FLAG_GRANT_READ_URI_PERMISSION</c>.</para>
+          <para>Alternatively, if using a background thread within the current context to process the
+            content, a reference to the <c>payload</c> object should be maintained to ensure that
+            permissions are not revoked prematurely.</para>
           <para>
             <format type="text/html">
               <a href="https://developer.android.com/reference/android/view/OnReceiveContentListener#onReceiveContent(android.view.View,%20android.view.ContentInfo)" title="Reference documentation">Java documentation for <code>android.view.OnReceiveContentListener.onReceiveContent(android.view.View, android.view.ContentInfo)</code>.</a>
