@@ -6,6 +6,7 @@ assemblies bundled with Xamarin.Android.
 
 [mdoc]: http://docs.go-mono.com/?link=man%3amdoc(5)
 
+Support for Xamarin ended on the 1st May 2024 and so this documentation won't be updated. For more information, see [Xamarin Support Policy](https://dotnet.microsoft.com/platform/support/policy/xamarin).
 
 Scripts included in the repository
 ----------------------------------
